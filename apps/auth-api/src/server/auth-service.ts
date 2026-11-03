@@ -311,11 +311,6 @@ export class AuthService {
     (operation) => operation.pipe(Effect.mapError(authFailure), Effect.provide(this.#layer)),
   ).bind(this);
 
-  /**
-   * Signs in the one owner of a private control plane. The caller has already shown that the request
-   * comes from the owner, so the code never leaves this method: it goes through the same challenge and
-   * session code as an email sign-in, with no email and no resend wait.
-   */
   readonly signInOwner = Effect.fn("AuthService.signInOwner")(
     function* (
       this: AuthService,

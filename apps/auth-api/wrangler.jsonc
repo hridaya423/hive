@@ -56,9 +56,9 @@
     "EMAIL_FROM": "hello@openbot.run",
     "EMAIL_LICENSE_FROM": "licenses@openbot.run",
     "REMOTE_TICKET_KEY_ID": "openbot-remote-1",
-    "REMOTE_SIGNAL_URL": "wss://hridyas-mini.tail59dec9.ts.net:8447/v1/signal",
+    "REMOTE_SIGNAL_URL": "",
     "REMOTE_SIGNAL_HOMES": "",
-    "REMOTE_AUTH_WEBHOOK_URL": "http://127.0.0.1:3101/internal/auth-events",
+    "REMOTE_AUTH_WEBHOOK_URL": "",
     "REMOTE_AUTH_WEBHOOK_URLS": "",
     "SIGNAL_ENTRY_ZONE_ID": "",
     // Creates stay off until the boat and Stripe secrets and the template are set. "false" stops new

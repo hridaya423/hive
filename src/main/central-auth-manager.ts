@@ -174,7 +174,6 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   #sessionToken: string | null = null;
   /** The session token in the stored file, or null when the file holds none that this start could read. */
   #storedSessionToken: string | null = null;
-  /** The user that the last sign-in or startup check saw, kept in the file so a start with no network still opens. */
   #cachedUser: CentralAuthUser | null = null;
   readonly #teamHostTokens = new Map<string, string>();
   /** Belongs to the session that made it: the account service rejects it when that session ends. */
@@ -1469,10 +1468,6 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     );
   });
 
-  /**
-   * On a private control plane the service signs its one owner in from the network identity of the
-   * request, with no email. A service that refuses leaves the person signed out.
-   */
   readonly #signInOwner = Effect.fn("CentralAuth.signInOwner")(function* (
     this: CentralAuthManager,
   ): Effect.fn.Return<CentralAuthState, CentralAuthOperationError, CentralAuthTransport> {

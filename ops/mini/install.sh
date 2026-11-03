@@ -8,8 +8,8 @@ LABEL_PREFIX=dev.hridaya.hive.control-plane
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.bun/bin:$PATH"
 cd "$ROOT"
 
-setting() {
-  bun -e "console.log(require('./fork.config.json').controlPlane.$1)"
+config() {
+  sh ops/mini/control-plane.sh config "$1"
 }
 
 if [ ! -f "$DATA/owner.env" ] && { [ -z "${HIVE_OWNER_EMAIL:-}" ] || [ -z "${HIVE_OWNER_TAILNET_LOGIN:-}" ]; }; then
@@ -17,10 +17,10 @@ if [ ! -f "$DATA/owner.env" ] && { [ -z "${HIVE_OWNER_EMAIL:-}" ] || [ -z "${HIV
   exit 2
 fi
 
-WORKER_PORT=$(setting workerPort)
-SIGNAL_PORT=$(setting signalPort)
-API_PORT=$(bun -e "console.log(new URL(require('./fork.config.json').controlPlane.accountApiUrl).port)")
-SIGNAL_PUBLIC_PORT=$(bun -e "console.log(new URL(require('./fork.config.json').controlPlane.signalUrl).port)")
+WORKER_PORT=$(config c.workerPort)
+SIGNAL_PORT=$(config c.signalPort)
+API_PORT=$(config "new URL(c.accountApiUrl).port")
+SIGNAL_PUBLIC_PORT=$(config "new URL(c.signalUrl).port")
 
 if tailscale serve status 2>&1 | grep -q "Funnel on"; then
   echo "Tailscale Funnel is on. Turn it off first: it would put the account service on the public internet." >&2
@@ -58,7 +58,7 @@ done
 tailscale serve --bg --https="$API_PORT" "http://127.0.0.1:$WORKER_PORT" > /dev/null
 tailscale serve --bg --https="$SIGNAL_PUBLIC_PORT" "http://127.0.0.1:$SIGNAL_PORT" > /dev/null
 
-API_URL=$(setting accountApiUrl)
+API_URL=$(config c.accountApiUrl)
 SIGNAL_HEALTH="${API_URL%:*}:$SIGNAL_PUBLIC_PORT"
 tries=0
 until curl -fsS -o /dev/null "$API_URL/health/live" && curl -fsS -o /dev/null "$SIGNAL_HEALTH/health/ready"; do
