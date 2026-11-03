@@ -188,7 +188,6 @@ async function inside(): Promise<void> {
   serverMemoryModule = await import("../src/main/server-memory");
   const stopped: import("../src/main/server-memory").StoppedAgentProcess[] = [];
   const memory = new serverMemoryModule.ServerMemory({
-    hostedPlan: false,
     onError: (message) => process.stderr.write(`${message}\n`),
     onAgentProcessStopped: (agentProcess) => stopped.push(agentProcess),
   });

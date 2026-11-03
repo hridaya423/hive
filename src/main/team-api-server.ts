@@ -597,11 +597,6 @@ export class TeamApiServer {
     };
   }
 
-  /** Remote clients with an open event stream. Each WebRTC client opens one after it signs in. */
-  connectedClientCount(): number {
-    return this.#eventClients.size;
-  }
-
   /**
    * The last user action from a client - a send, a change, or a typing event - or null for none. A focus
    * ping (`focus-use-v1`) also counts, for at most 30 minutes after the last user action of its session or

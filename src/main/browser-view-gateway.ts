@@ -67,8 +67,6 @@ export interface BrowserViewGatewayOptions {
   browser: Pick<BrowserHost, "startView" | "dispatchViewInput" | "copyViewSelection">;
   /** Answers the member a direct socket's token belongs to, for a client that is not tunneled. */
   authenticate: (token: string) => { id: string } | null;
-  /** A member pressed a key or moved the pointer in a view. A hosted server counts it as use. */
-  onInput?: () => void;
   maxSessions?: number;
 }
 
@@ -371,7 +369,6 @@ export class BrowserViewGateway {
       forgetFramesBefore(session.frameSizes, input.sequence);
       return;
     }
-    this.#options.onInput?.();
     // The selection goes back on the socket that asked for it, and only there. It is page content:
     // nothing here logs it. Every copy is answered, with no text when there is none to give, because
     // the client holds its clipboard write open until the answer arrives.

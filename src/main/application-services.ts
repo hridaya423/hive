@@ -1088,7 +1088,6 @@ export async function createApplicationServices({
   // agent process. The desktop app does not hold turns for memory.
   const hostMemory = serverModeEnvironment
     ? new ServerMemory({
-        hostedPlan: false,
         onError: (message, error) => logger.warn(message, toLogValue(error)),
         onAgentProcessStopped: (stopped) =>
           logger.warn("Stopped a leftover agent process to free memory.", { ...stopped }),
