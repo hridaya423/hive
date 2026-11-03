@@ -7,7 +7,7 @@ OpenBot is a local-first desktop workspace for persistent AI teammates. It suppo
 [Codex App Server](https://learn.chatgpt.com/docs/app-server) and
 [Claude Code](https://code.claude.com/docs/en/overview), plus [Grok CLI](https://docs.x.ai/build/overview),
 OpenCode, Gemini, [Cursor CLI](https://cursor.com/cli), [Cline CLI](https://cline.bot/cli), [Kimi Code CLI](https://github.com/MoonshotAI/kimi-cli),
-and [Hermes Agent](https://hermes-agent.nousresearch.com) through ACP. It gives every agent its own workspace and
+and [Hermes Agent](https://hermes-agent.nousresearch.com) and [GitHub Copilot CLI](https://github.com/github/copilot-cli) through ACP. It gives every agent its own workspace and
 conversation, and provides local queues, file transfers, an embedded browser, and agent-to-agent
 messaging in one desktop app.
 
@@ -20,7 +20,7 @@ messaging in one desktop app.
 ## What works
 
 - Prompt-driven agent creation and editing on desktop and mobile, with editable instructions, avatar, and section review before saving.
-- Persistent agents backed by independent Codex, Claude, Grok, OpenCode, Gemini, Cursor, Cline, Kimi, or Hermes sessions and local workspaces.
+- Persistent agents backed by independent Codex, Claude, Grok, OpenCode, Gemini, Cursor, Cline, Kimi, Hermes, or Copilot sessions and local workspaces.
 - Custom OpenAI-compatible endpoints and custom ACP agents, with detection of local model servers (Ollama, LM Studio) and installed agents.
 - Per-agent context monitoring with automatic compaction before long threads exhaust the model window.
 - FIFO message queues with pause, resume, cancellation, and crash-safe persistence.
@@ -34,7 +34,7 @@ messaging in one desktop app.
 
 OpenBot is local-first, not offline-only. Codex connects to OpenAI, Claude connects to Anthropic,
 Grok connects to xAI, Gemini connects to Google, Cursor connects to Cursor, Cline connects to Cline,
-Kimi connects to Moonshot AI, Hermes connects to Nous Portal and to the providers you set up in Hermes,
+Kimi connects to Moonshot AI, Copilot connects to GitHub, Hermes connects to Nous Portal and to the providers you set up in Hermes,
 visited pages use the network, and installed plugins may connect to their own services.
 
 ## Install
@@ -252,6 +252,13 @@ starts it with `hermes acp`. Sign in runs `hermes auth add nous` for a Nous Port
 that Hermes is signed in to. Hermes reads `AGENTS.md` only in a workspace with no `.hermes.md`, and
 `.agents/skills` only in a git project that `skills.trusted_project_dirs` in `config.yaml` names.
 Team members see the host's Hermes agents when their app uses Team API protocol 8 or newer.
+
+Copilot uses the GitHub Copilot CLI (`copilot`) that you install yourself, for example with
+`brew install --cask copilot-cli`, and your own Copilot plan. OpenBot does not download it; when it is
+missing, the Copilot row opens the installation guide. OpenBot starts it with `copilot --acp`. Sign in
+runs `copilot login`, and the CLI keeps the token in your login Keychain. Copilot reads `AGENTS.md` and
+your skills itself. Team members see the host's Copilot agents when their app uses Team API protocol 8
+or newer.
 
 On Windows, install the native CLI and make sure `codex`, `claude`, or `grok` is available in PowerShell.
 Claude Code also requires Git for Windows. Then authenticate the installed CLI and restart OpenBot.

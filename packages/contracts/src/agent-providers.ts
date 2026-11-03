@@ -36,6 +36,7 @@ export const AGENT_PROVIDERS = [
   "hermes",
   "acp",
   "kimi",
+  "copilot",
 ] as const;
 export type AgentProviderId = (typeof AGENT_PROVIDERS)[number];
 
@@ -543,6 +544,32 @@ const AGENT_PROVIDER_DESCRIPTOR_TABLE = {
     approvalsInFullAccess: true,
     foldersInFullAccess: false,
   },
+  // GitHub Copilot CLI (`copilot --acp`), which the user installs. It signs in with `copilot login` and
+  // keeps the token in the login Keychain, so OpenBot never holds it. The user's own Copilot plan
+  // answers. The CLI reads `AGENTS.md`, and `.agents/skills` and `~/.agents/skills` (`copilot skill --help`).
+  copilot: {
+    id: "copilot",
+    displayName: "Copilot",
+    cliName: "GitHub Copilot CLI",
+    onboardingDescription: "Your GitHub Copilot plan",
+    signInMessage: "Sign in with GitHub to use Copilot.",
+    installGuideLink: "copilot-install",
+    defaultModel: "",
+    legacyModelPrefix: null,
+    authKind: "copilot",
+    pickerOrder: 14,
+    localCodeSignIn: "device",
+    signInPageEnd: "page",
+    skillFolders: [".github/skills", ".claude/skills", ".agents/skills"],
+    homeSkills: "native",
+    workspaceInstructionFiles: ["AGENTS.md"],
+    workspaceEnforcement: "confined-process",
+    steer: "deferred",
+    concurrentTurns: false,
+    reportsUsage: false,
+    approvalsInFullAccess: true,
+    foldersInFullAccess: false,
+  },
   // One provider for every Agent Client Protocol agent the user adds by command. The model id names
   // the agent (`<customAgentId>/<agentModel>`), so one provider row serves them all and the shipped
   // provider CHECK lists grow by one word only once.
@@ -634,7 +661,7 @@ export function isManagedRuntimeProvider(provider: AgentProviderId): provider is
 /**
  * The providers that only newer Team API protocols carry: Gemini and custom ACP agents from protocol
  * 5, Cursor and Cline from protocol 6, Pi and Muse from protocol 7, Inception, DeepSeek and OpenRouter
- * from protocol 8, and Kimi and Hermes, which no frozen protocol names.
+ * from protocol 8, and Kimi, Hermes and Copilot, which no frozen protocol names.
  * A joined server's settings list one only when the host's status names it.
  */
 export const LOCAL_ONLY_PROVIDERS = [
@@ -648,6 +675,7 @@ export const LOCAL_ONLY_PROVIDERS = [
   "deepseek",
   "openrouter",
   "hermes",
+  "copilot",
   "acp",
 ] as const satisfies readonly AgentProviderId[];
 

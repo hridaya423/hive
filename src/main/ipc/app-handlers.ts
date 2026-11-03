@@ -75,6 +75,7 @@ const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
   "opencode-auth": "https://opencode.ai/auth",
   "claude-install": "https://code.claude.com/docs",
   "hermes-install": "https://hermes-agent.nousresearch.com/docs/getting-started/installation",
+  "copilot-install": "https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli",
   feedback: "https://x.com/intent/post?text=Feedback%20for%20OpenBot%20%40norbertbodziony%3A%20",
   message: "https://x.com/norbertbodziony",
   changelog: "https://openbot.run/changelog",

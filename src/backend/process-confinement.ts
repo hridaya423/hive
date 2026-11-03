@@ -338,6 +338,37 @@ export function kimiStatePaths(env: NodeJS.ProcessEnv = process.env, home = home
   };
 }
 
+/** The folder of the Copilot CLI: `COPILOT_HOME`, else `~/.copilot`. OpenBot shares it with the user's own CLI. */
+export function copilotHome(env: NodeJS.ProcessEnv = process.env, home = homedir()): string {
+  return env.COPILOT_HOME?.trim() || join(home, ".copilot");
+}
+
+/**
+ * Copilot writes its sessions, logs and caches in its folder. Its settings, MCP servers, skills,
+ * agents, hooks, plugins and updated packages load code or permissions for every other Copilot
+ * process, so they stay read-only. The sign-in is in the login Keychain: a confined process can read
+ * it but not write it, so `copilot login` runs outside the sandbox. A read takes `mds.lock` first.
+ */
+export function copilotStatePaths(env: NodeJS.ProcessEnv = process.env, home = homedir()): ProviderStatePaths {
+  const root = copilotHome(env, home);
+  return {
+    writable: [root],
+    writableContents: keychainLockFiles(),
+    protected: [
+      "config.json",
+      "settings.json",
+      "mcp-config.json",
+      "skills",
+      "agents",
+      "hooks",
+      "plugins",
+      "installed-plugins",
+      "extensions",
+      "pkg",
+    ].map((name) => join(root, name)),
+  };
+}
+
 /**
  * A custom agent keeps its state where it wants, and OpenBot cannot know where. A Workspace only
  * custom agent gets no state folder: an agent that must write in its home folder to run needs Full
@@ -404,6 +435,12 @@ const PROJECT_SETTINGS = [
   ".clinerules",
   // Kimi reads its project skills and instructions from `.kimi`.
   ".kimi",
+  // Copilot reads its project settings, hooks and MCP servers from these (`copilot config --help`,
+  // `copilot mcp --help`, `.github/hooks/*.json`).
+  ".github/copilot",
+  ".github/hooks",
+  ".github/mcp.json",
+  ".mcp.json",
   ".pi",
   ".muse",
   // Antigravity reads project skills from `.gemini` and its customizations from these four.

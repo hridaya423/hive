@@ -44,6 +44,7 @@ import {
   resolveClaudeCli,
   resolveClineCli,
   resolveCodexCli,
+  resolveCopilotCli,
   resolveCursorCli,
   resolveGrokCli,
   resolveHermesCli,
@@ -76,6 +77,8 @@ import {
   antigravityStatePaths,
   clineStatePaths,
   confineSpawnTarget,
+  copilotHome,
+  copilotStatePaths,
   cursorConfinedEnv,
   cursorStatePaths,
   customAgentStatePaths,
@@ -347,6 +350,18 @@ function confineHermesTarget(
 ): SpawnTarget {
   mkdirSync(hermesHome(env), { recursive: true, mode: 0o700 });
   return confineSpawnTarget(target, confinement, hermesStatePaths(env));
+}
+
+const COPILOT_ARGV: readonly string[] = ["--acp"];
+
+/** The sandbox lets a Copilot process write in its folder, not create it, so OpenBot makes it. */
+function confineCopilotTarget(
+  target: SpawnTarget,
+  confinement: ProcessConfinement,
+  env: NodeJS.ProcessEnv,
+): SpawnTarget {
+  mkdirSync(copilotHome(env), { recursive: true, mode: 0o700 });
+  return confineSpawnTarget(target, confinement, copilotStatePaths(env));
 }
 
 /** The managed Kimi CLI must not replace itself. */
@@ -1220,6 +1235,59 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
         servesModel: context.servesModel,
       }),
     authState: (account) => ({ kind: "hermes", email: account?.email ?? null }),
+    validateAccount: () => undefined,
+  },
+  {
+    id: "copilot",
+    // `login --web-flow` opens GitHub in the browser and keeps the token in the login Keychain.
+    signIn: {
+      kind: "cli-command",
+      command: { argv: ["login", "--web-flow"], env: () => ({}), timeoutMs: CLI_LOGIN_TIMEOUT_MS },
+    },
+    // With `--device-code`, the CLI prints GitHub's device page and a code, and waits until it is confirmed.
+    codeSignIn: {
+      kind: "cli",
+      flow: "device",
+      command: {
+        argv: ["login", "--device-code"],
+        env: () => ({}),
+        timeoutMs: CLI_LOGIN_TIMEOUT_MS,
+        closeInput: true,
+      },
+    },
+    resolveCli: () => resolveCopilotCli(),
+    createClient: (cli, timeout, context, confinement) =>
+      new AcpAgentClient(cli, timeout, {
+        provider: "copilot",
+        flavor: DEFAULT_ACP_FLAVOR,
+        argv: COPILOT_ARGV,
+        env: {},
+        ...(confinement
+          ? {
+              confine: (target) =>
+                confineCopilotTarget(target, confinement, { ...process.env, ...context.agentEnvironment?.() }),
+            }
+          : {}),
+        extraEnv: () => ({ ...context.agentEnvironment?.() }),
+        signInMessage: sourceText("error.provider.copilotSignIn"),
+        servesModel: context.servesModel,
+        mcpServers: context.mcpServers,
+        reportMcpDrops: context.reportMcpDrops,
+        mcpToolRuntimes: context.mcpToolRuntimes,
+        mcpEndpoint: context.mcpEndpoint,
+        history: context.history?.("copilot"),
+      }),
+    createProfileClient: (cli, timeout, context) =>
+      new AcpAgentClient(cli, timeout, {
+        provider: "copilot",
+        flavor: DEFAULT_ACP_FLAVOR,
+        argv: COPILOT_ARGV,
+        profileGeneration: true,
+        env: {},
+        signInMessage: sourceText("error.provider.copilotSignIn"),
+        servesModel: context.servesModel,
+      }),
+    authState: (account) => ({ kind: "copilot", email: account?.email ?? null }),
     validateAccount: () => undefined,
   },
   {

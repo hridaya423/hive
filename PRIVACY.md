@@ -1389,6 +1389,16 @@ that you use, to see that you signed in. Hermes can also use the network
 for its own tools and plugins, as you set them up in Hermes. Nous Research's terms apply. Team
 members see the host's Hermes agents, as for the other providers, when their app supports Hermes.
 
+### Copilot
+
+OpenBot does not download GitHub Copilot CLI. It starts the `copilot` that you installed, with
+`copilot --acp`, as a local process. Prompts, attachments, and tool results go to that process, and
+Copilot sends them to GitHub. Sign in runs `copilot login`, which opens GitHub's sign-in page in your
+browser. The CLI keeps the token in the login Keychain, or in `~/.copilot/config.json` when there is
+no Keychain, and keeps its settings, sessions and logs in `~/.copilot`, or in `$COPILOT_HOME`.
+OpenBot does not read, copy, or upload these files. GitHub's terms apply. Team members see the host's
+Copilot agents when their app uses Team API protocol 8 or newer.
+
 ### Inception
 
 Inception agents run in the Pi CLI that OpenBot downloads for Pi. On this computer, Sign in on the

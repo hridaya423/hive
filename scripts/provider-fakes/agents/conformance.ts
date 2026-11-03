@@ -9,6 +9,10 @@
 //   it with "Internal error", and writes the cause only to stderr.
 // - `FAKE_MODEL_SET=kimi` gives no configuration options. `session/set_model` changes the model and
 //   then fails, as Kimi CLI 1.52.0 does when its config.toml is protected.
+// - `FAKE_MODEL_UNAPPLIED=1` acts as Copilot CLI 1.0.105 does in pingdotgg/t3code#29425: a new session
+//   reports the first model as current, but runs on no listed model until the client sets one.
+// - `FAKE_DEVICE_CODE=1` answers `login --device-code` with the text of Copilot CLI 1.0.105, as a CLI
+//   that waits for the sign-in, and starts no agent.
 // A prompt with the text `wait` runs until the client cancels it. Each other prompt answers at once.
 import {
   type AcpError,
@@ -54,14 +58,19 @@ const HERMES_AUTH_METHODS = [
 const missingError = MISSING_ERRORS[process.env.FAKE_MISSING ?? "protocol"];
 const signedOut = process.env.FAKE_SIGNED_OUT === "1";
 const kimiModelSet = process.env.FAKE_MODEL_SET === "kimi";
+const modelUnapplied = process.env.FAKE_MODEL_UNAPPLIED === "1";
+const UNAPPLIED_MODEL = "fake-unset";
+/** The model that each session runs on. */
 const models = new Map<string, string>();
 /** The `wait` prompt of each session that waits for its cancel. */
 const waiting = new Map<string, () => void>();
 let count = 0;
 
 function setup(sessionId: string) {
-  const current = models.get(sessionId) ?? MODELS[0]?.modelId ?? "";
-  models.set(sessionId, current);
+  const first = MODELS[0]?.modelId ?? "";
+  if (!models.has(sessionId)) models.set(sessionId, modelUnapplied ? UNAPPLIED_MODEL : first);
+  const running = models.get(sessionId) ?? first;
+  const current = running === UNAPPLIED_MODEL ? first : running;
   const state = { availableModels: MODELS, currentModelId: current };
   if (kimiModelSet) return { sessionId, models: state };
   return {
@@ -97,6 +106,14 @@ function restore(request: AcpRequest, peer: AcpPeer): void {
 
 function promptText(params: AcpParams): string {
   return (params.prompt ?? []).map((block) => block.text ?? "").join("");
+}
+
+if (process.env.FAKE_DEVICE_CODE === "1" && process.argv.slice(2).join(" ") === "login --device-code") {
+  process.stdout.write(
+    "To authenticate, visit https://github.com/login/device and enter code ABCD-1234\nWaiting for authorization...\n",
+  );
+  setInterval(() => undefined, 1_000);
+  await new Promise(() => undefined);
 }
 
 serveFakeAcpAgent(

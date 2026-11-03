@@ -837,6 +837,32 @@ reads project skills only in a git root that `skills.trusted_project_dirs` names
 with an exception in Hermes ends as answer text `Error: …`, not as a failed turn. Team API
 protocols below 8 hide Hermes; protocol 8 and newer carry it as any other provider id.
 
+### Copilot
+
+The Copilot provider (id `copilot`) starts the user's own GitHub Copilot CLI with `copilot --acp`.
+OpenBot has no managed runtime for it. `resolveCopilotCli` looks for `copilot` on `PATH` (Homebrew
+installs it as a cask) and reads `GitHub Copilot CLI X.Y.Z.` from `copilot --version`. A CLI older than
+1.0.105, the only version OpenBot was run with, is `outdated`. A missing CLI opens the `copilot-install`
+guide.
+
+Sign in runs `copilot login --web-flow`. The CLI keeps the token in the login Keychain (service
+`copilot-cli`). The code sign-in runs `copilot login --device-code` and reads
+`To authenticate, visit https://github.com/login/device and enter code XXXX-XXXX` (`codeOnEnterLine`).
+Without a sign-in, `session/new` fails with `-32000 "Authentication required"`. A sign-in that GitHub
+refuses for the account fails with `-32603` and HTTP 403. The CLI has no `logout` command, so the
+driver has no `signOut`. A token in `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` or `GITHUB_TOKEN` wins over the
+Keychain, and OpenBot never sets them.
+
+`copilotStatePaths` lets a confined process write `~/.copilot` (or `$COPILOT_HOME`) and protects its
+settings, MCP servers, skills, agents, hooks, plugins and updated packages. A confined process reads the
+Keychain but cannot write it (tested with `security`, not yet with `copilot`). The project settings
+`.github/copilot`, `.github/hooks`, `.github/mcp.json` and `.mcp.json` are protected in every
+confined workspace. The CLI reads `AGENTS.md`, `.github/skills`, `.claude/skills`, `.agents/skills` and
+`~/.agents/skills` itself (`copilot instruction list`, `copilot skill --help`).
+
+The agent reports no usage and no mid-turn steer (`reportsUsage: false`, `steer: "deferred"`), and runs
+one turn at a time. Team API protocols below 8 hide Copilot.
+
 ### Custom agents
 
 The provider `acp` runs ACP programs that the user saves. The model id names the agent:

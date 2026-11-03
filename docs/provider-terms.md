@@ -74,3 +74,28 @@ OpenBot, or in the `env` block of `~/.claude/settings.json`. For a cloud provide
 
 OpenBot runs each provider's CLI with your own sign-in or key, and that provider's terms apply.
 Before you use a subscription plan, read what the provider says about third-party tools.
+
+## GitHub Copilot
+
+### How OpenBot runs Copilot
+
+- OpenBot starts the `copilot` that you installed, with `copilot --acp`. It does not download or change
+  the program.
+- Connect runs `copilot login --web-flow`, which opens GitHub's sign-in page in your browser. The CLI
+  keeps the token in the login Keychain. OpenBot does not read, copy or store it, and does not set
+  `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` or `GITHUB_TOKEN`.
+- Your Copilot plan answers. Requests go from the CLI to GitHub.
+
+### What GitHub says
+
+Read on 2026-11-03:
+
+- GitHub documents `copilot --acp` for "IDE integrations, CI/CD, custom frontends, multi-agent
+  systems" ([ACP server](https://docs.github.com/en/copilot/reference/copilot-cli-reference/acp-server)).
+- For individuals, the GitHub Terms of Service, Section J (AI Features), govern Copilot. This page
+  did not read Section J.
+- GitHub has not said to the OpenBot project that this use is permitted. A statement about third-party
+  clients was not found. GitHub names OpenCode as a formal partner. It names no other client.
+- With `hridaya423` on 2026-11-03, `copilot_internal/user` returned `access_type_sku: "no_access"`, and
+  the CLI refused the token of the GitHub CLI with HTTP 403. A plan must be active for the signed-in
+  account.

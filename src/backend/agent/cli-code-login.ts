@@ -207,7 +207,8 @@ function terminalCommand(platform: NodeJS.Platform, argv: readonly string[]): { 
  * null until all of it is there. The shapes are the pinned CLIs' (Grok 1.0.22, Claude 2.1.263,
  * Cursor 2026.10.01, Cline 3.0.68, Kimi 1.52.0); the tests hold samples of each but Kimi's. Hermes
  * 0.21.5 prints its Nous Portal sign-in in the shape of `_print_device_code_instructions` in
- * `hermes_cli/auth_device_flow.py`.
+ * `hermes_cli/auth_device_flow.py`. Copilot 1.0.105 prints
+ * `To authenticate, visit https://github.com/login/device and enter code XXXX-XXXX`.
  */
 function parseCliCodePrompt(flow: CliCodePrompt["flow"], output: string): CliCodePrompt | null {
   const text = stripTerminalCodes(output);
@@ -287,11 +288,15 @@ function deviceCodeEvent(text: string): CliCodePrompt | null {
 }
 
 /**
- * The code at the end of an "Enter this code in your browser: CODE" line (Cline) or an "If prompted,
- * enter code: CODE" line (Hermes) that has ended.
+ * The code at the end of an "Enter this code in your browser: CODE" line (Cline), an "If prompted,
+ * enter code: CODE" line (Hermes) or a "visit URL and enter code CODE" line (Copilot) that has ended.
  */
 function codeOnEnterLine(text: string): string | null {
-  return text.match(/enter (?:this )?code[^:\n]*:[ \t]*([A-Z0-9]{3,12}(?:-[A-Z0-9]{3,12})*)[ \t]*\n/i)?.[1] ?? null;
+  return (
+    text.match(/enter (?:this )?code[^:\n]*:[ \t]*([A-Z0-9]{3,12}(?:-[A-Z0-9]{3,12})*)[ \t]*\n/i)?.[1] ??
+    text.match(/enter code[ \t]+([A-Z0-9]{3,12}(?:-[A-Z0-9]{3,12})*)[ \t]*\n/)?.[1] ??
+    null
+  );
 }
 
 const ESC = 0x1b;

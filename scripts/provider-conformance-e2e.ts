@@ -11,6 +11,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AGENT_PROVIDERS } from "@openbot/contracts/agent-providers";
 import type { AgentProviderId } from "@openbot/contracts/ipc";
+import { Effect } from "effect";
+import { startCliCodeLogin } from "../src/backend/agent/cli-code-login";
 import { isMissingProviderSessionError } from "../src/backend/agent/thread-items";
 import type { AgentClient } from "../src/backend/agent-client";
 import type { AgentCliInfo } from "../src/backend/cli";
@@ -33,6 +35,10 @@ interface DriverCase {
   missing: "protocol" | "opencode" | "antigravity" | "cursor" | "kimi" | "hermes";
   /** The agent's own form of a model set, when it differs from the configuration option. */
   modelSet?: "kimi";
+  /** The agent reports its first model as current but runs another until the client sets one. */
+  modelUnapplied?: true;
+  /** The CLI prints a device code for its code sign-in, which this case reads. */
+  deviceCode?: { userCode: string; verificationUrl: string };
   /** Why the sign-in case does not apply, when it does not. */
   noSignIn?: string;
 }
@@ -45,6 +51,12 @@ const DRIVERS: readonly DriverCase[] = [
   { provider: "kimi", missing: "kimi", modelSet: "kimi" },
   { provider: "grok", missing: "protocol" },
   { provider: "hermes", missing: "hermes" },
+  {
+    provider: "copilot",
+    missing: "protocol",
+    modelUnapplied: true,
+    deviceCode: { userCode: "ABCD-1234", verificationUrl: "https://github.com/login/device" },
+  },
   {
     provider: "acp",
     missing: "protocol",
@@ -133,6 +145,8 @@ async function conform(driver: DriverCase): Promise<DriverResult> {
     FAKE_LOG: log,
     FAKE_MISSING: driver.missing,
     ...(driver.modelSet ? { FAKE_MODEL_SET: driver.modelSet } : {}),
+    ...(driver.modelUnapplied ? { FAKE_MODEL_UNAPPLIED: "1" } : {}),
+    ...(driver.deviceCode ? { FAKE_DEVICE_CODE: "1" } : {}),
   });
   const label = driver.provider;
 
@@ -150,6 +164,15 @@ async function conform(driver: DriverCase): Promise<DriverResult> {
   assert.equal(turn.error, null, `${label}: the turn succeeds.`);
   assert.equal(turn.status, "completed", `${label}: the turn completes.`);
   assert.match(turn.reply, /ok fake-alpha/, `${label}: the reply reaches the client.`);
+  if (driver.modelUnapplied) {
+    const sets = (await readJsonl<LogEntry>(log)).filter(
+      (entry) => entry.event === "set" && entry.configId === "model",
+    );
+    assert.ok(
+      sets.some((entry) => entry.value === alpha),
+      `${label}: the client sets the model although the session reports it as current.`,
+    );
+  }
 
   // Model switch: the next prompt runs on the other model.
   const switchedTurn = await runTurn(client, thread, { model: beta });
@@ -214,6 +237,34 @@ async function conform(driver: DriverCase): Promise<DriverResult> {
     const account = await runCauseEffect(signedOut.request("account/read", {}, decodeAccountReadResult));
     signInRequired = account.account === null;
     assert.equal(signInRequired, true, `${label}: a signed-out agent has no account.`);
+  }
+
+  if (driver.deviceCode) {
+    const sign = requireProviderDriver(driver.provider).codeSignIn;
+    assert.equal(sign?.kind, "cli", `${label}: the code sign-in runs the CLI.`);
+    const executable = join(root, name, "bin", driver.provider);
+    const { argv } = sign.command;
+    assert.ok(typeof argv !== "function", `${label}: the code sign-in has fixed arguments.`);
+    const prompt = await runCauseEffect(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const login = yield* startCliCodeLogin({
+            flow: sign.flow,
+            executable,
+            argv,
+            env: sign.command.env({ executable, version: "99.0.0" }, "global"),
+            timeoutMs: 20_000,
+            closeInput: sign.command.closeInput === true,
+          });
+          return yield* login.prompt;
+        }),
+      ),
+    );
+    assert.deepEqual(
+      prompt,
+      { flow: "device", ...driver.deviceCode, verificationUrlComplete: null },
+      `${label}: the device code and its page are read from the CLI.`,
+    );
   }
 
   return {
