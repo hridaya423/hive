@@ -45,7 +45,12 @@ export function HelpMenu(props: HelpMenuProps) {
       </MotionTooltip>
       <DropdownMenu.Portal>
         <DropdownMenu.Content class="agent-context-menu help-menu" aria-label={t("app.help.label")}>
-          <Show when={props.news.length > 0}>
+          <Show
+            when={props.news.length > 0}
+            fallback={
+              <DropdownMenu.Item onSelect={() => props.onOpenWhatsNew()}>{t("app.help.whatsNew")}</DropdownMenu.Item>
+            }
+          >
             <div class="ui-menu-label" aria-hidden="true">
               {t("app.help.whatsNew")}
             </div>
