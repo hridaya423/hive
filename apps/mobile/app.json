@@ -11,7 +11,6 @@
     "ios": {
       "bundleIdentifier": "run.openbot.mobile",
       "supportsTablet": true,
-      "associatedDomains": ["applinks:openbot.run"],
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "Allow OpenBot to connect to your desktop during local development.",
         "NSAppTransportSecurity": {

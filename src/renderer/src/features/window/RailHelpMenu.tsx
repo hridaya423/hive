@@ -12,11 +12,7 @@ const HELP_NEWS_COUNT = 3;
  * notes in the app and lists the first note of each of the newest releases, up to `version`. The web
  * has no version: it always runs the newest release.
  */
-export function RailHelpMenu(props: {
-  version: string | null;
-  onOpenWhatsNew: () => void;
-  onOpenLink: (destination: "changelog" | "guides" | "discord" | "feedback") => void;
-}) {
+export function RailHelpMenu(props: { version: string | null; onOpenWhatsNew: () => void }) {
   const [news, setNews] = createSignal<readonly HelpMenuNews[]>([]);
   let loading = false;
 
@@ -37,7 +33,7 @@ export function RailHelpMenu(props: {
           .slice(0, HELP_NEWS_COUNT),
       );
     } catch {
-      // The menu shows its links without the list. The next opening tries again.
+      // The menu stays empty. The next opening tries again.
     } finally {
       loading = false;
     }
@@ -49,10 +45,6 @@ export function RailHelpMenu(props: {
       triggerClass="window-rail-button"
       onOpen={() => void loadNews()}
       onOpenWhatsNew={props.onOpenWhatsNew}
-      onOpenChangelog={() => props.onOpenLink("changelog")}
-      onOpenGuides={() => props.onOpenLink("guides")}
-      onOpenDiscord={() => props.onOpenLink("discord")}
-      onSendFeedback={() => props.onOpenLink("feedback")}
     />
   );
 }

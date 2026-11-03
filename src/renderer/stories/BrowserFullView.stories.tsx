@@ -17,7 +17,7 @@ const chief = requireFixture(STORY_AGENTS[0], "Story agent 0");
 const tab: BrowserTab = {
   id: "tab-docs",
   title: "OpenBot documentation",
-  url: "https://openbot.run/docs",
+  url: "https://example.com/docs",
   loading: false,
   ownerThreadId: "thread-chief",
   ownerAgentId: chief.id,
@@ -27,8 +27,8 @@ const tab: BrowserTab = {
 
 const tabs: BrowserTab[] = [
   tab,
-  { ...tab, id: "tab-changelog", title: "Changelog", url: "https://openbot.run/changelog" },
-  { ...tab, id: "tab-pricing", title: "Pricing", url: "https://openbot.run/pricing", loading: true },
+  { ...tab, id: "tab-changelog", title: "Changelog", url: "https://example.com/changelog" },
+  { ...tab, id: "tab-pricing", title: "Pricing", url: "https://example.com/pricing", loading: true },
   {
     ...tab,
     id: "tab-search",
@@ -58,8 +58,8 @@ const meta = {
     tabs,
     activeTab: tab,
     history: [
-      { url: "https://openbot.run/docs", title: "OpenBot documentation", visits: 3 },
-      { url: "https://openbot.run/docs/browser", title: "Browser · OpenBot documentation", visits: 1 },
+      { url: "https://example.com/docs", title: "OpenBot documentation", visits: 3 },
+      { url: "https://example.com/docs/browser", title: "Browser · OpenBot documentation", visits: 1 },
     ],
     canReopen: true,
     controlForTab: () => undefined,

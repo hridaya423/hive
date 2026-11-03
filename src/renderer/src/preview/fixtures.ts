@@ -407,7 +407,7 @@ export const STORY_CONVERSATION_MESSAGES: ConversationMessage[] = [
     id: "message-agent-1",
     author: "assistant",
     source: "assistant",
-    text: "Absolutely. I’ll structure the plan around the launch milestones and ask @Research to verify the supporting sources.\n\nThe first draft is ready here: https://openbot.run/docs",
+    text: "Absolutely. I’ll structure the plan around the launch milestones and ask @Research to verify the supporting sources.\n\nThe first draft is ready here: https://example.com/docs",
     createdAt: "2026-08-19T09:43:00.000Z",
     status: "completed",
     attachments: STORY_ATTACHMENTS,
@@ -680,7 +680,7 @@ export const STORY_BROWSER_TABS: BrowserTab[] = [
   {
     id: "browser-tab-docs",
     title: "OpenBot documentation",
-    url: "https://openbot.run/docs",
+    url: "https://example.com/docs",
     loading: false,
     ownerThreadId: "thread-chief",
     ownerAgentId: "chief",
@@ -1654,7 +1654,6 @@ const STORY_MARKETPLACE_PLUGIN_AAVE: MarketplacePluginDetail = {
   installs: 2_410,
   featured: true,
   updatedAt: "2026-09-02T11:30:00.000Z",
-  shareUrl: "https://openbot.run/plugins/aave",
   prompts: [
     { id: "prompt-stablecoin-yield", text: "Where can I earn the most on stablecoins across Aave right now?" },
     { id: "prompt-usdc-rates", text: "Which pays more for USDC right now, Aave V3 or V4 on Ethereum?" },
@@ -1737,7 +1736,6 @@ export const STORY_MARKETPLACE_PLUGINS: MarketplacePluginDetail[] = [
     installs: 5_180,
     featured: true,
     updatedAt: "2026-08-28T09:10:00.000Z",
-    shareUrl: "https://openbot.run/plugins/linear",
     prompts: [
       { id: "prompt-linear-cycle", text: "What is still open in the current cycle, and who is it on?" },
       { id: "prompt-linear-file", text: "File a bug for the crash I just described, on the Desktop team." },
@@ -1810,7 +1808,6 @@ export const STORY_MARKETPLACE_PLUGINS: MarketplacePluginDetail[] = [
     installs: 3_060,
     featured: false,
     updatedAt: "2026-09-08T16:45:00.000Z",
-    shareUrl: "https://openbot.run/plugins/figma",
     prompts: [
       { id: "prompt-figma-frames", text: "What frames are on the Settings page of this file?" },
       { id: "prompt-figma-tokens", text: "Which colour variables does the button component bind to?" },
@@ -1875,7 +1872,6 @@ export const STORY_MARKETPLACE_PLUGINS: MarketplacePluginDetail[] = [
     installs: 1_420,
     featured: false,
     updatedAt: "2026-09-30T10:20:00.000Z",
-    shareUrl: "https://openbot.run/plugins/resend",
     prompts: [
       { id: "prompt-resend-send", text: "Send the launch announcement draft to the beta list." },
       { id: "prompt-resend-status", text: "Did the invoice email reach the customer?" },
@@ -1933,7 +1929,6 @@ export const STORY_MARKETPLACE_PLUGINS: MarketplacePluginDetail[] = [
     installs: 4_270,
     featured: false,
     updatedAt: "2026-10-02T13:05:00.000Z",
-    shareUrl: "https://openbot.run/plugins/notion",
     prompts: [
       { id: "prompt-notion-spec", text: "Find the current launch spec and summarize the open questions." },
       { id: "prompt-notion-notes", text: "Turn these bullets into a structured meeting note in my team space." },
@@ -1974,7 +1969,6 @@ export const STORY_MARKETPLACE_PLUGINS: MarketplacePluginDetail[] = [
     installs: 640,
     featured: false,
     updatedAt: "2026-07-19T08:00:00.000Z",
-    shareUrl: "https://openbot.run/plugins/changelog-writer",
     prompts: [{ id: "prompt-changelog", text: "Write the release notes for everything merged since the last tag." }],
     apps: [],
     skills: [

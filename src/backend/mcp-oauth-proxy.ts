@@ -300,7 +300,6 @@ interface ClientInfo {
   name: string;
   title: string;
   version: string;
-  websiteUrl: string;
 }
 
 /**
@@ -321,7 +320,6 @@ function clientInfo(client: McpOAuthProxyClient, agentKey: string | null): Clien
     name: "openbot",
     title: name ? `${name} (OpenBot)` : "OpenBot",
     version: client.version,
-    websiteUrl: "https://openbot.run",
   };
 }
 

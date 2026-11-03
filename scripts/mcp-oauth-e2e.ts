@@ -702,7 +702,6 @@ async function proxyCases(auth: Awaited<ReturnType<typeof startAuthorizationServ
       name: "openbot",
       title,
       version: "9.9.9-e2e",
-      websiteUrl: "https://openbot.run",
     });
     assert.deepEqual(resource.clients.at(-1), openbotClient("OpenBot"));
     assert.ok(upstream.every((hit) => hit.userAgent === "OpenBot/9.9.9-e2e"));

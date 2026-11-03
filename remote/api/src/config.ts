@@ -48,7 +48,7 @@ export interface RemoteApiConfig {
 }
 
 export interface SignalEntryConfig {
-  // The DNS name of the entry Signal, such as `signal.openbot.run` (`SIGNAL_ENTRY_HOST`).
+  // The DNS name of the entry Signal, such as `signal.example.com` (`SIGNAL_ENTRY_HOST`).
   host: string;
   // The public IPv4 address of this machine (`SIGNAL_PUBLIC_IPV4`).
   publicIpv4: string;

@@ -1,4 +1,4 @@
-// The Marketplace share cards: the 1200 × 630 PNG a shared `openbot.run/marketplace/...` link shows.
+// The Marketplace share cards: the 1200 × 630 PNG a shared `<account origin>/marketplace/...` link shows.
 //
 // The review scripts draw one when they approve a version, and `cards` draws the missing ones. The
 // card has the agent's Bloub, which only a browser can draw, and Workers have no browser, so Electron

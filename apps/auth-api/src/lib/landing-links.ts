@@ -4,8 +4,3 @@ export const OPENBOT_DOWNLOAD_LINKS = {
   windows: "/download/windows/latest",
   linux: "/download/linux/latest",
 } as const;
-
-export const OPENBOT_LINKS = {
-  x: "https://x.com/OpenBot_",
-  repository: "https://github.com/nightly-labs/openbot",
-} as const;

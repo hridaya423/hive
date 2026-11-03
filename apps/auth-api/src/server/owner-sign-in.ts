@@ -1,6 +1,6 @@
 import type { WorkerBindings } from "./types";
 
-export const TAILNET_LOGIN_HEADER = "Tailscale-User-Login";
+const TAILNET_LOGIN_HEADER = "Tailscale-User-Login";
 
 /**
  * The owner's email when this request is the owner's, and null otherwise. The Worker listens on

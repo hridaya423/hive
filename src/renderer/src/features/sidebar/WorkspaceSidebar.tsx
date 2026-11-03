@@ -2,9 +2,7 @@ import { type ChatWindowTarget, canAdministerServer } from "@openbot/contracts/i
 import { AGENT_HIDDEN_CAPABILITY } from "@openbot/contracts/team-protocol/current";
 import { computeAgentAvatarMoods } from "@openbot/ui/features/agents/agent-avatar-mood";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
-import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
 import { SidebarMachineCard } from "@openbot/ui/features/sidebar/SidebarMachineCard";
-import { SidebarMobileAppCard } from "@openbot/ui/features/sidebar/SidebarMobileAppCard";
 import { SidebarStorageCard } from "@openbot/ui/features/sidebar/SidebarStorageCard";
 import { computeSidebarAgentStates, sidebarChannelWaits } from "@openbot/ui/features/sidebar/sidebar-agent-states";
 import { teamMemberName } from "@openbot/ui/features/team/TeamPersonAvatar";
@@ -37,14 +35,9 @@ import { useServers } from "../servers/servers-context";
 import { useSettings } from "../settings/settings-context";
 import { usePresence } from "../team/team-context";
 import { SidebarUpdateIsland } from "../updates/SidebarUpdateIsland";
-import { createCommunityCardVisibility } from "./community-card";
 import { createMachineCard } from "./machine-card";
 import { useSidebar } from "./sidebar-context";
 import { createStorageCard } from "./storage-card";
-
-/** Dismissing the mobile app card is a choice of this computer, like the sidebar width. The key is
- * new with the Android release, so a computer that dismissed the iPhone-only card sees it once more. */
-const MOBILE_APP_DISMISSED_STORAGE_KEY = "openbot:mobile-app-card-dismissed";
 
 /**
  * The list of Agents and people. It reads the most domains of any pane, and every
@@ -81,7 +74,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   const { openAgentOnServer } = useServerSelection();
   const hostRoster = useHostRoster();
   const localServerName = () => t("sidebar.topbar.localServer");
-  const { openAppSettings, setSkillsMarketplaceOpen } = useSettings();
+  const { setSkillsMarketplaceOpen } = useSettings();
   const {
     agentList,
     agentListConnecting,
@@ -137,10 +130,6 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
     reorderPinnedSidebarItems,
     reorderSidebarPeople,
   } = useSidebar();
-  const [mobileAppDismissed, setMobileAppDismissed] = createSignal(
-    window.localStorage.getItem(MOBILE_APP_DISMISSED_STORAGE_KEY) === "true",
-  );
-  const communityCard = createCommunityCardVisibility();
   const storageCard = createStorageCard(activeServer);
   const machineCard = createMachineCard(activeServer);
   // A clear in Server settings frees space and can change an alert level, so both cards read
@@ -392,22 +381,6 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
                 onDismiss={() => storageCard.dismiss(card().serverId)}
               />
             )}
-          </Show>
-          <Show when={!platform.landingPreview && !footerCard() && !mobileAppDismissed()}>
-            <SidebarMobileAppCard
-              onOpenInstall={() => openAppSettings(null, "mobile-connect")}
-              onDismiss={() => {
-                window.localStorage.setItem(MOBILE_APP_DISMISSED_STORAGE_KEY, "true");
-                setMobileAppDismissed(true);
-              }}
-            />
-          </Show>
-          <Show when={!platform.landingPreview && !footerCard() && mobileAppDismissed() && !communityCard.dismissed()}>
-            <SidebarCommunityCard
-              onJoinDiscord={() => void appPort().openExternal("discord")}
-              onFollowX={() => void appPort().openExternal("x")}
-              onDismiss={communityCard.dismiss}
-            />
           </Show>
           <SidebarUpdateIsland />
         </>

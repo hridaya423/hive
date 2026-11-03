@@ -1,7 +1,6 @@
 import { defineMessages } from "../../message";
 
 export const messages = defineMessages("account", {
-  "account.menu.sendFeedback": "Send feedback",
   "account.menu.signOut": "Sign out",
   "account.menu.signingOut": "Signing out…",
   "account.menu.updateFailed": "Could not update OpenBot.",

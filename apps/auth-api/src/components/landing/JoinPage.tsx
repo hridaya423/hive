@@ -1,5 +1,9 @@
 import { AppLogo } from "@openbot/brand";
-import { createWebAppInvitePath, OPENBOT_INVITE_ORIGIN, toOpenBotInviteUrl } from "@openbot/contracts/invite-links";
+import {
+  createWebAppInvitePath,
+  OPENBOT_CONTROL_PLANE_ORIGIN,
+  toOpenBotInviteUrl,
+} from "@openbot/contracts/invite-links";
 import { createSignal, For, onSettled, Show } from "solid-js";
 import { detectDownloadPlatform } from "../../lib/download-platforms";
 import { OPENBOT_DOWNLOAD_LINKS } from "../../lib/landing-links";
@@ -24,7 +28,7 @@ export function JoinPage(props: { lang: string; text: JoinPageText }) {
     const platform = detectDownloadPlatform(globalThis.navigator) ?? "macos";
     try {
       const pageUrl = new URL(window.location.href);
-      const canonicalUrl = new URL(`${pageUrl.pathname}${pageUrl.search}`, OPENBOT_INVITE_ORIGIN);
+      const canonicalUrl = new URL(`${pageUrl.pathname}${pageUrl.search}`, OPENBOT_CONTROL_PLANE_ORIGIN);
       setOpenUrl(toOpenBotInviteUrl(canonicalUrl.toString()));
       setBrowserUrl(createWebAppInvitePath(canonicalUrl.toString()));
     } catch {

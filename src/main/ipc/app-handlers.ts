@@ -66,20 +66,11 @@ import { stringPayload } from "./validation";
  * it is read from `mac-permission-urls.ts` rather than written twice.
  */
 const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
-  "agent-setup": "https://github.com/nightly-labs/openbot/blob/main/docs/TROUBLESHOOTING.md",
   "opencode-install": "https://opencode.ai/docs/",
   "opencode-auth": "https://opencode.ai/auth",
   "claude-install": "https://code.claude.com/docs",
   "hermes-install": "https://hermes-agent.nousresearch.com/docs/getting-started/installation",
   "copilot-install": "https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli",
-  feedback: "https://x.com/intent/post?text=Feedback%20for%20OpenBot%20%40norbertbodziony%3A%20",
-  message: "https://x.com/norbertbodziony",
-  changelog: "https://openbot.run/changelog",
-  guides: "https://openbot.run/guides",
-  // A Redirect Rule in the openbot.run Cloudflare zone sends this to the current Discord invite.
-  discord: "https://discord.openbot.run",
-  github: "https://github.com/nightly-labs/openbot",
-  x: "https://x.com/OpenBot_",
   "grok-bot-export": GROK_BOT_EXPORT_URL,
   "mac-screen-recording": MAC_PERMISSION_URLS["screen-recording"],
 };

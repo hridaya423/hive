@@ -3,8 +3,8 @@
  * that listing in the app, and the browser client's entry for it.
  *
  * ```
- * https://openbot.run/marketplace/agents/<id>     the link a person shares and the app copies
- * https://openbot.run/marketplace/skills/<slug>
+ * <account origin>/marketplace/agents/<id>   the link a person shares and the app copies
+ * <account origin>/marketplace/skills/<slug>
  * dev.hridaya.hive://marketplace/agents/<id>               the link the page button opens
  * dev.hridaya.hive://marketplace/skills/<slug>
  * /app?marketplaceAgent=<id>                      the page's link to the browser client
@@ -21,8 +21,9 @@
  */
 
 import { APP_URL_PROTOCOL, APP_URL_SCHEME } from "./app-url-scheme";
+import { OPENBOT_CONTROL_PLANE_ORIGIN } from "./invite-links";
 
-export const OPENBOT_MARKETPLACE_ORIGIN = "https://openbot.run";
+export const OPENBOT_MARKETPLACE_ORIGIN = OPENBOT_CONTROL_PLANE_ORIGIN;
 export const OPENBOT_MARKETPLACE_PATH = "/marketplace";
 export const OPENBOT_MARKETPLACE_HOST = "marketplace";
 export const WEB_APP_MARKETPLACE_AGENT_PARAM = "marketplaceAgent";
@@ -71,7 +72,7 @@ export function marketplaceListingPath(link: MarketplaceListingLink): string {
 }
 
 /**
- * Where a shared listing link points. The origin is `openbot.run`, or a loopback origin while a
+ * Where a shared listing link points. The origin is the account service of this build, or a loopback origin while a
  * developer runs the Account Worker on this computer; `agentTemplateShareOrigin` picks it.
  */
 export function createMarketplaceShareUrl(
@@ -134,7 +135,7 @@ export function parseMarketplaceUrl(value: string): MarketplaceListingLink {
   }
 
   /* The origin is compared as one string. An `endsWith` or a host expression here is what lets
-     `openbot.run.example.com` through. */
+     a longer host name that starts with the same labels through. */
   const prefix = `${OPENBOT_MARKETPLACE_PATH}/`;
   const canonical =
     url.protocol === "https:" && url.origin === OPENBOT_MARKETPLACE_ORIGIN && url.pathname.startsWith(prefix);
@@ -143,7 +144,7 @@ export function parseMarketplaceUrl(value: string): MarketplaceListingLink {
     (!canonical && !customScheme) ||
     url.username !== "" ||
     url.password !== "" ||
-    url.port !== "" ||
+    (!canonical && url.port !== "") ||
     url.search !== "" ||
     url.hash !== ""
   ) {

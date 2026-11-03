@@ -1,10 +1,8 @@
 import { APP_URL_PROTOCOL, APP_URL_SCHEME } from "./app-url-scheme";
 import { FORK_CONFIG } from "./fork-config";
-import { isOpenBotTeamApiHostname } from "./validation";
 
-export const OPENBOT_INVITE_ORIGIN = "https://openbot.run";
-export const OPENBOT_INVITE_PATH = "/join";
 export const OPENBOT_CONTROL_PLANE_ORIGIN = new URL(FORK_CONFIG.controlPlane.accountApiUrl).origin;
+export const OPENBOT_INVITE_PATH = "/join";
 
 /**
  * The finite deadline a permanent invitation carries. Invitation expiry travels the
@@ -71,9 +69,7 @@ export function selfHostedApiOrigin(apiUrl: string | undefined): string | undefi
   if (!apiUrl) return undefined;
   try {
     const { protocol, origin } = new URL(apiUrl);
-    return protocol === "https:" && origin !== OPENBOT_INVITE_ORIGIN && !isValidRemoteApiUrl(`${origin}/`)
-      ? origin
-      : undefined;
+    return protocol === "https:" && !isValidRemoteApiUrl(`${origin}/`) ? origin : undefined;
   } catch {
     return undefined;
   }
@@ -83,7 +79,7 @@ export function createInviteUrl(payload: InviteLinkPayload, options: InviteLinkO
   validatePayload(payload, options);
   // Our website does not open a self-hosted invitation, and must not receive its token.
   if (isSelfHostedApiUrl(new URL(payload.apiUrl), options)) return createOpenBotInviteUrl(payload, options);
-  const url = new URL(OPENBOT_INVITE_PATH, OPENBOT_INVITE_ORIGIN);
+  const url = new URL(OPENBOT_INVITE_PATH, OPENBOT_CONTROL_PLANE_ORIGIN);
   writePayload(url, payload);
   return url.toString();
 }
@@ -104,7 +100,7 @@ export function toOpenBotInviteUrl(value: string, options: InviteLinkOptions = {
  * same origin. The client removes them after it reads them and still asks before it joins.
  */
 export function createWebAppInvitePath(value: string, options: InviteLinkOptions = {}): string {
-  const url = new URL("/app", OPENBOT_INVITE_ORIGIN);
+  const url = new URL("/app", OPENBOT_CONTROL_PLANE_ORIGIN);
   writePayload(url, parseInviteUrl(value, options));
   return `${url.pathname}${url.search}`;
 }
@@ -119,7 +115,7 @@ export const WEB_APP_INVITE_FIELDS: readonly string[] = INVITE_FIELDS;
 export function inviteUrlFromWebAppSearch(search: string, options: InviteLinkOptions = {}): string | null {
   const params = new URLSearchParams(search);
   if (!INVITE_FIELDS.some((field) => params.has(field))) return null;
-  const url = new URL(OPENBOT_INVITE_PATH, OPENBOT_INVITE_ORIGIN);
+  const url = new URL(OPENBOT_INVITE_PATH, OPENBOT_CONTROL_PLANE_ORIGIN);
   for (const field of INVITE_FIELDS) for (const value of params.getAll(field)) url.searchParams.append(field, value);
   try {
     return createInviteUrl(parseInviteUrl(url.toString(), options), options);
@@ -132,7 +128,7 @@ export function isCanonicalInviteUrl(value: string, options: InviteLinkOptions =
   try {
     parseInviteUrl(value, options);
     const url = new URL(value);
-    return url.origin === OPENBOT_INVITE_ORIGIN && url.pathname === OPENBOT_INVITE_PATH;
+    return url.origin === OPENBOT_CONTROL_PLANE_ORIGIN && url.pathname === OPENBOT_INVITE_PATH;
   } catch {
     return false;
   }
@@ -147,14 +143,14 @@ export function parseInviteUrl(value: string, options: InviteLinkOptions = {}): 
   }
 
   const canonical =
-    url.protocol === "https:" && url.origin === OPENBOT_INVITE_ORIGIN && url.pathname === OPENBOT_INVITE_PATH;
+    url.protocol === "https:" && url.origin === OPENBOT_CONTROL_PLANE_ORIGIN && url.pathname === OPENBOT_INVITE_PATH;
   const customScheme =
     url.protocol === APP_URL_PROTOCOL && url.hostname === "join" && (url.pathname === "" || url.pathname === "/");
   if (
     (!canonical && !customScheme) ||
     url.username !== "" ||
     url.password !== "" ||
-    url.port !== "" ||
+    (!canonical && url.port !== "") ||
     url.hash !== "" ||
     !hasOnlyInviteFields(url.searchParams)
   ) {
@@ -189,9 +185,7 @@ export function isValidRemoteApiUrl(value: string, options: InviteLinkOptions = 
         isSelfHostedApiUrl(url, options) ||
         (url.protocol === "https:" &&
           url.port === "" &&
-          (url.origin === OPENBOT_CONTROL_PLANE_ORIGIN ||
-            TRY_CLOUDFLARE_HOST_PATTERN.test(url.hostname) ||
-            isOpenBotTeamApiHostname(url.hostname))))
+          (url.origin === OPENBOT_CONTROL_PLANE_ORIGIN || TRY_CLOUDFLARE_HOST_PATTERN.test(url.hostname))))
     );
   } catch {
     return false;

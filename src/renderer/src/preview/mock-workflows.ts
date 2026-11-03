@@ -29,7 +29,7 @@ import {
 import { sourceText } from "@openbot/i18n/source";
 import { nextValidRoutineOccurrence } from "@openbot/team-client/routine-schedule";
 
-const PREVIEW_HOOKS = "https://hooks.openbot.run/wf";
+const PREVIEW_HOOKS = "https://hooks.example.com/wf";
 
 /** The GitHub connection of the preview: two repositories, and the bot cannot change the second one. */
 const PREVIEW_GITHUB_CATALOG: WorkflowGitHubCatalog = {

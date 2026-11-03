@@ -1,9 +1,7 @@
 import type { ChannelSummary, HiddenAgent, SidebarLayoutSnapshot } from "@openbot/contracts/ipc";
 import type { AvatarMood } from "@openbot/ui/bloub-avatar";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
-import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
 import { SidebarMachineCard } from "@openbot/ui/features/sidebar/SidebarMachineCard";
-import { SidebarMobileAppCard } from "@openbot/ui/features/sidebar/SidebarMobileAppCard";
 import { SidebarStorageCard } from "@openbot/ui/features/sidebar/SidebarStorageCard";
 import { normalizeSidebarPinnedItems, type SidebarPinnedItem } from "@openbot/ui/features/sidebar/sidebar-pins";
 import { SIDEBAR_HIDDEN_GROUP_OPEN_ID, type SidebarAgentState } from "@openbot/ui/features/sidebar/sidebar-types";
@@ -262,16 +260,6 @@ export const ChatHistory: Story = {
       onForward: fn(),
     },
   },
-  decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
-};
-
-export const MobileAppCard: Story = {
-  args: { footer: <SidebarMobileAppCard onOpenInstall={fn()} onDismiss={fn()} /> },
-  decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
-};
-
-export const CommunityCard: Story = {
-  args: { footer: <SidebarCommunityCard onJoinDiscord={fn()} onFollowX={fn()} onDismiss={fn()} /> },
   decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
 };
 

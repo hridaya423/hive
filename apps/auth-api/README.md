@@ -53,9 +53,9 @@ Private Email SMTP is the primary delivery method. Use a separate app password.
 Do not use the mailbox password.
 
 Local development sends no email at all. Generated local defaults blank all five SMTP
-variables, which is what turns delivery off - `wrangler.jsonc` sets four of them
-in the top-level `vars` that local `vite dev` reads, and four out of five is the
-partial configuration `readSmtpConfig` rejects. The team-invitation endpoint then
+variables, which is what turns delivery off - `wrangler.jsonc` blanks four of them
+in the top-level `vars` that local `vite dev` reads, and a partial configuration is
+what `readSmtpConfig` rejects. The team-invitation endpoint then
 answers `503 email_delivery_not_configured`; login never reaches SMTP at all,
 because `AUTH_EXPOSE_DEVELOPMENT_CODE` returns its code in the API response. To
 exercise real delivery locally, put a full set in the ignored `.dev.vars` file:
@@ -63,9 +63,9 @@ exercise real delivery locally, put a full set in the ignored `.dev.vars` file:
 ```dotenv
 EMAIL_SMTP_HOST=mail.privateemail.com
 EMAIL_SMTP_PORT=465
-EMAIL_SMTP_USERNAME=hello@openbot.run
+EMAIL_SMTP_USERNAME=<MAILBOX_ADDRESS>
 EMAIL_SMTP_PASSWORD=<PRIVATE_EMAIL_APP_PASSWORD>
-EMAIL_FROM=hello@openbot.run
+EMAIL_FROM=<MAILBOX_ADDRESS>
 ```
 
 `bun run env:set:smtp` encrypts the app password into `.env.production` only.
@@ -134,7 +134,7 @@ The service applies limits per email, per IP, per challenge, and per resend.
 
 A deploy replaces every file under `/assets/`. Before a production deploy, CI and `bun run api:deploy`
 run `scripts/keep-previous-assets.ts`. It copies the files of the builds that were live in the last
-24 hours from `https://openbot.run` into the new build, so a tab that is open during a deploy can
+24 hours from the account service into the new build, so a tab that is open during a deploy can
 still load code. The site keeps the list of these files in `/asset-history.json`. When the list or a
 file cannot be read, the deploy continues with fewer files, and such a tab reloads when it next loads
 code.
@@ -173,7 +173,7 @@ Two optional variables spread hosts over more than one Signal machine. When both
 ticket names `REMOTE_SIGNAL_URL`, as before.
 
 - `REMOTE_SIGNAL_HOMES`: the Signal machines that a host can have as its home, as `id=url,id=url`,
-  for example `a=wss://signal-a.openbot.run/v1/signal,b=wss://signal-b.openbot.run/v1/signal`. An ID
+  for example `a=wss://signal-a.example.com/v1/signal,b=wss://signal-b.example.com/v1/signal`. An ID
   has 1 to 32 characters from `a-z`, `0-9` and `-`. A URL must use `wss:`, or `ws:` when
   `REMOTE_SIGNAL_URL` uses `ws:`. An invalid value makes each ticket request fail with
   `503 remote_not_configured`. A host ticket request with `signalHome: true` gets a home, which

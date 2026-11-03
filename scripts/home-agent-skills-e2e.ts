@@ -1,4 +1,4 @@
-// Every provider can use the skills in `~/.agents/skills` (nightly-labs/openbot#3204).
+// Every provider can use the skills in `~/.agents/skills`.
 // A temporary HOME holds two skills; `npx skills` also linked one of them into `~/.claude/skills`.
 // - The real Claude Agent SDK starts a stand-in Claude executable that records its arguments: the
 //   session gets an `agents` plugin with the skill that Claude does not read already.

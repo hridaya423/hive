@@ -1,4 +1,5 @@
 import { AppLogo } from "@openbot/brand";
+import { APP_URL_SCHEME } from "@openbot/contracts/app-url-scheme";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { isNeverExpiringInvite } from "@openbot/contracts/invite-links";
 import type { InvitePreview, JoinServerInput } from "@openbot/contracts/ipc";
@@ -35,7 +36,7 @@ interface JoinServerDialogProps {
 
 type DialogPhase = "idle" | "previewing" | "joining";
 
-const INVITE_URL_PLACEHOLDER = "https://openbot.run/join?…";
+const INVITE_URL_PLACEHOLDER = `${APP_URL_SCHEME}://join?…`;
 
 export function JoinServerDialog(props: JoinServerDialogProps) {
   const { t, errorDetails } = useText();

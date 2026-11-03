@@ -4,8 +4,6 @@ import {
   type InviteLinkOptions,
   inviteUseCount,
   isPermanentInvite,
-  OPENBOT_CONTROL_PLANE_ORIGIN,
-  OPENBOT_INVITE_ORIGIN,
   parseInviteUrl,
   selfHostedApiOrigin,
 } from "@openbot/contracts/invite-links";
@@ -287,7 +285,7 @@ export class RemoteTeamDirectoryClient {
         return yield* directoryFailure(sourceText("error.remote.permanentInviteNoEmail"));
       // Validate the URL before creating an invitation.
       const payload = {
-        apiUrl: yield* directoryDecode(() => this.#inviteApiUrl()),
+        apiUrl: yield* directoryDecode(() => new URL(this.#apiUrl).toString()),
         serverId: host.hostId,
         fingerprint: remoteHostFingerprint(host.devicePublicKey),
         token: "x".repeat(32),
@@ -430,18 +428,6 @@ export class RemoteTeamDirectoryClient {
     });
   }
 
-  /**
-   * The account service an invitation names. The public website serves the same Worker as
-   * `api.openbot.run`, but an invitation must name `api.openbot.run`: the desktop and mobile apps
-   * accept only that address.
-   */
-  #inviteApiUrl(): string {
-    const url = new URL(this.#apiUrl);
-    return this.#authentication.kind === "browser" && url.origin === OPENBOT_INVITE_ORIGIN
-      ? new URL(OPENBOT_CONTROL_PLANE_ORIGIN).toString()
-      : url.toString();
-  }
-
   endSession(sessionId: string): Effect.Effect<void, DirectoryFailure> {
     return Effect.gen({ self: this }, function* (): Effect.fn.Return<void, DirectoryFailure> {
       yield* this.#request(`/v2/remote/sessions/${encodeURIComponent(sessionId)}/end`, { method: "POST" });
@@ -453,12 +439,7 @@ export class RemoteTeamDirectoryClient {
       const invite = yield* directoryDecode(() => parseInviteUrl(inviteUrl, this.#inviteLinks));
       const inviteOrigin = new URL(invite.apiUrl).origin;
       const origin = new URL(this.#apiUrl).origin;
-      // These production origins serve the same account Worker. Requests still use this client's origin.
-      const publicWebsiteInvite =
-        this.#authentication.kind === "browser" &&
-        origin === "https://openbot.run" &&
-        inviteOrigin === "https://api.openbot.run";
-      if (inviteOrigin !== origin && !publicWebsiteInvite) {
+      if (inviteOrigin !== origin) {
         return yield* directoryFailure(sourceText("error.remote.inviteOtherService"));
       }
       const value = yield* this.#request("/v2/remote/invites/preview", {

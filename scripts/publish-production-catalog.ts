@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { FORK_CONFIG } from "@openbot/contracts/fork-config";
 import { isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { buildProductionCatalog } from "./build-production-catalog";
@@ -13,15 +14,15 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const authApiRoot = join(projectRoot, "apps", "auth-api");
 const executableSuffix = process.platform === "win32" ? ".exe" : "";
 const wrangler = join(projectRoot, "node_modules", ".bin", `wrangler${executableSuffix}`);
-const productionApiUrl = "https://api.openbot.run";
+const productionApiUrl = FORK_CONFIG.controlPlane.accountApiUrl;
 const productionDatabase = "openbot-auth";
 const productionBucket = "openbot-skills";
 const owner = {
   id: "openbot-production-catalog",
   identityKey: "openbot-production-catalog",
-  email: "catalog@openbot.run",
+  email: "catalog@example.com",
   name: "OpenBot",
-  avatarUrl: "https://openbot.run/icon-192x192.png",
+  avatarUrl: "",
 } as const;
 
 interface PublishedSkill {

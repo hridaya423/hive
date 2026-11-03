@@ -55,5 +55,4 @@ export const messages = defineMessages("mobile.app", {
   "mobile.app.update.group.security": "Security",
   "mobile.app.update.notesFailed": "The release notes could not load.",
   "mobile.app.update.notesEmpty": "There are no release notes for this version yet.",
-  "mobile.app.update.fullChangelog": "Full changelog",
 });

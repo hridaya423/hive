@@ -275,19 +275,11 @@ export function parseMacAutomationTargets(input: unknown): readonly MacAutomatio
 
 export function parseExternalDestination(input: unknown): ExternalDestination {
   if (
-    input !== "agent-setup" &&
     input !== "claude-install" &&
     input !== "hermes-install" &&
     input !== "copilot-install" &&
     input !== "opencode-install" &&
     input !== "opencode-auth" &&
-    input !== "feedback" &&
-    input !== "message" &&
-    input !== "changelog" &&
-    input !== "guides" &&
-    input !== "discord" &&
-    input !== "github" &&
-    input !== "x" &&
     input !== "grok-bot-export" &&
     input !== "mac-screen-recording"
   ) {

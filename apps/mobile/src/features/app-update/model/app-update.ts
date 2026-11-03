@@ -28,8 +28,6 @@ const IOS_STORE_WEB_URL = "https://apps.apple.com/app/id6807024266";
 const ANDROID_STORE_URL = "market://details?id=run.openbot.mobile";
 const ANDROID_STORE_WEB_URL = "https://play.google.com/store/apps/details?id=run.openbot.mobile";
 
-/** The public changelog, for when the notes cannot load. */
-export const MOBILE_CHANGELOG_URL = "https://openbot.run/changelog?platform=mobile";
 const NOTES_TIMEOUT_MS = 10_000;
 // The notes of a version do not change after the store has it.
 const NOTES_STALE_MS = 10 * 60_000;

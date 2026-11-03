@@ -9,13 +9,14 @@
 import { existsSync } from "node:fs";
 import { readdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { FORK_CONFIG } from "@openbot/contracts/fork-config";
 import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { Option, Schema } from "effect";
 
 const logger = createOpenBotLogger("keep-previous-assets");
 
 const ASSET_HISTORY_FILE = "asset-history.json";
-const PRODUCTION_ORIGIN = "https://openbot.run";
+const PRODUCTION_ORIGIN = FORK_CONFIG.controlPlane.accountApiUrl;
 /** A tab that stays open for longer than this after a deploy reloads when it next loads code. */
 const RETENTION_MS = 24 * 60 * 60 * 1000;
 /** A Workers static asset version holds at most 20,000 files. One build has about 850. */
