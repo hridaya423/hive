@@ -1,22 +1,9 @@
 import { Effect, Result } from "effect";
-import { routeRequest as routeHostedSiteRequest } from "../../../site-router/src/index";
 import { type AuthRetentionResult, pruneExpiredAuthData } from "./auth-data-retention";
-import { BillingSales } from "./billing-sales";
-import { captureBillingSnapshot } from "./billing-snapshots";
 import { canonicalHostRedirect, permanentTrailingSlashRedirect } from "./canonical-redirect";
 import { runApiEffect } from "./effect-runtime";
-import { createHostedBilling } from "./hosted-billing";
-import type { HostedServerBindings } from "./hosted-server-service";
-import { HostedSiteService } from "./hosted-site-service";
 import { enforceMarketplaceIngress, MarketplaceRateLimitError } from "./marketplace-request-policy";
-import { pageMarkdownResponse } from "./page-markdown";
-import {
-  deliverPendingRemoteAuthEvents,
-  type RemoteAuthEventBindings,
-  RemoteControlPlane,
-  type RemoteFailure,
-} from "./remote-control-plane";
-import { SalesAnalyticsDelivery } from "./sales-analytics-delivery";
+import { deliverPendingRemoteAuthEvents, type RemoteAuthEventBindings } from "./remote-control-plane";
 import { checkSignalEntry, SIGNAL_ENTRY_CRON, type SignalEntryBindings } from "./signal-entry-failover";
 import type { WorkerBindings } from "./types";
 
@@ -35,24 +22,14 @@ export function createWorkerHandler(
   return {
     async fetch(
       request: Request,
-      bindings: Pick<WorkerBindings, "MARKETPLACE_INGRESS_RATE_LIMITER"> &
-        Partial<
-          Pick<WorkerBindings, "SITES" | "SITE_LOCAL_ORIGIN" | "DB" | "OPENPANEL_CLIENT_ID" | "OPENPANEL_CLIENT_SECRET">
-        >,
+      bindings: Pick<WorkerBindings, "MARKETPLACE_INGRESS_RATE_LIMITER">,
       context?: WorkerExecutionContext,
     ) {
       const hostRedirect = canonicalHostRedirect(request);
       if (hostRedirect) return hostRedirect;
-      if (request.method === "GET" && new URL(request.url).pathname === "/billing/checkout-return") {
-        return runApiEffect(checkoutReturnResponse(request, bindings));
-      }
-      const earlyResponse = await runApiEffect(
-        Effect.gen(function* () {
-          const localSiteResponse = yield* serveLocalHostedSite(request, bindings);
-          if (localSiteResponse) return localSiteResponse;
-          yield* enforceMarketplaceIngress(request, bindings);
-          return null;
-        }).pipe(
+      const rateLimited = await runApiEffect(
+        enforceMarketplaceIngress(request, bindings).pipe(
+          Effect.as(null),
           Effect.catchIf(
             (error) => error instanceof MarketplaceRateLimitError,
             (error) =>
@@ -72,10 +49,7 @@ export function createWorkerHandler(
           ),
         ),
       );
-      if (earlyResponse) return earlyResponse;
-      // Drawn from the HTML pages, so it renders them through the same handler.
-      const markdown = await pageMarkdownResponse(request, fetchHandler);
-      if (markdown) return markdown;
+      if (rateLimited) return rateLimited;
       const response = Promise.resolve(fetchHandler(request)).then((result) =>
         permanentTrailingSlashRedirect(request, result),
       );
@@ -91,43 +65,23 @@ export function createWorkerHandler(
     },
     async scheduled(
       controller: Pick<ScheduledController, "scheduledTime"> & Partial<Pick<ScheduledController, "cron">>,
-      bindings: RemoteAuthEventBindings &
-        Partial<Pick<WorkerBindings, "SITES" | HostedServerTickBindingKey> & SignalEntryBindings>,
+      bindings: RemoteAuthEventBindings & Partial<SignalEntryBindings>,
     ) {
       if (controller.cron === SIGNAL_ENTRY_CRON) {
         await runSignalEntryCheck(bindings);
         return;
       }
       const now = controller.scheduledTime;
-      // Retention starts after the hosted server check; delivery and site cleanup run beside both.
-      const hostingThenRetention = Effect.gen(function* () {
-        const hostingResult = bindings.BOAT_API_KEY ? yield* tickHostedServers(bindings, now) : null;
-        if (hostingResult && Object.values(hostingResult).some(Boolean)) {
-          console.info("Hosted server check completed.", hostingResult);
-        }
-        return isDailyRetentionRun(now) ? yield* prune(bindings.DB, now) : null;
-      });
-      // Each job runs to its end, so a failure of one does not cut another. The first failure still
-      // fails the run.
-      const [retention, , sites] = await runApiEffect(
+      const [retention] = await runApiEffect(
         Effect.all(
           [
-            Effect.exit(hostingThenRetention),
+            Effect.exit(isDailyRetentionRun(now) ? prune(bindings.DB, now) : Effect.succeed(null)),
             Effect.exit(deliverRemoteAuthEvents(bindings, now)),
-            Effect.exit(
-              bindings.SITES ? new HostedSiteService(bindings.DB, bindings.SITES).cleanup(now) : Effect.succeed(null),
-            ),
-            Effect.exit(tickSalesAnalytics(bindings, now)),
           ],
           { concurrency: "unbounded" },
-        ).pipe(
-          Effect.flatMap(([retentionExit, deliveryExit, sitesExit, salesExit]) =>
-            Effect.all([retentionExit, deliveryExit, sitesExit, salesExit]),
-          ),
-        ),
+        ).pipe(Effect.flatMap(([retentionExit, deliveryExit]) => Effect.all([retentionExit, deliveryExit]))),
       );
       if (retention) log(retention);
-      if (sites) console.info("Hosted site cleanup completed.", sites);
     },
   } satisfies ExportedHandler<WorkerBindings>;
 }
@@ -144,148 +98,6 @@ async function runSignalEntryCheck(bindings: Partial<SignalEntryBindings>): Prom
   const check = result.success;
   if (check.status === "moved") console.warn("Signal entry moved.", check);
   else if (check.status === "kept" || check.status === "unknown") console.warn("Signal entry not changed.", check);
-}
-
-type SalesBindings = Pick<WorkerBindings, "DB"> &
-  Partial<Pick<WorkerBindings, "STRIPE_SECRET_KEY" | "OPENPANEL_CLIENT_ID" | "OPENPANEL_CLIENT_SECRET">>;
-
-const tickSalesAnalytics = Effect.fn("SalesAnalytics.tick")(function* (bindings: SalesBindings, now: number) {
-  if (!bindings.OPENPANEL_CLIENT_ID?.trim() || !bindings.OPENPANEL_CLIENT_SECRET?.trim()) return;
-  const options = {
-    database: bindings.DB,
-    clientId: bindings.OPENPANEL_CLIENT_ID,
-    clientSecret: bindings.OPENPANEL_CLIENT_SECRET,
-    fetch: (input: string, init: RequestInit) => fetch(input, init),
-  };
-  const payments = yield* Effect.exit(new BillingSales(options).processPending());
-  const snapshot = yield* Effect.exit(captureBillingSnapshot(bindings, now));
-  const result = yield* new SalesAnalyticsDelivery(options).drain();
-  console.info("Sales analytics delivery completed.", result);
-  yield* payments;
-  yield* snapshot;
-});
-
-const checkoutReturnResponse = Effect.fn("BillingSales.returnResponse")(function* (
-  request: Request,
-  bindings: Partial<SalesBindings>,
-) {
-  const url = new URL(request.url);
-  const token = url.searchParams.get("token");
-  // Only a server plan Checkout has a return token, so the fallback page names that kind.
-  let destination = "/billing/return?kind=plan";
-  if (token && bindings.DB && bindings.OPENPANEL_CLIENT_ID && bindings.OPENPANEL_CLIENT_SECRET) {
-    const sales = new BillingSales({
-      database: bindings.DB,
-      clientId: bindings.OPENPANEL_CLIENT_ID,
-      clientSecret: bindings.OPENPANEL_CLIENT_SECRET,
-      fetch: (input, init) => fetch(input, init),
-    });
-    destination =
-      (yield* sales.returned(token).pipe(
-        Effect.catch(() =>
-          Effect.sync(() => {
-            console.warn("Checkout return analytics failed.");
-            return null;
-          }),
-        ),
-      )) ?? destination;
-  }
-  // Stripe opens this endpoint only as the cancel URL of Checkout. The stored return URL already has
-  // the flag; the fallback page needs it too, so that it does not say that billing changed.
-  const location = new URL(destination, url.origin);
-  location.searchParams.set("cancelled", "1");
-  return new Response(null, {
-    status: 303,
-    headers: {
-      Location: location.href,
-      "Cache-Control": "no-store",
-      "Referrer-Policy": "no-referrer",
-    },
-  });
-});
-
-type HostedServerTickBindingKey =
-  | Exclude<keyof HostedServerBindings, "DB">
-  | "REMOTE_TICKET_PRIVATE_JWK"
-  | "REMOTE_TICKET_PUBLIC_JWKS"
-  | "REMOTE_TICKET_KEY_ID"
-  | "STRIPE_SECRET_KEY"
-  | "STRIPE_WEBHOOK_SECRET"
-  | "OPENPANEL_CLIENT_ID"
-  | "OPENPANEL_CLIENT_SECRET";
-
-function tickHostedServers(
-  bindings: RemoteAuthEventBindings & Partial<Pick<WorkerBindings, HostedServerTickBindingKey>>,
-  now: number,
-) {
-  // The check sends the queued auth events once, after its last change. A delivery reads the time when
-  // it starts, so it reads every event that the check queued.
-  let authEvents: Effect.Effect<void, RemoteFailure> | null = null;
-  const remote = new RemoteControlPlane(bindings, {
-    schedule: (delivery) => {
-      authEvents = delivery;
-    },
-  });
-  // The cron waits for the analytics sends and server start commands itself. They never reject.
-  const sends: Effect.Effect<void>[] = [];
-  return Effect.gen(function* () {
-    const result = yield* createHostedBilling(bindings, {
-      removeHost: (ownerUserId, hostId) => remote.deleteHost(ownerUserId, hostId),
-      planChanged: (hostId) => remote.planChanged(hostId),
-      licenseChanged: (userId) => remote.licenseChanged(userId),
-      schedule: (send) => sends.push(send),
-    }).hosting.tick(now);
-    return result;
-  }).pipe(
-    Effect.ensuring(
-      Effect.suspend(() =>
-        Effect.all(
-          [
-            ...sends,
-            // The next cron sends the events again.
-            (authEvents ?? Effect.void).pipe(
-              Effect.catch(() => Effect.sync(() => console.warn("Remote auth event delivery failed."))),
-            ),
-          ],
-          { concurrency: "unbounded", discard: true },
-        ),
-      ),
-    ),
-    Effect.catch(() =>
-      Effect.sync(() => {
-        console.warn("Hosted server check failed.");
-        return null;
-      }),
-    ),
-  );
-}
-
-function serveLocalHostedSite(
-  request: Request,
-  bindings: Partial<Pick<WorkerBindings, "SITES" | "SITE_LOCAL_ORIGIN">>,
-) {
-  if (!bindings.SITES || !bindings.SITE_LOCAL_ORIGIN) return Effect.succeed(null);
-  const requestUrl = new URL(request.url);
-  const configuredOrigin = new URL(bindings.SITE_LOCAL_ORIGIN);
-  const suffix = `.${configuredOrigin.hostname}`;
-  if (
-    requestUrl.protocol !== configuredOrigin.protocol ||
-    requestUrl.port !== configuredOrigin.port ||
-    !requestUrl.hostname.endsWith(suffix)
-  ) {
-    return Effect.succeed(null);
-  }
-  const label = requestUrl.hostname.slice(0, -suffix.length);
-  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u.test(label)) return Effect.succeed(null);
-  const hostedUrl = new URL(requestUrl);
-  hostedUrl.protocol = "https:";
-  hostedUrl.hostname = `${label}.openbot.site`;
-  hostedUrl.port = "";
-  return routeHostedSiteRequest(
-    new Request(hostedUrl, request),
-    { SITES: bindings.SITES, SITE_SERVE_ENABLED: "true", ACCOUNT_ORIGIN: configuredOrigin.origin },
-    Date.now(),
-  );
 }
 
 function isEmailSignInStart(request: Request): boolean {

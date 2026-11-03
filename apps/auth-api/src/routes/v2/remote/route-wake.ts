@@ -6,11 +6,9 @@ import { runApiResponse } from "../../../server/effect-runtime";
 import { JSON_BODY_LIMIT, readRequestBytes } from "../../../server/json-body";
 import {
   apiError,
-  hostedServerErrorResponse,
   json,
-  requestHostedServerService,
+  remoteControlPlaneErrorResponse,
   requestRemoteControlPlane,
-  schedule,
   verifyRemoteServiceRequest,
 } from "../../../server/request-auth";
 
@@ -29,9 +27,8 @@ const routeWakeSchema = z.object({
   wake: z.boolean(),
 });
 
-// Signal has a Slack, Discord or Telegram event for a route whose host has no socket. A hosted server
-// that sleeps starts with `wake`, and the answer tells Signal whether to keep the event until the host
-// connects.
+// Signal has a Slack, Discord or Telegram event for a route whose host has no socket. No host sleeps
+// and wakes, so the answer never asks Signal to keep the event.
 export const Route = createFileRoute("/v2/remote/route-wake")({
   server: {
     handlers: {
@@ -50,15 +47,9 @@ export const Route = createFileRoute("/v2/remote/route-wake")({
             }
             if (!parsed.success) return apiError(400, "invalid_route", "The route is invalid.");
             const hostId = yield* requestRemoteControlPlane().routeHost(parsed.data.route);
-            if (!hostId) return json({ hostId: null, state: "not_hosted" });
-            const hosting = requestHostedServerService();
-            const state = yield* hosting.routeState(hostId);
-            if (!parsed.data.wake || (state !== "sleeping" && state !== "starting")) return json({ hostId, state });
-            // Slack waits at most 3 seconds, and a resume can take longer: the start runs after the answer.
-            schedule(hosting.startForRoute(hostId));
-            return json({ hostId, state: "starting" });
+            return json({ hostId, state: "not_hosted" });
           }),
-          hostedServerErrorResponse,
+          remoteControlPlaneErrorResponse,
         ),
     },
   },

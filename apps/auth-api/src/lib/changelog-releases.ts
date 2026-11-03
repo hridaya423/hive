@@ -11,6 +11,3 @@ export const CHANGELOG_RELEASES: Readonly<Record<ChangelogPlatform, readonly Cha
   desktop: parseChangelog(changelogSource),
   mobile: parseChangelog(mobileChangelogSource, { anchorPrefix: "mobile-", stores: true }),
 };
-
-/** The date of the newest dated release, for the sitemap. */
-export const CHANGELOG_UPDATED_AT = CHANGELOG_RELEASES.desktop.find((release) => release.date)?.date ?? "";

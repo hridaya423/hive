@@ -4,20 +4,10 @@ import {
   AMBIGUOUS_DELIVERY_ERRORS,
   RATE_LIMITED_DELIVERY_ERROR,
   type SmtpEmailConfig,
-  sendPrivateContactMessage,
   sendPrivateEmailCode,
-  sendPrivateLicenseEmail,
   sendPrivateTeamInvite,
-  sendPrivateWelcomeEmail,
 } from "./smtp-email-delivery";
-import type {
-  ContactMessageDelivery,
-  EmailCodeDelivery,
-  LicenseEmailDelivery,
-  TeamInviteEmailDelivery,
-  WelcomeEmailDelivery,
-  WorkerBindings,
-} from "./types";
+import type { EmailCodeDelivery, TeamInviteEmailDelivery, WorkerBindings } from "./types";
 
 export class EmailDeliveryError extends Schema.TaggedError<EmailDeliveryError>()("EmailDeliveryError", {
   message: Schema.String,
@@ -30,7 +20,6 @@ export type EmailDeliveryBindings = Pick<
   | "EMAIL_SMTP_USERNAME"
   | "EMAIL_SMTP_PASSWORD"
   | "EMAIL_FROM"
-  | "EMAIL_LICENSE_FROM"
   | "EMAIL_RELAY"
   | "EMAIL_DELIVERY_WEBHOOK_URL"
   | "EMAIL_DELIVERY_WEBHOOK_SECRET"
@@ -77,36 +66,6 @@ export function createTeamInviteEmailDelivery(
 ): TeamInviteEmailDelivery | null {
   const smtp = readSmtpConfig(bindings);
   return smtp ? { send: (message) => tracked(analytics, "team_invite", sendPrivateTeamInvite(smtp, message)) } : null;
-}
-
-export function createContactMessageDelivery(
-  bindings: EmailDeliveryBindings,
-  analytics: AccountAnalytics,
-): ContactMessageDelivery | null {
-  const smtp = readSmtpConfig(bindings);
-  return smtp ? { send: (message) => tracked(analytics, "contact", sendPrivateContactMessage(smtp, message)) } : null;
-}
-
-export function createWelcomeEmailDelivery(
-  bindings: EmailDeliveryBindings,
-  analytics: AccountAnalytics,
-): WelcomeEmailDelivery | null {
-  const smtp = readSmtpConfig(bindings);
-  return smtp ? { send: (message) => tracked(analytics, "welcome", sendPrivateWelcomeEmail(smtp, message)) } : null;
-}
-
-/**
- * License emails go from `EMAIL_LICENSE_FROM` through the same SMTP account, so that account must be
- * allowed to send as it. An empty value uses `EMAIL_FROM`.
- */
-export function createLicenseEmailDelivery(
-  bindings: EmailDeliveryBindings,
-  analytics: AccountAnalytics,
-): LicenseEmailDelivery | null {
-  const smtp = readSmtpConfig(bindings);
-  if (!smtp) return null;
-  const config = { ...smtp, from: bindings.EMAIL_LICENSE_FROM?.trim() || smtp.from };
-  return { send: (message) => tracked(analytics, "license", sendPrivateLicenseEmail(config, message)) };
 }
 
 /**

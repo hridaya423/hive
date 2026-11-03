@@ -48,7 +48,7 @@ export function surfacesForFiles(files: string[]): VerificationSurface[] {
       surfaces.add("desktop");
     }
     if (file.startsWith("apps/mobile/")) surfaces.add("mobile");
-    if (file.startsWith("apps/auth-api/") || file.startsWith("apps/site-router/")) surfaces.add("api");
+    if (file.startsWith("apps/auth-api/")) surfaces.add("api");
     if (file.startsWith("remote/")) surfaces.add("remote");
     if (file.startsWith("packages/contracts/")) surfaces.add("contracts");
     if (file.startsWith("docs/") || file === "README.md") surfaces.add("docs");

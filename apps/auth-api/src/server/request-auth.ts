@@ -1,5 +1,4 @@
 import { env, waitUntil } from "cloudflare:workers";
-import { HOSTING_DEVELOPER_KEY_HEADER } from "@openbot/contracts/hosted-servers";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { Effect } from "effect";
 import { type AccountAnalytics, createAccountAnalytics } from "./account-analytics";
@@ -9,19 +8,11 @@ import { AgentMarketplace, AgentMarketplaceError } from "./agent-marketplace";
 import { AgentTemplates } from "./agent-templates";
 import { type FcmRelaySender, sharedFcmSender } from "./android-notification-relay";
 import { AuthOperationError, AuthService, AuthServiceError } from "./auth-service";
-import { BillingError, type BillingService } from "./billing-service";
-import type { ContactMessageServices } from "./contact-message";
 import { D1AuthRepository } from "./d1-auth-repository";
 import { DiscordAppError, DiscordAppService } from "./discord-app";
 import { runApiEffect } from "./effect-runtime";
-import { createContactMessageDelivery, createEmailCodeDelivery, createTeamInviteEmailDelivery } from "./email-delivery";
+import { createEmailCodeDelivery, createTeamInviteEmailDelivery } from "./email-delivery";
 import { GitHubInstallationTokens, GitHubInstallationTokensError } from "./github-installation-tokens";
-import { createHostedBilling } from "./hosted-billing";
-import { type HostedServerService, HostedServerServiceError } from "./hosted-server-service";
-import { HostedSiteInputError } from "./hosted-site-contract";
-import { enforceHostedSiteReportRateLimit as enforceReportRateLimit } from "./hosted-site-request-policy";
-import { adoptUnlinkedHostedSites, resolveHostedSiteScope } from "./hosted-site-server";
-import { HostedSiteService } from "./hosted-site-service";
 import { JsonBodyError } from "./json-body";
 import { type ApnsRelaySender, sharedApnsSender } from "./live-activity-relay";
 import { MarketplaceQueryError } from "./marketplace-pagination";
@@ -47,13 +38,7 @@ function accountAnalytics(bindings: WorkerBindings): AccountAnalytics {
     clientSecret: bindings.OPENPANEL_CLIENT_SECRET,
     fetch: (input, init) => fetch(input, init),
     schedule,
-    database: bindings.DB,
   });
-}
-
-export function requestAccountAttribution(): AccountAttribution {
-  const bindings = requireWorkerBindings(env);
-  return new AccountAttribution({ database: bindings.DB, analytics: accountAnalytics(bindings) });
 }
 
 export function requestAuthService(): AuthService {
@@ -88,56 +73,6 @@ export function requestAgentMarketplace(): AgentMarketplace {
 
 export function requestAgentTemplates(): AgentTemplates {
   return new AgentTemplates(requireWorkerBindings(env));
-}
-
-/** The sites that a signed-in `/v1/sites` request can see and change. See `resolveHostedSiteScope`. */
-export function requestHostedSiteScope(request: Request, userId: string) {
-  return resolveHostedSiteScope(requireWorkerBindings(env).DB, userId, request);
-}
-
-/** Moves the account's sites from before a self-hosted server registered into it. See `adoptUnlinkedHostedSites`. */
-export function requestAdoptUnlinkedHostedSites(userId: string, serverId: string) {
-  return adoptUnlinkedHostedSites(requireWorkerBindings(env).DB, userId, serverId, Date.now());
-}
-
-export function requestHostedSiteService(): HostedSiteService {
-  const bindings = requireWorkerBindings(env);
-  return new HostedSiteService(
-    bindings.DB,
-    bindings.SITES,
-    Date.now,
-    bindings.SITE_REPORT_HASH_SECRET,
-    bindings.SITE_LOCAL_ORIGIN,
-  );
-}
-
-/** The billing service, or null when this deployment has no Stripe key. */
-export function requestBillingService(): BillingService | null {
-  return requestHostedBilling().billing;
-}
-
-export function billingErrorResponse(error: unknown): Response {
-  if (error instanceof BillingError) return apiError(error.status, error.code, error.message);
-  return authErrorResponse(error);
-}
-
-export function requireSitePublishingEnabled(): void {
-  const bindings = requireWorkerBindings(env);
-  if (bindings.SITE_PUBLISH_ENABLED !== "true") {
-    throw new HostedSiteInputError(409, "publishing_disabled", "Site publishing is temporarily disabled.");
-  }
-  if (bindings.SITE_COOKIE_ISOLATION_READY !== "true") {
-    throw new HostedSiteInputError(
-      409,
-      "cookie_isolation_unavailable",
-      "Site publishing is disabled until openbot.site has public-suffix cookie isolation.",
-    );
-  }
-}
-
-export function hostedSiteErrorResponse(error: unknown): Response {
-  if (error instanceof HostedSiteInputError) return apiError(error.status, error.code, error.message);
-  return authErrorResponse(error);
 }
 
 /**
@@ -251,10 +186,6 @@ export function enforceMarketplaceMutationRateLimit(kind: MarketplaceMutationKin
   return enforceMarketplaceMutation(requireWorkerBindings(env), kind, principal);
 }
 
-export function enforceHostedSiteReportRateLimit(sourceIp: string) {
-  return enforceReportRateLimit(requireWorkerBindings(env), sourceIp);
-}
-
 export function marketplaceErrorResponse(error: unknown): Response {
   if (error instanceof AgentMarketplaceError) return apiError(error.status, error.code, error.message);
   return skillErrorResponse(error);
@@ -281,24 +212,6 @@ export const requireSkillsAdmin = Effect.fn("Auth.requireSkillsAdmin")(function*
   return yield* adminTokenMatches(requireWorkerBindings(env).SKILLS_ADMIN_TOKEN, bearerToken(request));
 });
 
-export const requireOperationsAdmin = Effect.fn("Auth.requireOperationsAdmin")(function* (request: Request) {
-  return yield* adminTokenMatches(requireWorkerBindings(env).SITE_OPERATIONS_ADMIN_TOKEN, bearerToken(request));
-});
-
-export const requireServerClaimsAdmin = Effect.fn("Auth.requireServerClaimsAdmin")(function* (request: Request) {
-  return yield* adminTokenMatches(requireWorkerBindings(env).SERVER_CLAIMS_ADMIN_TOKEN, bearerToken(request));
-});
-
-/** The limits and delivery of the site's contact form. */
-export function requestContactMessageServices(): ContactMessageServices {
-  const bindings = requireWorkerBindings(env);
-  return {
-    repository: new D1AuthRepository(bindings.DB),
-    now: () => Date.now(),
-    delivery: () => createContactMessageDelivery(bindings, accountAnalytics(bindings)),
-  };
-}
-
 export function requestTeamInviteEmailDelivery(): TeamInviteEmailDelivery | null {
   const bindings = requireWorkerBindings(env);
   return createTeamInviteEmailDelivery(bindings, accountAnalytics(bindings));
@@ -306,30 +219,6 @@ export function requestTeamInviteEmailDelivery(): TeamInviteEmailDelivery | null
 
 export function requestRemoteControlPlane(): RemoteControlPlane {
   return new RemoteControlPlane(requireWorkerBindings(env), { schedule });
-}
-
-/** Pass the request when the call checks who can create servers, so its developer key counts. */
-export function requestHostedServerService(request?: Request): HostedServerService {
-  return requestHostedBilling(request?.headers.get(HOSTING_DEVELOPER_KEY_HEADER) ?? null).hosting;
-}
-
-function requestHostedBilling(developerKey: string | null = null) {
-  const bindings = requireWorkerBindings(env);
-  const remote = new RemoteControlPlane(bindings, { schedule });
-  return createHostedBilling(bindings, {
-    removeHost: (ownerUserId, hostId) => remote.deleteHost(ownerUserId, hostId),
-    developerKey,
-    planChanged: (hostId) => remote.planChanged(hostId),
-    licenseChanged: (userId) => remote.licenseChanged(userId),
-    schedule,
-  });
-}
-
-export function hostedServerErrorResponse(error: unknown): Response {
-  if (error instanceof HostedServerServiceError) return apiError(error.status, error.code, error.message);
-  if (error instanceof BillingError) return apiError(error.status, error.code, error.message);
-  if (error instanceof HostedSiteInputError) return apiError(error.status, error.code, error.message);
-  return remoteControlPlaneErrorResponse(error);
 }
 
 export function verifyRemoteServiceRequest(request: Request, body: string) {
@@ -437,6 +326,6 @@ function errorType(error: unknown): string {
 }
 
 /** Starts background work in the active Worker invocation. */
-export function schedule<E>(work: Effect.Effect<void, E>): void {
+function schedule<E>(work: Effect.Effect<void, E>): void {
   waitUntil(runApiEffect(work));
 }

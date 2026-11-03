@@ -92,10 +92,6 @@ const config: KnipConfig = {
       // `cloudflare:workers` is a runtime module of the Workers platform, not an npm package.
       ignoreDependencies: ["cloudflare"],
     },
-    // The wrangler plugin of knip reads `main` from wrangler.jsonc.
-    "apps/site-router": {
-      project: ["src/**/*.ts"],
-    },
     "apps/mobile": {
       entry: [
         "src/app/**/*.{ts,tsx}",

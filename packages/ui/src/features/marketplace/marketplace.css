@@ -263,12 +263,6 @@ body:has(.skills-marketplace) :is(.integration-dialog-backdrop, .integration-wiz
   min-width: 0;
 }
 
-.marketplace-head {
-  display: flex;
-  align-items: center;
-  gap: var(--openbot-space-4);
-}
-
 .marketplace-command {
   overflow-wrap: anywhere;
   color: var(--openbot-text-primary);
@@ -1316,10 +1310,6 @@ html:active-view-transition-type(marketplace-swap)::view-transition-new(marketpl
 @media (max-width: 860px) {
   .skills-marketplace {
     --marketplace-inset: var(--openbot-space-4);
-  }
-
-  .marketplace-head {
-    flex-wrap: wrap;
   }
 }
 

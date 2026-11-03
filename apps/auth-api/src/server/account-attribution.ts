@@ -1,11 +1,8 @@
 import { FIRST_TOUCH_CAMPAIGN_FIELDS, type FirstTouch, parseFirstTouch } from "@openbot/contracts/first-touch";
 import { Effect, Schema } from "effect";
-import { safeScreenPath } from "../lib/analytics";
 import type { AccountAnalytics, AttributionSource } from "./account-analytics";
 
-/** A checkout older than this cannot name the first touch of its account. */
-const CHECKOUT_ATTRIBUTION_WINDOW_MS = 24 * 60 * 60_000;
-const CHECKOUT_SESSION_PATTERN = /^cs_[A-Za-z0-9_]{1,250}$/u;
+const LANDING_PAGES: readonly string[] = ["/", "/join"];
 
 const CAMPAIGN_COLUMNS = {
   utmSource: "utm_source",
@@ -34,11 +31,11 @@ export class AccountAttributionError extends Schema.TaggedError<AccountAttributi
 
 /**
  * A first touch from a browser request, or null. The landing page must be a screen the website
- * reports, so a client cannot store a path that the website itself would never send.
+ * serves, so a client cannot store a path that the website itself would never send.
  */
 export function requestFirstTouch(value: unknown): FirstTouch | null {
   const touch = parseFirstTouch(value);
-  return touch && safeScreenPath(touch.landingPage) === touch.landingPage ? touch : null;
+  return touch && LANDING_PAGES.includes(touch.landingPage) ? touch : null;
 }
 
 /**
@@ -91,26 +88,6 @@ export class AccountAttribution {
     const saved = result.meta.changes === 1;
     if (saved) this.#analytics.track(userId, { name: "account_attributed", via, firstTouch: touch });
     return saved;
-  }).bind(this);
-
-  /**
-   * Saves the first touch for the account of a recent Checkout Session. Only the browser that Stripe
-   * sent back knows the session ID, and only an account without a first touch changes.
-   */
-  readonly recordCheckout = Effect.fn("AccountAttribution.recordCheckout")(function* (
-    this: AccountAttribution,
-    sessionId: string,
-    touch: FirstTouch,
-  ): Effect.fn.Return<boolean, AccountAttributionError> {
-    if (!CHECKOUT_SESSION_PATTERN.test(sessionId)) return false;
-    const checkout = yield* d1(() =>
-      this.#database
-        .prepare("SELECT user_id FROM billing_sales_checkouts WHERE session_id = ? AND created_at > ?")
-        .bind(sessionId, this.#now() - CHECKOUT_ATTRIBUTION_WINDOW_MS)
-        .first<{ user_id: string }>(),
-    );
-    if (!checkout) return false;
-    return yield* this.record(checkout.user_id, touch, "checkout");
   }).bind(this);
 
   readonly read = Effect.fn("AccountAttribution.read")(function* (

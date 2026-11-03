@@ -61,7 +61,6 @@
         "@types/node": "catalog:",
         "@types/qrcode": "^1.5.6",
         "@types/ws": "8.18.2",
-        "axe-core": "4.14.0",
         "electron": "44.9.3",
         "electron-builder": "26.18.0",
         "electron-vite": "6.0.0",
@@ -87,8 +86,6 @@
         "@openbot/brand": "workspace:*",
         "@openbot/contracts": "workspace:*",
         "@openbot/ui": "workspace:*",
-        "@openpanel/web": "catalog:",
-        "@paper-design/shaders": "catalog:",
         "@solidjs/signals": "catalog:",
         "@solidjs/web": "catalog:",
         "@tanstack/solid-router": "2.0.0-rc.9",
@@ -205,38 +202,6 @@
         "@types/react-dom": "~19.3.0",
         "expo-device-hub": "0.18.0",
         "typescript": "catalog:",
-      },
-    },
-    "apps/site-router": {
-      "name": "@openbot/site-router",
-      "version": "0.0.0",
-      "dependencies": {
-        "@openbot/contracts": "workspace:*",
-        "effect": "catalog:",
-      },
-      "devDependencies": {
-        "@cloudflare/workers-types": "catalog:",
-        "typescript": "catalog:",
-        "wrangler": "catalog:",
-      },
-    },
-    "apps/status": {
-      "name": "@openbot/status",
-      "version": "0.0.0",
-      "dependencies": {
-        "@fontsource-variable/inter": "catalog:",
-        "@openbot/brand": "workspace:*",
-        "@openbot/logging": "workspace:*",
-        "@solidjs/web": "catalog:",
-        "effect": "catalog:",
-        "lucide-solid": "catalog:",
-        "solid-js": "2.0.0-rc.18",
-      },
-      "devDependencies": {
-        "@solidjs/vite-plugin": "catalog:",
-        "@types/node": "catalog:",
-        "typescript": "catalog:",
-        "vite": "catalog:",
       },
     },
     "packages/brand": {
@@ -1078,10 +1043,6 @@
     "@openbot/mobile": ["@openbot/mobile@workspace:apps/mobile"],
 
     "@openbot/remote-api": ["@openbot/remote-api@workspace:remote/api"],
-
-    "@openbot/site-router": ["@openbot/site-router@workspace:apps/site-router"],
-
-    "@openbot/status": ["@openbot/status@workspace:apps/status"],
 
     "@openbot/team-client": ["@openbot/team-client@workspace:packages/team-client"],
 

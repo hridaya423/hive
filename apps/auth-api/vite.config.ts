@@ -4,7 +4,6 @@ import solidPlugin from "@solidjs/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/solid-start/plugin/vite";
 import { defineConfig, normalizePath, type Plugin } from "vite";
-import { contentImages } from "./content-images";
 import { DEVELOPMENT_APNS_PATH, developmentApnsProxy } from "./dev-apns-proxy";
 import { developmentNetworkRequestAllowed } from "./dev-network-access";
 import { rendererPreviewAlias, rendererWebAlias } from "./renderer-preview-alias";
@@ -74,7 +73,6 @@ export default defineConfig(({ command }) => {
       // unsupported. Let Vite handle the final CSS bundle until that upstream
       // parser false positive is fixed.
       tailwindcss({ optimize: false }),
-      contentImages(),
     ],
   };
 });

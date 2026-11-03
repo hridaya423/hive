@@ -1,9 +1,8 @@
 // Runs the real account server delivery of the remote auth event outbox on a migrated SQLite database,
 // with a fake Signal (#2243). Drains that run at the same time must send each event once, one drain
 // sends at most 6 events at a time, a failed send waits with the backoff, a stopped drain keeps the
-// events that it sent, and the hosted server cron
-// sends the events of its deletes once, after the deletes, not inside each one. With two Signals,
-// each one gets each event once, and only the Signal that failed gets it again.
+// events that it sent. With two Signals, each one gets each event once, and only the Signal that
+// failed gets it again.
 //
 // Run: bun run test:remote-auth-events
 // It writes .openbot-build/remote-auth-events-e2e/report.json and exits non-zero on a failure.
@@ -12,7 +11,6 @@ import { join, resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { Effect, Fiber } from "effect";
 import { deliverPendingRemoteAuthEvents, verifyRemoteServiceSignature } from "../src/server/remote-control-plane";
-import { createWorkerHandler } from "../src/server/worker-handler";
 import { migratedDatabase, sqliteD1 } from "./sqlite-d1";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
@@ -209,112 +207,6 @@ async function aStoppedDrainKeepsTheSentEvents() {
   );
 }
 
-async function cronSendsTheEventsOfItsDeletesOnceAfterThem() {
-  const database = await migratedDatabase();
-  // Before the events of the check, so that the cron's own drain does not read them.
-  const now = Date.now() - 1_000;
-  database
-    .prepare("INSERT INTO users(id, identity_key, email, created_at, updated_at) VALUES (?, ?, ?, 1, 1)")
-    .run("owner", "email:owner@example.test", "owner@example.test");
-  for (const index of [1, 2]) {
-    const serverId = `server-${index}`;
-    const memberId = `member-${index}`;
-    database
-      .prepare("INSERT INTO users(id, identity_key, email, created_at, updated_at) VALUES (?, ?, ?, 1, 1)")
-      .run(memberId, `email:${memberId}@example.test`, `${memberId}@example.test`);
-    database
-      .prepare(
-        "INSERT INTO remote_hosts(host_id, owner_user_id, name, created_at, updated_at) VALUES (?, 'owner', 'Cloud server', 1, 1)",
-      )
-      .run(serverId);
-    database
-      .prepare(
-        `INSERT INTO remote_memberships(membership_id, host_id, user_id, role, created_at, updated_at)
-         VALUES (?, ?, ?, 'member', 1, 1)`,
-      )
-      .run(`membership-${index}`, serverId, memberId);
-    database
-      .prepare(
-        `INSERT INTO hosted_servers(
-           server_id, owner_user_id, name, provider_sandbox_id, size, plan, billing_interval, currency,
-           desired_state, observed_state, idempotency_key, created_at, updated_at
-         ) VALUES (?, 'owner', 'Cloud server', ?, 'default', 'standard', 'month', 'eur', 'deleted', 'running', ?, 1, 1)`,
-      )
-      .run(serverId, `bx_${index}`, `key-${index}`);
-  }
-  // Events of earlier requests, which the cron's own drain reads beside the hosted server check.
-  seedProfileEvents(database, 5, now);
-
-  const order: string[] = [];
-  const signal = fakeSignal(now);
-  signal.release();
-  const originalFetch = globalThis.fetch;
-  const routedFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input instanceof Request ? input.url : input);
-    if (url === SIGNAL_URL) {
-      order.push(`signal ${JSON.parse(String(init?.body)).type}`);
-      return signal.fetch(url, init ?? {});
-    }
-    if (url.startsWith("https://boat.dev/")) {
-      order.push(`boat ${init?.method ?? "GET"} ${new URL(url).pathname}`);
-      return Response.json({ ok: true });
-    }
-    throw new Error(`Unexpected request: ${url}`);
-  };
-  globalThis.fetch = Object.assign(routedFetch, { preconnect: originalFetch.preconnect });
-  const { publicKey, privateKey } = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, [
-    "sign",
-    "verify",
-  ]);
-  const publicJwk = await crypto.subtle.exportKey("jwk", publicKey);
-  const privateJwk = await crypto.subtle.exportKey("jwk", privateKey);
-  try {
-    await createWorkerHandler(() => new Response(null, { status: 404 })).scheduled(
-      // Not midnight, so the daily retention does not run.
-      { scheduledTime: now },
-      {
-        DB: sqliteD1(database),
-        REMOTE_AUTH_WEBHOOK_URL: SIGNAL_URL,
-        REMOTE_AUTH_WEBHOOK_SECRET: SECRET,
-        BOAT_API_KEY: "boat-key",
-        REMOTE_TICKET_PRIVATE_JWK: JSON.stringify({ ...privateJwk, kid: "ticket-1" }),
-        REMOTE_TICKET_PUBLIC_JWKS: JSON.stringify({ keys: [{ ...publicJwk, kid: "ticket-1" }] }),
-        REMOTE_TICKET_KEY_ID: "ticket-1",
-      },
-    );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-
-  const lastBoatDelete = order.findLastIndex((entry) => entry.startsWith("boat DELETE"));
-  const firstHostEvent = order.findIndex((entry) => entry.startsWith("signal") && !entry.endsWith("profile-changed"));
-  check("the cron deletes both sandboxes", order.filter((entry) => entry.startsWith("boat DELETE")).length === 2, {
-    order,
-  });
-  check(
-    "the cron sends the events of its deletes only after the last delete",
-    firstHostEvent > lastBoatDelete && lastBoatDelete >= 0,
-    { order },
-  );
-  check("the cron sends each event once", duplicates(signal.state.bodies).length === 0, {
-    duplicates: duplicates(signal.state.bodies),
-  });
-  // Per server: one auth epoch event and one servers event for its member.
-  check("the cron sends the 5 earlier events and the 4 events of its deletes", signal.state.bodies.length === 9, {
-    sends: signal.state.bodies.length,
-  });
-  check("the cron leaves no event in the outbox", remaining(database).length === 0, { remaining: remaining(database) });
-  const states = database
-    .prepare("SELECT observed_state FROM hosted_servers")
-    .all()
-    .map((row) => row.observed_state);
-  check(
-    "the cron finishes both deletes",
-    states.every((state) => state === "deleted"),
-    { states },
-  );
-}
-
 function pendingTargets(database: DatabaseSync) {
   return database
     .prepare("SELECT event_id, attempts, next_attempt_at, pending_targets FROM remote_auth_events ORDER BY event_id")
@@ -430,7 +322,6 @@ const scenarios = [
   parallelDrainsSendEachEventOnce,
   oneDrainSendsSixAtATimeAndBacksOff,
   aStoppedDrainKeepsTheSentEvents,
-  cronSendsTheEventsOfItsDeletesOnceAfterThem,
   eachSignalGetsEachEventAndOnlyTheFailedOneRetries,
 ];
 for (const scenario of scenarios) {
