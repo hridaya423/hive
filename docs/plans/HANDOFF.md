@@ -17,7 +17,7 @@ Implement the plan at `/Users/hridyaagrawal/honey/openbot/docs/plans/2026-11-03-
 - Codex on the MacBook is signed in with Hridya's ChatGPT plan. `~/.codex/config.toml` has `suppress_unstable_features_warning = true` (set on purpose).
 
 ## Ask Hridya (only these)
-Copilot browser sign-in (3.1, 3.3); second Codex account sign-in (4.1); a Firebase project for Android push (7.3); the Phase 5 fallback if the spike fails. Already answered: Android phone, Copilot Pro via GitHub Education, name Hive.
+Copilot browser sign-in (3.1, 3.3); second Codex account sign-in (4.1); the ntfy app on the phone (7.3); the Phase 5 fallback if the spike fails. Already answered: Android phone, Copilot Pro via GitHub Education, name Hive.
 
 ## Suggested skills
 - `handoff` (receive direction), then `executing-plans`.

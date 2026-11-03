@@ -60,7 +60,7 @@ Each decision is reversible unless marked. Change one only with a reason recorde
 | D5 | Multi-host = the mini is the single always-on host for routine agents. The MacBook joins it as a client and keeps its own local host for agents that need MacBook-only things. No two-host lease or database sync. | SQLite is the source of truth, and migrations are irreversible. A lease plus sync (Option B) risks both. Keep-awake does not survive a closed lid. [R-multihost §Options] | Remote execution from the mini onto the MacBook through MCP (Option C) |
 | D6 | Copilot is a **first-class provider** (not a custom agent): the user's own `copilot` CLI over ACP, copied from the Hermes driver, with sign-in, model picker, backup-model support and (if the spike allows) multiple accounts. No managed runtime download. Hridya's plan: **GitHub Copilot Pro through GitHub Education**. | `copilot --acp` exists (public preview since 2026-01-28). OpenBot never touches the credential (macOS keychain item `copilot-cli`). [R-copilot] | Copilot through OpenCode (R-copilot Option B) |
 | D7 | Fallback chains. Use the existing per-agent backup models and multi-account Codex. Add a host-wide default chain that every agent without its own chain uses, so one setting covers the crew. Close the failover gaps the code documents. | The machinery exists. What is missing is one place to set the chain, Copilot as a member, and failover on start failures. | none |
-| D8 | Phone push on **Android** through the private Worker's existing FCM relay, with Hridya's own Firebase project. No iOS work. | The Worker already sends Android notifications when it has `FCM_SERVICE_ACCOUNT` (`apps/auth-api/.env.example:37-38`). Upstream's `apps/mobile/google-services.json` belongs to nightly-labs' Firebase project and must be replaced. | Foreground-only (no Firebase) |
+| D8 | Phone notifications on **Android** through a self-hosted **ntfy** server on the mini, reachable only on the tailnet. The Hive host on the mini posts each notification to ntfy. The ntfy Android app (F-Droid or Play) subscribes to the topic and keeps its own connection, so neither Google Firebase nor the Worker relay is needed. A tap opens Hive through a `dev.hridaya.hive://` link. No iOS work. | No Google account, no Firebase file, no service-account key. Upstream's `apps/mobile/google-services.json` belongs to nightly-labs' Firebase project and is deleted. The host already takes the send step as an option (`send` in `src/main/push-notifications.ts:79-82`). | Firebase through the Worker's FCM relay (`apps/auth-api/src/server/android-notification-relay.ts`) |
 | D9 | English only. Delete the 12 other locales (about 164K lines, 91% of `packages/i18n`). | One user, smaller build, fewer parity checks. [R-commercial §7] | Restore from `upstream` |
 | D10 | Slack, Discord and Telegram stay off and their app code is deleted. | They need nightly-labs' own bot and app registrations. [R-accounts §5] | A personal Telegram bot later |
 | D11 | Upstream sync is selective. Record the base SHA in `progress.md`. Cherry-pick fixes. Never merge upstream wholesale after Phase 2. | After the deletions, a merge would conflict across hundreds of files. | none |
@@ -69,7 +69,7 @@ Each decision is reversible unless marked. Change one only with a reason recorde
 
 1. **Copilot browser sign-in** (Task 3.1) and, for a second Copilot account, a second GitHub login (Task 3.3).
 2. **Second Codex account sign-in** (Task 4.1). Name the ChatGPT account to use.
-3. **Firebase project** for Android push (Task 7.3). A free Google account is enough. Hridya creates it, or approves the agent creating it in Hridya's Google account.
+3. **ntfy app** on the phone (Task 7.3): install it and subscribe to the topic the agent gives.
 
 Answered on 2026-11-03: paid Apple account exists but the phone is Android (iOS is out of scope); Copilot plan is Pro via GitHub Education; the name is Hive.
 
@@ -82,7 +82,7 @@ Answered on 2026-11-03: paid Apple account exists but the phone is Android (iOS 
 | 3 | A real turn on a Copilot agent: picker shows Copilot models, the turn completes, the model chosen is the model used | All three | Any missing |
 | 4 | Agent with chain Codex#1 → Codex#2 → Copilot. Force a limit on Codex#1 (fake in e2e; for real, a revoked or spent account), then on Codex#2 | Agent moves #1 → #2 → Copilot with a note each time, and returns to #1 when the hold ends | Stalls, errors, or skips an entry |
 | 6 | Close the MacBook lid across a routine's due time, then read the run history on the mini. `pmset -g log` on the mini shows no sleep. | Run recorded at the due time | Missed run |
-| 7 | Android phone pairs with the mini by QR over Tailscale, sends a message, and gets a push notification with the app in the background | All three | Any missing |
+| 7 | Android phone pairs with the mini by QR over Tailscale, sends a message, and gets an ntfy notification with Hive closed | All three | Any missing |
 
 ---
 
@@ -266,7 +266,7 @@ Steps: move the types → typecheck → remove the calls → typecheck → delet
 
 ### Task 2.7: Worker shop code and marketing site
 
-**Files:** `apps/auth-api` routes for Stripe, licences, hosted servers, compare/marketing content (about 31K lines plus 35 MB of art), `apps/site-router`, `apps/status`. **Keep:** the D1 migration files, auth, sessions, hosts, tickets, memberships, invites, and the notification relay with its FCM sender (Phase 5 runs this Worker; Phase 7 uses the relay). The iOS APNs code may stay; it does nothing without a key. Delete `apps/slack-app`, `apps/discord-app` and `apps/telegram-app` (D10).
+**Files:** `apps/auth-api` routes for Stripe, licences, hosted servers, compare/marketing content (about 31K lines plus 35 MB of art), `apps/site-router`, `apps/status`. **Keep:** the D1 migration files, auth, sessions, hosts, tickets, memberships, invites, and the notification relay routes (Phase 5 runs this Worker). The relay stays unused: Phase 7 sends through ntfy, and the FCM and APNs senders do nothing without keys. Delete `apps/slack-app`, `apps/discord-app` and `apps/telegram-app` (D10).
 Steps: delete → `bun run typecheck:api` → `bun run test:api` → knip. Commit: `chore: strip the worker to auth and hosts`.
 
 ### Task 2.8: Repo furniture
@@ -410,7 +410,7 @@ Commit: `ops: control plane services on the mini`.
 
 ### Task 5.6: Phase 5 check and PRIVACY
 
-Run the Phase 5 and Phase 2 external checks (no `*.openbot.run` at all now). Rewrite `PRIVACY.md` to the real flows: the providers, visited pages, the mini, and Firebase for Android push after Phase 7. Commit.
+Run the Phase 5 and Phase 2 external checks (no `*.openbot.run` at all now). Rewrite `PRIVACY.md` to the real flows: the providers, visited pages, the mini, and the ntfy server on the mini after Phase 7. Commit.
 
 ---
 
@@ -451,13 +451,17 @@ Check: `bun run typecheck:mobile`. Commit: `feat(mobile): hive identity`.
 
 On `win-pc`: clone or sync the repo, `bun install --frozen-lockfile`, then `bun mobile:android` (debug, `scripts/mobile-android.ts`). Pair with a Hive desktop on the mini by QR (the emulator reaches the mini through the PC's Tailscale). Open an agent and send a message. Use T3 Device tools on `win-pc` for screenshots, and look at each screen.
 
-### Task 7.3: Push through Hridya's Firebase
+### Task 7.3: Notifications through ntfy on the mini
 
-**Files:** `apps/mobile/google-services.json` (new, from Hridya's Firebase project; it is client config, not a secret, but keep it out of any public repo), the Worker's `FCM_SERVICE_ACCOUNT` (envsync on the mini, `apps/auth-api/.env.example:37-38`).
-**Step 1:** Hridya creates a Firebase project with Android app `dev.hridaya.hive` and downloads `google-services.json` and a service-account key.
-**Step 2:** `envsync set FCM_SERVICE_ACCOUNT` on the mini; restart the Worker service (Task 5.5).
-**Step 3:** Rebuild on `win-pc`. Background the app on the emulator, finish a turn on the mini, and confirm a notification arrives. Check `bun scripts/push-notification-away-e2e.ts` still passes on the desktop side.
-**Step 4:** Commit: `feat(mobile): push through own firebase`.
+**Files:** `src/main/push-notifications.ts` (the `send` option, lines 79-82, and `#send`, lines 405-440), the place in `src/main/index.ts` that builds `PushNotificationService` (find with `git grep -n "new PushNotificationService" src/main`), host settings for the ntfy URL and topic, `PRIVACY.md`.
+
+Design: when the host has an ntfy URL and topic, it sends the plain title and body to ntfy with an HTTP `POST`, with a `Click` header that holds the `dev.hridaya.hive://` link to the agent. It keeps upstream's rules for who is away, levels per agent, and resend delays. Plain text is acceptable because ntfy, the host and the phone are all on Hridya's tailnet. Protect the topic with an ntfy access token. Keep the token in envsync (`envsync set HIVE_NTFY_TOKEN`), never in git.
+
+**Step 1:** On the mini, install ntfy (`brew install ntfy`). Run `ntfy serve` as a launchd service, bound to `127.0.0.1`, with `auth-default-access: deny-all`. Publish it with `tailscale serve`. Create one user and one token. Check with `curl -H "Authorization: Bearer $TOKEN" -d test https://<mini>.ts.net/<topic>` from the MacBook. The command must succeed, and the same command with no token must fail with 403.
+**Step 2: Failing test.** Extend `scripts/push-notification-away-e2e.ts` with a fake ntfy endpoint. The member is away and an agent finishes a turn. Expect one `POST` with the agent name as the title and the answer as the body. FAIL.
+**Step 3:** Implement the ntfy send. **Step 4:** PASS, with the existing away and level cases.
+**Step 5:** Hridya installs the ntfy app and subscribes to `https://<mini>.ts.net/<topic>` with the token, with instant delivery on. Lock the phone, finish a turn on the mini, and confirm that the notification arrives and a tap opens Hive on that agent.
+**Step 6:** Commit: `feat: notifications through ntfy`.
 
 ### Task 7.4: Release APK on the phone
 
@@ -470,4 +474,4 @@ Create a release keystore on `win-pc`; keep its password in envsync (`envsync se
 - **Order:** 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7. Phases 1 and 3 touch different files and can run in parallel worktrees (`git worktree add ../hive-phase1 personal`); merge 1 first. Phase 4 needs Phase 3 (Copilot in the chain). Phase 5 needs Phase 2. Phases 6 and 7 need Phase 5.
 - **After each phase:** use the `code-review` skill (thermo-nuclear mode) on the phase diff, then `code-deslop`. Record findings and fixes in `progress.md`.
 - **Visual checks:** after Phases 2, 3 and 4, look at the settings, provider and server-rail screens on the mini (`computer-use` skill). After Phase 7, look at the phone screens on `win-pc`. Record screenshot paths in `progress.md`.
-- **Stop and ask Hridya** only for: the Copilot and second Codex sign-ins, the Firebase project, the Phase 5 fallback choice, and any step that would touch `~/Library/Application Support/OpenBot` (the live upstream data).
+- **Stop and ask Hridya** only for: the Copilot and second Codex sign-ins, the Phase 5 fallback choice, the ntfy app on the phone, and any step that would touch `~/Library/Application Support/OpenBot` (the live upstream data).
