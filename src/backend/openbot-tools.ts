@@ -353,14 +353,12 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   },
   {
     name: "list_sections",
-    description:
-      "List sidebar sections (folders), their stable ids, and agent assignments before choosing message recipients or grouping agents.",
+    description: "List sidebar sections (folders), their ids and agent assignments.",
     shape: {},
   },
   {
     name: "create_section",
-    description:
-      "Create a sidebar section (folder) to group existing agents. List sections first and reuse an existing matching section.",
+    description: "Create a sidebar section (folder) to group agents. List sections first and reuse a match.",
     shape: createSectionToolSchema.shape,
   },
   {
@@ -370,12 +368,12 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   },
   {
     name: "delete_section",
-    description: "Delete a custom sidebar section without deleting its agents; its agents become ungrouped.",
+    description: "Delete a custom sidebar section. Its agents become ungrouped.",
     shape: deleteSectionToolSchema.shape,
   },
   {
     name: "assign_agent_section",
-    description: "Move an existing agent into a sidebar section. Pass null for sectionId to ungroup it.",
+    description: "Move an agent into a sidebar section. sectionId null ungroups it.",
     shape: assignAgentSectionToolSchema.shape,
   },
   {
@@ -387,55 +385,55 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "send_to_channel",
     description:
-      "Post a request into a channel when the user gives it work. Members do not see this conversation: write the whole brief. paths attaches local files. recipientAgentIds names members; without it, the lead chooses. No result comes back here. In a channel task, use channel_assign or channel_transfer.",
+      "Post a request into a channel when the user gives it work. Members do not see this chat: write the whole brief. paths attaches files; recipientAgentIds names members, else the lead chooses. No result comes back here.",
     shape: sendToChannelToolSchema.shape,
   },
   {
     name: "list_agents",
     description:
-      "List local OpenBot agents: name, title, description (first 300 characters; read_agent has all), progress: status (working, queued or ready), queuedMessages, turnStartedAt while working, lastActivityAt, and openWaits. To find the teammate for work outside your remit, match the work to titles and descriptions. OpenBot does not track which files an agent changed.",
+      "List local agents: name, title, description (first 300 characters), status (working, queued or ready), queuedMessages, turnStartedAt, lastActivityAt, openWaits. To find a teammate, match the work to titles and descriptions.",
     shape: {},
   },
   {
     name: "list_models",
     description:
-      "List the models each provider offers: id, name, reasoning efforts, and the default model that create_agent uses for a provider only. With no query, each provider lists its default, the models in use and its first models; omittedModels counts the rest. A provider with more than one account lists them: id, label and state, its own sign-in (id default) first. Read-only.",
+      "List the models of each provider: id, name, reasoning efforts, default model, and accounts (id, label, state). Without a query each provider lists its default, models in use and first models; omittedModels counts the rest. Read-only.",
     shape: listModelsToolSchema.shape,
   },
   {
     name: "interrupt_agent",
     description:
-      "Stop another agent's current turn when that turn works on your message, and cancel your requests still queued for it. The agent receives a notice from you with the reason. You cannot stop work that the user, a routine, a channel, or another agent started. To give new work, call send_message after this tool.",
+      "Stop another agent's current turn when it works on your message, and cancel your queued requests for it. The agent gets a notice with your reason. You cannot stop work that the user, a routine, a channel or another agent started.",
     shape: interruptAgentToolSchema.shape,
   },
   {
     name: "read_agent",
     description:
-      "Read the setup of one local OpenBot agent, or your own when you omit agentId: profile, provider, model, reasoning effort, account, backup models, the model it returns to after a usage limit or a provider error, access, Computer Use, notifications, auto-approve, installed skills, routines, and the MCP servers it gets. Read-only. Call it before you change another agent.",
+      "Read the setup of one agent, or your own: profile, provider, model, effort, account, backup models, access, Computer Use, notifications, auto-approve, skills, routines, MCP servers. Read-only. Call it before you change another agent.",
     shape: readAgentToolSchema.shape,
   },
   {
     name: "create_agent",
     description:
-      "Create a persistent local OpenBot agent when the user asks for a new teammate. Choose its profile from the user's request and supply its first task. The new agent gets your provider, model, and reasoning effort. Set provider, model, or reasoningEffort only when the user asks for different ones; call list_models first. Use update_profile for an existing agent. After it exists, add skills with install_local_skill and routines with create_routine as needed. A new agent gets your own access and Computer Use limits.",
+      "Create a persistent agent when the user asks for a new teammate. Take its profile from the request and give its first task. It gets your provider, model, effort, access and Computer Use limits; set provider, model or reasoningEffort only when the user asks for others (list_models first). Use update_profile for an existing agent.",
     shape: createAgentToolSchema.shape,
   },
   {
     name: "update_profile",
     description:
-      "Update a local OpenBot agent’s name, title, description, avatar, provider, model, reasoning effort, account, backup models, access, Computer Use, or notifications from the user’s request. You can restrict access to workspace and turn Computer Use off; only the user can widen them again. For an uploaded or local image, use avatarPath. Prepare a PNG, JPEG, or WebP copy up to 512 KB with your tools if needed. Call list_models before you change a model, an account, or the backup models. A new model applies from the agent's next turn. A provider or account change fails while the agent has a turn or queued messages; try again when it is ready. backupModels replaces the whole list. To give several agents the same settings, use update_agents.",
+      "Update an agent's name, title, description, avatar, provider, model, effort, account, backup models, access, Computer Use or notifications. You can restrict access and turn Computer Use off; only the user can widen them. Call list_models before you change a model, account or backup models. A provider or account change fails while the agent has a turn or queued messages. For several agents use update_agents.",
     shape: updateProfileToolSchema.shape,
   },
   {
     name: "update_agents",
     description:
-      "Give several local OpenBot agents the same provider, model, reasoning effort, access, Computer Use, or notifications setting in one call, from the user's request. Each agent gets the checks of update_profile and its own change, one after the other. A failure for one agent does not stop the others and does not undo the earlier changes. The result has updated and failed counts and, for each agent id, ok with its new settings or the error. A provider or model that list_models does not list fails the whole call. Tell the user which agents failed and why. You can restrict access to workspace and turn Computer Use off; only the user can widen them again. Call list_models before you change a model.",
+      "Give several agents the same provider, model, effort, access, Computer Use or notifications setting. Each agent gets the checks of update_profile; a failure for one does not stop or undo the others. Returns updated and failed counts and, per agent id, ok with the new settings or the error. Call list_models before you change a model.",
     shape: updateAgentsToolSchema.shape,
   },
   {
     name: "start_new_chat",
     description:
-      "Start a new chat for yourself when this chat is long and its earlier messages no longer matter, or when a routine asks for it. Each message then sends less context. Before you call it, keep what you need: use remember, or write notes to a file in your workspace. The user still sees the earlier messages; you do not. The new chat starts when this turn ends and your queue is empty. When a queued message runs in this chat first, the request ends; call it again if you still need it. It works only in your own chat, and only when the user allows it in your settings.",
+      "Start a new chat for yourself when this chat is long and its earlier messages no longer matter, or when a routine asks. Keep what you need first, with remember or a file in your workspace. The new chat starts when this turn ends and your queue is empty. Works only in your own chat, and only when the user allows it in your settings.",
     shape: {},
   },
   {
@@ -556,7 +554,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: START_TASK_TOOL,
     description:
-      "Start a task: a separate conversation of yours that runs beside this chat, with its own context, progress and stop. Use it only for long, independent work that the user asked for and that need not block this chat. The brief is the task's first message: write everything the task needs, because it does not see this chat. The task result stays in the task; you do not receive it. Only your own chat can start a task.",
+      "Start a task: a separate conversation of yours that runs beside this chat, with its own context, progress and stop. Use it only for long, independent work that the user asked for. The brief is its first message and must hold everything it needs. You do not receive its result. Only your own chat can start a task.",
     shape: startTaskToolSchema.shape,
   },
   ...MEMORY_RECALL_TOOL_DEFINITIONS,
@@ -660,7 +658,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "send_message",
     description:
-      "Queue an asynchronous message and optional local files for one or more OpenBot agents. When replying, pass the original message id as replyToMessageId. Set expectsReply false to pass information on without asking the recipient for an answer.",
+      "Queue an asynchronous message and optional files for one or more agents. Reply with replyToMessageId. Set expectsReply false to pass on information without asking for an answer.",
     shape: {
       recipientAgentIds: z.array(z.string()).min(1).max(32),
       text: z.string().min(1).max(100_000),
@@ -669,7 +667,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
       expectsReply: z
         .boolean()
         .describe(
-          "True, the default, for a request, question, or delegated task: the recipient answers you and OpenBot sends its result back. False for information the recipient may act on but must not answer, such as a status update, a heads-up, or your own reply to a task. A false message ends the exchange.",
+          "True (default) for a request or delegated task: the result comes back. False for information or your own reply; it ends the exchange.",
         )
         .optional(),
     },
