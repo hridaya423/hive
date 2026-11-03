@@ -17,11 +17,16 @@ export interface OnboardingProviderRows {
 
 /**
  * Whether the user has the provider already: it is connected, or its CLI is on the computer and
- * only the sign-in is missing. A download in progress does not count: the user started it from a
- * row, so that row is in `kept` already.
+ * only the sign-in is missing, or it is signed in and the account has no plan. A download in progress
+ * does not count: the user started it from a row, so that row is in `kept` already.
  */
 function userHasProvider(option: ProviderPickerOption): boolean {
-  return option.state === "available" || option.state === "sign-in-required" || option.state === "outdated";
+  return (
+    option.state === "available" ||
+    option.state === "sign-in-required" ||
+    option.state === "outdated" ||
+    option.planRequired === true
+  );
 }
 
 /**
