@@ -11,8 +11,10 @@ import {
   type ExportInstanceInput,
   type InstanceExportResult,
   type InstanceTransferPreview,
+  LOCAL_SERVER_ID,
   parseApplyInstanceTransferInput,
   parseExportInstanceInput,
+  parseMoveAgentInput,
   resolveRemoteInstanceTransferResult,
 } from "@openbot/contracts/ipc";
 import { TEAM_API_ROUTES } from "@openbot/contracts/team-api-routes";
@@ -25,19 +27,26 @@ import type { AppTranslate } from "@openbot/i18n";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
 import { app, type BrowserWindow, dialog, type OpenDialogOptions, type SaveDialogOptions, shell } from "electron";
+import type { AgentService } from "../../backend/agent-service";
 import { runCauseEffect } from "../../backend/effect-boundary";
+import type { SidebarLayoutStore } from "../../backend/sidebar-layout-store";
+import type { AgentHostSettingsService } from "../agent-host-settings";
+import { localMoveHost, type MoveHost, moveAgent, remoteMoveHost } from "../agent-move";
 import type { InstanceTransferService } from "../instance-transfer-service";
 import { decodeAgentSummaries } from "../remote-agent-decoding";
 import { AGENT_IMPORT_UPLOAD_TIMEOUT_MS, type RemoteServerManager } from "../remote-server-manager";
-import { handler, type IpcGroupHandlers } from "./define-ipc-group";
+import { handler, type IpcGroupHandlers, payloadHandler } from "./define-ipc-group";
 import { scopedHandler, scopedQueryHandler } from "./scoped-handler";
 import { stringPayload } from "./validation";
 
 export interface InstanceTransferIpcDependencies {
   instanceTransfer: InstanceTransferService;
+  service: AgentService;
+  hostSettings: AgentHostSettingsService;
+  sidebarLayout: SidebarLayoutStore;
   remoteServers: Pick<
     RemoteServerManager,
-    "supportsCapability" | "request" | "stageInstanceTransfer" | "downloadInstanceTransfer"
+    "supportsCapability" | "request" | "stageInstanceTransfer" | "downloadInstanceTransfer" | "list"
   >;
   getMainWindow: () => BrowserWindow | null;
   translate: AppTranslate;
@@ -45,6 +54,9 @@ export interface InstanceTransferIpcDependencies {
 
 export function instanceTransferIpcHandlers({
   instanceTransfer,
+  service,
+  hostSettings,
+  sidebarLayout,
   remoteServers,
   getMainWindow,
   translate,
@@ -133,8 +145,27 @@ export function instanceTransferIpcHandlers({
     );
   };
 
+  const moveHost = (serverId: string): MoveHost => {
+    if (serverId === LOCAL_SERVER_ID)
+      return localMoveHost({
+        name: translate("sidebar.topbar.localServer"),
+        agents: service,
+        hostSettings,
+        instanceTransfer,
+        sidebarLayout,
+      });
+    const name = remoteServers.list().find((server) => server.id === serverId)?.name ?? serverId;
+    return remoteMoveHost(remoteServers, serverId, name, {
+      uploadTimeoutMs: AGENT_IMPORT_UPLOAD_TIMEOUT_MS,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+  };
+
   return {
     instanceTransfer: {
+      moveAgent: payloadHandler(parseMoveAgentInput, ({ agentId, sourceServerId, targetServerId }) =>
+        runCauseEffect(moveAgent({ source: moveHost(sourceServerId), target: moveHost(targetServerId), agentId })),
+      ),
       summary: scopedQueryHandler({
         local: () => runCauseEffect(instanceTransfer.summary()),
         remote: async (serverId) => {

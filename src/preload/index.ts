@@ -49,6 +49,7 @@ import {
   decodeMcpSignInRelayPage,
   decodeMcpSignInStates,
   decodeMcpTestResult,
+  decodeMoveAgentResult,
   decodeOptionalMachineMetrics,
   decodeOptionalStorageDisk,
   decodeOptionalStorageUsage,
@@ -1115,6 +1116,7 @@ const openbotApi: OpenBotDesktopApi = {
     choose: decodeInstanceTransferPreview,
     apply: decodeInstanceTransferResult,
     discard: decodeVoid,
+    moveAgent: decodeMoveAgentResult,
   }),
   marketplaceAgents: bridgeGroup(IPC_ENDPOINTS.marketplaceAgents, {
     list: decodeMarketplaceAgentPage,

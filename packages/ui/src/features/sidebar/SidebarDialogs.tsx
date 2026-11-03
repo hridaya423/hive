@@ -5,6 +5,7 @@ import { Show } from "solid-js";
 import { useText } from "../../text";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { ChannelAvatar } from "../channels/ChannelAvatar";
+import { MoveAgentDialog } from "./MoveAgentDialog";
 import { useSidebarScope } from "./sidebar-scope";
 
 export function SidebarDialogs() {
@@ -16,8 +17,10 @@ export function SidebarDialogs() {
     deleteTarget,
     channelDeleteTarget,
     deleting,
+    moveAgentId,
     props,
     sectionDeleteTarget,
+    setMoveAgentId,
   } = useSidebarScope();
   const { t } = useText();
   const shared = {
@@ -30,8 +33,20 @@ export function SidebarDialogs() {
     onCancel: closeDelete,
   };
   // Each dialog unmounts with its target, so its text never shows an empty name while it closes.
+  const moveTarget = () => props.agents.find((agent) => agent.id === moveAgentId());
   return (
     <>
+      <Show when={moveTarget()}>
+        {(agent) => (
+          <MoveAgentDialog
+            agent={agent()}
+            targets={props.moveTargets ?? []}
+            onMove={(targetServerId) => props.onMoveAgent?.(agent().id, targetServerId) ?? Promise.resolve()}
+            onClose={() => setMoveAgentId(null)}
+          />
+        )}
+      </Show>
+
       <Show when={deleteTarget()}>
         {(agent) => (
           <ConfirmDialog

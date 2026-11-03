@@ -746,6 +746,9 @@ function registerIpcHandlers({
     }),
     ...instanceTransferIpcHandlers({
       instanceTransfer,
+      service,
+      hostSettings: agentHostSettings,
+      sidebarLayout,
       remoteServers,
       getMainWindow: getDialogParent,
       translate: language.translate,

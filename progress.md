@@ -336,3 +336,29 @@ Pass check: a MacBook run signs in against the mini and joins a host on the mini
 
 ### Task 5.6: PENDING (needs Phase 2 merged)
 Run the Phase 5 and Phase 2 external checks (15 minutes of `lsof` on a packaged Hive, plus `git grep -n "openbot\.run\|nightly-labs"`), rewrite `PRIVACY.md`, run `bun run test:invite-acceptance` and the other Worker e2e scripts that Task 2.4 postponed (they need Phase 2's code, not mine). Also check that `routeTree.gen.ts` regenerates cleanly after the merge, and run the cross-machine WebRTC check again with the packaged app (Phase 6.2).
+## Task 6.5: all hosts in one place, and agents that move (branch `phase/6-5`)
+
+### Design (decided, with evidence)
+- No new Team API capability. A move composes released capabilities: `instance-transfer-v1` (export, stage, apply, summary), `agent-backup-models-v1` (set) and `agent-hidden-v1` (hide the source). A new capability would duplicate frozen routes. The plan said "new optional capability"; this is the deviation, and the reason is that none is needed.
+- The source agent is hidden, not deleted. `agent-hidden-v1` keeps all data, stops its routines and refuses new messages: that is the read-only archive the plan asks for. The source routines that the released routine list shows are deleted, so a later restore cannot fire them twice.
+- MCP servers do not move: they are host-global rows (`docs/architecture/agents.md`, "MCP servers are host-global"), so the move leaves them alone. The plan listed them; this is the second deviation.
+- Orchestration is `src/main/agent-move.ts` (`moveAgent` over two `MoveHost`s: `localMoveHost`, `remoteMoveHost`), exposed as IPC `instanceTransfer.moveAgent` (`instance-transfer:move-agent`). Bytes never reach the renderer.
+
+### Step 3, test first
+- `scripts/agent-move-e2e.ts` (two real hosts: `AgentService`, SQLite, `TeamApiServer`, each on its own temp profile and loopback port; one joined over HTTP and one local).
+- FAIL before Step 2: `bun scripts/agent-move-e2e.ts` printed `Cannot find module '../src/main/agent-move'`.
+- PASS after Steps 1 and 2: `bun scripts/agent-move-e2e.ts` printed `PASS 7 steps` (report `.openbot-build/agent-move-e2e/report.json`). Steps: move A to B (A as this computer's server, B as a joined server over the Team API); routine on B, gone from A, armed on B only, workspace file arrived; routine runs on B and cannot on A; source agent hidden, other agent visible; a refused import leaves the source untouched; move back B to A.
+- Fix found while writing it: the joined-server routine list went through the frozen v1 codec before decoding. The e2e transport does the same for `/v1/agents/...` routes.
+
+### Steps 1 and 2 as built
+- Step 1: `src/renderer/src/features/servers/host-roster.tsx` reads the agents, runtime snapshot and unread counts of every connected non-active host, and follows `onScopedEvent` (`agents-changed`, `runtime-snapshot`; `conversation` triggers a 1 s debounced unread read). `packages/ui/.../SidebarHostAgentsGroup.tsx` is the "On other hosts" group. A row names its host and shows the state. One press calls `openAgentOnServer` (switch, then `pendingAgentSelection`).
+- Step 2: agent menu "Move to another host" opens `MoveAgentDialog`. It shows only when both hosts are this computer or a joined server with `instance-transfer-v1` and `agent-hidden-v1`, and the user is owner or admin.
+- Not done: the rows of the active host show no host chip (the top bar names the host). Other-host rows show it.
+
+### Step 4, visual check
+- Used Storybook on the mini, from my own clone `~/honey/hive-phase-6-5` (not `bun run dev`: it needs a second joined host and the account service, which Phase 5 provides). Stories: `Navigation/Sidebar/OtherHosts`, `Navigation/MoveAgentDialog` (OneHost, SeveralHosts, Failed). Headless Chrome screenshots on the mini, downloaded and viewed: list with host chips and states, agent menu with the new item, dialog (one host, several hosts, pending, failed).
+- The check found a bug the typecheck did not: the dialog story crashed (`reading 'name'`) without `SettledArgs`, and the dialog read `props.targets` untracked. Both fixed.
+- Not run: the real app with two hosts (needs Phase 5). The joined-host read path in `host-roster.tsx` and the IPC handler wiring in `instance-transfer-handlers.ts` are typechecked, and the move logic they call is covered by the e2e, but they have not run in Electron.
+
+### Checks run (MacBook, through the lock)
+`typecheck:contracts`, `typecheck:node`, `typecheck:renderer` exit 0; `biome check --write` on the changed files clean; `knip:check` exit 0 (after un-exporting two names); `i18n:check` exit 0 (new keys are English only: the check does not fail on untranslated keys); `vitest run src/main/ipc-channel-coverage.test.ts` 14 passed; the pre-commit hook (`check:ui`, all typechecks) passed.

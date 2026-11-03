@@ -577,6 +577,50 @@ export const HiddenAgentsOpen: Story = {
   decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
 };
 
+/** The agents of another joined host, with the host on each row. A row opens the agent on its host; the agent menu moves one. */
+export const OtherHosts: Story = {
+  args: {
+    layout: sectionedLayout,
+    pinnedItems: [],
+    otherHostAgents: [
+      {
+        serverId: "mini",
+        serverName: "Mac mini",
+        agent: {
+          ...sidebarAgents[0],
+          id: "booker",
+          name: "Badminton Booker",
+          title: "Court booker",
+          avatarSeed: "booker",
+        },
+        state: { kind: "routine", phase: "running", count: 1 },
+      },
+      {
+        serverId: "mini",
+        serverName: "Mac mini",
+        agent: {
+          ...sidebarAgents[1],
+          id: "sweep",
+          name: "Hackathon Sweep",
+          title: "Weekly sweep",
+          avatarSeed: "sweep",
+        },
+        state: { kind: "unread", count: 2 },
+      },
+      {
+        serverId: "mini",
+        serverName: "Mac mini",
+        agent: { ...sidebarAgents[2], id: "digest", name: "Morning Digest", title: "", avatarSeed: "digest" },
+        state: { kind: "working" },
+      },
+    ],
+    onSelectHostAgent: fn(),
+    moveTargets: [{ id: "mini", name: "Mac mini" }],
+    onMoveAgent: fn(() => new Promise<void>((resolve) => setTimeout(resolve, 1_500))),
+  },
+  decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],
+};
+
 export const SectionLongLabels: Story = {
   args: { layout: longSectionLayout, people: [], directThreads: [], pinnedItems: [] },
   decorators: [(Story) => <div style={{ width: "280px", height: "100vh" }}>{Story()}</div>],

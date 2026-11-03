@@ -128,6 +128,16 @@ const ServerSelection = createSimpleContext({
       setSkillsMarketplaceOpen(false);
     }
 
+    /** Switches to the agent's host and opens it there. Never rejects; the server list shows a failed switch. */
+    async function openAgentOnServer(serverId: string, agentId: string): Promise<void> {
+      try {
+        if (!(await selectServer(serverId, false))) return;
+      } catch {
+        return;
+      }
+      setPendingAgentSelection(agentId);
+    }
+
     async function openNotifiedAgent(event: NotificationOpenedEvent): Promise<void> {
       const onServer = servers().find((server) => server.active)?.id === event.serverId;
       if (!onServer && !(await selectServer(event.serverId))) return;
@@ -169,6 +179,7 @@ const ServerSelection = createSimpleContext({
       createLocalServer,
       joinRemoteDuringSetup,
       openInstalledMarketplaceAgent,
+      openAgentOnServer,
     };
   },
 });

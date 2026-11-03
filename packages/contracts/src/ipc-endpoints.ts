@@ -313,6 +313,8 @@ import type {
   InstanceTransferPreview,
   InstanceTransferResult,
   InstanceTransferSummary,
+  MoveAgentInput,
+  MoveAgentResult,
 } from "./ipc-instance-transfer";
 import type { LinkAccountStatus } from "./ipc-link-account";
 import type { MachineAlertSettings, MachineMetrics } from "./ipc-machine-resources";
@@ -1829,6 +1831,8 @@ export const IPC_ENDPOINTS = {
     choose: scopedQuery<InstanceTransferPreview | null, "required">()("instance-transfer:choose"),
     apply: scopedRequest<ApplyInstanceTransferInput, InstanceTransferResult, "required">()("instance-transfer:apply"),
     discard: scopedRequest<string, void, "required">()("instance-transfer:discard"),
+    /** Moves one agent between two servers, and hides the source copy once the target holds it. */
+    moveAgent: request<MoveAgentInput, MoveAgentResult>()("instance-transfer:move-agent"),
   },
   // The plugin deep link, its own group because its registrar holds the pending link rather than a
   // service. `takePendingListing` is what a window that finished loading after the link arrived

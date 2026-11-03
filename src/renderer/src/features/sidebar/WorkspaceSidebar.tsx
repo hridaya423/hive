@@ -26,9 +26,11 @@ import { useAgents } from "../agents/agents-context";
 import { useChannels } from "../channels/channels-context";
 import { useConversation } from "../conversation/conversation-context";
 import { useDirectMessages } from "../conversation/direct-messages-context";
+import { useHostRoster } from "../servers/host-roster";
 import { useServerActions } from "../servers/server-actions";
 import { serverRoleCanAdminister } from "../servers/server-capabilities";
 import { useServerScope } from "../servers/server-scope";
+import { useServerSelection } from "../servers/server-selection";
 import { useServerSettings } from "../servers/server-settings";
 import { serverUpdateBadge, showServerUpdate } from "../servers/server-update-flow";
 import { useServers } from "../servers/servers-context";
@@ -76,6 +78,9 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
   );
   const { openServerSettings, serverSettingsOpen } = useServerSettings();
   const serverActions = useServerActions();
+  const { openAgentOnServer } = useServerSelection();
+  const hostRoster = useHostRoster();
+  const localServerName = () => t("sidebar.topbar.localServer");
   const { openAppSettings, setSkillsMarketplaceOpen } = useSettings();
   const {
     agentList,
@@ -271,6 +276,10 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
       }
       view={layout.sidebarView()}
       serverName={activeServer()?.name ?? t("sidebar.topbar.localServer")}
+      otherHostAgents={hostRoster.hostAgents(localServerName())}
+      onSelectHostAgent={(serverId, agentId) => void openAgentOnServer(serverId, agentId)}
+      moveTargets={hostRoster.moveTargets(localServerName())}
+      onMoveAgent={(agentId, targetServerId) => hostRoster.moveAgent(agentId, activeServerId(), targetServerId)}
       onOpenServerSettings={(trigger) => {
         const server = activeServer();
         if (server) openServerSettings(server.id, trigger);
