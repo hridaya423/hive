@@ -73,8 +73,6 @@ export interface RoutinesPort {
   save: (input: RoutineSaveInput) => Promise<RoutineSaveResult>;
   remove: (routineId: string) => Promise<void>;
   test: (routineId: string) => Promise<void>;
-  /** Only for an agent on this computer that allows local scripts. */
-  runCommand?: (routineId: string) => Promise<string>;
   subscribe: (reload: () => void) => () => void;
   /** Webhook triggers and activity, for a host with event support. */
   events?: { owner: EventRoutineOwner; api: RoutineWebhooksApi };
@@ -101,7 +99,6 @@ export type AgentRoutinesApi = Pick<
 
 export function agentRoutinesPort(
   agentId: string,
-  automation = false,
   localHost = false,
   api: AgentRoutinesApi = window.openbot.agent,
 ): RoutinesPort {
@@ -127,9 +124,6 @@ export function agentRoutinesPort(
     test: async (routineId) => {
       await api.testRoutine({ agentId, routineId });
     },
-    ...(automation
-      ? { runCommand: (routineId: string) => window.openbot.agent.automationRunCommand({ agentId, routineId }) }
-      : {}),
     ...(localHost ? { results: agentRoutineResults(agentId) } : {}),
     subscribe: (reload) =>
       api.onEvent((event) => {
@@ -194,9 +188,9 @@ export function channelRoutinesPort(
 export function eventRoutinesPort(
   owner: EventRoutineOwner,
   api: EventRoutinesApi,
-  legacy: Pick<RoutinesPort, "listRuns" | "subscribe" | "runCommand" | "missedPolicy" | "onceSchedule" | "results">,
+  legacy: Pick<RoutinesPort, "listRuns" | "subscribe" | "missedPolicy" | "onceSchedule" | "results">,
 ): RoutinesPort {
-  const { runCommand, results } = legacy;
+  const { results } = legacy;
   const recoveryRuns = api.listRuns;
   const missedPolicyKept = legacy.missedPolicy || recoveryRuns !== undefined;
   return {
@@ -231,7 +225,6 @@ export function eventRoutinesPort(
       }),
     remove: (routineId) => api.deleteRoutine({ id: routineId, owner }),
     test: (routineId) => api.testRoutine({ id: routineId, owner }),
-    ...(runCommand ? { runCommand } : {}),
     ...(results ? { results } : {}),
     subscribe: legacy.subscribe,
   };

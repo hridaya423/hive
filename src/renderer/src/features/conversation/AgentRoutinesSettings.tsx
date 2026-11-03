@@ -36,7 +36,6 @@ import {
   SwitchField,
   Text,
   Textarea,
-  toast,
   Webhook,
 } from "@openbot/ui";
 import { createScrollFades } from "@openbot/ui/components/createScrollFades";
@@ -67,7 +66,6 @@ import { useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, createStore, For, onCleanup, Show, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
-import { writeClipboardText } from "../../clipboard";
 import { isEventRoutine, routineListSummary, routineScheduleOf } from "./routine-summary";
 import type { RoutineEditorRecord, RoutinesPort } from "./routines-port";
 
@@ -708,19 +706,6 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
     return events && id && savedWebhook() ? { api: events.api, routine: { id, owner: events.owner } } : undefined;
   };
 
-  async function copyRunCommand(): Promise<void> {
-    const routineId = draft()?.id;
-    const runCommand = props.port.runCommand;
-    if (!routineId || !runCommand) return;
-    setError(null);
-    try {
-      await writeClipboardText(await runCommand(routineId));
-      toast.success(t("routine.settings.runCommandCopied"));
-    } catch (caught) {
-      setError(errorMessage(caught, t("routine.settings.copyRunCommandFailed")));
-    }
-  }
-
   return (
     <div class="agent-routines-settings">
       <header class="settings-panel-header agent-routines-header">
@@ -869,11 +854,6 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
                       when={dirty()}
                       fallback={
                         <>
-                          <Show when={props.port.runCommand && current().id}>
-                            <Button variant="secondary" type="button" size="sm" onClick={() => void copyRunCommand()}>
-                              {t("routine.settings.copyRunCommand")}
-                            </Button>
-                          </Show>
                           <Button
                             type="button"
                             size="sm"

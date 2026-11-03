@@ -1,9 +1,7 @@
 import {
   type AgentBrowserProfile,
-  agentAutomationAllowed,
   agentNotificationLevelMap,
   assignedSkillCount,
-  DEFAULT_AGENT_DEFAULTS,
   type FilePreview,
   type ServerNotificationLevel,
 } from "@openbot/contracts/ipc";
@@ -194,7 +192,6 @@ export default function AgentSettingsPanel(props: AgentSettingsPanelProps) {
   const legacyRoutinesPort = createMemo(() =>
     agentRoutinesPort(
       props.agent.id,
-      props.localHost === true && agentAutomationAllowed(props.agent, props.agentDefaults ?? DEFAULT_AGENT_DEFAULTS),
       // Set only for the host on this computer, the one place the policy is kept.
       props.localHost === true,
       props.routines,
