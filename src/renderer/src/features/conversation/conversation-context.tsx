@@ -11,7 +11,6 @@ import { cleanAgentMessageText } from "@openbot/team-client/agent-message-text";
 import type { AgentMessage } from "@openbot/ui/data";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createMemo, createStore, onCleanup, untrack } from "solid-js";
-import { desktopAnalytics } from "../../analytics";
 import {
   agentMessagesEqual,
   formatMessageTime,
@@ -32,7 +31,6 @@ import { useChannels } from "../channels/channels-context";
 import { useServers } from "../servers/servers-context";
 import { notifyTeamTyping } from "../team/team-typing";
 import { useWindowPage } from "../window/window-page-context";
-import { takeAttachmentKinds } from "./attachment-analytics";
 import {
   agentConversationKey,
   agentMessageKey,
@@ -126,7 +124,6 @@ const Conversation = createSimpleContext({
       agentChatOpenRevision,
       setAgentChatOpenRevision,
       appendUiError,
-      analyticsAgentProperties,
       agentSetupOpen,
       explicitlyOpenedAgentChatId,
       uiErrors,
@@ -735,15 +732,8 @@ const Conversation = createSimpleContext({
       agentId: string,
       query: string,
     ): Promise<{ messageIds: string[]; total: number }> {
-      const analytics = desktopAnalytics.scope();
-      try {
-        const page = await conversationPort().agent.searchConversationMessages({ query, agentId, limit: 100 });
-        analytics.track("search_action", { scope: "agent", result: "succeeded", result_count: page.total });
-        return { messageIds: page.results.map((result) => result.message.id), total: page.total };
-      } catch (error) {
-        analytics.track("search_action", { scope: "agent", result: "failed", failure_code: "search_failed" });
-        throw error;
-      }
+      const page = await conversationPort().agent.searchConversationMessages({ query, agentId, limit: 100 });
+      return { messageIds: page.results.map((result) => result.message.id), total: page.total };
     }
 
     function pruneInactiveAgentHistory(agentId: string): void {
@@ -828,9 +818,6 @@ const Conversation = createSimpleContext({
       clientMessageId?: string,
       voiceRecordingDraftId?: string,
     ): Promise<SendMessageResult> {
-      const analytics = desktopAnalytics.scope();
-      const properties = analyticsAgentProperties(agentId);
-      const attachmentKinds = takeAttachmentKinds(attachmentDraftIds);
       try {
         const input = {
           agentId,
@@ -843,15 +830,6 @@ const Conversation = createSimpleContext({
         const receipt = await conversationPort().agent.sendMessage(input, serverId);
         const errorKey = agentConversationKey(serverId, agentId);
         setUiErrors((current) => ({ ...current, [errorKey]: [] }));
-        analytics.track("message_send", {
-          ...(properties ?? {}),
-          channel: "agent",
-          attachment_count: attachmentDraftIds.length,
-          attachment_kinds: attachmentKinds,
-          is_reply: replyToMessageId !== null,
-          result: "succeeded",
-          delivery_count: receipt.deliveries.length,
-        });
         noteAgentMessageSent();
         const messageId = receipt.deliveries[0]?.id ?? receipt.messageId;
         // The pending message does not wait for read state: it is the user's own message.
@@ -860,15 +838,6 @@ const Conversation = createSimpleContext({
         });
         return { messageId };
       } catch (error) {
-        analytics.track("message_send", {
-          ...(properties ?? {}),
-          channel: "agent",
-          attachment_count: attachmentDraftIds.length,
-          attachment_kinds: attachmentKinds,
-          is_reply: replyToMessageId !== null,
-          result: "failed",
-          failure_code: "send_failed",
-        });
         const { t, errorMessage } = currentText();
         return { error: errorMessage(error, t("chat.errorStatus.send")) };
       }

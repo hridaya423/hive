@@ -8,19 +8,16 @@ import {
 import { BROWSER_PROFILES_CAPABILITY } from "@openbot/contracts/team-protocol/browser-profiles-v1";
 import { VAULT_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v1";
 import { VAULT_V2_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v2";
-import { classifyFailure } from "@openbot/telemetry";
 import { isAgentAccount } from "@openbot/ui/components/provider-accounts";
 import type { AcpRegistrySettingsApi } from "@openbot/ui/features/custom-providers/AcpRegistrySettings";
 import type { CustomAgentSettingsApi } from "@openbot/ui/features/custom-providers/CustomAgentSettings";
 import { providerDiagnosticsText } from "@openbot/ui/features/provider-diagnostics/provider-diagnostics";
 import { LeaveServerDialog } from "@openbot/ui/features/servers/LeaveServerDialog";
 import { RestartServerDialog } from "@openbot/ui/features/servers/RestartServerDialog";
-import type { HostedSiteDeleteResult } from "@openbot/ui/features/settings/stores/hosted-sites-store";
 import { sidebarAgentOrder } from "@openbot/ui/features/sidebar/sidebar-agent-order";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createMemo, Loading, Show, untrack } from "solid-js";
 import { actionToast } from "./action-toast";
-import { desktopAnalytics } from "./analytics";
 import { appPort } from "./app-port";
 import { useAuth } from "./features/account/account-context";
 import { useAgents } from "./features/agents/agents-context";
@@ -336,9 +333,6 @@ function HostedUpsell(props: AccountProps) {
       host={upsellHost()}
       busy={(agentId) => Boolean(activeTurns()[agentId])}
       openPlans={() => setAddServerOpen(true, "upsell")}
-      track={(action, entryPoint) =>
-        desktopAnalytics.track("hosted_server_upsell", { action, entry_point: entryPoint })
-      }
     />
   );
 }
@@ -675,7 +669,6 @@ function ServerSettings() {
           ...{
             description: text.errorMessage(error, text.t("server.select.failedDescription")),
           },
-          report: { operation: "other", source: "action", cause_code: classifyFailure(error) },
         });
         openServerSettings(server.id, null, "providers");
       },
@@ -799,7 +792,6 @@ function ServerSettings() {
               ? {
                   api: appPort().hostedSites,
                   onOpenSite: (url) => void appPort().openUrl(url),
-                  trackDelete: trackHostedSiteDelete,
                   onSeePlans: canOfferServerPlans(server()) ? openServerPlans : undefined,
                 }
               : undefined
@@ -845,18 +837,6 @@ function ServerSettings() {
       )}
     </Show>
   );
-}
-
-/** The account that starts a deletion gets its result event, as the scope is taken at the start. */
-function trackHostedSiteDelete(): (result: HostedSiteDeleteResult) => void {
-  const analytics = desktopAnalytics.scope();
-  return (result) =>
-    analytics.track("hosted_site_action", {
-      action: "delete",
-      entry_point: "settings",
-      result,
-      ...(result === "failed" ? { failure_code: "delete_failed" } : {}),
-    });
 }
 
 /**

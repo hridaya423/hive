@@ -13,7 +13,6 @@ import type {
 } from "@openbot/ui/features/transfer/InstanceTransferView";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createStore } from "solid-js";
-import { desktopAnalytics } from "../../analytics";
 
 /** The transfer calls of one server. Main routes them to this computer or to a joined host. */
 export type ServerTransferCalls = OpenBotDesktopApi["instanceTransfer"];
@@ -85,10 +84,6 @@ export function createServerTransferStore(serverId: string, calls: ServerTransfe
       .export(options, serverId)
       .then((result) => {
         // A closed save dialog saves nothing.
-        desktopAnalytics.track("server_transfer_action", {
-          action: "export",
-          result: result.saved ? "succeeded" : "cancelled",
-        });
         setState((draft) => {
           draft.exportPhase = result.saved ? "saved" : "options";
           draft.exportFileName = result.fileName;
@@ -96,11 +91,6 @@ export function createServerTransferStore(serverId: string, calls: ServerTransfe
         });
       })
       .catch((error: unknown) => {
-        desktopAnalytics.track("server_transfer_action", {
-          action: "export",
-          result: "failed",
-          failure_code: "export_failed",
-        });
         setState((draft) => {
           draft.exportPhase = "options";
           draft.exportError = message(error, "settings.transfer.export.failed");
@@ -152,7 +142,6 @@ export function createServerTransferStore(serverId: string, calls: ServerTransfe
     void calls
       .apply({ token, keys, includeSettings }, serverId)
       .then((result) => {
-        desktopAnalytics.track("server_transfer_action", { action: "import", result: "succeeded" });
         setState((draft) => {
           draft.importPhase = "done";
           draft.preview = null;
@@ -160,11 +149,6 @@ export function createServerTransferStore(serverId: string, calls: ServerTransfe
         });
       })
       .catch((error: unknown) => {
-        desktopAnalytics.track("server_transfer_action", {
-          action: "import",
-          result: "failed",
-          failure_code: "import_failed",
-        });
         setState((draft) => {
           // The token is spent once main starts, so the file must be chosen again.
           draft.importPhase = "idle";
@@ -208,7 +192,5 @@ function message(
 
 function report(error: unknown): void {
   const { t, errorMessage } = currentText();
-  toast.error(errorMessage(error, t("settings.transfer.import.failed")), {
-    report: { operation: "settings", source: "system", cause_code: "unknown" },
-  });
+  toast.error(errorMessage(error, t("settings.transfer.import.failed")));
 }

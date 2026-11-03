@@ -59,7 +59,7 @@ import {
   Zap,
 } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Match, onSettled, Show, Switch, untrack } from "solid-js";
+import { createSignal, For, Match, onSettled, Show, Switch, untrack } from "solid-js";
 import { useText } from "../../text";
 import { guessHostedCurrency, HOSTED_BILLING_CURRENCY, HostedBillingSwitch } from "../servers/HostedServerPricing";
 import type { LicenseStore } from "./license-store";
@@ -214,10 +214,7 @@ export function LicenseSection(props: LicenseSectionProps): JSX.Element {
             {(license) => (
               <ConfirmDialog
                 open={cancelling()}
-                onCancel={() => {
-                  setCancelling(false);
-                  props.store.track("cancel_kept");
-                }}
+                onCancel={() => setCancelling(false)}
                 title={t("billing.license.cancel.title")}
                 description={<CancelDescription license={license()} />}
                 confirmLabel={t("billing.license.action.cancel")}
@@ -253,12 +250,6 @@ function LicenseAlerts(props: {
   onManagePayment: (() => void) | undefined;
 }): JSX.Element {
   const { t } = useText();
-  createEffect(
-    () => props.used > props.license.users,
-    (overLimit) => {
-      if (overLimit) props.store.track("over_limit_shown");
-    },
-  );
   return (
     <>
       <Show when={paymentFailed(props.license)}>
@@ -457,7 +448,6 @@ function LicenseOffer(props: {
     return license?.currentPeriodEnd ? { license, end: license.currentPeriodEnd } : null;
   };
   const owners = () => props.state.coveredBy.map((coverage) => coverage.ownerName ?? coverage.ownerEmail);
-  if (untrack(() => props.startBuying)) props.store.track("buy_opened");
   return (
     <ItemGroup class="billing-license-row">
       <Item>
@@ -521,10 +511,7 @@ function LicenseOffer(props: {
             size="sm"
             variant={owners().length > 0 ? "outline" : "default"}
             aria-haspopup="dialog"
-            onClick={() => {
-              setBuying(true);
-              props.store.track("buy_opened");
-            }}
+            onClick={() => setBuying(true)}
           >
             {t("billing.license.buy")}
           </Button>

@@ -4,7 +4,6 @@ import type { AppVariant, CentralAuthIssue, CentralAuthState } from "@openbot/co
 import { normalizeEmailAddress, normalizeOneTimeCode } from "@openbot/contracts/validation";
 import { ArrowLeft, Button, ErrorReference, Input, Lock, RefreshCw } from "@openbot/ui";
 import { errorReference, type UserErrorDetails } from "@openbot/user-errors";
-import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
 import { useText } from "../../text";
 import { OtpInput, type OtpInputStatus } from "./OtpInput";
@@ -16,10 +15,6 @@ interface AccountLoginProps {
   onRequestEmailCode: (email: string) => Promise<void>;
   onVerifyEmailCode: (challengeId: string, code: string) => Promise<void>;
   onReset: () => Promise<void>;
-  /** A choice under the send button, such as the analytics box of the web app. */
-  consent?: JSX.Element;
-  /** Fine print under the lock line, such as the Terms of Service notice of the web app. */
-  notice?: JSX.Element;
 }
 
 type PendingAction = "retry" | "send" | "check" | "verify" | "resend" | "reset";
@@ -478,7 +473,7 @@ export function AccountLogin(props: AccountLoginProps) {
                       aria-describedby={emailErrorActive() ? "account-email-error" : undefined}
                       autofocus
                       onBlur={() => {
-                        // An empty field is not wrong yet: the user can move to the analytics box first.
+                        // An empty field is not wrong yet: the user can move on to the next step first.
                         const value = untrack(email);
                         const validationError = value.trim() ? validateEmail(value) : null;
                         if (validationError) showEmailError(validationError);
@@ -526,14 +521,12 @@ export function AccountLogin(props: AccountLoginProps) {
                         : t("account.login.sendingCode")}
                     </Show>
                   </Button>
-                  {props.consent}
                   <div class="account-login-footer">
                     {/* The account is for sign-in only. A new user asks what leaves the computer. */}
                     <p class="account-login-local-data">
                       <Lock size={13} aria-hidden="true" />
                       {t("account.login.localData")}
                     </p>
-                    {props.notice}
                   </div>
                 </form>
               }

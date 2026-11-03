@@ -67,7 +67,6 @@ import { useText } from "@openbot/ui/text";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, createStore, For, onCleanup, Show, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
-import { type DesktopAnalyticsScope, desktopAnalytics } from "../../analytics";
 import { writeClipboardText } from "../../clipboard";
 import { HostedUpsellRoutinesNotice, hostedUpsellRoutineCreated } from "../servers/hosted-server-upsell-controller";
 import { isEventRoutine, routineListSummary, routineScheduleOf } from "./routine-summary";
@@ -498,9 +497,6 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
     const savingRevision = draftRevision;
     setSaving(true);
     setError(null);
-    const startedAt = performance.now();
-    const action = current.id ? "update" : "create";
-    const analytics = desktopAnalytics.scope();
     try {
       const result = await props.port.save({
         routineId: current.id,
@@ -534,12 +530,10 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
           state.secret = secret;
         });
       }
-      trackRoutineAction(analytics, action, current, startedAt, "succeeded");
-      if (action === "create" && saved.active) {
+      if (!current.id && saved.active) {
         hostedUpsellRoutineCreated({ id: saved.id, name: saved.name, agentId: null });
       }
     } catch (caught) {
-      trackRoutineAction(analytics, action, current, startedAt, "failed");
       setError(errorMessage(caught, t("routine.settings.saveFailed")));
     } finally {
       setSaving(false);
@@ -586,8 +580,6 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
       closeEditor();
       return;
     }
-    const startedAt = performance.now();
-    const analytics = desktopAnalytics.scope();
     setDeleting(true);
     setError(null);
     try {
@@ -598,9 +590,7 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
         return next;
       });
       closeEditor();
-      trackRoutineAction(analytics, "delete", current, startedAt, "succeeded");
     } catch (caught) {
-      trackRoutineAction(analytics, "delete", current, startedAt, "failed");
       setError(errorMessage(caught, t("routine.settings.deleteFailed")));
     } finally {
       setDeleting(false);
@@ -615,9 +605,6 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
     if (togglingIds().has(routine.id)) return;
     setTogglingIds((current) => new Set(current).add(routine.id));
     const schedule = routineScheduleOf(routine);
-    const tracked = { triggerKind: routineTriggerKind(routine), schedule };
-    const startedAt = performance.now();
-    const analytics = desktopAnalytics.scope();
     try {
       const { routine: saved } = await props.port.save({
         routineId: routine.id,
@@ -631,9 +618,7 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
         ...(routine.missedPolicy ? { missedPolicy: routine.missedPolicy } : {}),
       });
       setRoutines((items) => items.map((item) => (item.id === saved.id ? saved : item)));
-      trackRoutineAction(analytics, "update", tracked, startedAt, "succeeded");
     } catch (caught) {
-      trackRoutineAction(analytics, "update", tracked, startedAt, "failed");
       const fallback = active ? t("routine.settings.resumeFailed") : t("routine.settings.pauseFailed");
       actionToast.error(errorMessage(caught, fallback));
     } finally {
@@ -650,14 +635,10 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
     if (!current?.id || testing()) return;
     setTesting(true);
     setError(null);
-    const startedAt = performance.now();
-    const analytics = desktopAnalytics.scope();
     try {
       await props.port.test(current.id);
-      trackRoutineAction(analytics, "test", current, startedAt, "succeeded");
       await loadRuns(current.id);
     } catch (caught) {
-      trackRoutineAction(analytics, "test", current, startedAt, "failed");
       setError(errorMessage(caught, t("routine.settings.testFailed")));
     } finally {
       setTesting(false);
@@ -1213,20 +1194,4 @@ function validDraft(draft: RoutineDraft): boolean {
 
 function isBlankNewDraft(draft: RoutineDraft): boolean {
   return draft.id === null && draft.triggerKind === "schedule" && !draft.name.trim() && !draft.instruction.trim();
-}
-
-function trackRoutineAction(
-  analytics: DesktopAnalyticsScope,
-  action: "create" | "update" | "delete" | "test",
-  routine: Pick<RoutineDraft, "triggerKind" | "schedule">,
-  startedAt: number,
-  result: "succeeded" | "failed",
-): void {
-  analytics.track("routine_action", {
-    action,
-    trigger_type: routine.triggerKind === "webhook" ? "webhook" : routine.schedule.kind,
-    duration_ms: Math.max(0, Math.round(performance.now() - startedAt)),
-    result,
-    ...(result === "failed" ? { failure_code: `${action}_failed` } : {}),
-  });
 }

@@ -1,6 +1,5 @@
 import type { BrowserControlState, BrowserDisplayState, BrowserTab, ServerSummary } from "@openbot/contracts/ipc";
 import { createSignal } from "solid-js";
-import { desktopAnalytics } from "../../analytics";
 import { usePlatform } from "../../platform";
 import { createScopeGuard } from "../../scope-lifetime";
 import { createSimpleContext } from "../../simple-context";
@@ -93,18 +92,10 @@ const BrowserTabs = createSimpleContext({
     }
 
     function activateBrowserTab(tabId: string) {
-      const analytics = desktopAnalytics.scope();
       const operation = browserPort().browser.activate(tabId);
       browserTabActivationOperations.set(tabId, operation);
       void operation
-        .then(() => analytics.track("browser_action", { action: "activate", result: "succeeded" }))
-        .catch(() =>
-          analytics.track("browser_action", {
-            action: "activate",
-            result: "failed",
-            failure_code: "browser_activate_failed",
-          }),
-        )
+        .catch(() => undefined)
         .finally(() => {
           if (browserTabActivationOperations.get(tabId) === operation) {
             browserTabActivationOperations.delete(tabId);
@@ -113,28 +104,17 @@ const BrowserTabs = createSimpleContext({
     }
 
     async function closeBrowserTab(tabId: string) {
-      const analytics = desktopAnalytics.scope();
       const selectionIsCurrent = currentServerSelection();
-      try {
-        await browserTabActivationOperations.get(tabId)?.catch(() => undefined);
-        if (browserVisibilitySuspended() || !selectionIsCurrent() || !scopeIsCurrent()) {
-          return;
-        }
-        await browserPort().browser.close(tabId);
-        if (scopeIsCurrent()) {
-          browserChangeRevision += 1;
-          const next = browserTabsAfterClose(browserTabs(), tabId, activeBrowserTabId());
-          setBrowserTabs(next.tabs);
-          setActiveBrowserTabId(next.activeTabId);
-        }
-        analytics.track("browser_action", { action: "close", result: "succeeded" });
-      } catch (error) {
-        analytics.track("browser_action", {
-          action: "close",
-          result: "failed",
-          failure_code: "browser_close_failed",
-        });
-        throw error;
+      await browserTabActivationOperations.get(tabId)?.catch(() => undefined);
+      if (browserVisibilitySuspended() || !selectionIsCurrent() || !scopeIsCurrent()) {
+        return;
+      }
+      await browserPort().browser.close(tabId);
+      if (scopeIsCurrent()) {
+        browserChangeRevision += 1;
+        const next = browserTabsAfterClose(browserTabs(), tabId, activeBrowserTabId());
+        setBrowserTabs(next.tabs);
+        setActiveBrowserTabId(next.activeTabId);
       }
     }
 

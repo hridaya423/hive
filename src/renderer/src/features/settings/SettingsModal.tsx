@@ -43,7 +43,6 @@ import { createSettingsUpdatesStore } from "@openbot/ui/features/settings/stores
 import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { useI18n } from "../../i18n-context";
 import { ComputerUseSetup } from "../computer-use/ComputerUseSetup";
-import { licenseContactUs, trackLicenseEvent } from "./license-analytics";
 import { createNotificationLevelsStore } from "./notification-levels-store";
 import { createProfileActivityStore } from "./profile-activity-store";
 import { renderProfileShareImage } from "./profile-share-image";
@@ -148,7 +147,6 @@ export function SettingsModal(props: SettingsModalProps) {
   const license = createLicenseStore(
     () => props.licenseApi,
     () => props.open && activeTab() === "billing",
-    trackLicenseEvent,
   );
   const hostedServers = createSettingsHostedServersStore(props, () => activeTab() === "billing");
   const voice = createSettingsVoiceStore(() => props.open && activeTab() === "voice");
@@ -215,7 +213,7 @@ export function SettingsModal(props: SettingsModalProps) {
   /** Shown above the rows that the preference read fills, while those rows show default values. */
   const preferencesLoadError = () => (
     <Show when={props.preferencesLoadFailed}>
-      <Alert tone="danger" role="alert" report={{ operation: "settings", source: "system", cause_code: "unknown" }}>
+      <Alert tone="danger" role="alert">
         <AlertIcon>
           <TriangleAlert aria-hidden="true" />
         </AlertIcon>
@@ -368,7 +366,7 @@ export function SettingsModal(props: SettingsModalProps) {
               <LicenseSection
                 store={license}
                 onManagePayment={() => void billing.openPortal({ flow: "manage" })}
-                onContactUs={licenseContactUs(props.onContactUs)}
+                onContactUs={props.onContactUs}
               />
             }
           />

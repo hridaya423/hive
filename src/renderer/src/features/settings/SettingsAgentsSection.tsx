@@ -48,7 +48,6 @@ function showAgentSaveFailure(error: unknown): void {
   const { t, errorMessage } = currentText();
   actionToast.error(errorMessage(error, t("agent.error.settingsFailed")), {
     id: "settings-agent-defaults-save-failed",
-    report: { operation: "settings", source: "action", cause_code: "unknown" },
   });
 }
 
@@ -130,7 +129,6 @@ export function createSettingsAgentsSection(options: {
         const { t, errorMessage } = currentText();
         actionToast.error(errorMessage(error, t("settings.backgroundProcesses.stopFailed")), {
           id: "settings-background-process-stop-failed",
-          report: { operation: "settings", source: "action", cause_code: "unknown" },
         });
       })
       .finally(() => {

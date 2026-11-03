@@ -1,10 +1,8 @@
 import { DISCONNECTED_ONEPASSWORD_CONNECTOR, type OnePasswordConnectorStatus } from "@openbot/contracts/ipc";
-import { classifyFailure } from "@openbot/telemetry";
 import { currentText } from "@openbot/ui/text";
 import { createSignal } from "solid-js";
 import { actionToast } from "../../action-toast";
 import {
-  type ConnectorAnalyticsAction,
   type ConnectorController,
   createConnectorActions,
   createConnectorStatus,
@@ -27,12 +25,12 @@ export function createOnePasswordConnector(
   /** The joined server whose connection this is, or undefined for this computer's. */
   hostName?: () => string | undefined,
 ): ConnectorController {
-  const actions = createConnectorActions("connector.onePassword.actionFailed", "onepassword");
+  const actions = createConnectorActions("connector.onePassword.actionFailed");
   const [status, setStatus] = createSignal<OnePasswordConnectorStatus>(DISCONNECTED_ONEPASSWORD_CONNECTOR);
   const { read, statusError, show, reload } = createConnectorStatus(setStatus, port, actions.disposed);
 
-  const run = (action: () => Promise<OnePasswordConnectorStatus>, waits = true, track?: ConnectorAnalyticsAction) =>
-    actions.run(action, { waits, done: show, ...(track ? { track } : {}) });
+  const run = (action: () => Promise<OnePasswordConnectorStatus>, waits = true) =>
+    actions.run(action, { waits, done: show });
 
   // A failed check keeps the last status. The next focus or action checks again.
   const checkSetup = () => {
@@ -51,9 +49,7 @@ export function createOnePasswordConnector(
       .catch((error: unknown) => {
         if (actions.disposed()) return;
         const { t, errorMessage } = currentText();
-        actionToast.error(errorMessage(error, t("connector.onePassword.openAppFailed")), {
-          report: { operation: "other", source: "action", cause_code: classifyFailure(error) },
-        });
+        actionToast.error(errorMessage(error, t("connector.onePassword.openAppFailed")));
       });
   };
 
@@ -89,10 +85,10 @@ export function createOnePasswordConnector(
         onCheckSetup: checkSetup,
         onInstallCli: () => run(() => port().installCli()),
         onOpenApp: openApp,
-        onConnect: (accountId) => run(() => port().connect({ accountId }), true, "connect_started"),
-        onConnectWithToken: (token) => run(() => port().connectWithToken(token), true, "connected"),
+        onConnect: (accountId) => run(() => port().connect({ accountId })),
+        onConnectWithToken: (token) => run(() => port().connectWithToken(token)),
         onCancel: () => run(() => port().cancel(), false),
-        onDisconnect: () => run(() => port().disconnect(), true, "disconnected"),
+        onDisconnect: () => run(() => port().disconnect()),
       },
     },
   };

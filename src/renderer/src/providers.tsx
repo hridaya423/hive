@@ -15,12 +15,10 @@ import {
 import { PROVIDER_ACCOUNTS_CAPABILITY } from "@openbot/contracts/team-protocol/provider-accounts-v1";
 import { PROVIDER_SIGN_OUT_CAPABILITY } from "@openbot/contracts/team-protocol/provider-sign-out-v1";
 import { PROVIDER_USAGE_RESET_CAPABILITY } from "@openbot/contracts/team-protocol/provider-usage-reset-v1";
-import { classifyFailure } from "@openbot/telemetry";
 import { toast } from "@openbot/ui";
 import type { ProviderAccountActions } from "@openbot/ui/components/provider-accounts";
 import { currentText } from "@openbot/ui/text";
-import { createEffect, createMemo, createSignal, flush, onSettled } from "solid-js";
-import { type DesktopAnalyticsProperties, desktopAnalytics } from "./analytics";
+import { createEffect, createMemo, createSignal, flush } from "solid-js";
 import { appPort } from "./app-port";
 import { useAgents } from "./features/agents/agents-context";
 import { conversationPort } from "./features/conversation/conversation-port";
@@ -36,8 +34,6 @@ import { hostProviderKeyApi, providerKeyApi } from "./features/settings/provider
 import { usePlatform } from "./platform";
 import { providersPort } from "./providers-port";
 import { createSimpleContext } from "./simple-context";
-
-type ProviderConnectMethod = Extract<DesktopAnalyticsProperties<"provider_action">["method"], "browser" | "code">;
 
 /**
  * Coding providers (Codex, Claude, Grok) as two paths the renderer reconciles: managed
@@ -87,18 +83,7 @@ const Providers = createSimpleContext({
       return {
         ...api,
         readsClaudeKey: !serverId || hostReadsClaudeKey(),
-        setProviderApiKey: async (input: { provider: AgentProviderId; key: string }) => {
-          const analytics = desktopAnalytics.scope();
-          const tracked = { provider: input.provider, action: "api_key_saved", method: "api_key" } as const;
-          try {
-            const result = await api.setProviderApiKey(input);
-            analytics.track("provider_action", { ...tracked, result: "succeeded" });
-            return result;
-          } catch (error) {
-            analytics.track("provider_action", { ...tracked, result: "failed", failure_code: "update_failed" });
-            throw error;
-          }
-        },
+        setProviderApiKey: (input: { provider: AgentProviderId; key: string }) => api.setProviderApiKey(input),
       };
     });
     /** The host's own endpoints, for Settings and for the picker of a joined server. */
@@ -123,39 +108,8 @@ const Providers = createSimpleContext({
       // As for this computer's list: a failure leaves it empty, and nothing retries it from here.
       if (serverId) void hostCustomProviders.refreshCustomProviders().catch(() => undefined);
     });
-    /** Connect attempts still waiting for the status that says how they ended. */
-    const pendingProviderConnections = new Map<
-      AgentProviderId,
-      { analytics: ReturnType<typeof desktopAnalytics.scope>; method: ProviderConnectMethod }
-    >();
-    /**
-     * The status is the completion signal for every connect started here: main
-     * answers `connect()` before the provider has finished coming up, so the
-     * outcome arrives later, in a status this or an agent event applies.
-     */
+
     function applyAgentStatus(status: AgentStatus): void {
-      for (const provider of status.providers ?? []) {
-        const { analytics, method } = pendingProviderConnections.get(provider.id) ?? {};
-        if (!analytics) continue;
-        if (provider.state === "available") {
-          pendingProviderConnections.delete(provider.id);
-          analytics.track("provider_action", {
-            provider: provider.id,
-            action: "connect_completed",
-            result: "succeeded",
-            ...(method ? { method } : {}),
-          });
-        } else if (provider.state === "error") {
-          pendingProviderConnections.delete(provider.id);
-          analytics.track("provider_action", {
-            provider: provider.id,
-            action: "connect_completed",
-            result: "failed",
-            failure_code: "connect_failed",
-            ...(method ? { method } : {}),
-          });
-        }
-      }
       setAgentStatus(status);
     }
 
@@ -174,72 +128,24 @@ const Providers = createSimpleContext({
      * none of them leaves the user to read a documentation page and sign in in a terminal.
      */
     function connectProvider(provider: AgentProviderId): Promise<void> {
-      return startBrowserSignIn(provider, () => providersPort().connectProvider(provider));
+      return startBrowserSignIn(() => providersPort().connectProvider(provider));
     }
 
     /** Signs in on the provider's mainland China site, such as kimi.com, from the row's ⋯ menu. */
     function connectProviderInMainlandChina(provider: AgentProviderId): Promise<void> {
-      return startBrowserSignIn(provider, () => providersPort().connectProviderInMainlandChina(provider));
+      return startBrowserSignIn(() => providersPort().connectProviderInMainlandChina(provider));
     }
 
-    async function startBrowserSignIn(provider: AgentProviderId, start: () => Promise<AgentStatus>): Promise<void> {
+    async function startBrowserSignIn(start: () => Promise<AgentStatus>): Promise<void> {
       if (refreshingProviders()) return;
-      const analytics = beginProviderConnection(provider, "browser");
-      try {
-        const status = await start();
-        flush(() => applyAgentStatus(status));
-      } catch (error) {
-        endFailedProviderConnection(provider, analytics, "browser");
-        throw error;
-      }
+      const status = await start();
+      flush(() => applyAgentStatus(status));
     }
 
     /** Ends a browser sign-in that Connect started. The provider then shows its state from before. */
     async function cancelProviderSignIn(provider: AgentProviderId): Promise<void> {
-      dropProviderConnection(provider);
       const status = await providersPort().cancelProviderSignIn(provider);
       flush(() => applyAgentStatus(status));
-    }
-
-    /** Opens a connect attempt: the status that ends it is matched back to this scope by provider. */
-    function beginProviderConnection(provider: AgentProviderId, method: ProviderConnectMethod) {
-      const analytics = desktopAnalytics.scope();
-      pendingProviderConnections.set(provider, { analytics, method });
-      analytics.track("provider_action", {
-        provider,
-        action: "connect_started",
-        result: "succeeded",
-        method,
-      });
-      return analytics;
-    }
-
-    /** The user ended a sign-in that is still waiting. Its status then says nothing about the connect. */
-    function dropProviderConnection(provider: AgentProviderId): void {
-      const pending = pendingProviderConnections.get(provider);
-      if (!pending) return;
-      pendingProviderConnections.delete(provider);
-      pending.analytics.track("provider_action", {
-        provider,
-        action: "sign_in_cancelled",
-        result: "cancelled",
-        method: pending.method,
-      });
-    }
-
-    function endFailedProviderConnection(
-      provider: AgentProviderId,
-      analytics: ReturnType<typeof desktopAnalytics.scope>,
-      method: ProviderConnectMethod,
-    ): void {
-      pendingProviderConnections.delete(provider);
-      analytics.track("provider_action", {
-        provider,
-        action: "connect_completed",
-        result: "failed",
-        failure_code: "connect_failed",
-        method,
-      });
     }
 
     /** `automatic`: the app asks, not the user, so a provider OpenBot stopped starting stays stopped. */
@@ -247,19 +153,10 @@ const Providers = createSimpleContext({
       if (refreshingProviders() || agentStatus().phase === "starting" || agentStatus().phase === "restarting") {
         return;
       }
-      const analytics = desktopAnalytics.scope();
       setRefreshingProviders(true);
       try {
         const status = await providersPort().refreshAgentProviders(options);
         flush(() => applyAgentStatus(status));
-        analytics.track("provider_action", { action: "refresh", result: "succeeded" });
-      } catch (error) {
-        analytics.track("provider_action", {
-          action: "refresh",
-          result: "failed",
-          failure_code: "refresh_failed",
-        });
-        throw error;
       } finally {
         flush(() => setRefreshingProviders(false));
       }
@@ -383,16 +280,9 @@ const Providers = createSimpleContext({
         const title = t("app.provider.restartFailed", { name: agentProviderDescriptor(provider).displayName });
         toast.error(title, {
           ...{ description: errorMessage(error, title) },
-          report: { operation: "provider", source: "system", cause_code: classifyFailure(error) },
         });
       }
     }
-
-    onSettled(() => {
-      return () => {
-        pendingProviderConnections.clear();
-      };
-    });
 
     /**
      * An account sign-in on the host's page. The released status does not carry the accounts, so the
@@ -498,13 +388,6 @@ const Providers = createSimpleContext({
       connectInBrowser: connectProvider,
       connectInMainlandChina: connectProviderInMainlandChina,
       openVerificationUrl: (url) => void appPort().openUrl(url),
-      analytics: {
-        begin: (provider) => {
-          const analytics = beginProviderConnection(provider, "code");
-          return () => endFailedProviderConnection(provider, analytics, "code");
-        },
-        drop: dropProviderConnection,
-      },
     });
 
     return {

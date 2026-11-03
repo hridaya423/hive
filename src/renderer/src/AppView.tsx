@@ -7,7 +7,6 @@ import { SetupReadError } from "./features/onboarding/SetupReadError";
 import { useSetupProviderProps } from "./features/onboarding/setup-provider-props";
 import { useServerScope } from "./features/servers/server-scope";
 import { useServerSelection } from "./features/servers/server-selection";
-import { useSettings } from "./features/settings/settings-context";
 import { StartupSplash } from "./features/startup/StartupSplash";
 import { WhatsNewOverlay } from "./features/updates/WhatsNewOverlay";
 import { QuitShortcutHint } from "./features/window/QuitShortcutHint";
@@ -45,7 +44,6 @@ export function AppAccessGate() {
   // Setup actions run against this computer. The view waits for its first status before offering them.
   const setupProviders = useSetupProviderProps();
   const detection = useProviderDetection();
-  const settings = useSettings();
   const { joinRemoteDuringSetup } = useServerSelection();
   const started = () => setup.setupLoaded() && platform.appInfo() !== null;
   const [splashShown, setSplashShown] = createSignal(true);
@@ -89,12 +87,6 @@ export function AppAccessGate() {
                             }
                             platform={platform.appInfo()?.platform ?? "darwin"}
                             onSave={setup.saveSetup}
-                            onAnalyticsChoice={(enabled, chosen) =>
-                              settings.updateGeneralSettings(
-                                { ...settings.generalSettings(), productAnalytics: enabled },
-                                { analyticsChosen: chosen },
-                              )
-                            }
                             onProviderStepShown={detection.scanOnce}
                             logoVariant={platform.appInfo()?.variant ?? "production"}
                           />

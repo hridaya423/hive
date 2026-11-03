@@ -2,7 +2,6 @@ import { type BitwardenConnectorStatus, DISCONNECTED_BITWARDEN_CONNECTOR } from 
 import { createSignal } from "solid-js";
 import { type BitwardenConnectorPort, bitwardenConnectorPort } from "./bitwarden-connector-port";
 import {
-  type ConnectorAnalyticsAction,
   type ConnectorController,
   createConnectorActions,
   createConnectorStatus,
@@ -19,12 +18,11 @@ export function createBitwardenConnector(
   /** The joined server whose connection this is, or undefined for this computer's. */
   hostName?: () => string | undefined,
 ): ConnectorController {
-  const actions = createConnectorActions("connector.bitwarden.actionFailed", "bitwarden");
+  const actions = createConnectorActions("connector.bitwarden.actionFailed");
   const [status, setStatus] = createSignal<BitwardenConnectorStatus>(DISCONNECTED_BITWARDEN_CONNECTOR);
   const { read, statusError, show, reload } = createConnectorStatus(setStatus, port, actions.disposed);
 
-  const run = (action: () => Promise<BitwardenConnectorStatus>, track: ConnectorAnalyticsAction) =>
-    actions.run(action, { done: show, track });
+  const run = (action: () => Promise<BitwardenConnectorStatus>) => actions.run(action, { done: show });
 
   return {
     id: "bitwarden",
@@ -49,9 +47,9 @@ export function createBitwardenConnector(
           return hostName?.();
         },
         onRetry: reload,
-        onConnect: (key) => run(() => port().connect(key), "connected"),
-        onConnectHost: (input) => run(() => port().connectHost(input), "connected"),
-        onDisconnect: () => run(() => port().disconnect(), "disconnected"),
+        onConnect: (key) => run(() => port().connect(key)),
+        onConnectHost: (input) => run(() => port().connectHost(input)),
+        onDisconnect: () => run(() => port().disconnect()),
       },
     },
   };

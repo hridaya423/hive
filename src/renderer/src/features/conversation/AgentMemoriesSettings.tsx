@@ -5,7 +5,6 @@ import { AgentMemoriesView } from "@openbot/ui/features/conversation/AgentMemori
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
-import { desktopAnalytics } from "../../analytics";
 import type { MemoriesPort } from "./memories-port";
 
 interface AgentMemoriesSettingsProps {
@@ -113,21 +112,14 @@ export function AgentMemoriesSettings(props: AgentMemoriesSettingsProps) {
 
   async function createMemory(text: string): Promise<boolean> {
     if (reachedLimit() !== null) return false;
-    const analytics = desktopAnalytics.scope();
-    let operationSucceeded = false;
     setSavingId("new");
     setError(null);
     try {
       await props.port.create(text);
-      analytics.track("memory_action", { action: "create", result: "succeeded" });
-      operationSucceeded = true;
       // The editor closes after the reload, so the empty state does not show again for a moment.
       await loadMemories(false);
       return true;
     } catch (caught) {
-      if (!operationSucceeded) {
-        analytics.track("memory_action", { action: "create", result: "failed", failure_code: "create_failed" });
-      }
       setError(errorMessage(caught, t("memory.saveFailed")));
       return false;
     } finally {
@@ -136,20 +128,13 @@ export function AgentMemoriesSettings(props: AgentMemoriesSettingsProps) {
   }
 
   async function updateMemory(memory: MemoryEntry, text: string): Promise<boolean> {
-    const analytics = desktopAnalytics.scope();
-    let operationSucceeded = false;
     setSavingId(memory.id);
     setError(null);
     try {
       await props.port.update(memory.id, text);
-      analytics.track("memory_action", { action: "update", result: "succeeded" });
-      operationSucceeded = true;
       await loadMemories(false);
       return true;
     } catch (caught) {
-      if (!operationSucceeded) {
-        analytics.track("memory_action", { action: "update", result: "failed", failure_code: "update_failed" });
-      }
       setError(errorMessage(caught, t("memory.updateFailed")));
       return false;
     } finally {
@@ -164,7 +149,6 @@ export function AgentMemoriesSettings(props: AgentMemoriesSettingsProps) {
   function deleteMemory(memory: MemoryEntry): void {
     if (pendingDeletes.has(memory.id)) return;
     const port = props.port;
-    const analytics = desktopAnalytics.scope();
     const toastId = `memory-delete-${port.ownerId}-${memory.id}`;
     setError(null);
     setHidden(memory.id, true);
@@ -189,14 +173,12 @@ export function AgentMemoriesSettings(props: AgentMemoriesSettingsProps) {
       try {
         await port.remove(memory.id);
       } catch (caught) {
-        analytics.track("memory_action", { action: "delete", result: "failed", failure_code: "delete_failed" });
         setHidden(memory.id, false);
         const message = errorMessage(caught, t("memory.deleteFailed"));
         setError(message);
         actionToast.error(message);
         return;
       }
-      analytics.track("memory_action", { action: "delete", result: "succeeded" });
       await loadMemories(false);
     }
 
@@ -211,22 +193,15 @@ export function AgentMemoriesSettings(props: AgentMemoriesSettingsProps) {
   }
 
   async function clearMemories(): Promise<void> {
-    const analytics = desktopAnalytics.scope();
-    let operationSucceeded = false;
     setSavingId("clear");
     setError(null);
     try {
       await props.port.clear();
-      analytics.track("memory_action", { action: "clear", result: "succeeded" });
-      operationSucceeded = true;
       // The clear removed the memories that wait for their undo time too, so nothing is left to delete.
       for (const pending of [...pendingDeletes.values()]) pending.settle();
       setClearConfirmation(false);
       await loadMemories(false);
     } catch (caught) {
-      if (!operationSucceeded) {
-        analytics.track("memory_action", { action: "clear", result: "failed", failure_code: "clear_failed" });
-      }
       setError(errorMessage(caught, t("memory.clearFailed")));
     } finally {
       setSavingId(null);

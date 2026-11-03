@@ -1,7 +1,6 @@
 import { supportedAttachmentExtensions } from "@openbot/contracts/attachment-files";
 import { canPreviewAttachment } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import { classifyFailure } from "@openbot/telemetry";
 import { Input } from "@openbot/ui";
 import type { AgentMessage } from "@openbot/ui/data";
 import { ChatSearch } from "@openbot/ui/features/conversation/ChatSearch";
@@ -75,9 +74,7 @@ export function ConversationThread() {
   /** A failed answer shows here, where the person answered, and not in the agent's own chat. */
   const failureToast = (fallback: AppTextKey) => ({
     onError: (error: unknown) => {
-      actionToast.error(errorMessage(error, t(fallback)), {
-        report: { operation: "turn", source: "action", cause_code: classifyFailure(error) },
-      });
+      actionToast.error(errorMessage(error, t(fallback)));
     },
   });
   /** The takeover card, or its result, shows when the conversation's takeover is of this thread. */

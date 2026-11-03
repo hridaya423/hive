@@ -7,7 +7,6 @@ import {
 import type { HostedServerEntryPoint, HostedServerList, HostedServerSummary } from "@openbot/contracts/hosted-servers";
 import type { HostedServersDesktopApi, LicenseDesktopApi, ServerSummary } from "@openbot/contracts/ipc";
 import type { LicenseOrder, LicenseState, PricingOrder } from "@openbot/contracts/license";
-import { classifyFailure } from "@openbot/telemetry";
 import type {
   CreatedHostedServer,
   CreateHostedServerInput,
@@ -23,10 +22,7 @@ import {
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createStore, Loading, Show, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
-import { type DesktopAnalyticsProperties, desktopAnalytics } from "../../analytics";
 import { AddServerDialog } from "../../lazy-views";
-
-type PlansEvent = DesktopAnalyticsProperties<"hosted_server_plans_action">;
 
 /** How often the dialog reads the new server while it waits for the payment and the setup. */
 const SETUP_POLL_INTERVAL_MS = 3_000;
@@ -42,7 +38,7 @@ export interface AddServerResume {
 
 interface AddServerOverlayProps {
   open: boolean;
-  /** Where the user opened the plans. Analytics only. */
+  /** Where the user opened the plans. */
   entryPoint?: HostedServerEntryPoint | undefined;
   calls: AddServerCalls;
   /** The servers on the rail. The new server is ready when it shows here. */
@@ -163,13 +159,6 @@ function AddServerSession(
   const requestIds = untrack(() => props.requestIds);
   const resume = untrack(() => props.resume) ?? null;
   const entryPoint = untrack(() => props.entryPoint) ?? (resume ? "checkout_resume" : undefined);
-  const analytics = desktopAnalytics.scope();
-  const trackPlans = (action: PlansEvent["action"], properties: Omit<PlansEvent, "action" | "entry_point"> = {}) =>
-    analytics.track("hosted_server_plans_action", {
-      action,
-      ...properties,
-      ...(entryPoint ? { entry_point: entryPoint } : {}),
-    });
   /** A read can take longer than the poll interval. The next tick then skips, so reads do not overlap. */
   let refreshing = false;
 
@@ -208,15 +197,12 @@ function AddServerSession(
           HOSTED_CURRENCIES.find((currency) => HOSTED_BILLING_CURRENCY[currency] === licenseState?.currency) ?? null;
         draft.order = resume ? null : dialogOrderOf(untrack(() => props.order) ?? null, licenseState);
       });
-      trackPlans("viewed");
-      if (serverLimit() !== null) analytics.track("limit_reached", { kind: "servers", action: "shown" });
     } catch (error) {
       const text = currentText();
       const title = text.t("settings.hostedServers.loadFailed");
       actionToast.error(title, {
         error,
         fallback: title,
-        report: { operation: "team", source: "action", cause_code: classifyFailure(error) },
       });
       if (resume) props.onPendingResume(resume);
       props.onClose();
@@ -313,7 +299,6 @@ function AddServerSession(
       : `${plan}:${interval}:${currency}`;
     const key = requestIds.get(choice) ?? { requestId: crypto.randomUUID(), serverId: null };
     requestIds.set(choice, key);
-    trackPlans("plan_selected", { plan, interval, currency });
     const server = await props.calls
       .create({
         name: nextName(),
@@ -326,8 +311,6 @@ function AddServerSession(
       })
       .catch(async (error: unknown) => {
         await refreshCount();
-        trackPlans("create_failed", { plan, interval, currency, failure_code: "create_failed" });
-        if (serverLimit() !== null) analytics.track("limit_reached", { kind: "servers", action: "shown" });
         throw error;
       });
     key.serverId = server.serverId;
@@ -341,10 +324,7 @@ function AddServerSession(
   async function openPayment(): Promise<void> {
     const serverId = state.server?.serverId;
     if (!serverId) return;
-    const server = await props.calls.openCheckout(serverId).catch((error: unknown) => {
-      trackPlans("payment_open_failed", { failure_code: "payment_open_failed" });
-      throw error;
-    });
+    const server = await props.calls.openCheckout(serverId);
     setState((draft) => {
       draft.server = server;
     });
@@ -353,7 +333,6 @@ function AddServerSession(
   async function retry(): Promise<void> {
     const serverId = state.server?.serverId;
     if (!serverId) return;
-    trackPlans("retried");
     try {
       const server = await props.calls.wake(serverId);
       setState((draft) => {
@@ -365,7 +344,6 @@ function AddServerSession(
       actionToast.error(title, {
         error,
         fallback: title,
-        report: { operation: "team", source: "action", cause_code: classifyFailure(error) },
       });
     }
   }
@@ -383,37 +361,12 @@ function AddServerSession(
             order={state.order ?? undefined}
             setupStatus={setupStatus()}
             serverLimit={serverLimit()}
-            onManageServers={
-              props.onManageServers &&
-              (() => {
-                analytics.track("limit_reached", { kind: "servers", action: "manage_clicked" });
-                props.onManageServers?.();
-              })
-            }
+            onManageServers={props.onManageServers}
             resume={state.server ? { serverId: state.server.serverId, name: state.server.name } : undefined}
-            onClose={() => {
-              trackPlans("closed");
-              props.onClose();
-            }}
-            onContactUs={
-              props.onContactUs &&
-              (() => {
-                analytics.track("sales_contact_clicked", { entry_point: "add_server" });
-                props.onContactUs?.();
-              })
-            }
-            onJoinWithInvite={
-              props.onJoinWithInvite &&
-              (() => {
-                trackPlans("join_opened");
-                props.onJoinWithInvite?.();
-              })
-            }
+            onClose={props.onClose}
+            onContactUs={props.onContactUs}
+            onJoinWithInvite={props.onJoinWithInvite}
             onCreateLocal={props.onCreateLocal}
-            onCurrencyChange={(next) => trackPlans("currency_changed", { currency: HOSTED_BILLING_CURRENCY[next] })}
-            onBillingChange={(next) =>
-              trackPlans("interval_changed", { interval: next === "yearly" ? "year" : "month" })
-            }
             onCreate={create}
             onRetry={() => void retry()}
             onOpenServer={() => {

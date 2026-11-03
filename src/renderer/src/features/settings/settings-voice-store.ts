@@ -15,7 +15,6 @@ import {
 import { toast } from "@openbot/ui";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createStore } from "solid-js";
-import { desktopAnalytics } from "../../analytics";
 import { readAloud, stopSpeech } from "../speech/speech-playback";
 import { voicePort } from "./voice-port";
 
@@ -106,9 +105,7 @@ export function createSettingsVoiceStore(active: () => boolean) {
 
   function fail(error: unknown, fallback: FailureKey): void {
     const { t, errorMessage } = currentText();
-    toast.error(errorMessage(error, t(fallback)), {
-      report: { operation: "settings", source: "system", cause_code: "unknown" },
-    });
+    toast.error(errorMessage(error, t(fallback)));
   }
 
   function download(modelId: VoiceModelId): void {
@@ -171,27 +168,10 @@ export function createSettingsVoiceStore(active: () => boolean) {
   }
 
   function downloadSpeech(): void {
-    const analytics = desktopAnalytics.scope();
-    const startedAt = performance.now();
-    // A cancelled download ends as "missing".
-    const track = (phase: SpeechModelStatus["phase"]) =>
-      analytics.track("speech_model_action", {
-        action: "download",
-        entry_point: "settings",
-        result: phase === "ready" ? "succeeded" : "failed",
-        duration_ms: Math.max(0, Math.round(performance.now() - startedAt)),
-        ...(phase === "ready" ? {} : { failure_code: phase === "missing" ? "cancelled" : "download_failed" }),
-      });
     void voicePort()
       .voice.downloadSpeechModel()
-      .then((status) => {
-        track(status.phase);
-        setSpeechStatus(status);
-      })
-      .catch((error: unknown) => {
-        track("error");
-        fail(error, "settings.voice.downloadFailed");
-      });
+      .then(setSpeechStatus)
+      .catch((error: unknown) => fail(error, "settings.voice.downloadFailed"));
   }
 
   function cancelSpeech(): void {
@@ -262,11 +242,6 @@ export function createSettingsVoiceStore(active: () => boolean) {
   /** Turning it on downloads the model, as the first dictation does, unless the server reads replies. */
   function setReadReplies(readReplies: boolean): void {
     void saveSpeech({ readReplies }).then((saved) => {
-      desktopAnalytics.track("speech_settings_action", {
-        action: readReplies ? "read_replies_on" : "read_replies_off",
-        result: saved ? "succeeded" : "failed",
-        ...(saved ? {} : { failure_code: "update_failed" }),
-      });
       const phase = state.speech.status?.phase;
       if (state.server?.routes.speech) return;
       if (saved && readReplies && (phase === "missing" || phase === "error")) downloadSpeech();
@@ -307,15 +282,7 @@ export function createSettingsVoiceStore(active: () => boolean) {
     cancelSpeech,
     removeSpeech,
     setReadReplies,
-    setSpeechVoice: (voice: SpeechVoice) =>
-      void saveSpeech({ voice }).then((saved) =>
-        desktopAnalytics.track("speech_settings_action", {
-          action: "voice_changed",
-          result: saved ? "succeeded" : "failed",
-          voice,
-          ...(saved ? {} : { failure_code: "update_failed" }),
-        }),
-      ),
+    setSpeechVoice: (voice: SpeechVoice) => void saveSpeech({ voice }),
     listen,
     probeServer: (connection: VoiceServerConnection) => voicePort().voice.probeServer(connection),
     saveServer,

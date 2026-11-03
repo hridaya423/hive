@@ -102,7 +102,6 @@ export const messages = defineMessages("settings", {
   "settings.keepRemoteSessions.title": "Fast connection to servers",
   "settings.keepRemoteSessions.description":
     "Keep the connection to your joined servers between launches. OpenBot starts about a second faster. When you quit OpenBot, the OpenBot service does not close the connection.",
-  "settings.permissions.title": "Permissions",
   "settings.notifications.whatYouHear": "What you hear about",
   "settings.notifications.allDevices": "All my devices",
   "settings.notifications.thisComputer": "This computer",
@@ -162,11 +161,6 @@ export const messages = defineMessages("settings", {
   "settings.notch.size.height": "Height",
   "settings.notch.size.previewNotch": "Built-in display",
   "settings.notch.size.previewIsland": "External display",
-  "settings.analytics.title": "Link analytics to my account",
-  "settings.analytics.description":
-    "On: usage and reliability metadata goes to OpenBot’s self-hosted analytics with your account ID and email, with the websites that you and your agents visit, tool use and a daily summary of your setup. Off: only basic usage, such as turns and token counts, goes with a random install ID. Chats, files and prompts are never sent.",
-  "settings.analytics.webDescription":
-    "On: usage and reliability metadata goes to OpenBot’s self-hosted analytics with your account ID and email. Off: the same metadata goes with a random install ID only. Chats, files and prompts are never sent. This setting applies to this browser.",
   // The Settings window shell: its tab list, headers and save bar.
   "settings.tab.general.title": "General",
   "settings.tab.general.description": "Control how OpenBot behaves on this computer.",

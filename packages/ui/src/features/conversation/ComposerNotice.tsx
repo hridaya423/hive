@@ -2,7 +2,7 @@ import { type AgentProviderId, agentProviderName } from "@openbot/contracts/agen
 import type { AppFormat } from "@openbot/i18n";
 import { Button, ErrorReference, TriangleAlert } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { createCodeSignInFallback } from "../../components/createCodeSignInFallback";
 import { useText } from "../../text";
 import { CloseIcon } from "./ConversationIcons";
@@ -110,13 +110,8 @@ export function ComposerSignInNotice(props: {
   /** The code sign-in, offered when the browser sign-in that `onSignIn` starts is slow or fails. */
   onSignInWithCode?: ((provider: AgentProviderId) => void) | undefined;
   signingIn?: boolean;
-  onShown?: () => void;
 }) {
   const { t, errorMessage } = useText();
-  createEffect(
-    () => props.provider,
-    () => props.onShown?.(),
-  );
   const providerName = () => agentProviderName(props.provider);
   /**
    * Opening the sign-in guide is a round trip to the main process, and the provider only reports
@@ -244,14 +239,9 @@ export function formatUsageReset(resetsAt: number | null | undefined, format: Ap
 export function ComposerUsageLimitNotice(props: {
   provider: AgentProviderId;
   resetsAt?: number | null;
-  onShown?: () => void;
   onDismiss: () => void;
 }) {
   const { t, format } = useText();
-  createEffect(
-    () => props.provider,
-    () => props.onShown?.(),
-  );
   const resetAt = () => formatUsageReset(props.resetsAt, format);
   const body = () => {
     const provider = agentProviderName(props.provider);
