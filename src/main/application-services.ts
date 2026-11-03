@@ -40,6 +40,7 @@ import { LocalSignInWindows } from "./local-sign-in-window";
 import { LocalSkillLibrary } from "./local-skill-library";
 import { localSkillTools } from "./local-skill-tools";
 import { MAC_PERMISSION_URLS } from "./mac-permission-urls";
+import { createNtfySender, ntfyConfigFromEnvironment } from "./ntfy-notifier";
 import { PushNotificationStore } from "./push-notification-store";
 import { DESKTOP_USE_MS } from "./push-notifications";
 import { RemoteWorkflowError, toRemoteWorkflowError } from "./remote-service-effects";
@@ -2475,6 +2476,7 @@ export async function createApplicationServices({
   // Development only: a shorter or longer time without input before a phone notifies, to test it.
   const awaySeconds = app.isPackaged ? Number.NaN : Number(process.env.OPENBOT_DEV_AWAY_SECONDS);
   const awayAfterMs = Number.isInteger(awaySeconds) && awaySeconds > 0 ? awaySeconds * 1_000 : DESKTOP_USE_MS;
+  const ntfy = ntfyConfigFromEnvironment(process.env);
   const host = new HostService({
     appVersion: app.getVersion(),
     store: teamStore,
@@ -2663,6 +2665,7 @@ export async function createApplicationServices({
     sendPushNotification: (hostId, push) => centralAuth.sendPushNotification(hostId, push).pipe(toRemoteWorkflowError),
     pushNotificationStore,
     awayAfterMs,
+    ...(ntfy ? { ntfy: createNtfySender(ntfy) } : {}),
     // The owner is at this computer only with recent input, also when the window was left in focus.
     // Then the focused window shows the event, or the desktop notifies. When mute or the level of
     // this server keeps the desktop quiet about the event, the phone tells the owner.

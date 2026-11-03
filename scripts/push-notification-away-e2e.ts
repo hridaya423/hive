@@ -10,14 +10,17 @@
 // It runs the real phone notification service and the real Live Activity push service, wired as the
 // host wires them, with a synthetic runtime snapshot and read state, and a send that records the
 // requests. A first send fails, as a short fault at Apple or Google does. It sends nothing.
+// With an ntfy topic set, an away Android phone gets one plain POST, which the script takes at a local
+// HTTP server.
 // Run it with `bun scripts/push-notification-away-e2e.ts`.
 // Writes .openbot-build/push-notification-away-e2e/report.json.
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { join, resolve } from "node:path";
-import type { AgentEvent, AgentRuntimeSnapshot, AgentSummary } from "@openbot/contracts/ipc";
+import type { AgentEvent, AgentRuntimeSnapshot, AgentSummary, ConversationPage } from "@openbot/contracts/ipc";
 import type { LiveActivityRelayPush } from "@openbot/contracts/live-activity-relay";
 import { createOpenBotLogger } from "@openbot/logging";
 import { encodeLiveActivityBytes, LIVE_ACTIVITY_SECRET_BYTES } from "@openbot/team-client/live-activity-seal";
@@ -25,6 +28,7 @@ import { pushNotificationKeys } from "@openbot/team-client/push-notification-sea
 import { Effect } from "effect";
 import { openSealedLiveActivity } from "../apps/mobile/src/features/live-activity/model/live-activity-open";
 import { LiveActivityPushService } from "../src/main/live-activity-push";
+import { createNtfySender } from "../src/main/ntfy-notifier";
 import {
   type NotificationRelayRequest,
   PushNotificationSendFailure,
@@ -134,6 +138,67 @@ const liveActivity = new LiveActivityPushService({
     }),
   memberActive: (memberId) => memberId === MEMBER,
   randomBytes: (size) => new Uint8Array(randomBytes(size)),
+});
+
+const NTFY_TOPIC = "hive-fixture-topic";
+const NTFY_TOKEN = "tk_fixture";
+const NTFY_ANSWER = "The report is ready.";
+const ntfyRequests: { authorization: string | undefined; body: Record<string, string> }[] = [];
+const ntfyServer = createServer((request, response) => {
+  const chunks: Buffer[] = [];
+  request.on("data", (chunk: Buffer) => chunks.push(chunk));
+  request.on("end", () => {
+    ntfyRequests.push({
+      authorization: request.headers.authorization,
+      body: JSON.parse(Buffer.concat(chunks).toString("utf8")),
+    });
+    for (const wake of waiters) wake();
+    response.writeHead(200).end("{}");
+  });
+});
+await new Promise<void>((done) => ntfyServer.listen(0, "127.0.0.1", done));
+const ntfyAddress = ntfyServer.address();
+assert.ok(ntfyAddress && typeof ntfyAddress === "object", "The fake ntfy server has no address.");
+const answerPage: ConversationPage = {
+  agentId: AGENT_A,
+  threadId: AGENT_A,
+  activeTurnId: null,
+  revision: 1,
+  messages: [
+    {
+      id: "answer",
+      turnId: "turn-ntfy",
+      author: "assistant",
+      text: NTFY_ANSWER,
+      createdAt: "2026-10-30T00:00:00.000Z",
+      status: "completed",
+    },
+  ],
+  references: {},
+  pageInfo: { hasOlder: false, olderCursor: null },
+};
+const relaySendsWithNtfy: NotificationRelayRequest[] = [];
+
+const ntfyPhones = new PushNotificationService({
+  agents: { ...agents, readConversationPageFor: () => Effect.succeed(answerPage) },
+  store: { list: () => [], replace: () => Effect.void },
+  send: (request) =>
+    Effect.sync(() => {
+      relaySendsWithNtfy.push(request);
+      return "sent" as const;
+    }),
+  ntfy: createNtfySender({
+    url: `http://127.0.0.1:${ntfyAddress.port}`,
+    topic: NTFY_TOPIC,
+    token: NTFY_TOKEN,
+  }),
+  hiddenAgentIds: () => new Set(),
+  memberActive: (memberId) => memberId === MEMBER,
+  lastUseElsewhere: () => null,
+  atHostComputer: () => false,
+  liveActivityShows: () => false,
+  randomBytes: (size) => new Uint8Array(randomBytes(size)),
+  logger,
 });
 
 const phones = new PushNotificationService({
@@ -386,11 +451,61 @@ try {
     assert.deepEqual(said, [`reply ${AGENT_A}`, `failed ${AGENT_A}`]);
     return { said };
   });
+
+  await step(
+    "with an ntfy topic, an away phone gets one plain POST that names the agent and holds the answer",
+    async () => {
+      ntfyPhones.start();
+      ntfyPhones.register(
+        ANDROID,
+        { memberId: MEMBER, protocol: 7, capabilities: new Set() },
+        {
+          platform: "android",
+          value: {
+            serverId: "fixture-server",
+            token: "hive-ntfy-no-firebase-token-0000000",
+            secret: androidSecret,
+            locale: "en",
+            away: true,
+            level: "all",
+            mutedUntil: null,
+            preview: true,
+            sound: "default",
+          },
+        },
+      );
+      events.emit("event", reply(AGENT_A, "turn-ntfy"));
+      await new Promise<void>((resolveRequest, reject) => {
+        const deadline = setTimeout(() => reject(new Error("No ntfy request before the deadline.")), STEP_DEADLINE_MS);
+        const check = () => {
+          if (!ntfyRequests.length) return;
+          clearTimeout(deadline);
+          waiters.delete(check);
+          resolveRequest();
+        };
+        waiters.add(check);
+        check();
+      });
+      assert.equal(ntfyRequests.length, 1);
+      const [request] = ntfyRequests;
+      assert.equal(request?.authorization, `Bearer ${NTFY_TOKEN}`);
+      assert.equal(request?.body.topic, NTFY_TOPIC);
+      assert.equal(request?.body.title, "Agent A");
+      assert.equal(request?.body.message, NTFY_ANSWER);
+      const click = new URL(request?.body.click ?? "");
+      assert.equal(click.searchParams.get("server"), "fixture-server");
+      assert.equal(click.searchParams.get("agent"), AGENT_A);
+      assert.equal(relaySendsWithNtfy.length, 0, "A send went through the relay.");
+      return { request };
+    },
+  );
   passed = true;
 } catch {
   passed = false;
 } finally {
   await Effect.runPromise(phones.dispose());
+  await Effect.runPromise(ntfyPhones.dispose());
+  await new Promise<void>((done) => ntfyServer.close(() => done()));
   await Effect.runPromise(liveActivity.dispose());
   const listenersRemaining = events.listenerCount("event");
   if (listenersRemaining !== 0) passed = false;
@@ -400,10 +515,13 @@ try {
     `${JSON.stringify(
       {
         passed,
-        surface: "PushNotificationService + LiveActivityPushService -> injected relay send",
-        transport: "injected local send adapter; no account, APNs, FCM, provider, or model",
+        surface:
+          "PushNotificationService + LiveActivityPushService -> injected relay send; ntfy sender -> local HTTP endpoint",
+        transport:
+          "injected local send adapter and a local HTTP server; no account, APNs, FCM, ntfy server, provider, or model",
         steps,
         sends: sent.map((request) => ({ platform: request.platform, session: request.push.sessionId })),
+        ntfyRequests: ntfyRequests.map(({ body }) => ({ topic: body.topic, title: body.title })),
         listenersRemaining,
       },
       null,

@@ -8,6 +8,9 @@ import { type PushNotificationsNative, SOUND_PREVIEW_KEY } from "./push-notifica
 /** `OpenBotMessagingService.kt` reads this file in the files folder of the app (`Paths.document`). */
 const KEYS_FILE = "push-notifications.json";
 
+/** A build without the Firebase file has no token. The host sends to ntfy and ignores the token, but it asks for one. */
+const NTFY_REGISTRATION_TOKEN = "hive-ntfy-no-firebase-token-0000000";
+
 /**
  * The Firebase messaging service of the app opens the notifications also while the app does not
  * run, so the app writes the keys of each server into its own files folder, which only the app can
@@ -23,8 +26,11 @@ export const androidPushNotifications: PushNotificationsNative = {
     return answer;
   },
   async deviceToken() {
-    // A build without the Firebase file of the app has no token, and the promise rejects.
-    return fcmToken((await Notifications.getDevicePushTokenAsync()).data);
+    try {
+      return fcmToken((await Notifications.getDevicePushTokenAsync()).data);
+    } catch {
+      return NTFY_REGISTRATION_TOKEN;
+    }
   },
   onDeviceToken(listener) {
     const subscription = Notifications.addPushTokenListener((device) => listener(fcmToken(device.data)));

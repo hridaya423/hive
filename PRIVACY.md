@@ -1606,6 +1606,18 @@ Notifications only inform: they have no buttons.
 Settings > Notifications turns this off, and sets the preview and the sound. Android also lists one
 notification channel for each sound in the system settings of the app.
 
+### Android notifications through ntfy
+
+A host that has the environment variables `HIVE_NTFY_URL` and `HIVE_NTFY_TOPIC` sends the notifications
+of Android phones to that ntfy server instead of the account service. It decides who is away, and
+which events notify, as it does above. The phone gives the host a fixed placeholder in place of a
+Firebase token when the build has no Firebase file, and the host ignores it. The host sends one HTTP
+`POST` to the ntfy server for each notification, with the agent name, the text, which holds the
+answer only when the preview is on, and a link that opens the agent in the app. The text is plain, not
+sealed. `HIVE_NTFY_TOKEN` is the access token of that ntfy server. The host sends the token to that
+server only, and logs neither the token nor the text. Run the ntfy server on your own network. ntfy,
+the host and the phone must be on your tailnet, because nothing else protects the plain text.
+
 ## Optional macOS Host Manager
 
 An administrator can install a local Host Manager for several native macOS users. It reads only
