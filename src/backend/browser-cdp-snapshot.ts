@@ -1,6 +1,6 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type { BrowserElement, BrowserSnapshot, BrowserTarget } from "@openbot/contracts/ipc";
-import { isString } from "@openbot/contracts/runtime-values";
+import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { Effect } from "effect";
 import {
   assertBeforeDeadline,
@@ -9,7 +9,6 @@ import {
   type CdpResult,
   exceptionDescription,
   frameIds,
-  isRecord,
   numberValue,
   recordValue,
   type SendCommand,
@@ -117,7 +116,7 @@ export const collectBoundedSnapshot = Effect.fn("Browser.collectBoundedSnapshot"
           )
         : yield* collectActionableNodesEffect(send, capture, remainingElements, deadline);
     for (const candidate of candidates) {
-      const properties = Array.isArray(candidate.ax.properties) ? candidate.ax.properties.filter(isRecord) : [];
+      const properties = Array.isArray(candidate.ax.properties) ? candidate.ax.properties.filter(isDynamicRecord) : [];
       const states = properties
         .filter((property) =>
           ["checked", "disabled", "expanded", "focused", "pressed", "readonly", "required", "selected"].includes(
@@ -452,7 +451,7 @@ const collectionElements = Effect.fn("Browser.collectionElements")(function* (
   if (!collectionId) return [];
   return yield* Effect.gen(function* () {
     const properties = yield* send("Runtime.getProperties", { objectId: collectionId, ownProperties: true }, sessionId);
-    return (Array.isArray(properties.result) ? properties.result.filter(isRecord) : [])
+    return (Array.isArray(properties.result) ? properties.result.filter(isDynamicRecord) : [])
       .filter((descriptor) => /^\d+$/.test(stringValue(descriptor.name)))
       .sort((left, right) => Number(left.name) - Number(right.name))
       .map((descriptor) => stringValue(recordValue(descriptor.value)?.objectId))
@@ -482,7 +481,7 @@ export const semanticAxMatches = Effect.fn("Browser.semanticAxMatches")(function
   for (const frameId of frameIds(frameTree)) {
     const tree = yield* send("Accessibility.getFullAXTree", { frameId }, capture.sessionId);
     yield* browserSync(() => assertBeforeDeadline(deadline));
-    for (const node of Array.isArray(tree.nodes) ? tree.nodes.filter(isRecord) : []) {
+    for (const node of Array.isArray(tree.nodes) ? tree.nodes.filter(isDynamicRecord) : []) {
       if (node.ignored === true) continue;
       const backendNodeId = numberValue(node.backendDOMNodeId);
       const role = axValue(node.role).toLowerCase();
@@ -675,7 +674,7 @@ export const describeTargetCandidates = Effect.fn("Browser.describeTargetCandida
       sessionId,
     );
     const values = recordValue(result.result)?.value;
-    const described = (Array.isArray(values) ? values.filter(isRecord) : []).map(
+    const described = (Array.isArray(values) ? values.filter(isDynamicRecord) : []).map(
       (value): TargetCandidateText => ({
         tag: stringValue(value.tag),
         text: stringValue(value.text),
@@ -738,7 +737,7 @@ const collectActionableNodesEffect = Effect.fn("Browser.collectActionableNodes")
       { objectId: collectionId, ownProperties: true },
       capture.sessionId,
     );
-    const descriptors = Array.isArray(properties.result) ? properties.result.filter(isRecord) : [];
+    const descriptors = Array.isArray(properties.result) ? properties.result.filter(isDynamicRecord) : [];
     objectIds.push(
       ...descriptors
         .filter((descriptor) => /^\d+$/.test(stringValue(descriptor.name)))
@@ -772,7 +771,7 @@ const collectActionableNodesEffect = Effect.fn("Browser.collectActionableNodes")
             const node = recordValue(description.node);
             const backendNodeId = numberValue(node?.backendNodeId);
             if (!node || !backendNodeId) return null;
-            const axNodes = Array.isArray(partialAxTree.nodes) ? partialAxTree.nodes.filter(isRecord) : [];
+            const axNodes = Array.isArray(partialAxTree.nodes) ? partialAxTree.nodes.filter(isDynamicRecord) : [];
             const ax =
               axNodes.find((candidate) => numberValue(candidate.backendDOMNodeId) === backendNodeId) ?? axNodes[0];
             if (!ax || ax.ignored === true) return null;

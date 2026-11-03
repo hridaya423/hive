@@ -66,7 +66,6 @@ import {
   frameAutomationContextId,
   frameIds,
   isFiniteNumber,
-  isRecord,
   numberValue,
   recordValue,
   type SendCommand,
@@ -697,7 +696,7 @@ export class BrowserCdpEngine {
     // Main frame only. The payment frames of the old document go with it.
     contents.on("did-navigate", () => this.#cardScrub.endDocument());
     contents.debugger.on("message", (_event, method, params, sessionId) => {
-      if (method === "Target.attachedToTarget" && isRecord(params)) {
+      if (method === "Target.attachedToTarget" && isDynamicRecord(params)) {
         const attachedSessionId = stringValue(params.sessionId) || sessionId || "";
         const targetInfo = recordValue(params.targetInfo);
         const targetId = stringValue(targetInfo?.targetId);
@@ -707,9 +706,10 @@ export class BrowserCdpEngine {
         }
       }
       // Child sessions do not enable `Page`. A dialog of a frame in another process stays with a person.
-      if (method === "Page.javascriptDialogOpening" && !sessionId && isRecord(params)) this.#dialogOpened(params);
+      if (method === "Page.javascriptDialogOpening" && !sessionId && isDynamicRecord(params))
+        this.#dialogOpened(params);
       if (method === "Page.javascriptDialogClosed" && !sessionId) this.#dialogClosed();
-      if (method === "Target.detachedFromTarget" && isRecord(params)) {
+      if (method === "Target.detachedFromTarget" && isDynamicRecord(params)) {
         const detached = stringValue(params.sessionId);
         for (const [targetId, target] of this.#targetSessions) {
           if (target.sessionId === detached) this.#targetSessions.delete(targetId);
@@ -1458,7 +1458,7 @@ export class BrowserCdpEngine {
             stopWaitingForIntercept();
             Deferred.doneUnsafe(
               interceptedDragData,
-              Effect.succeed(isRecord(params) ? (recordValue(params.data) ?? null) : null),
+              Effect.succeed(isDynamicRecord(params) ? (recordValue(params.data) ?? null) : null),
             );
           };
           const timeout = setTimeout(() => {
@@ -2960,7 +2960,7 @@ export class BrowserCdpEngine {
       { concurrency: "unbounded" },
     );
     const node = recordValue(description.node);
-    const axNodes = Array.isArray(partialAxTree.nodes) ? partialAxTree.nodes.filter(isRecord) : [];
+    const axNodes = Array.isArray(partialAxTree.nodes) ? partialAxTree.nodes.filter(isDynamicRecord) : [];
     const ax = axNodes.find((candidate) => numberValue(candidate.backendDOMNodeId) === backendNodeId) ?? axNodes[0];
     const state = recordValue(pageState);
     return {

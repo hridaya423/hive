@@ -261,12 +261,9 @@ interface ConfinedClient {
 export interface ProviderHooks {
   /** Wires the notification and server-request routers, which stay in the core. */
   bindClient(client: AgentClient): void;
-  /**
-   * Runs after a connect or an activation leaves at least one client ready. Collapses the tail
-   * that #connect and #activateProviderClient each carried a copy of.
-   */
+  /** Runs after a connect or an activation leaves at least one client ready. */
   onProvidersReady(): Effect.Effect<void, ProviderOperationFailed>;
-  /** The cleanup #handleExit used to inline: prompts, approvals, takeovers, compaction, browser. */
+  /** Cleans up after a lost client: prompts, approvals, takeovers, compaction, browser. */
   onProviderLost(client: AgentClient): void;
   /**
    * Runs when the runtime stops a client it used for a reason other than an exit: an idle release,
@@ -3573,7 +3570,6 @@ export class ProviderRuntime implements ProviderPort {
         }
       }
       // The catalogue is read off the status, so discovery that found new models has to publish one.
-      // This used to ride along with a Computer Use probe that no longer exists.
       this.#setStatus({});
       if (codexClient) yield* this.#refreshUsage(codexClient).pipe(Effect.ignore, Effect.forkIn(this.#scope));
       if (options.notifyReady !== false) yield* this.#hooks.onProvidersReady().pipe(toProviderOperationFailed);
