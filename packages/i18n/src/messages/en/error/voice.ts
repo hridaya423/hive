@@ -11,8 +11,8 @@ export const messages = defineMessages("error.voice", {
   "error.voice.modelUnavailable": "The voice model is unavailable.",
   "error.voice.transcriptionTimedOut": "Voice transcription timed out.",
   "error.voice.prepareRequired":
-    "Local voice transcription is unavailable. Run `bun run voice:prepare` and restart OpenBot.",
-  "error.voice.transcriptionFailed": "OpenBot could not transcribe this recording.",
+    "Local voice transcription is unavailable. Run `bun run voice:prepare` and restart Hive.",
+  "error.voice.transcriptionFailed": "Hive could not transcribe this recording.",
   "error.voice.cloud.keyRequired": "Add your ElevenLabs API key in Settings → Voice.",
   "error.voice.cloud.keyRejected": "ElevenLabs did not accept the API key. Check the key in Settings → Voice.",
   "error.voice.cloud.quotaExceeded": "Your ElevenLabs quota is used up.",
@@ -24,12 +24,12 @@ export const messages = defineMessages("error.voice", {
   "error.voice.speech.runtimeUnavailable": "Local speech is not available on this platform.",
   "error.voice.speech.modelRequired": "Download the speech model in Settings → Voice.",
   "error.voice.speech.timedOut": "Reading the reply aloud timed out.",
-  "error.voice.speech.failed": "OpenBot could not read the reply aloud.",
-  "error.voice.recordingNotKept": "OpenBot could not keep the voice recording.",
+  "error.voice.speech.failed": "Hive could not read the reply aloud.",
+  "error.voice.recordingNotKept": "Hive could not keep the voice recording.",
   // The user's own voice server.
   "error.voice.server.routeOff": "The voice server is not set up for this. Check Settings → Voice.",
   "error.voice.server.keyRefused": "{host} refused the API key.",
   "error.voice.server.invalidAnswer": "{host} did not send an OpenAI-compatible answer.",
-  "error.voice.server.invalidAudio": "{host} sent audio that OpenBot cannot play. Use a server that sends WAV.",
+  "error.voice.server.invalidAudio": "{host} sent audio that Hive cannot play. Use a server that sends WAV.",
   "error.voice.server.tooLarge": "The answer from {host} is too large.",
 });

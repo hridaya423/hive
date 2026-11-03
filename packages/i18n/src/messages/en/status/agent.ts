@@ -61,9 +61,9 @@ export const messages = defineMessages("status.agent", {
   "status.agent.memoryChangesWithConflicts":
     "Memory: {saved} saved, {updated} updated, {forgotten} forgotten, {notChanged} not changed because another thread changed it first.",
   "status.agent.mcpServerAdd":
-    "Add the MCP server {name}: {target}. Every agent on this server gets its tools. OpenBot connects to it to test it.",
+    "Add the MCP server {name}: {target}. Every agent on this server gets its tools. Hive connects to it to test it.",
   "status.agent.mcpServerChange":
-    "Change the MCP server {name} to {target}. Every agent on this server gets its tools. OpenBot connects to it to test it.",
+    "Change the MCP server {name} to {target}. Every agent on this server gets its tools. Hive connects to it to test it.",
   "status.agent.mcpServerEnable": "Turn on the MCP server {name} for every agent on this server.",
   "status.agent.mcpServerDisable": "Turn off the MCP server {name} for every agent on this server.",
   "status.agent.mcpServerRemove": "Remove the MCP server {name} and its sign-in from every agent on this server.",

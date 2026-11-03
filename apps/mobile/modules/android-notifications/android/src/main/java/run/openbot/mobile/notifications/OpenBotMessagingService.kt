@@ -63,7 +63,7 @@ class OpenBotMessagingService : ExpoFirebaseMessagingService() {
 
   companion object {
     /** The title until the app opens the seal. A brand name, so it is the same in every language. */
-    private const val APP_NAME = "OpenBot"
+    private const val APP_NAME = "Hive"
 
     /** The sounds of `NOTIFICATION_SOUND_FILES`, as `with-notification-sounds.js` names their copies. */
     private val SOUND_RESOURCES = mapOf(

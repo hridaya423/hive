@@ -1,11 +1,11 @@
 export const OPENBOT_SITE_URL = "https://openbot.run/";
-const OPENBOT_SITE_TITLE = "OpenBot: Run a team of AI agents on your computer";
+const OPENBOT_SITE_TITLE = "Hive: Run a team of AI agents on your computer";
 const OPENBOT_SITE_DESCRIPTION =
   "A free desktop app that runs AI agents as a team on your own computer, with the ChatGPT, Claude, Gemini or Grok plan you already pay for, or your own model.";
 export const OPENBOT_SOCIAL_IMAGE_URL = `${OPENBOT_SITE_URL}openbot-social.png`;
 /** The account `OPENBOT_LINKS.x` opens, which a shared card names. */
 export const OPENBOT_X_HANDLE = "@OpenBot_";
-export const OPENBOT_SOCIAL_IMAGE_ALT = "Meet OpenBot on a dark grid background";
+export const OPENBOT_SOCIAL_IMAGE_ALT = "Meet Hive on a dark grid background";
 
 // The hosts production answers on. Both serve the same pages, and those pages go by
 // openbot.run.
@@ -45,7 +45,7 @@ export function openBotRootHead(interLatinFont: string) {
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: OPENBOT_SITE_TITLE },
       { name: "description", content: OPENBOT_SITE_DESCRIPTION },
-      { name: "application-name", content: "OpenBot" },
+      { name: "application-name", content: "Hive" },
       { name: "color-scheme", content: "dark" },
       { name: "theme-color", content: "#1a1a1a" },
     ],

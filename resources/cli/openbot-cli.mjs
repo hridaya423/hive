@@ -57,10 +57,7 @@ async function connection() {
     const [url, token] = await Promise.all([readFile(join(dir, "url"), "utf8"), readFile(join(dir, "token"), "utf8")]);
     return { url: url.trim(), token: token.trim() };
   } catch {
-    throw new CliError(
-      `OpenBot is not running, or no agent has Local scripts on (no files in ${dir}).`,
-      EXIT.unreachable,
-    );
+    throw new CliError(`Hive is not running, or no agent has Local scripts on (no files in ${dir}).`, EXIT.unreachable);
   }
 }
 
@@ -106,7 +103,7 @@ async function requestOnce(target, method, path, body) {
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
-    throw new CliError(`OpenBot does not answer at ${target.url}.`, EXIT.unreachable, true);
+    throw new CliError(`Hive does not answer at ${target.url}.`, EXIT.unreachable, true);
   }
   const text = await response.text();
   let value = null;
@@ -263,7 +260,7 @@ async function main(positional, flags) {
     const delivery = receipt.deliveries.find((/** @type {{ recipientAgentId: string }} */ item) => {
       return item.recipientAgentId === agent.id;
     });
-    if (!delivery) throw new CliError("OpenBot did not queue the message.", EXIT.failed);
+    if (!delivery) throw new CliError("Hive did not queue the message.", EXIT.failed);
     if (!flags.has("--wait")) {
       return {
         result: { agent, messageId: receipt.messageId, deliveryId: delivery.id, status: delivery.status },
@@ -332,7 +329,7 @@ async function main(positional, flags) {
  */
 function describeDelivery(agent, delivery) {
   if (delivery.state === "needs-person")
-    return `${agent.name} waits for a person: answer in OpenBot, then run "openbot-cli status ${agent.id} ${delivery.id}".`;
+    return `${agent.name} waits for a person: answer in Hive, then run "openbot-cli status ${agent.id} ${delivery.id}".`;
   if (delivery.state === "timed-out")
     return `Timed out while ${agent.name} works (${delivery.status}). Delivery ${delivery.id} continues.`;
   if (delivery.status === "completed") return delivery.answer ?? `${agent.name} finished with no answer.`;

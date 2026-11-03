@@ -39,7 +39,7 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.folders.inWorkspace": "{folder} is in the workspace, so {agent} can already change it",
   "agentSettings.folders.inShared": "{folder} is in the shared folder, so {agent} can already change it",
   "agentSettings.folders.inFolder": "{folder} is in {parent}, which is already added",
-  "agentSettings.folders.protected": "You cannot add {folder}: it holds OpenBot data or the files of other agents",
+  "agentSettings.folders.protected": "You cannot add {folder}: it holds Hive data or the files of other agents",
   "agentSettings.folders.missing": "{folder} is not a folder on this computer",
   "agentSettings.folders.limit": {
     one: "You can add at most {count} folder",
@@ -161,7 +161,7 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.runtime.fullAccessNote":
     "The agent runs with full computer access from its workspace and the shared folder.",
   "agentSettings.runtime.askNote":
-    "It asks you before it uses an OpenBot tool or publishes a site, and when its provider asks for approval.",
+    "It asks you before it uses a Hive tool or publishes a site, and when its provider asks for approval.",
   "agentSettings.runtime.fullNote": "It acts without asking, except for questions it puts to you.",
 
   "agentSettings.access.workspace": "Workspace only",
@@ -218,7 +218,7 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.runtime.workspaceEnforcedClaude":
     "A file edit outside asks you first. A command cannot write outside.",
   "agentSettings.runtime.workspaceUnlimited":
-    "Computer Use and the OpenBot browser are not limited; you can turn Computer Use off below.",
+    "Computer Use and the Hive browser are not limited; you can turn Computer Use off below.",
   "agentSettings.computerUse.title": "Computer Use",
   "agentSettings.computerUse.description": "Let this agent control apps on this computer",
   "agentSettings.automation.title": "Local scripts",

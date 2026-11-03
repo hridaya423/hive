@@ -104,7 +104,7 @@ export interface SetupProviderChoice {
 
 // The line that the plan providers share. It tells nothing about one row, so those rows show their
 // version there.
-const INCLUDED_DESCRIPTION = "Included with OpenBot";
+const INCLUDED_DESCRIPTION = "Included with Hive";
 
 // A custom agent is not a first provider: it is added from the detected list or in Settings.
 const SETUP_PROVIDERS: Array<{ id: AgentProviderId; name: string; description: string | null }> =

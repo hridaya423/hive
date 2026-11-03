@@ -10,7 +10,7 @@ export const messages = defineMessages("mobile.settings", {
   "mobile.settings.about.privacy": "Privacy policy",
   "mobile.settings.home.profile": "Profile",
   "mobile.settings.home.preferences": "Preferences",
-  "mobile.settings.home.about": "About OpenBot",
+  "mobile.settings.home.about": "About Hive",
   "mobile.settings.home.support": "Support",
   "mobile.settings.home.supportHint": "Get help and save a support log",
   "mobile.settings.support.help": "Get help",
@@ -25,7 +25,7 @@ export const messages = defineMessages("mobile.settings", {
   "mobile.settings.support.clearTitle": "Clear the support log?",
   "mobile.settings.support.clearBody": "This removes all events from the log on this phone.",
   "mobile.settings.support.logFooter":
-    "The log stays on this phone, and OpenBot does not send it. It records connection steps, requests and errors. It does not record messages or files, and it masks passwords and tokens. Read the file before you share it.",
+    "The log stays on this phone, and Hive does not send it. It records connection steps, requests and errors. It does not record messages or files, and it masks passwords and tokens. Read the file before you share it.",
   "mobile.settings.support.saveFailed": "Could not save the log file. Try again.",
   "mobile.settings.support.sharingUnavailable": "Sharing is not available on this phone.",
   "mobile.settings.support.recent": "Recent events",
@@ -80,27 +80,27 @@ export const messages = defineMessages("mobile.settings", {
   "mobile.settings.feedback.retry": "Retry saving haptics setting",
   "mobile.settings.liveActivities.title": "Live Activities",
   "mobile.settings.liveActivities.footer":
-    "Shows agent work, messages, questions, and approvals on the Lock Screen and in the Dynamic Island while OpenBot runs.",
+    "Shows agent work, messages, questions, and approvals on the Lock Screen and in the Dynamic Island while Hive runs.",
   "mobile.settings.liveActivities.toggle": "Show agent activity",
   "mobile.settings.liveActivities.retry": "Retry saving Live Activities setting",
   "mobile.settings.notifications.title": "Notifications",
   "mobile.settings.notifications.toggle": "Allow notifications",
   "mobile.settings.notifications.footer":
-    "Agents tell you when they finish, stop with an error, or need your input, an approval, or a step in the browser. Nothing comes while OpenBot is in use here or in the desktop app. While the Live Activity shows, it shows the event instead.",
+    "Agents tell you when they finish, stop with an error, or need your input, an approval, or a step in the browser. Nothing comes while Hive is in use here or in the desktop app. While the Live Activity shows, it shows the event instead.",
   "mobile.settings.notifications.footerAndroid":
-    "Agents tell you when they finish, stop with an error, or need your input, an approval, or a step in the browser. Nothing comes while OpenBot is in use here or in the desktop app.",
-  "mobile.settings.notifications.denied": "Notifications for OpenBot are off in iOS Settings.",
-  "mobile.settings.notifications.deniedAndroid": "Notifications for OpenBot are off in Android settings.",
+    "Agents tell you when they finish, stop with an error, or need your input, an approval, or a step in the browser. Nothing comes while Hive is in use here or in the desktop app.",
+  "mobile.settings.notifications.denied": "Notifications for Hive are off in iOS Settings.",
+  "mobile.settings.notifications.deniedAndroid": "Notifications for Hive are off in Android settings.",
   "mobile.settings.notifications.openSettings": "Open iOS Settings",
   "mobile.settings.notifications.openSettingsAndroid": "Open Android settings",
   "mobile.settings.notifications.preview": "Show reply preview",
   "mobile.settings.notifications.previewFooter":
-    "Shows the start of a reply, a question, or the action to approve. Apple and the OpenBot account service cannot read it.",
+    "Shows the start of a reply, a question, or the action to approve. Apple and the Hive account service cannot read it.",
   "mobile.settings.notifications.previewFooterAndroid":
-    "Shows the start of a reply, a question, or the action to approve. Google and the OpenBot account service cannot read it.",
+    "Shows the start of a reply, a question, or the action to approve. Google and the Hive account service cannot read it.",
   "mobile.settings.notifications.sound": "Sound",
   "mobile.settings.notifications.playSound": "Play sound",
-  "mobile.settings.notifications.sound.openbot": "OpenBot",
+  "mobile.settings.notifications.sound.openbot": "Hive",
   "mobile.settings.notifications.sound.warm": "Warm",
   "mobile.settings.notifications.sound.mech": "Mechanical",
   "mobile.settings.notifications.sound.bubble": "Bubbly",
@@ -108,9 +108,9 @@ export const messages = defineMessages("mobile.settings", {
   "mobile.settings.notifications.sound.default": "iOS default",
   "mobile.settings.notifications.sound.defaultAndroid": "Android default",
   "mobile.settings.notifications.soundFooter":
-    "Notifications and the Live Activity play this sound. The Live Activity also lights up the screen. The OpenBot sound is the sound that the desktop app plays when a task finishes. The four sounds after it are the sounds of the desktop sound themes.",
+    "Notifications and the Live Activity play this sound. The Live Activity also lights up the screen. The Hive sound is the sound that the desktop app plays when a task finishes. The four sounds after it are the sounds of the desktop sound themes.",
   "mobile.settings.notifications.soundFooterAndroid":
-    "Notifications play this sound. The OpenBot sound is the sound that the desktop app plays when a task finishes. The four sounds after it are the sounds of the desktop sound themes.",
+    "Notifications play this sound. The Hive sound is the sound that the desktop app plays when a task finishes. The four sounds after it are the sounds of the desktop sound themes.",
   "mobile.settings.notifications.level.all": "All activity",
   "mobile.settings.notifications.level.needsMe": "Only when it needs me",
   "mobile.settings.notifications.level.nothing": "Nothing",
@@ -126,7 +126,7 @@ export const messages = defineMessages("mobile.settings", {
   "mobile.settings.notifications.serverFooter":
     "The events of this server that notify this phone. The desktop app has its own settings.",
   "mobile.settings.notifications.serverUnsupported":
-    "This server cannot send notifications. Update OpenBot on the computer that runs it.",
+    "This server cannot send notifications. Update Hive on the computer that runs it.",
   "mobile.settings.notifications.thisPhone": "This phone",
   "mobile.settings.notifications.whatYouHear": "What you hear about",
   "mobile.settings.notifications.wholeServer": "Whole server",
@@ -140,7 +140,7 @@ export const messages = defineMessages("mobile.settings", {
   "mobile.settings.notifications.chooseAgent": "Choose for one agent",
   "mobile.settings.notifications.chooseAnotherAgent": "Choose another agent",
   "mobile.settings.notifications.levelsFooter": "Tap an agent’s level again to follow the server.",
-  "mobile.settings.notifications.agentsUnsupported": "Update OpenBot on this server to choose agents.",
+  "mobile.settings.notifications.agentsUnsupported": "Update Hive on this server to choose agents.",
   "mobile.settings.notifications.agentsOffline": "Agents show when this server is online.",
   "mobile.settings.notifications.scopeFooter":
     "Your choices apply on all your devices. Mute applies to this phone only.",
@@ -163,7 +163,7 @@ export const messages = defineMessages("mobile.settings", {
   "mobile.settings.profile.security": "Security",
   "mobile.settings.profile.accountSessions": "Account sessions",
   "mobile.settings.profile.signOutTitle": "Sign out?",
-  "mobile.settings.profile.signOutBody": "Reconnect by scanning a new code from OpenBot on your desktop.",
+  "mobile.settings.profile.signOutBody": "Reconnect by scanning a new code from Hive on your desktop.",
   "mobile.settings.profile.signOut": "Sign out",
   "mobile.settings.voice.title": "Voice",
   "mobile.settings.voice.sample": "Hello. This is how I will read my replies to you.",
@@ -195,7 +195,7 @@ export const messages = defineMessages("mobile.settings", {
   "mobile.settings.voice.supertonic.male": "Male voice {number}",
   "mobile.settings.voice.elevenLabs.title": "ElevenLabs",
   "mobile.settings.voice.elevenLabs.footer":
-    "OpenBot sends the text of each reply to ElevenLabs with your key, and ElevenLabs bills your account. The key stays in the keychain of this phone.",
+    "Hive sends the text of each reply to ElevenLabs with your key, and ElevenLabs bills your account. The key stays in the keychain of this phone.",
   "mobile.settings.voice.elevenLabs.key": "API key",
   "mobile.settings.voice.elevenLabs.keySaved": "Saved on this phone",
   "mobile.settings.voice.elevenLabs.chooseVoice": "Choose a voice",
@@ -205,7 +205,7 @@ export const messages = defineMessages("mobile.settings", {
   "mobile.settings.voice.elevenLabs.removeBody": "Supertonic 3 reads replies again.",
   "mobile.settings.voice.elevenLabs.saveKey": "Save key",
   "mobile.settings.voice.elevenLabs.testing": "Testing the key",
-  "mobile.settings.voice.elevenLabs.keyHint": "OpenBot tests the first two permissions before it saves the key.",
+  "mobile.settings.voice.elevenLabs.keyHint": "Hive tests the first two permissions before it saves the key.",
   "mobile.settings.voice.elevenLabs.testFailed": "ElevenLabs did not answer. Try again.",
   "mobile.settings.voice.elevenLabs.getKey": "Get an API key",
   "mobile.settings.voice.engine.supertonicReady": "On this phone · {voice}",
@@ -248,5 +248,5 @@ export const messages = defineMessages("mobile.settings", {
   "mobile.settings.voice.tab.listening": "Listening",
   "mobile.settings.voice.tab.speaking": "Speaking",
   "mobile.settings.voice.elevenLabs.recognitionFooter":
-    "OpenBot streams your speech to ElevenLabs with a single-use token, and ElevenLabs bills your account. The key stays on this phone.",
+    "Hive streams your speech to ElevenLabs with a single-use token, and ElevenLabs bills your account. The key stays on this phone.",
 });

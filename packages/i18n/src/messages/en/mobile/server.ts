@@ -9,10 +9,10 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.drawer.leaveFailed": "Could not leave {name}",
   "mobile.server.drawer.removeFailed": "Could not remove {name}",
   "mobile.server.drawer.deleteFailed": "Could not delete {name}",
-  "mobile.server.drawer.actionFailed": "OpenBot could not complete this action. Try again.",
+  "mobile.server.drawer.actionFailed": "Hive could not complete this action. Try again.",
   "mobile.server.drawer.moveUp": "Move up",
   "mobile.server.drawer.moveDown": "Move down",
-  "mobile.server.drawer.orderHint": "OpenBot opens on the first server. The order is saved on this device.",
+  "mobile.server.drawer.orderHint": "Hive opens on the first server. The order is saved on this device.",
   "mobile.server.drawer.title": "Servers",
   "mobile.server.drawer.serverSettings": "Server settings",
   "mobile.server.drawer.serverListHint": "Shows or hides the servers",
@@ -24,8 +24,8 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.drawer.close": "Close server drawer",
   "mobile.server.invite.noExpiry": "{role} · No expiry",
   "mobile.server.invite.expires": "{role} · Expires {date}",
-  "mobile.server.invite.loadFailed": "OpenBot could not load this invitation.",
-  "mobile.server.invite.joinFailed": "OpenBot could not join this server.",
+  "mobile.server.invite.loadFailed": "Hive could not load this invitation.",
+  "mobile.server.invite.joinFailed": "Hive could not join this server.",
   "mobile.server.invite.checking": "Checking invitation…",
   "mobile.server.invite.unavailable": "Invitation unavailable",
   "mobile.server.invite.verifying": "Verifying the server identity.",
@@ -48,7 +48,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.local.optionHint": "On the computer that runs {name}, with its own agents, chats and files.",
   "mobile.server.local.title": "New server",
   "mobile.server.local.description":
-    "The server runs on the computer that runs {name}, with its own agents, chats and files. It is available while OpenBot runs on that computer.",
+    "The server runs on the computer that runs {name}, with its own agents, chats and files. It is available while Hive runs on that computer.",
   "mobile.server.local.nameLabel": "Server name",
   "mobile.server.local.nameTooShort": "Use at least {limit} characters.",
   "mobile.server.local.create": "Create",
@@ -60,13 +60,13 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.local.createdOn": "{name} runs on the same computer as {computer}.",
   "mobile.server.local.waiting": "Waiting for {name} to come online…",
   "mobile.server.local.notPublished":
-    "{name} runs, but this phone cannot open it yet. Make sure that OpenBot on the computer that runs {computer} is signed in and online.",
+    "{name} runs, but this phone cannot open it yet. Make sure that Hive on the computer that runs {computer} is signed in and online.",
   "mobile.server.local.open": "Open server",
   "mobile.server.local.ownerOnly": "Only the owner can create a server on this computer.",
-  "mobile.server.local.unsupported": "Update OpenBot on this computer to create a server here.",
+  "mobile.server.local.unsupported": "Update Hive on this computer to create a server here.",
   "mobile.server.local.deleteOffline":
-    "Only the computer of this server can delete it. Open OpenBot on that computer, then try again.",
-  "mobile.server.scan.notInvitation": "This QR code is not an OpenBot invitation.",
+    "Only the computer of this server can delete it. Open Hive on that computer, then try again.",
+  "mobile.server.scan.notInvitation": "This QR code is not a Hive invitation.",
   "mobile.server.scan.title": "Scan invitation",
   "mobile.server.role.owner": "owner",
   "mobile.server.role.admin": "admin",
@@ -103,7 +103,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.routines.status.paused": "Paused",
   "mobile.server.routines.status.failed": "Failed",
   "mobile.server.routines.status.completed": "Completed",
-  "mobile.server.threads.unsupported": "This host does not support threads. Update OpenBot on the host.",
+  "mobile.server.threads.unsupported": "This host does not support threads. Update Hive on the host.",
   "mobile.server.threads.ask": "What do you want done?",
   "mobile.server.threads.chooseAgent": "Start the thread with",
   "mobile.server.threads.agentLabel": "Start the thread with {name}",
@@ -171,7 +171,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.settings.remove": "Remove server",
   "mobile.server.settings.deleteTitle": "Delete {name}?",
   "mobile.server.settings.deleteBody":
-    "OpenBot stops the server on its computer and moves its agents, chats and files to the Trash of that computer. The server leaves the server list on all your devices.",
+    "Hive stops the server on its computer and moves its agents, chats and files to the Trash of that computer. The server leaves the server list on all your devices.",
   "mobile.server.settings.delete": "Delete server",
   "mobile.server.settings.name": "Server name",
   "mobile.server.settings.nameLength": "Use {min} to {max} characters.",
@@ -182,7 +182,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.settings.removeLogo": "Remove logo",
   "mobile.server.settings.identitySaveFailed": "Could not save the server name and logo. Try again.",
   "mobile.server.settings.identityNotAllowed": "Only an owner or admin can change the server name and logo.",
-  "mobile.server.settings.identityUnsupported": "Update OpenBot on this server to change its name and logo here.",
+  "mobile.server.settings.identityUnsupported": "Update Hive on this server to change its name and logo here.",
   "mobile.server.settings.identityOffline": "Connect to this server to change its name and logo.",
   "mobile.server.route.cropLogo": "Crop logo",
   "mobile.server.members.remove": "Remove member",
@@ -236,7 +236,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.storage.category.caches": "Cached server files",
   "mobile.server.storage.category.runtimes": "Provider runtimes",
   "mobile.server.storage.category.logs": "Logs",
-  "mobile.server.storage.total": "OpenBot on {name}",
+  "mobile.server.storage.total": "Hive on {name}",
   "mobile.server.storage.used": "Used",
   "mobile.server.storage.byType": "Storage by type",
   "mobile.server.storage.free": "{size} free on this disk",
@@ -257,10 +257,10 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.storage.clearCategory": "Clear {category}",
   "mobile.server.storage.clearTitle.caches": "Clear cached server files?",
   "mobile.server.storage.clearTitle.logs": "Clear logs?",
-  "mobile.server.storage.clearBody.caches": "Copies of server files. OpenBot downloads them again when you open them.",
+  "mobile.server.storage.clearBody.caches": "Copies of server files. Hive downloads them again when you open them.",
   "mobile.server.storage.clearBody.logs": "Diagnostic logs. New logs start at once.",
   "mobile.server.storage.clearFailed": "Could not clear the data",
-  "mobile.server.storage.clearFailedBody": "OpenBot could not clear this data on the server.",
+  "mobile.server.storage.clearFailedBody": "Hive could not clear this data on the server.",
   "mobile.server.storage.noFiles": "No files are stored on this server.",
   "mobile.server.route.providers": "Providers",
   "mobile.server.route.provider": "Provider",
@@ -306,7 +306,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.settings.timezoneLoadFailed": "Could not load the server timezone.",
   "mobile.server.settings.timezoneSaveFailed": "Could not save the timezone. Try again.",
   "mobile.server.settings.timezoneUnavailable": "Connect to this server as an owner or admin to change its timezone.",
-  "mobile.server.settings.timezoneUnsupported": "Update OpenBot on this server to change its timezone here.",
+  "mobile.server.settings.timezoneUnsupported": "Update Hive on this server to change its timezone here.",
   "mobile.server.settings.keySection": "Server key",
   "mobile.server.settings.keyChanged": "Last change",
   "mobile.server.settings.keyChange": "Change key",
@@ -324,21 +324,21 @@ export const messages = defineMessages("mobile.server", {
     "The server uses the new key. This app changes to it when the server list loads again.",
   "mobile.server.settings.keyChangeFailed": "Could not change the server key. Try again.",
   "mobile.server.settings.keyOwnerOnly": "Only the owner can change the server key.",
-  "mobile.server.settings.keyUnsupported": "Update OpenBot on this server to change its key here.",
+  "mobile.server.settings.keyUnsupported": "Update Hive on this server to change its key here.",
   "mobile.server.settings.memoryLimit": "Memories per agent",
   "mobile.server.settings.memoryLimitDescription": "How many memories each agent on this server can keep.",
   "mobile.server.settings.memoryLimitLoadFailed": "Could not load the memory limit of this server.",
   "mobile.server.settings.memoryLimitSaveFailed": "Could not save the memory limit. Try again.",
-  "mobile.server.settings.memoryLimitUnsupported": "Update OpenBot on this server to change its memory limit here.",
+  "mobile.server.settings.memoryLimitUnsupported": "Update Hive on this server to change its memory limit here.",
   // Server settings › Vault: the logins, cards and contact info of a joined server, for an owner or
   // admin. {host} is the server name, such as Studio. The phone never shows a saved secret.
   "mobile.server.route.browserProfiles": "Browser profiles",
   "mobile.server.browserProfiles.unavailable":
     "Only an owner or admin of an online server can manage its browser profiles.",
-  "mobile.server.browserProfiles.unsupported": "Update OpenBot on this server to manage its browser profiles here.",
+  "mobile.server.browserProfiles.unsupported": "Update Hive on this server to manage its browser profiles here.",
   "mobile.server.browserProfiles.loading": "Loading browser profiles…",
-  "mobile.server.browserProfiles.loadFailed": "OpenBot could not load the browser profiles.",
-  "mobile.server.browserProfiles.saveFailed": "OpenBot could not change the browser profile.",
+  "mobile.server.browserProfiles.loadFailed": "Hive could not load the browser profiles.",
+  "mobile.server.browserProfiles.saveFailed": "Hive could not change the browser profile.",
   "mobile.server.browserProfiles.description":
     "Each profile keeps its own sign-ins, cookies and site data on the computer that runs the server. The agents that use one profile share its sign-ins.",
   "mobile.server.browserProfiles.shared": "Shared",
@@ -374,13 +374,12 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.route.vault": "Vault",
   "mobile.server.settings.vault": "Vault",
   "mobile.server.vault.unavailable": "Connect to this server as an owner or admin to manage its Vault.",
-  "mobile.server.vault.unsupported": "Update OpenBot on this server to manage its Vault here.",
+  "mobile.server.vault.unsupported": "Update Hive on this server to manage its Vault here.",
   "mobile.server.vault.loading": "Loading the Vault…",
   "mobile.server.vault.loadFailed": "Could not read the Vault of this server.",
   "mobile.server.vault.retry": "Try again",
   "mobile.server.vault.statusUnavailable": "{host} has no secret storage, so its Vault cannot save items.",
-  "mobile.server.vault.statusUnreadable":
-    "The Vault file on {host} is unreadable. Reset the Vault in OpenBot on {host}.",
+  "mobile.server.vault.statusUnreadable": "The Vault file on {host} is unreadable. Reset the Vault in Hive on {host}.",
   "mobile.server.vault.description":
     "Agents on {host} use these items to sign in, pay and fill in forms. Passwords, card numbers and security codes stay on {host}. This phone cannot show them.",
   "mobile.server.vault.logins": "Logins",
@@ -403,7 +402,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.vault.importFooter":
     "Use a password export from a browser or a password manager. {host} adds its logins. It skips a row that is not HTTPS, has no password or is saved already. This phone deletes its copy of the file after it reads it.",
   "mobile.server.vault.importResult": "Added: {imported}. Skipped: {skipped}.",
-  "mobile.server.vault.importTooLarge": "This file is too large to send from a phone. Import it in OpenBot on {host}.",
+  "mobile.server.vault.importTooLarge": "This file is too large to send from a phone. Import it in Hive on {host}.",
   "mobile.server.vault.importReadFailed": "Could not read the file.",
   "mobile.server.vault.importFailed": "Could not import the file. Try again.",
   "mobile.server.vault.newLogin": "New login",
@@ -487,7 +486,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.route.connectors": "Connectors",
   "mobile.server.settings.connectors": "Connectors",
   "mobile.server.connectors.unavailable": "Connect to this server as an owner or admin to manage its connectors.",
-  "mobile.server.connectors.unsupported": "Update OpenBot on this server to manage its connectors here.",
+  "mobile.server.connectors.unsupported": "Update Hive on this server to manage its connectors here.",
   "mobile.server.connectors.loading": "Loading connectors…",
   "mobile.server.connectors.onServer": "On {name}",
   "mobile.server.connectors.notSetUp": "Not set up",
@@ -546,7 +545,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.connectors.github.summary": "Repositories, issues and pull requests for every agent",
   "mobile.server.connectors.github.description":
     "Every agent on {host} can use your GitHub repositories, issues and pull requests, and gh and git.",
-  "mobile.server.connectors.github.unavailable": "OpenBot on this server cannot connect GitHub.",
+  "mobile.server.connectors.github.unavailable": "Hive on this server cannot connect GitHub.",
   "mobile.server.connectors.github.connect": "Connect GitHub",
   "mobile.server.connectors.github.codeTitle": "Type this code on GitHub",
   "mobile.server.connectors.github.codeFooter":
@@ -557,11 +556,11 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.connectors.github.connectedAs": "Connected as @{login}",
   "mobile.server.connectors.github.chooseRepositories": "Choose repositories",
   "mobile.server.connectors.github.repositoriesFooter":
-    "Agents can use only the repositories where the OpenBot GitHub App is installed.",
+    "Agents can use only the repositories where the Hive GitHub App is installed.",
   "mobile.server.connectors.github.repositoriesTitle": "Repositories",
   "mobile.server.connectors.github.repositoriesLoading": "Reading the repositories from GitHub",
-  "mobile.server.connectors.github.repositoriesFailed": "OpenBot could not read the repositories from GitHub.",
-  "mobile.server.connectors.github.noRepositories": "The OpenBot GitHub App is not installed on a repository yet.",
+  "mobile.server.connectors.github.repositoriesFailed": "Hive could not read the repositories from GitHub.",
+  "mobile.server.connectors.github.noRepositories": "The Hive GitHub App is not installed on a repository yet.",
   "mobile.server.connectors.github.moreRepositories": {
     one: "And {count} more repository",
     other: "And {count} more repositories",
@@ -574,13 +573,13 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.connectors.github.disconnect": "Disconnect GitHub",
   "mobile.server.connectors.github.disconnectTitle": "Disconnect GitHub?",
   "mobile.server.connectors.github.disconnectBody":
-    "This removes the sign-in of @{login} from {host}, and every agent loses the GitHub tools, gh and git. Then GitHub opens, where you can revoke OpenBot.",
+    "This removes the sign-in of @{login} from {host}, and every agent loses the GitHub tools, gh and git. Then GitHub opens, where you can revoke Hive.",
   "mobile.server.connectors.onePassword.title": "1Password",
-  "mobile.server.connectors.onePassword.summary": "A shared vault for sign-ins in the OpenBot browser",
+  "mobile.server.connectors.onePassword.summary": "A shared vault for sign-ins in the Hive browser",
   "mobile.server.connectors.onePassword.description":
-    "Share a dedicated 1Password vault with OpenBot on {host} through a service account, so agents on {host} can sign in to sites in its browser.",
+    "Share a dedicated 1Password vault with Hive on {host} through a service account, so agents on {host} can sign in to sites in its browser.",
   "mobile.server.connectors.onePassword.howItWorks":
-    "On 1Password.com, create a service account that can read only the vault you share with OpenBot, then paste its token here. {host} checks the token and keeps it; this phone does not. Agents never see a password.",
+    "On 1Password.com, create a service account that can read only the vault you share with Hive, then paste its token here. {host} checks the token and keeps it; this phone does not. Agents never see a password.",
   "mobile.server.connectors.onePassword.token": "Service account token",
   "mobile.server.connectors.onePassword.tokenPlaceholder": "ops_…",
   "mobile.server.connectors.onePassword.connect": "Connect 1Password",
@@ -599,9 +598,9 @@ export const messages = defineMessages("mobile.server", {
   // Slack: a workspace installs the one OpenBot app, and the Slack Orchestrator agent answers.
   // {workspace} is the Slack workspace name.
   "mobile.server.connectors.slack.title": "Slack",
-  "mobile.server.connectors.slack.summary": "People mention @OpenBot in Slack",
+  "mobile.server.connectors.slack.summary": "People mention @Hive in Slack",
   "mobile.server.connectors.slack.description":
-    "People mention @OpenBot in Slack or send it a direct message. The Slack Orchestrator asks the right agent and answers.",
+    "People mention @Hive in Slack or send it a direct message. The Slack Orchestrator asks the right agent and answers.",
   "mobile.server.connectors.slack.connected": "{workspace} · Slack Orchestrator answers",
   "mobile.server.connectors.slack.noAgent": "{workspace} · No agent answers yet",
   "mobile.server.connectors.slack.many": {
@@ -614,48 +613,48 @@ export const messages = defineMessages("mobile.server", {
   },
   "mobile.server.connectors.slack.connect": "Connect Slack",
   "mobile.server.connectors.slack.connectFooter":
-    "Slack opens in a browser. Select the workspace in the top-right corner, then Allow. OpenBot installs one app, named OpenBot, and it joins every public channel.",
+    "Slack opens in a browser. Select the workspace in the top-right corner, then Allow. Hive installs one app, named Hive, and it joins every public channel.",
   "mobile.server.connectors.slack.add": "Add workspace",
   "mobile.server.connectors.slack.limit": {
     one: "You can connect a maximum of {count} workspace.",
     other: "You can connect a maximum of {count} workspaces.",
   },
   "mobile.server.connectors.slack.workspaceTitle": "Workspace",
-  "mobile.server.connectors.slack.workspaceDescription": "People mention @OpenBot or send it a direct message.",
+  "mobile.server.connectors.slack.workspaceDescription": "People mention @Hive or send it a direct message.",
   // {scopes} lists Slack permissions, such as "chat:write and users:read".
   "mobile.server.connectors.slack.missingScopes":
-    "OpenBot does not have these permissions in Slack: {scopes}. Disconnect the workspace, then connect it again.",
+    "Hive does not have these permissions in Slack: {scopes}. Disconnect the workspace, then connect it again.",
   // {time} is a time, such as 14:30.
-  "mobile.server.connectors.slack.retryAt": "Slack asked OpenBot to wait. It tries again at {time}.",
+  "mobile.server.connectors.slack.retryAt": "Slack asked Hive to wait. It tries again at {time}.",
   "mobile.server.connectors.slack.helpInvalidToken":
-    "Slack no longer accepts OpenBot in this workspace. It may have been uninstalled. Connect the workspace again.",
+    "Slack no longer accepts Hive in this workspace. It may have been uninstalled. Connect the workspace again.",
   "mobile.server.connectors.slack.helpSecretStorage":
-    "OpenBot cannot read the saved tokens on {host}. Disconnect the workspace, then connect it again.",
+    "Hive cannot read the saved tokens on {host}. Disconnect the workspace, then connect it again.",
   "mobile.server.connectors.slack.helpRelay":
-    "OpenBot on {host} cannot receive Slack events. On {host}, sign in, give the server a name in Server settings, and keep OpenBot open.",
+    "Hive on {host} cannot receive Slack events. On {host}, sign in, give the server a name in Server settings, and keep Hive open.",
   "mobile.server.connectors.slack.orchestratorTitle": "Slack Orchestrator",
   "mobile.server.connectors.slack.orchestratorDescription":
     "This agent receives every request from Slack. It answers short ones itself, gives other work to the right agent, and posts the answer in the thread.",
   "mobile.server.connectors.slack.orchestratorNone": "Add the Slack Orchestrator, or Slack gets no answer.",
   "mobile.server.connectors.slack.addAgent": "Add Slack Orchestrator",
   "mobile.server.connectors.slack.note":
-    "OpenBot joins every public channel by itself, and each new one. For a private channel, invite it: /invite @OpenBot.",
+    "Hive joins every public channel by itself, and each new one. For a private channel, invite it: /invite @Hive.",
   "mobile.server.connectors.slack.disconnectTitle": "Disconnect {workspace}?",
   "mobile.server.connectors.slack.disconnectBody":
-    "OpenBot stops answering in {workspace} and removes its Slack token from {host}.",
-  "mobile.server.connectors.slack.disconnectKept": "The conversations and the Slack Orchestrator stay in OpenBot.",
+    "Hive stops answering in {workspace} and removes its Slack token from {host}.",
+  "mobile.server.connectors.slack.disconnectKept": "The conversations and the Slack Orchestrator stay in Hive.",
   "mobile.server.connectors.slack.disconnectDeleted":
-    "The Slack Orchestrator and its conversations are deleted from OpenBot.",
+    "The Slack Orchestrator and its conversations are deleted from Hive.",
   "mobile.server.connectors.slack.agentPromptTitle": "Add the Slack Orchestrator?",
   "mobile.server.connectors.slack.agentPromptBody":
-    "This new agent answers everything that people send to @OpenBot in {workspace}.",
+    "This new agent answers everything that people send to @Hive in {workspace}.",
   "mobile.server.connectors.slack.installFailed": "Slack did not finish the install. Try again.",
   // Discord: a Discord server adds the one OpenBot bot. Always write "Discord server": "server" alone
   // is an OpenBot server. {workspace} is the Discord server name.
   "mobile.server.connectors.discord.title": "Discord",
-  "mobile.server.connectors.discord.summary": "People mention @OpenBot in a Discord server",
+  "mobile.server.connectors.discord.summary": "People mention @Hive in a Discord server",
   "mobile.server.connectors.discord.description":
-    "People mention @OpenBot in a channel of a Discord server. The Discord Orchestrator asks the right agent and answers.",
+    "People mention @Hive in a channel of a Discord server. The Discord Orchestrator asks the right agent and answers.",
   "mobile.server.connectors.discord.connected": "{workspace} · Discord Orchestrator answers",
   "mobile.server.connectors.discord.noAgent": "{workspace} · No agent answers yet",
   "mobile.server.connectors.discord.many": {
@@ -668,48 +667,47 @@ export const messages = defineMessages("mobile.server", {
   },
   "mobile.server.connectors.discord.connect": "Connect Discord",
   "mobile.server.connectors.discord.connectFooter":
-    "Discord opens in a browser. Select the Discord server, then Authorize. OpenBot adds one bot, named OpenBot.",
+    "Discord opens in a browser. Select the Discord server, then Authorize. Hive adds one bot, named Hive.",
   "mobile.server.connectors.discord.add": "Add Discord server",
   "mobile.server.connectors.discord.limit": {
     one: "You can connect a maximum of {count} Discord server.",
     other: "You can connect a maximum of {count} Discord servers.",
   },
   "mobile.server.connectors.discord.workspaceTitle": "Discord server",
-  "mobile.server.connectors.discord.workspaceDescription":
-    "Mention @OpenBot in a channel. Reply to OpenBot to continue.",
+  "mobile.server.connectors.discord.workspaceDescription": "Mention @Hive in a channel. Reply to Hive to continue.",
   // {scopes} lists Discord permissions.
   "mobile.server.connectors.discord.missingScopes":
-    "OpenBot does not have these permissions in Discord: {scopes}. Disconnect the Discord server, then connect it again.",
+    "Hive does not have these permissions in Discord: {scopes}. Disconnect the Discord server, then connect it again.",
   // {time} is a time, such as 14:30.
-  "mobile.server.connectors.discord.retryAt": "Discord asked OpenBot to wait. It tries again at {time}.",
+  "mobile.server.connectors.discord.retryAt": "Discord asked Hive to wait. It tries again at {time}.",
   "mobile.server.connectors.discord.helpInvalidToken":
-    "Discord no longer accepts OpenBot in this Discord server. It may have been removed. Connect the Discord server again.",
+    "Discord no longer accepts Hive in this Discord server. It may have been removed. Connect the Discord server again.",
   "mobile.server.connectors.discord.helpSecretStorage":
-    "OpenBot cannot read the saved tokens on {host}. Disconnect the Discord server, then connect it again.",
+    "Hive cannot read the saved tokens on {host}. Disconnect the Discord server, then connect it again.",
   "mobile.server.connectors.discord.helpRelay":
-    "OpenBot on {host} cannot receive Discord events. On {host}, sign in, give the server a name in Server settings, and keep OpenBot open.",
+    "Hive on {host} cannot receive Discord events. On {host}, sign in, give the server a name in Server settings, and keep Hive open.",
   "mobile.server.connectors.discord.orchestratorTitle": "Discord Orchestrator",
   "mobile.server.connectors.discord.orchestratorDescription":
     "This agent receives every request from Discord. It answers short ones itself, gives other work to the right agent, and replies with the answer in the channel.",
   "mobile.server.connectors.discord.orchestratorNone": "Add the Discord Orchestrator, or Discord gets no answer.",
   "mobile.server.connectors.discord.addAgent": "Add Discord Orchestrator",
-  "mobile.server.connectors.discord.note": "OpenBot sees the channels that its role can view.",
+  "mobile.server.connectors.discord.note": "Hive sees the channels that its role can view.",
   "mobile.server.connectors.discord.disconnectTitle": "Disconnect {workspace}?",
   "mobile.server.connectors.discord.disconnectBody":
-    "OpenBot stops answering in {workspace} and removes the Discord connection from {host}.",
-  "mobile.server.connectors.discord.disconnectKept": "The conversations and the Discord Orchestrator stay in OpenBot.",
+    "Hive stops answering in {workspace} and removes the Discord connection from {host}.",
+  "mobile.server.connectors.discord.disconnectKept": "The conversations and the Discord Orchestrator stay in Hive.",
   "mobile.server.connectors.discord.disconnectDeleted":
-    "The Discord Orchestrator and its conversations are deleted from OpenBot.",
+    "The Discord Orchestrator and its conversations are deleted from Hive.",
   "mobile.server.connectors.discord.agentPromptTitle": "Add the Discord Orchestrator?",
   "mobile.server.connectors.discord.agentPromptBody":
-    "This new agent answers everything that people send to @OpenBot in {workspace}.",
+    "This new agent answers everything that people send to @Hive in {workspace}.",
   "mobile.server.connectors.discord.installFailed": "Discord did not finish the authorization. Try again.",
   // Telegram: each chat adds the one OpenBot bot, and the Telegram Orchestrator answers all chats.
   // {chat} is the Telegram chat name.
   "mobile.server.connectors.telegram.title": "Telegram",
-  "mobile.server.connectors.telegram.summary": "Add the OpenBot bot to a Telegram chat",
+  "mobile.server.connectors.telegram.summary": "Add the Hive bot to a Telegram chat",
   "mobile.server.connectors.telegram.description":
-    "Add the OpenBot bot to a Telegram group or open a direct chat with it. The Telegram Orchestrator asks the right agent and answers.",
+    "Add the Hive bot to a Telegram group or open a direct chat with it. The Telegram Orchestrator asks the right agent and answers.",
   // {count} is the number of linked Telegram chats.
   "mobile.server.connectors.telegram.connected": {
     one: "{count} chat · Telegram Orchestrator answers",
@@ -729,12 +727,12 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.connectors.telegram.directDescription":
     "Every message in this chat goes to the Telegram Orchestrator.",
   "mobile.server.connectors.telegram.helpRemoved":
-    "The OpenBot bot is no longer in this chat. Disconnect the chat, then add the bot again.",
+    "The Hive bot is no longer in this chat. Disconnect the chat, then add the bot again.",
   "mobile.server.connectors.telegram.helpRelay":
-    "OpenBot on {host} cannot receive Telegram messages. On {host}, sign in, give the server a name in Server settings, and keep OpenBot open.",
-  "mobile.server.connectors.telegram.helpError": "OpenBot cannot reach this chat. Reconnect, or disconnect the chat.",
+    "Hive on {host} cannot receive Telegram messages. On {host}, sign in, give the server a name in Server settings, and keep Hive open.",
+  "mobile.server.connectors.telegram.helpError": "Hive cannot reach this chat. Reconnect, or disconnect the chat.",
   // {time} is a time, such as 14:30.
-  "mobile.server.connectors.telegram.retryAt": "Telegram asked OpenBot to wait. It tries again at {time}.",
+  "mobile.server.connectors.telegram.retryAt": "Telegram asked Hive to wait. It tries again at {time}.",
   "mobile.server.connectors.telegram.linkTitle": "Link a chat",
   "mobile.server.connectors.telegram.linkAnother": "Link another chat",
   "mobile.server.connectors.telegram.linkFooter":
@@ -747,16 +745,14 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.connectors.telegram.openDirectChat": "Open a direct chat",
   "mobile.server.connectors.telegram.orchestratorTitle": "Telegram Orchestrator",
   "mobile.server.connectors.telegram.orchestratorDescription":
-    "This agent receives the messages for OpenBot from all your Telegram chats. It answers short ones itself, gives other work to the right agent, and posts the answer in the chat.",
+    "This agent receives the messages for Hive from all your Telegram chats. It answers short ones itself, gives other work to the right agent, and posts the answer in the chat.",
   "mobile.server.connectors.telegram.orchestratorNone": "Add the Telegram Orchestrator, or Telegram gets no answer.",
   "mobile.server.connectors.telegram.addAgent": "Add Telegram Orchestrator",
   "mobile.server.connectors.telegram.disconnectTitle": "Disconnect {chat}?",
-  "mobile.server.connectors.telegram.disconnectBody":
-    "The OpenBot bot leaves {chat}, and OpenBot stops answering there.",
-  "mobile.server.connectors.telegram.disconnectKept":
-    "The conversations and the Telegram Orchestrator stay in OpenBot.",
+  "mobile.server.connectors.telegram.disconnectBody": "The Hive bot leaves {chat}, and Hive stops answering there.",
+  "mobile.server.connectors.telegram.disconnectKept": "The conversations and the Telegram Orchestrator stay in Hive.",
   "mobile.server.connectors.telegram.disconnectDeleted":
-    "This is the last chat, so the Telegram Orchestrator and its conversations are deleted from OpenBot.",
+    "This is the last chat, so the Telegram Orchestrator and its conversations are deleted from Hive.",
   "mobile.server.settings.providers": "Providers",
   "mobile.server.settings.providersConnected": { one: "{count} connected", other: "{count} connected" },
   // The AI providers of the computer that runs the server. Owners and admins manage them from the phone.
@@ -770,9 +766,9 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.providers.loadFailed": "Could not load the providers of this server.",
   "mobile.server.providers.runtimesFailed": "Could not load the downloads of this server.",
   "mobile.server.providers.unavailable": "Connect to this server as an owner or admin to manage its providers.",
-  "mobile.server.providers.unsupported": "Update OpenBot on this server to manage its providers here.",
+  "mobile.server.providers.unsupported": "Update Hive on this server to manage its providers here.",
   "mobile.server.providers.signInUnsupported": "This server cannot sign in this provider from the phone.",
-  "mobile.server.providers.actionFailed": "OpenBot could not complete this action. Try again.",
+  "mobile.server.providers.actionFailed": "Hive could not complete this action. Try again.",
   "mobile.server.providers.openFailed": "Could not open the sign-in page.",
   "mobile.server.providers.copyFailed": "Could not copy the code.",
   "mobile.server.providers.onHost": "This provider runs on the computer of this server.",
@@ -782,10 +778,10 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.providers.connect": "Connect",
   "mobile.server.providers.reconnect": "Reconnect",
   "mobile.server.providers.connectHint":
-    "The server starts the sign-in. OpenBot then shows the steps, and you finish them on this phone.",
+    "The server starts the sign-in. Hive then shows the steps, and you finish them on this phone.",
   "mobile.server.providers.relayHint":
-    "OpenBot opens the provider's sign-in page on this phone. If you must copy something back, OpenBot shows the steps first.",
-  "mobile.server.providers.connectOnComputer": "Connect this provider in OpenBot on a computer.",
+    "Hive opens the provider's sign-in page on this phone. If you must copy something back, Hive shows the steps first.",
+  "mobile.server.providers.connectOnComputer": "Connect this provider in Hive on a computer.",
   "mobile.server.providers.signInTo": "Sign in to {name}",
   "mobile.server.providers.starting": "Starting the sign-in on the server…",
   "mobile.server.providers.openPage": "Open sign-in page",
@@ -794,15 +790,15 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.providers.paste": "Paste",
   "mobile.server.providers.codeStepCopy": "Copy the code.",
   "mobile.server.providers.codeStepEnter": "Open the sign-in page and enter the code.",
-  "mobile.server.providers.codeStepReturn": "Come back to OpenBot. The sign-in finishes by itself.",
+  "mobile.server.providers.codeStepReturn": "Come back to Hive. The sign-in finishes by itself.",
   "mobile.server.providers.pasteStepSignIn": "Open the sign-in page and sign in.",
   "mobile.server.providers.pasteStepCopy": "Copy the code that the page shows.",
-  "mobile.server.providers.pasteStepReturn": "Come back to OpenBot and paste the code below.",
+  "mobile.server.providers.pasteStepReturn": "Come back to Hive and paste the code below.",
   "mobile.server.providers.relayStepSignIn": "Open the sign-in page and sign in.",
   "mobile.server.providers.relayStepBlank": "The last page does not load. This is correct.",
   "mobile.server.providers.relayStepCopy": "Tap the address bar and copy the full address.",
-  "mobile.server.providers.relayStepReturn": "Come back to OpenBot and paste the address below.",
-  "mobile.server.providers.linkHint": "Sign in on the page. OpenBot continues by itself.",
+  "mobile.server.providers.relayStepReturn": "Come back to Hive and paste the address below.",
+  "mobile.server.providers.linkHint": "Sign in on the page. Hive continues by itself.",
   "mobile.server.providers.relayWaiting": "Waiting for the sign-in page from the server…",
   "mobile.server.providers.code": "Code from the page",
   "mobile.server.providers.codePlaceholder": "Paste the code here",
@@ -858,7 +854,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.providers.accountsHint":
     "Each agent uses one account. Choose it in the agent's settings. A new account signs in on its page on this phone.",
   "mobile.server.providers.accountsOnComputer":
-    "Each agent uses one account. Choose it in the agent's settings. Add an account in OpenBot on a computer.",
+    "Each agent uses one account. Choose it in the agent's settings. Add an account in Hive on a computer.",
   "mobile.server.providers.addAccount": "Add account",
   "mobile.server.providers.accountGone": "This account is no longer on this server.",
   "mobile.server.providers.accountFailed": "Could not change this account. Try again.",
@@ -873,7 +869,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.customAgents.addTitle": "Add custom agent",
   "mobile.server.customAgents.addConfirm": "Add",
   "mobile.server.customAgents.adding": "Adding",
-  "mobile.server.customAgents.unsupported": "Update OpenBot on this server to add custom agents here.",
+  "mobile.server.customAgents.unsupported": "Update Hive on this server to add custom agents here.",
   "mobile.server.customAgents.loading": "Loading custom agents…",
   "mobile.server.customAgents.loadFailed": "Could not load the custom agents of this server.",
   "mobile.server.customAgents.gone": "This custom agent is no longer on this server.",
@@ -888,7 +884,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.customAgents.idHint": "Lowercase letters, numbers or hyphens. You cannot change it later.",
   "mobile.server.customAgents.idPattern":
     "Use lowercase letters, numbers or hyphens, starting with a letter or number.",
-  "mobile.server.customAgents.idBuiltIn": "OpenBot already has a provider called {id}. Choose another ID.",
+  "mobile.server.customAgents.idBuiltIn": "Hive already has a provider called {id}. Choose another ID.",
   "mobile.server.customAgents.idTaken": "An agent called {id} already exists. Choose another ID.",
   "mobile.server.customAgents.command": "Command",
   "mobile.server.customAgents.commandHint":
@@ -912,16 +908,15 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.customAgents.envValueRequired": "Enter a value for each new variable.",
   "mobile.server.customAgents.usagePrompt": "Usage command",
   "mobile.server.customAgents.usagePromptHint":
-    "Optional. OpenBot sends it at most every 5 minutes and shows the last answer, such as /usage.",
+    "Optional. Hive sends it at most every 5 minutes and shows the last answer, such as /usage.",
   "mobile.server.customAgents.usagePromptInvalid": "Use one line of at most 256 characters.",
-  "mobile.server.customAgents.saveFailed": "OpenBot could not save this agent.",
+  "mobile.server.customAgents.saveFailed": "Hive could not save this agent.",
   "mobile.server.customAgents.remove": "Remove agent",
   "mobile.server.customAgents.removeTitle": "Remove {name}?",
   "mobile.server.customAgents.removeBody": "The server removes this agent and its saved variables.",
-  "mobile.server.customAgents.removeFailed": "OpenBot could not remove this agent.",
+  "mobile.server.customAgents.removeFailed": "Hive could not remove this agent.",
   // The ACP registry: agents that the host downloads and runs. Owners and admins install them from the phone.
-  "mobile.server.acpRegistry.unsupported":
-    "Update OpenBot on this server to install agents from the ACP registry here.",
+  "mobile.server.acpRegistry.unsupported": "Update Hive on this server to install agents from the ACP registry here.",
   "mobile.server.acpRegistry.rowDescription": "Install agents on this server, such as Cursor or Goose.",
   "mobile.server.acpRegistry.description":
     "The server downloads and runs each agent that you install. Remove runtime keeps agent settings, credentials and conversations.",
@@ -947,7 +942,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.acpRegistry.cancelInstall": "Cancel install",
   "mobile.server.acpRegistry.keepInstalling": "Keep installing",
   "mobile.server.acpRegistry.searchFailed": "Could not search the registry. Try again.",
-  "mobile.server.acpRegistry.statusFailed": "Could not check the install progress. OpenBot tries again.",
+  "mobile.server.acpRegistry.statusFailed": "Could not check the install progress. Hive tries again.",
   "mobile.server.acpRegistry.installFailed": "Could not install the agent. Try again.",
   "mobile.server.acpRegistry.updateFailed": "Could not update the agent. Try again.",
   "mobile.server.acpRegistry.removeFailed": "Could not remove the runtime. Try again.",
@@ -973,11 +968,11 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.customProviders.preset.acpDescription": "Cursor, Copilot CLI, Qwen Code, Goose and others.",
   "mobile.server.customProviders.desktopOnly": "Desktop only",
   "mobile.server.customProviders.agentsHint":
-    "Add and manage ACP agents in OpenBot on the computer that runs this server.",
+    "Add and manage ACP agents in Hive on the computer that runs this server.",
   "mobile.server.customProviders.agentsCustomHint":
     "The server starts each agent on its computer, with its user account. Add only an agent that you trust.",
   "mobile.server.customProviders.agentsRegistryHint":
-    "Install agents from the ACP registry here. Add a custom ACP agent in OpenBot on the computer that runs this server.",
+    "Install agents from the ACP registry here. Add a custom ACP agent in Hive on the computer that runs this server.",
   "mobile.server.customProviders.adding": "Adding",
   "mobile.server.customProviders.loading": "Loading custom providers…",
   "mobile.server.customProviders.loadFailed": "Could not load the custom providers of this server.",
@@ -990,7 +985,7 @@ export const messages = defineMessages("mobile.server", {
     "Lowercase letters, numbers, hyphens or underscores. You cannot change it later.",
   "mobile.server.customProviders.idPattern":
     "Use lowercase letters, numbers, hyphens or underscores, starting with a letter or number.",
-  "mobile.server.customProviders.idBuiltIn": "OpenBot already has a provider called {id}. Choose another ID.",
+  "mobile.server.customProviders.idBuiltIn": "Hive already has a provider called {id}. Choose another ID.",
   "mobile.server.customProviders.idTaken": "This server already has an endpoint called {id}. Choose another ID.",
   "mobile.server.customProviders.baseUrl": "Base URL",
   "mobile.server.customProviders.baseUrlHint":
@@ -1024,16 +1019,16 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.customProviders.headerNameInvalid": "Use a valid HTTP header name.",
   "mobile.server.customProviders.headerDuplicate": "This provider already sets {name}.",
   "mobile.server.customProviders.headerValueRequired": "Enter a header value.",
-  "mobile.server.customProviders.saveFailed": "OpenBot could not add this endpoint.",
+  "mobile.server.customProviders.saveFailed": "Hive could not add this endpoint.",
   "mobile.server.customProviders.runsOn": "Runs on",
   "mobile.server.customProviders.editHint": "To change this endpoint, remove it and add it again.",
   "mobile.server.customProviders.remove": "Remove",
   "mobile.server.customProviders.removeTitle": "Remove {name}?",
   "mobile.server.customProviders.removeBody": "Agents on this server can no longer use its models.",
-  "mobile.server.customProviders.removeFailed": "OpenBot could not remove this endpoint.",
+  "mobile.server.customProviders.removeFailed": "Hive could not remove this endpoint.",
   "mobile.server.settings.mcp": "MCP servers",
   "mobile.server.settings.mcpCount": { one: "{count} server", other: "{count} servers" },
-  "mobile.server.mcp.unsupported": "Update OpenBot on this server to manage its MCP servers here.",
+  "mobile.server.mcp.unsupported": "Update Hive on this server to manage its MCP servers here.",
   "mobile.server.mcp.unavailable": "Connect to this server as an owner or admin to manage its MCP servers.",
   "mobile.server.mcp.description":
     "MCP servers give the agents of this server more tools. Claude and Codex agents get only the servers in this list.",
@@ -1051,7 +1046,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.mcp.addConfirm": "Add",
   "mobile.server.mcp.name": "Name",
   "mobile.server.mcp.namePlaceholder": "MCP server name",
-  "mobile.server.mcp.nameReserved": "OpenBot already uses the name {name}.",
+  "mobile.server.mcp.nameReserved": "Hive already uses the name {name}.",
   "mobile.server.mcp.transport": "Transport",
   "mobile.server.mcp.stdio": "Command (STDIO)",
   "mobile.server.mcp.http": "URL (HTTP)",
@@ -1062,12 +1057,12 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.mcp.command": "Command",
   "mobile.server.mcp.commandHint": "The program only. Put each word after it in Arguments.",
   "mobile.server.mcp.arguments": "Arguments",
-  "mobile.server.mcp.argumentsHint": "OpenBot gives each argument to the program as one word.",
+  "mobile.server.mcp.argumentsHint": "Hive gives each argument to the program as one word.",
   "mobile.server.mcp.addArgument": "Add argument",
   "mobile.server.mcp.argument": "Argument {position}",
   "mobile.server.mcp.removeArgument": "Remove argument {position}",
   "mobile.server.mcp.environment": "Environment variables",
-  "mobile.server.mcp.environmentHint": "OpenBot gives these variables to the MCP server when it starts.",
+  "mobile.server.mcp.environmentHint": "Hive gives these variables to the MCP server when it starts.",
   "mobile.server.mcp.addVariable": "Add variable",
   "mobile.server.mcp.variableKey": "Variable {position} name",
   "mobile.server.mcp.variableValue": "Variable {position} value",
@@ -1082,7 +1077,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.mcp.url": "Server URL",
   "mobile.server.mcp.urlInvalid": "Enter an http or https address.",
   "mobile.server.mcp.headers": "Headers",
-  "mobile.server.mcp.headersHint": "OpenBot sends these headers with each request.",
+  "mobile.server.mcp.headersHint": "Hive sends these headers with each request.",
   "mobile.server.mcp.addHeader": "Add header",
   "mobile.server.mcp.headerName": "Header {position} name",
   "mobile.server.mcp.headerValue": "Header {position} value",
@@ -1099,7 +1094,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.mcp.testFailed": "The MCP server did not answer.",
   "mobile.server.mcp.connected": { one: "Connected · {count} tool", other: "Connected · {count} tools" },
   "mobile.server.mcp.signInOnComputer":
-    "This MCP server asks you to sign in. Sign in from OpenBot on a computer, then test again.",
+    "This MCP server asks you to sign in. Sign in from Hive on a computer, then test again.",
   "mobile.server.mcp.signedInDescription": "{server} is signed in to this MCP server.",
   "mobile.server.mcp.signOut": "Sign out",
   "mobile.server.mcp.saveFailed": "Could not save the change. Try again.",
@@ -1130,8 +1125,8 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.settings.updates": "Updates",
   "mobile.server.settings.updateAvailable": "Update available",
   "mobile.server.route.updates": "Updates",
-  "mobile.server.update.hostTitle": "OpenBot on {name}",
-  "mobile.server.update.version": "OpenBot {version}",
+  "mobile.server.update.hostTitle": "Hive on {name}",
+  "mobile.server.update.version": "Hive {version}",
   "mobile.server.update.status.idle": "Check for updates to find the latest release.",
   "mobile.server.update.status.checking": "Checking for updates…",
   "mobile.server.update.status.available": "{version} is available.",
@@ -1139,28 +1134,28 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.update.status.downloadingUnknown": "Downloading {version}…",
   "mobile.server.update.status.ready": "{version} is downloaded.",
   "mobile.server.update.status.installing": "{name} is restarting to install the update.",
-  "mobile.server.update.status.upToDate": "OpenBot is up to date on {name}.",
+  "mobile.server.update.status.upToDate": "Hive is up to date on {name}.",
   "mobile.server.update.status.checkFailed": "{name} could not check for updates. Try again.",
   "mobile.server.update.status.downloadFailed": "{name} could not download the update. Try again.",
   "mobile.server.update.status.installFailed":
-    "{name} could not install the update. Make sure that no other user of that computer runs OpenBot, then try again.",
+    "{name} could not install the update. Make sure that no other user of that computer runs Hive, then try again.",
   "mobile.server.update.releaseCheckFailed":
     "{name} could not read the release feed. Check the host network connection, then try again.",
   "mobile.server.update.releaseUnavailable":
     "Release checks are not available for this build. Ask the host administrator to check for a compatible release.",
   "mobile.server.update.externalTitle": "The host controls installation",
   "mobile.server.update.path.hostManager":
-    "OpenBot Host Manager installs updates when all users are idle. Ask the host administrator to check the Host Manager status if an update does not start.",
+    "Hive Host Manager installs updates when all users are idle. Ask the host administrator to check the Host Manager status if an update does not start.",
   "mobile.server.update.path.hosted":
     "The hosted service downloads updates in the background. A downloaded update starts when the server next starts. Wait for active work to finish before you stop and resume the server. If it stays on an old version, contact the host administrator.",
   "mobile.server.update.path.system":
-    "On the host, run sudo openbot update to install the latest release. This command stops OpenBot. Wait for active work to finish first. Automatic downloads install at the next boot.",
+    "On the host, run sudo openbot update to install the latest release. This command stops Hive. Wait for active work to finish first. Automatic downloads install at the next boot.",
   "mobile.server.update.path.container":
-    "On the Docker host, pull the new OpenBot image and create the container again with the same data volumes. Wait for active work to finish first. Keep the existing volumes to preserve your data.",
+    "On the Docker host, pull the new Hive image and create the container again with the same data volumes. Wait for active work to finish first. Keep the existing volumes to preserve your data.",
   "mobile.server.update.path.manual":
-    "This installation cannot replace itself. Ask the host administrator to install the compatible release from github.com/nightly-labs/openbot/releases. Keep the existing OpenBot data.",
+    "This installation cannot replace itself. Ask the host administrator to install the compatible release from github.com/nightly-labs/openbot/releases. Keep the existing Hive data.",
   "mobile.server.update.path.unavailable":
-    "This is a development build. Use an installed OpenBot release to check for updates.",
+    "This is a development build. Use an installed Hive release to check for updates.",
   "mobile.server.update.check": "Check for updates",
   "mobile.server.update.start": "Update when idle",
   "mobile.server.update.restartNow": "Restart now",
@@ -1170,25 +1165,25 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.update.requestedBy": "{member} asked for this update.",
   "mobile.server.update.automatic": "{name} installs updates automatically.",
   "mobile.server.update.autoDownloadTitle": "Download updates automatically",
-  "mobile.server.update.autoDownloadDescription": "{name} downloads each new version of OpenBot when it comes out.",
+  "mobile.server.update.autoDownloadDescription": "{name} downloads each new version of Hive when it comes out.",
   "mobile.server.update.autoInstallTitle": "Install updates automatically",
   "mobile.server.update.autoInstallDescription":
     "{name} restarts into a downloaded update when its agents are idle. Members are disconnected for a short time and connect again automatically.",
   "mobile.server.update.waitingFor": "Waiting for {reasons}.",
   "mobile.server.update.disabledTitle": "Remote updates are off",
   "mobile.server.update.disabledDescription":
-    "The user of {name} turned off updates from server members. Ask them to update OpenBot or to turn the setting on.",
+    "The user of {name} turned off updates from server members. Ask them to update Hive or to turn the setting on.",
   "mobile.server.update.managedTitle": "A Host Manager controls updates",
-  "mobile.server.update.managedDescription": "OpenBot Host Manager updates {name}. Contact the host administrator.",
+  "mobile.server.update.managedDescription": "Hive Host Manager updates {name}. Contact the host administrator.",
   "mobile.server.update.unsupportedTitle": "{name} cannot update itself",
-  "mobile.server.update.unsupportedDescription": "This OpenBot build has no updater. Install a new version on {name}.",
+  "mobile.server.update.unsupportedDescription": "This Hive build has no updater. Install a new version on {name}.",
   "mobile.server.update.restarting": "Restarting…",
   "mobile.server.update.loadFailed": "The update status of {name} did not load.",
-  "mobile.server.update.dialog.offerTitle": "Update {name} to OpenBot {version}",
+  "mobile.server.update.dialog.offerTitle": "Update {name} to Hive {version}",
   "mobile.server.update.dialog.offerDescription":
-    "{name} uses OpenBot {current}. It downloads the update first, then restarts.",
+    "{name} uses Hive {current}. It downloads the update first, then restarts.",
   "mobile.server.update.dialog.offerReadyDescription":
-    "{name} uses OpenBot {current}. The update is downloaded. {name} restarts to install it.",
+    "{name} uses Hive {current}. The update is downloaded. {name} restarts to install it.",
   "mobile.server.update.dialog.waitIdleDescription": "The restart waits for agent turns and routine runs to finish.",
   "mobile.server.update.dialog.updateNow": "Update now",
   "mobile.server.update.dialog.restartWhenIdle": "Restart when idle",
@@ -1203,15 +1198,15 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.update.reason.fileTransfer": "a file transfer",
   "mobile.server.update.reason.browserControl": "browser control by an agent",
   "mobile.server.update.reason.updateOperation": "another update step",
-  "mobile.server.update.reason.initialization": "the start of OpenBot",
+  "mobile.server.update.reason.initialization": "the start of Hive",
   "mobile.server.update.reason.other": "other work",
   "mobile.server.update.actionFailed": "The server action failed.",
-  "mobile.server.update.unavailable": "Connect to this server to see its OpenBot updates.",
+  "mobile.server.update.unavailable": "Connect to this server to see its Hive updates.",
   "mobile.server.update.loading": "Loading updates…",
   "mobile.server.route.roles": "Roles",
   "mobile.server.route.role": "Role",
   "mobile.server.roles.description": "Choose the agents that members can use. Owners and admins can use all agents.",
-  "mobile.server.roles.unsupported": "Update OpenBot on this server to manage roles.",
+  "mobile.server.roles.unsupported": "Update Hive on this server to manage roles.",
   "mobile.server.roles.unavailable": "Only an owner or admin of an online server can manage roles.",
   "mobile.server.roles.loading": "Loading roles…",
   "mobile.server.roles.loadFailed": "Could not load the roles of this server.",
@@ -1248,7 +1243,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.route.audit": "Audit log",
   "mobile.server.audit.description":
     "Changes to the members, roles and agent access of this server, newest first. The host keeps the newest 500 changes.",
-  "mobile.server.audit.unsupported": "Update OpenBot on this server to see its audit log.",
+  "mobile.server.audit.unsupported": "Update Hive on this server to see its audit log.",
   "mobile.server.audit.unavailable": "Only an owner or admin of an online server can see the audit log.",
   "mobile.server.audit.loading": "Loading changes…",
   "mobile.server.audit.loadFailed": "Could not load the audit log of this server.",
@@ -1277,7 +1272,7 @@ export const messages = defineMessages("mobile.server", {
   // Server settings › Import agents: Grok Bot and Hermes exports (`agent-import-v1`).
   "mobile.server.settings.importAgents": "Import agents",
   "mobile.server.route.import": "Import agents",
-  "mobile.server.import.unsupported": "Update OpenBot on this server to import agents here.",
+  "mobile.server.import.unsupported": "Update Hive on this server to import agents here.",
   "mobile.server.import.unavailable": "Connect to this server to import agents.",
   "mobile.server.import.count.agent": { one: "{count} agent", other: "{count} agents" },
   "mobile.server.import.count.channel": { one: "{count} channel", other: "{count} channels" },
@@ -1286,10 +1281,10 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.import.count.memory": { one: "{count} memory", other: "{count} memories" },
   "mobile.server.import.count.file": { one: "{count} file", other: "{count} files" },
   "mobile.server.import.sourceTitle": "Where are your agents now?",
-  "mobile.server.import.sourceLede": "OpenBot copies them to this server. You see every item before anything changes.",
+  "mobile.server.import.sourceLede": "Hive copies them to this server. You see every item before anything changes.",
   "mobile.server.import.hermesNote": "Export a .zip file from Hermes.",
   "mobile.server.import.grokNote": "In the cloud. An export agent there makes a .zip file.",
-  "mobile.server.import.transfer": "Another OpenBot server",
+  "mobile.server.import.transfer": "Another Hive server",
   "mobile.server.import.transferNote": "Use Transfer to move agents and settings together.",
   "mobile.server.import.grokLede":
     "An export agent in Grok Bot packs names, instructions, avatars, skills, routines, memories, and the files you include into one .zip file.",
@@ -1351,7 +1346,7 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.route.transfer": "Transfer",
   "mobile.server.route.transferExport": "Export",
   "mobile.server.route.transferImport": "Import",
-  "mobile.server.transfer.unsupported": "Update OpenBot on this server to transfer it here.",
+  "mobile.server.transfer.unsupported": "Update Hive on this server to transfer it here.",
   "mobile.server.transfer.unavailable": "Connect to this server as an owner or admin to transfer it.",
   "mobile.server.transfer.title": "Move this server to another computer",
   "mobile.server.transfer.lede": "Its agents, their skills, routines, memories, and files go into one file.",
@@ -1394,8 +1389,8 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.transfer.reading": "Reading the file…",
   "mobile.server.transfer.sending": "Sending the file… {percent}%",
   "mobile.server.transfer.openFailed": "The file could not be opened.",
-  "mobile.server.transfer.source": "OpenBot {version} · exported {date}",
-  "mobile.server.transfer.sourceNoDate": "OpenBot {version}",
+  "mobile.server.transfer.source": "Hive {version} · exported {date}",
+  "mobile.server.transfer.sourceNoDate": "Hive {version}",
   "mobile.server.transfer.importWarnings": "Before the import starts",
   "mobile.server.transfer.importAgents": "Agents in the file",
   "mobile.server.transfer.nameExists": "Name already used",

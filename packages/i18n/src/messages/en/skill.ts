@@ -13,7 +13,7 @@ export const messages = defineMessages("skill", {
   "skill.loadingDetails": "Loading details…",
   "skill.emptyEnabled": "This agent has no enabled skills.",
   "skill.emptyAssigned": "This agent has no assigned skills yet.",
-  "skill.folderSkill": "OpenBot did not install this skill. Edit or remove it in {location}.",
+  "skill.folderSkill": "Hive did not install this skill. Edit or remove it in {location}.",
   "skill.moreFor": "More for {name}",
   "skill.update": "Update",
   "skill.updateName": "Update {name}",
@@ -36,7 +36,7 @@ export const messages = defineMessages("skill", {
     "Updating this skill replaces the local files with the latest skill package. Your edits in this skill folder will be lost.",
   "skill.confirm.removeModifiedBody":
     "This skill has local changes in the agent workspace. Remove deletes those files. Original chat messages stay.",
-  "skill.confirm.removeBody": "OpenBot will remove this skill from the agent. Chat history stays.",
+  "skill.confirm.removeBody": "Hive will remove this skill from the agent. Chat history stays.",
   "skill.confirm.replace": "Replace skill",
   "skill.confirm.remove": "Remove skill",
 
@@ -75,5 +75,5 @@ export const messages = defineMessages("skill", {
   "skill.marketplace.undone": "The change to {name} is undone.",
   "skill.marketplace.confirmAgents": "Agents: {agents}.",
   "skill.marketplace.limitReason": "An agent can have up to {limit} skills.",
-  "skill.marketplace.cannotRemove": "OpenBot cannot remove a built-in skill or a skill that it did not install.",
+  "skill.marketplace.cannotRemove": "Hive cannot remove a built-in skill or a skill that it did not install.",
 });

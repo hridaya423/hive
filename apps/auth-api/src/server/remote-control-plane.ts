@@ -2825,7 +2825,7 @@ export class RemoteControlPlane {
       return yield* new RemoteControlPlaneError(
         409,
         "telegram_chat_taken",
-        "Another OpenBot server answers this Telegram chat. Disconnect it there first.",
+        "Another Hive server answers this Telegram chat. Disconnect it there first.",
       );
     }
     if (route?.host_id === code.host_id) {

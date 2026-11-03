@@ -629,7 +629,7 @@ export class OnePasswordConnectorService implements PasswordVault {
           "create",
           ONEPASSWORD_SHARED_VAULT,
           "--description",
-          "Logins that OpenBot agents may use to sign in to sites.",
+          "Logins that Hive agents may use to sign in to sites.",
           ...scope,
           "--format",
           "json",
@@ -637,15 +637,7 @@ export class OnePasswordConnectorService implements PasswordVault {
         signal,
       ).pipe(Effect.flatMap(cliJson(vaultSchema)))).id;
     const token = (yield* this.#cli(
-      [
-        "service-account",
-        "create",
-        `OpenBot on ${this.#hostName}`,
-        "--vault",
-        `${vaultId}:read_items`,
-        ...scope,
-        "--raw",
-      ],
+      ["service-account", "create", `Hive on ${this.#hostName}`, "--vault", `${vaultId}:read_items`, ...scope, "--raw"],
       signal,
     )).trim();
     if (!token) return yield* connectFailure(sourceText("error.connector.onePasswordTokenRejected"));

@@ -242,7 +242,7 @@ const OTHER_SERVERS_RETURN_DELAY_MS = 3_000;
 const STARTUP_SERVER_WAIT_MS = 4_000;
 const EMPTY_SERVER: MobileServer = {
   id: "unavailable",
-  name: "OpenBot",
+  name: "Hive",
   logoKey: null,
   kind: "local",
   state: "connecting",

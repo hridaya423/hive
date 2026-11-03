@@ -82,13 +82,13 @@ export const PLUGIN_CATALOG_INDEX: PluginCatalogIndex = {
       slug: "paper",
       version: "1.0.1",
       featured: false,
-      detailSha256: "d15a140eec6ab0a0a6e79e354ccaba88d035435112bdb7a044528b2a4c7a1548",
+      detailSha256: "a313def274ae9328abbb3a4a83dd93ebe5e896a06822f10b43b6828432cfea6b",
     },
     {
       slug: "apple-apps",
       version: "1.1.0",
       featured: false,
-      detailSha256: "ee3aa4ba4d11b38bea38f703959868cfb6bb5cf4ac5d3ef7a998e4a40a345984",
+      detailSha256: "1ac32e1f90c4e1406b55a05b2c0b26732a7bb4189997fab804dcee6234ccbcc7",
     },
     {
       slug: "sentry",
@@ -622,7 +622,7 @@ export const PLUGIN_CATALOG_DETAILS: Record<string, PluginCatalogDetail> = {
     name: "Paper",
     tagline: "Design canvas built on HTML and CSS",
     description:
-      "Paper lets agents read and write the design file that is open in Paper Desktop: inspect artboards, selections, computed styles, JSX and tokens, and create or change frames, text and styles. Install Paper Desktop, open it once, and open a file before you start. OpenBot starts the Paper CLI that Paper Desktop installs. Paper needs no key. Write tools change the open file, so review each write before you approve it.",
+      "Paper lets agents read and write the design file that is open in Paper Desktop: inspect artboards, selections, computed styles, JSX and tokens, and create or change frames, text and styles. Install Paper Desktop, open it once, and open a file before you start. Hive starts the Paper CLI that Paper Desktop installs. Paper needs no key. Write tools change the open file, so review each write before you approve it.",
     category: "design",
     creatorName: "Paper",
     iconUrl: "https://paper.design/apple-touch-icon.png",
@@ -655,7 +655,7 @@ export const PLUGIN_CATALOG_DETAILS: Record<string, PluginCatalogDetail> = {
     name: "Apple apps",
     tagline: "Mail, Calendar and more on your Mac",
     description:
-      "Apple apps lets agents use Mail, Calendar, Contacts, Reminders, Notes, Messages and Safari on this Mac. It works on macOS only. OpenBot starts mcp-icloud, a community server that is not made by Apple or OpenBot. The server controls the apps through AppleScript, on this computer, and needs no account and no key. When you install it, OpenBot can ask macOS for access to all of these apps at once, with one prompt for each app. If you do not, macOS asks the first time an agent uses an app. To change this later, open System Settings › Privacy & Security › Automation. Agents can send email and iMessages, and change or delete events, contacts and reminders, so review each write before you approve it. What the tools read, such as email text, goes to the model provider of the agent.",
+      "Apple apps lets agents use Mail, Calendar, Contacts, Reminders, Notes, Messages and Safari on this Mac. It works on macOS only. Hive starts mcp-icloud, a community server that is not made by Apple or Hive. The server controls the apps through AppleScript, on this computer, and needs no account and no key. When you install it, Hive can ask macOS for access to all of these apps at once, with one prompt for each app. If you do not, macOS asks the first time an agent uses an app. To change this later, open System Settings › Privacy & Security › Automation. Agents can send email and iMessages, and change or delete events, contacts and reminders, so review each write before you approve it. What the tools read, such as email text, goes to the model provider of the agent.",
     category: "productivity",
     creatorName: "MrGo2",
     iconUrl: "https://www.apple.com/favicon.ico",

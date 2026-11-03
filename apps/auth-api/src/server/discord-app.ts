@@ -78,7 +78,7 @@ export class DiscordAppService {
     const clientSecret = bindings.DISCORD_CLIENT_SECRET?.trim();
     const stateSecret = bindings.DISCORD_STATE_SECRET?.trim();
     if (!clientId || !clientSecret || !stateSecret || new TextEncoder().encode(stateSecret).byteLength < 32) {
-      throw new DiscordAppError(503, "discord_not_configured", "The OpenBot Discord app is not configured.");
+      throw new DiscordAppError(503, "discord_not_configured", "The Hive Discord app is not configured.");
     }
     this.#database = bindings.DB;
     this.#clientId = clientId;
@@ -197,7 +197,7 @@ export class DiscordAppService {
       return yield* new DiscordAppError(
         409,
         "discord_guild_taken",
-        "Another OpenBot server answers this Discord server. Disconnect it there first.",
+        "Another Hive server answers this Discord server. Disconnect it there first.",
       );
     }
     return {

@@ -25,7 +25,7 @@ export const Route = createFileRoute("/join")({
         { name: "referrer", content: "no-referrer" },
         { name: "description", content: text.description },
         { property: "og:type", content: "website" },
-        { property: "og:site_name", content: "OpenBot" },
+        { property: "og:site_name", content: "Hive" },
         { property: "og:locale", content: "en_US" },
         { property: "og:url", content: url },
         { property: "og:title", content: text.title },

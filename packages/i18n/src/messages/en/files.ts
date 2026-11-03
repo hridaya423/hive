@@ -57,7 +57,7 @@ export const messages = defineMessages("files", {
   "files.storage.allFiles": "All files",
   "files.storage.allFilesOn": "All files on {host}",
   "files.storage.allFilesDescription": "Files of all agents and chats",
-  "files.storage.openBotOn": "OpenBot on {host}",
+  "files.storage.openBotOn": "Hive on {host}",
   "files.storage.measuring": "Measuring…",
   "files.storage.measureAgain": "Measure again",
   "files.storage.measuringStorage": "Measuring storage",
@@ -66,7 +66,7 @@ export const messages = defineMessages("files", {
   "files.storage.byType": "Storage by type",
   "files.storage.emptyTitle": "Nothing stored yet",
   "files.storage.emptyDescription":
-    "Agent workspaces, chat files and chat history show here when you start to use OpenBot.",
+    "Agent workspaces, chat files and chat history show here when you start to use Hive.",
   "files.storage.agents": "Agents",
   "files.storage.largestChats": "Largest chats",
   "files.storage.files": "Files",
@@ -77,7 +77,7 @@ export const messages = defineMessages("files", {
   "files.storage.justNow": "just now",
   "files.storage.minutesAgo": "{minutes} min ago",
   "files.storage.hoursAgo": "{hours} h ago",
-  "files.storage.updateServer": "Update OpenBot on this server to see its storage.",
+  "files.storage.updateServer": "Update Hive on this server to see its storage.",
   "files.storage.openFailed": "Could not open “{name}”",
   "files.storage.tryAgain": "Try again.",
   // The machine part of Server settings > Storage: disk, memory and CPU of the computer that runs the server.
@@ -107,12 +107,12 @@ export const messages = defineMessages("files", {
   "files.machine.saveFailed": "Could not save the alert settings.",
   "files.cleanup.title": "Clean up",
   "files.cleanup.canBeCleared": "{size} can be cleared",
-  "files.cleanup.description.caches": "Copies of server files. OpenBot downloads them again when you open them.",
+  "files.cleanup.description.caches": "Copies of server files. Hive downloads them again when you open them.",
   "files.cleanup.description.logs": "Diagnostic logs. New logs start at once.",
   "files.cleanup.description.runtimes":
-    "Older provider CLI versions that no agent uses. OpenBot keeps the version in use.",
+    "Older provider CLI versions that no agent uses. Hive keeps the version in use.",
   "files.cleanup.description.runtimeDownloads":
-    "The CLI downloads of {providers}, and any older CLI versions. No agent uses them: these providers are off or use the CLI you installed. OpenBot downloads a CLI again when a provider needs it.",
+    "The CLI downloads of {providers}, and any older CLI versions. No agent uses them: these providers are off or use the CLI you installed. Hive downloads a CLI again when a provider needs it.",
   "files.cleanup.clear": "Clear",
   "files.cleanup.clearCategory": "Clear {category}",
   "files.cleanup.confirm.caches": "Clear cached server files?",
