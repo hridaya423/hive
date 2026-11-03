@@ -104,8 +104,11 @@ it, and WhatsApp then gives this computer the keys of the new device.
   a linked device, so an approval request does not go to the chat: the user approves in the app.
 - **Unlink.** Unlink logs the device out of WhatsApp, which removes it from the phone's linked
   devices, deletes the `whatsapp/auth` folder and the allowed chats, and deletes the WhatsApp
-  Orchestrator with its conversations. If the phone removes the device first, the host deletes the
-  login and shows that the account must be linked again.
+  Orchestrator with its conversations. A paused connection opens a short socket from the saved login
+  for the logout. If WhatsApp does not answer in 10 seconds, for example with no network, the host
+  deletes the login anyway and writes a log line, and the phone can still list the device until the
+  user removes it in WhatsApp under Linked devices. If the phone removes the device first, the host
+  deletes the login and shows that the account must be linked again.
 
 Using an unofficial client can break WhatsApp's terms of service, and WhatsApp can block the number.
 Anyone in an allowed chat can give the agents work. The agents run on the host with the access the

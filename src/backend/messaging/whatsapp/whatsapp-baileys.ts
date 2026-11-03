@@ -22,9 +22,17 @@ export const baileysConnect: WhatsAppConnect = async (authDir) => {
     syncFullHistory: false,
     markOnlineOnConnect: false,
   });
-  socket.ev.on("creds.update", saveCreds);
+  let writing: Promise<void> = Promise.resolve();
+  let stopped = false;
+  socket.ev.on("creds.update", () => {
+    if (!stopped) writing = writing.then(() => saveCreds()).catch(() => undefined);
+  });
   return {
     socket,
     downloadMedia: (message) => downloadMediaMessage(message, "buffer", {}),
+    stopCreds: async () => {
+      stopped = true;
+      await writing;
+    },
   };
 };

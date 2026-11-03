@@ -1,4 +1,5 @@
-import { rm } from "node:fs/promises";
+import { access, rm } from "node:fs/promises";
+import { join } from "node:path";
 import { isDynamicRecord, isNumber } from "@openbot/contracts/runtime-values";
 import type { Logger } from "@openbot/logging";
 import { Effect } from "effect";
@@ -14,6 +15,7 @@ import {
 import { whatsappChatOf, whatsappInbound } from "./whatsapp-updates";
 
 const WHATSAPP_RETRY_CAP_MS = 30_000;
+export const WHATSAPP_LOGOUT_TIMEOUT_MS = 10_000;
 
 export function whatsappRetryDelayMs(attempt: number): number {
   return Math.min(WHATSAPP_RETRY_CAP_MS, 1_000 * 2 ** attempt);
@@ -23,6 +25,73 @@ function closeStatus(error: Error | undefined): number | undefined {
   const output = isDynamicRecord(error) ? error.output : undefined;
   const status = isDynamicRecord(output) ? output.statusCode : undefined;
   return isNumber(status) ? status : undefined;
+}
+
+async function endClient(client: WhatsAppClient): Promise<void> {
+  client.socket.end(undefined);
+  await client.stopCreds();
+}
+
+function openedOrGone(socket: WhatsAppClient["socket"]): Promise<"open" | "gone"> {
+  return new Promise((resolve, reject) => {
+    socket.ev.on("connection.update", (update) => {
+      if (update.connection === "open") {
+        resolve("open");
+      } else if (update.connection === "close") {
+        if (closeStatus(update.lastDisconnect?.error) === WHATSAPP_CLOSE.loggedOut) resolve("gone");
+        else reject(update.lastDisconnect?.error);
+      }
+    });
+  });
+}
+
+export interface WhatsAppUnlinkOptions {
+  connect: WhatsAppConnect;
+  authDir: string;
+  logger: Logger;
+  timeoutMs: number;
+}
+
+/**
+ * Logs the device out of WhatsApp, so the phone drops it, and deletes the login. A connection that
+ * is paused or stopped has no socket, so a short-lived one opens from the saved login. When the logout
+ * does not finish in time, the login is deleted anyway and the log says that the phone may keep the device.
+ */
+export async function unlinkWhatsApp(options: WhatsAppUnlinkOptions, live: WhatsAppClient | null): Promise<void> {
+  const { connect, authDir, logger, timeoutMs } = options;
+  let client = live;
+  let expired = false;
+  const logout = async (): Promise<boolean> => {
+    if (!client) {
+      const linked = await access(join(authDir, "creds.json")).then(
+        () => true,
+        () => false,
+      );
+      if (!linked) return true;
+      const opened = await connect(authDir);
+      if (expired) {
+        await endClient(opened);
+        return false;
+      }
+      client = opened;
+      if ((await openedOrGone(opened.socket)) === "gone") return true;
+    }
+    await client.socket.logout();
+    return true;
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const loggedOut = await Promise.race([
+    logout().catch(() => false),
+    new Promise<false>((resolve) => {
+      timer = setTimeout(() => resolve(false), timeoutMs);
+    }),
+  ]);
+  clearTimeout(timer);
+  expired = true;
+  if (client) await endClient(client);
+  await rm(authDir, { recursive: true, force: true });
+  if (!loggedOut)
+    logger.warn("WhatsApp did not log this device out, so the phone may still list it as a linked device.");
 }
 
 /** The pairing QR code that the settings page shows. It is null once the phone has scanned it. */
@@ -44,13 +113,14 @@ export interface WhatsAppTransportOptions {
   session: WhatsAppSession;
   pairing: WhatsAppPairing;
   retryDelayMs: (attempt: number) => number;
+  logoutTimeoutMs: number;
   logger: Logger;
 }
 
 /**
  * The inbound half of the linked account: the socket to WhatsApp, which this host opens itself. It
  * reconnects with a backoff, shows the pairing QR code while no account is linked, and stops when the
- * phone unlinks the account. A message from a chat outside the allowlist is dropped before anything
+ * phone unlinks the account or WhatsApp restricts the number. A message from a chat outside the allowlist is dropped before anything
  * reads it, and only the number of drops is logged.
  */
 export class WhatsAppTransport implements MessagingTransport {
@@ -81,12 +151,11 @@ export class WhatsAppTransport implements MessagingTransport {
 
   /** Logs the account out of WhatsApp, so the phone drops this device, and deletes the login. */
   readonly unlink = Effect.fn("WhatsAppTransport.unlink")(() =>
-    Effect.promise(async () => {
+    Effect.promise(() => {
       const client = this.#detach();
       this.#options.pairing.qr(null);
-      await client?.socket.logout().catch(() => undefined);
-      client?.socket.end(undefined);
-      await rm(this.#options.authDir, { recursive: true, force: true });
+      const { connect, authDir, logger, logoutTimeoutMs } = this.#options;
+      return unlinkWhatsApp({ connect, authDir, logger, timeoutMs: logoutTimeoutMs }, client);
     }),
   );
 
@@ -104,10 +173,11 @@ export class WhatsAppTransport implements MessagingTransport {
     return client;
   }
 
-  #dropClient(): void {
+  #dropClient(): WhatsAppClient | null {
     const client = this.#options.session.client;
     this.#options.session.client = null;
     client?.socket.end(undefined);
+    return client;
   }
 
   #clearTimer(): void {
@@ -155,15 +225,20 @@ export class WhatsAppTransport implements MessagingTransport {
     }
     if (update.connection !== "close") return;
     const status = closeStatus(update.lastDisconnect?.error);
-    this.#dropClient();
+    const dropped = this.#dropClient();
     if (status === WHATSAPP_CLOSE.loggedOut) {
       this.#halted = true;
       this.#generation += 1;
       this.#options.pairing.qr(null);
-      void rm(this.#options.authDir, { recursive: true, force: true }).finally(() => sink.state("invalid_token"));
-    } else if (status === WHATSAPP_CLOSE.replaced) {
+      void (async () => {
+        await dropped?.stopCreds();
+        await rm(this.#options.authDir, { recursive: true, force: true });
+      })().finally(() => sink.state("invalid_token"));
+    } else if (status === WHATSAPP_CLOSE.replaced || status === WHATSAPP_CLOSE.forbidden) {
       this.#halted = true;
       this.#generation += 1;
+      if (status === WHATSAPP_CLOSE.forbidden)
+        this.#options.logger.warn("WhatsApp restricted or banned this number, so Hive stopped trying to connect.");
       sink.state("error");
     } else if (status === WHATSAPP_CLOSE.restartRequired) {
       void this.#open();
