@@ -58,7 +58,7 @@ export interface MoveHost {
   readonly routineIds: (agentId: string) => Effect.Effect<string[], AgentMoveFailed>;
   readonly deleteRoutine: (agentId: string, routineId: string) => Effect.Effect<void, AgentMoveFailed>;
   readonly deleteAgent: (agentId: string) => Effect.Effect<void, AgentMoveFailed>;
-  readonly hideAgent: (agentId: string) => Effect.Effect<void, AgentMoveFailed>;
+  readonly setHidden: (agentId: string, hidden: boolean) => Effect.Effect<void, AgentMoveFailed>;
 }
 
 const exportOne = (agentId: string): ExportInstanceInput => ({
@@ -136,7 +136,8 @@ export function localMoveHost({
         failAt("delete agent"),
         Effect.andThen(() => sidebarLayout.removeAgent(agentId).pipe(failAt("delete agent"))),
       ),
-    hideAgent: (agentId) => agents.setAgentHidden({ agentId, hidden: true }).pipe(failAt("hide agent"), Effect.asVoid),
+    setHidden: (agentId, hidden) =>
+      agents.setAgentHidden({ agentId, hidden }).pipe(failAt("hide agent"), Effect.asVoid),
   };
 }
 
@@ -245,13 +246,13 @@ export function remoteMoveHost(
       remote
         .request(serverId, TEAM_API_ROUTES.agent.one(agentId), decodeVoid, { method: "DELETE" })
         .pipe(failAt("delete agent"), Effect.asVoid),
-    hideAgent: (agentId) =>
+    setHidden: (agentId, hidden) =>
       supported(AGENT_HIDDEN_CAPABILITY, "hide agent").pipe(
         Effect.andThen(() =>
           remote
             .request(serverId, AGENT_HIDDEN_ROUTES.set, decodeHiddenAgentsFromHost, {
               method: "POST",
-              body: { agentId, hidden: true },
+              body: { agentId, hidden },
             })
             .pipe(failAt("hide agent"), Effect.asVoid),
         ),
@@ -277,31 +278,47 @@ export interface MoveAgentInput {
 export const moveAgent = Effect.fn("AgentMove.move")(function* ({ source, target, agentId }: MoveAgentInput) {
   const expected = yield* source.counts(agentId);
   const backups = yield* source.backupModels(agentId);
-  const bytes = yield* source.exportAgent(agentId);
-  const created = yield* target.importAgent(bytes);
-  const warnings = [...created.warnings];
+  yield* source.setHidden(agentId, true);
 
-  yield* Effect.gen(function* () {
-    const actual = yield* target.counts(created.agentId);
-    if (actual.routineCount !== expected.routineCount || actual.memoryCount !== expected.memoryCount)
-      return yield* new AgentMoveFailed({
-        step: "confirm",
-        cause: new Error(sourceText("error.team.agentMoveIncomplete", { name: target.name })),
-      });
-    yield* source.hideAgent(agentId);
+  const created = yield* Effect.gen(function* () {
+    const bytes = yield* source.exportAgent(agentId);
+    const copy = yield* target.importAgent(bytes);
+    yield* Effect.gen(function* () {
+      const actual = yield* target.counts(copy.agentId);
+      if (actual.routineCount !== expected.routineCount || actual.memoryCount !== expected.memoryCount)
+        return yield* new AgentMoveFailed({
+          step: "confirm",
+          cause: new Error(sourceText("error.team.agentMoveIncomplete", { name: target.name })),
+        });
+    }).pipe(
+      Effect.tapError(() =>
+        target.deleteAgent(copy.agentId).pipe(
+          Effect.mapError(
+            () =>
+              new AgentMoveFailed({
+                step: "rollback",
+                cause: new Error(sourceText("error.team.agentMoveCopyKept", { name: target.name })),
+              }),
+          ),
+        ),
+      ),
+    );
+    return copy;
   }).pipe(
-    Effect.tapError(() =>
-      target.deleteAgent(created.agentId).pipe(
-        Effect.mapError(
-          () =>
-            new AgentMoveFailed({
-              step: "rollback",
-              cause: new Error(sourceText("error.team.agentMoveCopyKept", { name: target.name })),
-            }),
+    Effect.tapError((failure) =>
+      source.setHidden(agentId, false).pipe(
+        Effect.mapError(() =>
+          failure.step === "rollback"
+            ? failure
+            : new AgentMoveFailed({
+                step: "rollback",
+                cause: new Error(sourceText("error.team.agentMoveSourceHidden", { name: source.name })),
+              }),
         ),
       ),
     ),
   );
+  const warnings = [...created.warnings];
 
   if (backups?.backupModels) {
     yield* target

@@ -526,7 +526,7 @@ try {
   });
 
   await step("A copy that cannot be removed from the target is reported", async () => {
-    failures.add(`mini:${AGENT_HIDDEN_ROUTES.set}`);
+    failures.add("macbook:/v1/instance-transfer/summary");
     blockedDeletes.add("macbook");
     const refused = await runCauseEffect(
       moveAgent({ source: remoteHost("mini"), target: remoteHost("macbook"), agentId: back.agentId }),
@@ -534,11 +534,47 @@ try {
       () => null,
       (error: unknown) => (error instanceof Error ? error.message : String(error)),
     );
-    failures.delete(`mini:${AGENT_HIDDEN_ROUTES.set}`);
+    failures.delete("macbook:/v1/instance-transfer/summary");
     blockedDeletes.delete("macbook");
     assert.ok(refused?.includes("kept a copy of the agent"), `The failure did not name the copy: ${refused}`);
-    assert.equal(visibleAgentsOf(macbook).length, 1, "The leftover copy is not on the target.");
+    const [leftover, ...others] = visibleAgentsOf(macbook);
+    assert.ok(leftover && others.length === 0, "The leftover copy is not on the target.");
+    const source = agentsOf(mini).find((agent) => agent.id === back.agentId);
+    assert.ok(source && source.hiddenAt === undefined, "The source agent stayed hidden after the failed move.");
+    await runCauseEffect(macbook.agents.deleteAgent(leftover.id));
     return { refused };
+  });
+
+  await step("No routine is armed on both hosts at once while the agent moves", async () => {
+    assert.notEqual(mini.agents.nextRoutineDueAt(), null, "The routine is not armed on host A.");
+    assert.equal(macbook.agents.nextRoutineDueAt(), null);
+    const target = remoteHost("macbook");
+    const armed: { source: string | null; target: string | null }[] = [];
+    const result = await runCauseEffect(
+      moveAgent({
+        source: localHost(mini),
+        agentId: back.agentId,
+        target: {
+          ...target,
+          importAgent: (bytes) =>
+            target
+              .importAgent(bytes)
+              .pipe(
+                Effect.tap(() =>
+                  Effect.sync(() =>
+                    armed.push({ source: mini.agents.nextRoutineDueAt(), target: macbook.agents.nextRoutineDueAt() }),
+                  ),
+                ),
+              ),
+        },
+      }),
+    );
+    assert.equal(armed.length, 1);
+    assert.notEqual(armed[0]?.target, null, "The copy has no armed routine when its import ends.");
+    assert.equal(armed[0]?.source, null, "A routine due now would fire on the source and on the target.");
+    assert.notEqual(macbook.agents.nextRoutineDueAt(), null, "The routine is not armed on host B.");
+    assert.equal(mini.agents.nextRoutineDueAt(), null, "The routine is still armed on host A.");
+    return { agentId: result.agentId, armed };
   });
 
   report.passed = true;
