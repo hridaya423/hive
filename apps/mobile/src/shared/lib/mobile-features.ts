@@ -3,12 +3,11 @@ import {
   type MobileFeatureFlags,
   mobileFeaturesOff,
   parseMobileFeatureFlags,
-  parseMobileLatestVersion,
 } from "@openbot/contracts/mobile-features";
 import * as Application from "expo-application";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { create } from "zustand";
-import { devFeatureOverride, devLatestAppVersion } from "@/shared/lib/dev-feature-overrides";
+import { devFeatureOverride } from "@/shared/lib/dev-feature-overrides";
 import { isAndroid, isIOS } from "@/shared/lib/platform";
 
 /** A screen that opens often reads the flags again at most this often. */
@@ -18,25 +17,22 @@ const FLAGS_TIMEOUT_MS = 10_000;
 /**
  * The feature flags of this app version, from the account server that the phone signed in to. Before the
  * first answer every feature is off, and a failed read keeps the last answer. An account server
- * without the flags endpoint, such as an older or self-hosted one, leaves every feature off. The same
- * answer names the newest store version, which an older account server does not send.
+ * without the flags endpoint, such as an older or self-hosted one, leaves every feature off.
  */
 const useMobileFeatures = create<{
   apiUrl: string | null;
   flags: MobileFeatureFlags;
-  latestVersion: string | null;
   checkedAt: number;
 }>(() => ({
   apiUrl: null,
   flags: mobileFeaturesOff(),
-  latestVersion: null,
   checkedAt: 0,
 }));
 
 export async function refreshMobileFeatures(apiUrl: string, force = false): Promise<MobileFeatureFlags> {
   const current = useMobileFeatures.getState();
   if (current.apiUrl !== apiUrl) {
-    useMobileFeatures.setState({ apiUrl, flags: mobileFeaturesOff(), latestVersion: null, checkedAt: 0 });
+    useMobileFeatures.setState({ apiUrl, flags: mobileFeaturesOff(), checkedAt: 0 });
   } else if (!force && Date.now() - current.checkedAt < FLAGS_TTL_MS) {
     return current.flags;
   }
@@ -55,7 +51,7 @@ export async function refreshMobileFeatures(apiUrl: string, force = false): Prom
     const flags = parseMobileFeatureFlags(body);
     if (!flags) return useMobileFeatures.getState().flags;
     if (useMobileFeatures.getState().apiUrl === apiUrl) {
-      useMobileFeatures.setState({ flags, latestVersion: parseMobileLatestVersion(body), checkedAt: Date.now() });
+      useMobileFeatures.setState({ flags, checkedAt: Date.now() });
     }
     return flags;
   } catch {
@@ -79,10 +75,4 @@ export function currentAppVersion(): string | null {
 export function useMobileFeature(apiUrl: string, feature: keyof MobileFeatureFlags): boolean {
   const on = useMobileFeatures((state) => state.apiUrl === apiUrl && state.flags[feature]);
   return devFeatureOverride(feature) ?? on;
-}
-
-/** The newest store version for the account server of this session. Null until it answers. */
-export function useLatestAppVersion(apiUrl: string): string | null {
-  const latest = useMobileFeatures((state) => (state.apiUrl === apiUrl ? state.latestVersion : null));
-  return devLatestAppVersion() ?? latest;
 }

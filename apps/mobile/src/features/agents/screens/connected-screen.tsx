@@ -54,12 +54,6 @@ import { ChatListRail } from "@/features/agents/components/chat-list-rail";
 import { EmptyAgentsScene, type WelcomeHandOff } from "@/features/agents/components/empty-agents-scene";
 import { PinnedAgentsGrid } from "@/features/agents/components/pinned-agents-grid";
 import { SidebarSectionHeader } from "@/features/agents/components/sidebar-section-header";
-import {
-  AppUpdateBlock,
-  AppUpdateSpacer,
-  useAppUpdateHeader,
-} from "@/features/app-update/components/app-update-header";
-import { useAppUpdate } from "@/features/app-update/model/app-update";
 import { ChannelListRow } from "@/features/channels/components/channel-list";
 import { useChannels } from "@/features/channels/components/use-channels";
 import { OnboardingFlow } from "@/features/onboarding/components/onboarding-flow";
@@ -533,20 +527,16 @@ export function ConnectedScreen({ variant = "screen" }: { variant?: "screen" | "
   const statusShows = hasSelectedServer && !activeServer.initialConnectionPending && !activeServerOnline;
   // The empty scene has its own main action where the field would be.
   const searchShows = listReady && hasSelectedServer && !onboarding.active && !sceneShows;
-  // An app update drops the lilac block to a header above the list, where the search field shows.
-  const appUpdate = useAppUpdate();
-  const updateHeader = useAppUpdateHeader(searchShows ? appUpdate : null);
   const { open: searchOpen, closeSearch } = search;
   useEffect(() => {
     if (!searchShows && searchOpen) closeSearch();
   }, [searchShows, searchOpen, closeSearch]);
-  // A quick action waits while the list loads. A ready home without the field drops it, also while
-  // What's new hides the field. When home leaves, a request waits again for the next home.
-  const updateExpanded = updateHeader.expanded;
+  // A quick action waits while the list loads. A ready home without the field drops it. When home
+  // leaves, a request waits again for the next home.
   useEffect(() => {
-    setHomeSearchUnavailable(listReady && (!searchShows || updateExpanded));
+    setHomeSearchUnavailable(listReady && !searchShows);
     return () => setHomeSearchUnavailable(false);
-  }, [listReady, searchShows, updateExpanded]);
+  }, [listReady, searchShows]);
   const finishGate = onboarding.finish;
   const finishOnboarding = useCallback(
     (welcome?: WelcomeHandOff) => {
@@ -900,7 +890,6 @@ export function ConnectedScreen({ variant = "screen" }: { variant?: "screen" | "
                       <LargeTitle
                         scroll={scroll}
                         title={activeServer.name}
-                        above={<AppUpdateSpacer header={updateHeader} headerHeight={headerHeight} />}
                         accessibilityLabel={t("mobile.agent.home.serverTitle", { name: activeServer.name })}
                         onPress={openDrawer}
                       />
@@ -922,11 +911,7 @@ export function ConnectedScreen({ variant = "screen" }: { variant?: "screen" | "
                         </Button>
                       </View>
                     ) : null}
-                    <PinnedAgentsGrid
-                      agents={pinnedAgents}
-                      animateLayout={!updateHeader.moving}
-                      dropZone={dragging && !hasPins}
-                    >
+                    <PinnedAgentsGrid agents={pinnedAgents} dropZone={dragging && !hasPins}>
                       {pinnedChannels.length > 0
                         ? pinnedChannels.map((channel) => (
                             <ChannelListRow
@@ -1018,16 +1003,13 @@ export function ConnectedScreen({ variant = "screen" }: { variant?: "screen" | "
           title={activeServer.name}
           // The connection state takes the place of the title in the bar.
           hidden={!searchShows || statusShows || search.open}
-        >
-          <AppUpdateBlock header={updateHeader} scroll={scroll} hidden={search.open} />
-        </LargeTitleBar>
+        />
       )}
 
       {/* The results lie over the bar's edge, so its blur cannot soften them; they have their own. */}
       {searchShows ? <HomeSearchResults search={search} barHeight={searchBarOffset} /> : null}
 
-      {/* What's new covers home with the update block, so the field leaves while it shows. */}
-      {searchShows && !updateHeader.expanded ? <HomeSearchBar search={search} blurTarget={searchBlurTarget} /> : null}
+      {searchShows ? <HomeSearchBar search={search} blurTarget={searchBlurTarget} /> : null}
 
       {onboardingReady ? (
         // The flow fades out over the home, which comes in under it with its own reveal.

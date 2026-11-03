@@ -1,24 +1,6 @@
 /* Mobile Connect: the phones as cards, with the permanent link as one more card. "Add phone" and
  * the permanent link open a dialog that shows one code at a time, so a phone camera cannot catch
  * the wrong code. */
-.settings-mobile-app-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--openbot-space-1-5);
-}
-
-.settings-mobile-app-tab > svg {
-  width: var(--openbot-icon-sm);
-  height: var(--openbot-icon-sm);
-  flex: 0 0 auto;
-}
-
-.settings-mobile-app-qr-platform {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
-}
-
 .settings-mobile-app-qr-logo {
   width: 20px;
   height: 20px;
@@ -348,10 +330,6 @@
   gap: var(--openbot-space-4);
   padding: var(--openbot-space-4) var(--openbot-space-6) var(--openbot-space-6);
   text-align: center;
-}
-
-.settings-mobile-dialog-note {
-  max-width: 320px;
 }
 
 .settings-mobile-dialog-footer {

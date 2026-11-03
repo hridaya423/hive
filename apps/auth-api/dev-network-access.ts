@@ -7,7 +7,6 @@ const MOBILE_LAN_PATHS = new Set([
   "/v1/me/analytics",
   "/v1/me/avatar",
   "/v1/mobile/features",
-  "/v1/mobile/changelog",
   "/v2/remote/hosts/",
   "/v2/remote/sessions/",
   "/v2/remote/invites/preview",

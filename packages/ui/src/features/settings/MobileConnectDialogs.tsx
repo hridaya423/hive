@@ -1,5 +1,4 @@
-import { AppLogo, type MobilePlatformLogoVariant, PlatformLogo } from "@openbot/brand";
-import type { AppTextKey } from "@openbot/i18n";
+import { AppLogo } from "@openbot/brand";
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,15 +16,12 @@ import {
   QrCode,
   Scan,
   ShieldCheck,
-  SlidingTabs,
   Text,
   X,
 } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js";
+import { createEffect, createSignal, Match, onCleanup, Show, Switch } from "solid-js";
 import { useText } from "../../text";
-import { ANDROID_PLAY_STORE_URL } from "../mobile-app/android-play-store";
-import { IOS_APP_STORE_URL } from "../mobile-app/ios-app-store";
 import type { SettingsMobileConnectStore } from "./stores/mobile-connect-store";
 
 type Store = SettingsMobileConnectStore;
@@ -36,44 +32,15 @@ const CONNECTED_CLOSE_MS = 1_400;
 /** The permanent code hides itself after this, so it does not stay on the screen. */
 const LINK_VISIBLE_SECONDS = 60;
 
-interface PhoneApp {
-  platform: MobilePlatformLogoVariant;
-  label: string;
-  url: string;
-  qrLabel: AppTextKey;
-  tag: AppTextKey;
-}
-
-/** The store page of each phone app. Its QR code opens the store on the phone. */
-const PHONE_APPS: readonly PhoneApp[] = [
-  {
-    platform: "ios",
-    label: "iPhone",
-    url: IOS_APP_STORE_URL,
-    qrLabel: "settings.mobileConnect.iosApp.qrLabel",
-    tag: "settings.mobileConnect.qr.appStore",
-  },
-  {
-    platform: "android",
-    label: "Android",
-    url: ANDROID_PLAY_STORE_URL,
-    qrLabel: "settings.mobileConnect.androidApp.qrLabel",
-    tag: "settings.mobileConnect.qr.playStore",
-  },
-];
-
 function countdown(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 /** The tag under each code: what the code does, in words and with an icon. */
-function QrTag(props: { kind: "store" | "signin" | "permanent" | "success" | "idle"; children: JSX.Element }) {
+function QrTag(props: { kind: "signin" | "permanent" | "success" | "idle"; children: JSX.Element }) {
   return (
     <span class="settings-mobile-qr-tag" data-kind={props.kind}>
       <Switch>
-        <Match when={props.kind === "store"}>
-          <Download aria-hidden="true" />
-        </Match>
         <Match when={props.kind === "signin"}>
           <Scan aria-hidden="true" />
         </Match>
@@ -164,8 +131,7 @@ function createConnectedClose(source: () => { name: string; value: string } | nu
 type AddScreen = "ask" | "install" | "signin";
 
 /**
- * Adds a phone in steps, with one code per step: the store code to get the app, or the one-time
- * sign-in code. Closing the dialog cancels a code that no phone used.
+ * Adds a phone in steps: how to get the app, then the one-time sign-in code. Closing the dialog cancels a code that no phone used.
  */
 export function MobileConnectAddPhoneDialog(props: {
   open: boolean;
@@ -175,7 +141,6 @@ export function MobileConnectAddPhoneDialog(props: {
 }) {
   const { t } = useText();
   const [screen, setScreen] = createSignal<AddScreen>("ask");
-  const [platform, setPlatform] = createSignal<MobilePlatformLogoVariant>("ios");
   const session = () => props.store.state.connect.session;
   const live = () => {
     const current = session();
@@ -204,7 +169,6 @@ export function MobileConnectAddPhoneDialog(props: {
     if (!live()) void props.store.createTicket();
   };
   const back = () => setScreen("ask");
-  const app = () => PHONE_APPS.find((candidate) => candidate.platform === platform()) ?? PHONE_APPS[0];
   const title = () => {
     if (screen() === "install") return t("settings.mobileConnect.add.install.heading");
     if (screen() === "signin") return t("settings.mobileConnect.signIn.title");
@@ -244,34 +208,7 @@ export function MobileConnectAddPhoneDialog(props: {
                 </div>
               </Match>
               <Match when={current === "install"}>
-                <SlidingTabs.Root
-                  value={platform()}
-                  onChange={(value) => {
-                    if (value === "ios" || value === "android") setPlatform(value);
-                  }}
-                >
-                  <SlidingTabs.List aria-label={t("settings.mobileConnect.install.platformLabel")}>
-                    <For each={PHONE_APPS}>
-                      {(phone) => (
-                        <SlidingTabs.Trigger class="settings-mobile-app-tab" value={phone.platform}>
-                          <PlatformLogo platform={phone.platform} />
-                          {phone.label}
-                        </SlidingTabs.Trigger>
-                      )}
-                    </For>
-                  </SlidingTabs.List>
-                </SlidingTabs.Root>
-                <Show when={app()} keyed>
-                  {(phone) => (
-                    <div class="settings-mobile-qr">
-                      <QrCode class="settings-mobile-qr-code" value={phone.url} size={QR_SIZE} label={t(phone.qrLabel)}>
-                        <PlatformLogo platform={phone.platform} class="settings-mobile-app-qr-platform" />
-                      </QrCode>
-                      <QrTag kind="store">{t(phone.tag)}</QrTag>
-                    </div>
-                  )}
-                </Show>
-                <Text variant="caption" tone="muted" class="settings-mobile-dialog-note">
+                <Text variant="body-sm" tone="secondary">
                   {t("settings.mobileConnect.add.install.note")}
                 </Text>
               </Match>
