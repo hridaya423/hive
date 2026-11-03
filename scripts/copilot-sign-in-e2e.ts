@@ -43,8 +43,9 @@ const savedEnvironment = {
 const database = new OpenBotDatabase(join(root, "profile"));
 const agents = new AgentStore(join(root, "profile"), join(root, "home"), database);
 let runtime: ProviderRuntime | undefined;
+let assigned = false;
 
-async function setMode(mode: "ok" | "signed-out" | "no-plan"): Promise<void> {
+async function setMode(mode: "ok" | "signed-out" | "no-plan" | "broken"): Promise<void> {
   await writeFile(modeFile, mode);
 }
 
@@ -75,7 +76,7 @@ function createRuntime(): ProviderRuntime {
       isStopping: () => false,
       isProviderBusy: () => false,
       isAgentBusy: () => false,
-      isProviderAssigned: () => false,
+      isProviderAssigned: () => assigned,
       onAgentClientLost: () => Effect.void,
       sharedRoot: () => join(root, "shared"),
       onProviderResumed: () => undefined,
@@ -175,6 +176,20 @@ try {
   await waitForRow(connected, "connected");
   assert.equal(row().planRequired, undefined, "A connected row has no plan flag.");
   pass("a re-check ends the no-plan row when the plan appears");
+
+  await setMode("broken");
+  await startFresh();
+  await waitForRow((status) => status.state === "error", "error after a failed start");
+  assert.deepEqual(errors, [], "A failed start of a provider that no agent uses shows no toast.");
+  assert.ok(row().lastError, "The row keeps the failure.");
+  await runCauseEffect(runtime?.refreshProvider("copilot") ?? Effect.void);
+  assert.equal(errors.length, 1, "A start that the user asked for shows the failure.");
+  assigned = true;
+  await startFresh();
+  await waitForRow((status) => status.state === "error", "error after a failed start of a used provider");
+  assert.equal(errors.length, 1, "A failed start of a provider that an agent uses shows the failure.");
+  assigned = false;
+  pass("a failed start shows no toast unless an agent uses the provider or the user acted");
 
   await setMode("signed-out");
   await installCli({ FAKE_LOGIN_MODE: "ok", FAKE_LOGIN_DELAY_MS: "300" });

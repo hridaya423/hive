@@ -17,7 +17,8 @@
 //   `login --web-flow` and `login --device-code`, which end with `FAKE_LOGIN_MODE` after
 //   `FAKE_LOGIN_DELAY_MS`. `FAKE_MODE_FILE` names a file that holds what each new session does now:
 //   `ok`, `signed-out` (`-32000 "Authentication required"`), or `no-plan` (the 403 that GitHub gives an
-//   account with no Copilot plan: `-32603` with `data.category: "permission_denied"`, `data.status: 403`).
+//   account with no Copilot plan: `-32603` with `data.category: "permission_denied"`, `data.status: 403`),
+//   or `broken` (`-32603 "Internal error"`, a start that fails for no reason the user can act on).
 // A prompt with the text `wait` runs until the client cancels it. Each other prompt answers at once.
 import { readFileSync, writeFileSync } from "node:fs";
 import {
@@ -170,6 +171,10 @@ serveFakeAcpAgent(
       const mode = sessionMode();
       if (mode === "signed-out") {
         peer.fail(request, { code: -32000, message: "Authentication required" });
+        return;
+      }
+      if (mode === "broken") {
+        peer.fail(request, { code: -32603, message: "Internal error" });
         return;
       }
       if (mode === "no-plan") {
