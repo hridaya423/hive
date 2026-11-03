@@ -462,6 +462,17 @@ lets everyone. With a list, `MessagingService` ignores a mention from a member w
 roles, before it reacts or posts. Signal passes the author's role IDs with each mention; a mention
 from an older Signal has none, so a server with a list ignores it.
 
+The optional capability `whatsapp-link-v1`
+([`whatsapp-link-v1.ts`](../../packages/contracts/src/team-protocol/whatsapp-link-v1.ts), host route
+[`route-whatsapp-link.ts`](../../src/main/team-api/route-whatsapp-link.ts)) lets an owner or admin of a
+joined server link WhatsApp on the host from their own computer. `connectors-v1` stays frozen to
+Slack, Discord and Telegram, so WhatsApp has its own routes. The host holds the login and the
+connection; the client only draws `qr` from `overview` and polls it, because the code rotates and
+the phone links on its own. The `overview` route is passive for the hosted-server wake rule
+(`client-use.ts`). The desktop client reuses the `host*` messaging endpoints with the platform
+`whatsapp` (main sends them to these routes) and adds `hostGetWhatsAppOverview` and
+`hostSetWhatsAppAllowedChats`. The mobile app and the browser client do not use it yet.
+
 The optional capability `onepassword-connector-v1`
 ([`onepassword-connector-v1.ts`](../../packages/contracts/src/team-protocol/onepassword-connector-v1.ts),
 host route [`route-onepassword-connector.ts`](../../src/main/team-api/route-onepassword-connector.ts))

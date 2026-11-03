@@ -149,6 +149,7 @@ export const messages = defineMessages("error.team", {
   "error.team.vaultUnsupported": "This server cannot open its Vault from here. Update OpenBot on the host.",
   "error.team.vaultResetReadable": "The Vault on this server can be read, so it was not reset.",
   "error.team.discordAccessUnsupported": "This server cannot set Discord roles. Update OpenBot on it.",
+  "error.team.whatsappLinkUnsupported": "This server cannot link WhatsApp from here. Update OpenBot on the host.",
   "error.team.connectorPageRefused": "The server sent a page that OpenBot does not open.",
   "error.team.signInRelayUnknown": "This sign-in ended or does not exist.",
   "error.team.signInRelayUsed": "This sign-in was already sent.",

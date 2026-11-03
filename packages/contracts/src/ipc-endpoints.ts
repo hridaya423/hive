@@ -1139,6 +1139,12 @@ export const IPC_ENDPOINTS = {
     hostSetDiscordAccess: scopedRequest<HostSetDiscordAccessInput, DiscordAccess, "required">()(
       "messaging:host-set-discord-access",
     ),
+    // The WhatsApp account of a joined server with `whatsapp-link-v1`. `hostConnect`, `hostDisconnect`,
+    // `hostReconnect`, `hostSetEnabled` and `hostAddOrchestrator` with the platform `whatsapp` reach it too.
+    hostGetWhatsAppOverview: scopedQuery<WhatsAppOverview, "required">()("messaging:host-get-whatsapp-overview"),
+    hostSetWhatsAppAllowedChats: scopedRequest<SetWhatsAppAllowedChatsInput, WhatsAppOverview, "required">()(
+      "messaging:host-set-whatsapp-allowed-chats",
+    ),
   },
   // The server name, logo, timezone, agent memory limit and app update of one server's host. `host.updateIdentity` and `update`
   // reach this computer only; these take the server, so a remote admin reaches the host. The
