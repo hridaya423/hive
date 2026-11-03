@@ -331,7 +331,7 @@ interface DesktopAnalyticsEvents {
     failure_code?: string;
   };
   connector_action: {
-    connector: "slack" | "discord" | "telegram" | "github" | "onepassword" | "bitwarden";
+    connector: "slack" | "discord" | "telegram" | "whatsapp" | "github" | "onepassword" | "bitwarden";
     action: "connect_started" | "connected" | "disconnected" | "enabled" | "disabled";
     result: AnalyticsResult;
     failure_code?: string;

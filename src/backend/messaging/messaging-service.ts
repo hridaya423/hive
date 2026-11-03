@@ -6,6 +6,7 @@ import { ATTACHMENT_LIMITS, INPUT_LIMITS } from "@openbot/contracts/input-limits
 import type {
   AddMessagingOrchestratorInput,
   AddTelegramOrchestratorInput,
+  AddWhatsAppOrchestratorInput,
   AgentApproval,
   AgentEvent,
   AgentSummary,
@@ -22,12 +23,14 @@ import type {
   SetDiscordAccessInput,
   SidebarLayoutSnapshot,
   SidebarSection,
+  WhatsAppOverview,
 } from "@openbot/contracts/ipc";
 import { MESSAGING_CONNECTION_STATES, MESSAGING_LIMITS } from "@openbot/contracts/ipc";
 import { isDynamicRecord, isOneOf, isString } from "@openbot/contracts/runtime-values";
 import { TELEGRAM_LINK_CODE_TTL_SECONDS } from "@openbot/contracts/signal-protocol/telegram-route";
 import { SLACK_ORCHESTRATOR_AVATAR } from "@openbot/contracts/slack-app";
 import { TELEGRAM_ORCHESTRATOR_AVATAR } from "@openbot/contracts/telegram-app";
+import { WHATSAPP_ORCHESTRATOR_AVATAR } from "@openbot/contracts/whatsapp-app";
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger, redactText } from "@openbot/logging";
 import { Deferred, Effect, Exit, Result, Schema, Scope } from "effect";
@@ -71,6 +74,9 @@ import { SlackApiError, SlackWebApi } from "./slack/slack-web-api";
 import { type TelegramAppPort, telegramLinkUrl } from "./telegram/telegram-connect";
 import { telegramOrchestratorMemories, telegramOrchestratorProfile } from "./telegram/telegram-orchestrator";
 import { parseTelegramUpdate, telegramLink, telegramRemoval } from "./telegram/telegram-updates";
+import { whatsappOrchestratorMemories, whatsappOrchestratorProfile } from "./whatsapp/whatsapp-orchestrator";
+import { allowedChatList, normalizeChat, WHATSAPP_WORKSPACE_ID } from "./whatsapp/whatsapp-session";
+import type { WhatsAppPairing } from "./whatsapp/whatsapp-transport";
 
 const logger = createOpenBotLogger("messaging");
 
@@ -129,6 +135,8 @@ export interface MessagingServiceOptions {
   sidebar?: Pick<SidebarLayoutStore, "getSnapshot" | "mutate" | "removeAgent">;
   /** The file that keeps status posts across a restart. Without it, they are kept in memory only. */
   statusPath?: string;
+  /** The pairing QR code of the WhatsApp driver, which the WhatsApp overview carries. */
+  whatsappPairing?: WhatsAppPairing;
 }
 
 interface LiveConnection {
@@ -228,6 +236,7 @@ export class MessagingService {
   readonly #slackOrigin: string | undefined;
   readonly #telegramApp: TelegramAppPort | null;
   readonly #sidebar: Pick<SidebarLayoutStore, "getSnapshot" | "mutate" | "removeAgent"> | null;
+  readonly #whatsappPairing: WhatsAppPairing | null;
   #started = false;
   /** `start` asked every enabled connection to start. One with no live entry then does not start by itself. */
   #connectionsStarted = false;
@@ -247,6 +256,7 @@ export class MessagingService {
     this.#slackOrigin = options.slackOrigin;
     this.#telegramApp = options.ingress && options.telegramApp ? options.telegramApp : null;
     this.#sidebar = options.sidebar ?? null;
+    this.#whatsappPairing = options.whatsappPairing ?? null;
     this.#status = new MessagingStatusPosts(options.statusPath ?? null);
     this.#posts = this.#status.posts;
     this.#stops = this.#status.stops;
@@ -349,9 +359,16 @@ export class MessagingService {
     return this.#overview("telegram");
   }
 
-  /** The linked WhatsApp account of this computer. */
-  whatsappOverview(): MessagingOverview {
-    return this.#overview("whatsapp");
+  /** The linked WhatsApp account of this computer, its pairing QR code while the phone has not scanned it, and its allowlist. */
+  whatsappOverview(): WhatsAppOverview {
+    const overview = this.#overview("whatsapp");
+    const record = this.#threads.store.connectionForWorkspace("whatsapp", WHATSAPP_WORKSPACE_ID);
+    const allowed = record ? (this.#credentials.get(record.connectionId)?.allowedChats ?? "") : "";
+    return {
+      ...overview,
+      qr: overview.connections.length > 0 ? (this.#whatsappPairing?.code() ?? null) : null,
+      allowedChats: allowedChatList(allowed),
+    };
   }
 
   #overview(platform: MessagingPlatform): MessagingOverview {
@@ -945,6 +962,107 @@ export class MessagingService {
         )
         .pipe(Effect.catch((failure) => Effect.sync(() => this.#warn(failure.cause))));
   }, Effect.uninterruptible);
+
+  /**
+   * Starts the WhatsApp link: the connection opens a socket, and the pairing QR code shows in the
+   * overview until the phone scans it. Linking again after an unlink or a logout from the phone shows
+   * a new code. The allowlist of an earlier link stays.
+   */
+  readonly connectWhatsApp = Effect.fn("MessagingService.connectWhatsApp")(function* (
+    this: MessagingService,
+  ): Effect.fn.Return<void, MessagingOperationFailed> {
+    const record = yield* messagingStep(() =>
+      this.#threads.store.ensureConnection("whatsapp", WHATSAPP_WORKSPACE_ID, "WhatsApp"),
+    );
+    yield* this.#stopConnection(record.connectionId);
+    const allowedChats = this.#credentials.get(record.connectionId)?.allowedChats ?? "";
+    yield* this.#credentials.set(record.connectionId, { account: WHATSAPP_WORKSPACE_ID, allowedChats });
+    this.#threads.store.updateConnection(record.connectionId, {
+      enabled: true,
+      lastErrorCode: null,
+      orchestratorAgentId: this.#orchestrator(record) ?? this.#platformOrchestrator("whatsapp"),
+    });
+    const updated = this.#threads.store.connection(record.connectionId);
+    if (updated) yield* this.#startConnection(updated);
+  }, Effect.uninterruptible).bind(this);
+
+  /**
+   * Logs the account out of WhatsApp, so the phone drops this device, and deletes the login, the
+   * allowlist and the WhatsApp Orchestrator. The conversations stay.
+   */
+  readonly disconnectWhatsApp = Effect.fn("MessagingService.disconnectWhatsApp")(function* (
+    this: MessagingService,
+  ): Effect.fn.Return<void, MessagingOperationFailed> {
+    const record = yield* messagingStep(() => this.#requireConnection("whatsapp", WHATSAPP_WORKSPACE_ID));
+    const orphan = yield* this.#orphanedOrchestrator(record);
+    yield* this.#drivers.get("whatsapp")?.unlink?.() ?? Effect.void;
+    yield* this.#stopConnection(record.connectionId);
+    yield* this.#credentials.clear(record.connectionId);
+    yield* messagingStep(() =>
+      this.#threads.store.updateConnection(record.connectionId, { enabled: false, lastErrorCode: null }),
+    );
+    if (orphan) yield* this.#deleteOrchestrator(orphan);
+  }, Effect.uninterruptible).bind(this);
+
+  /**
+   * Replaces the chats that can reach an agent, as phone numbers or jids. A value that names no chat
+   * fails the whole call. The connection opens a new socket, which keeps the login.
+   */
+  readonly setWhatsAppAllowedChats = Effect.fn("MessagingService.setWhatsAppAllowedChats")(function* (
+    this: MessagingService,
+    chats: readonly string[],
+  ): Effect.fn.Return<WhatsAppOverview, MessagingOperationFailed> {
+    const record = yield* messagingStep(() => this.#requireConnection("whatsapp", WHATSAPP_WORKSPACE_ID));
+    const jids = chats.map(normalizeChat);
+    const valid = jids.filter((jid): jid is string => jid !== null);
+    if (valid.length !== jids.length || valid.length > MESSAGING_LIMITS.whatsappChats)
+      return yield* new MessagingOperationFailed({
+        cause: new Error(sourceText("error.messaging.whatsappChatInvalid")),
+      });
+    const credentials = this.#credentials.get(record.connectionId);
+    if (!credentials)
+      return yield* new MessagingOperationFailed({
+        cause: new Error(sourceText("error.messaging.whatsappNotLinked")),
+      });
+    yield* this.#credentials.set(record.connectionId, { ...credentials, allowedChats: [...new Set(valid)].join(",") });
+    if (record.enabled) {
+      yield* this.#stopConnection(record.connectionId);
+      const updated = this.#threads.store.connection(record.connectionId);
+      if (updated) yield* this.#startConnection(updated);
+    }
+    return this.whatsappOverview();
+  }, Effect.uninterruptible).bind(this);
+
+  /** Creates the WhatsApp Orchestrator, or gives the one that exists to the linked account. */
+  readonly addWhatsAppOrchestrator = Effect.fn("MessagingService.addWhatsAppOrchestrator")(function* (
+    this: MessagingService,
+    input: AddWhatsAppOrchestratorInput,
+  ) {
+    const record = yield* messagingStep(() => this.#requireConnection("whatsapp", WHATSAPP_WORKSPACE_ID));
+    const current = this.#orchestrator(record) ?? this.#platformOrchestrator("whatsapp");
+    if (current) {
+      this.#shareOrchestrator("whatsapp", current);
+      return { agentId: current, sectionId: null };
+    }
+    const agent = yield* this.#agents
+      .createAgentProfile({
+        ...whatsappOrchestratorProfile(),
+        ...WHATSAPP_ORCHESTRATOR_AVATAR,
+        ...(input.provider ? { provider: input.provider } : {}),
+        ...(input.model ? { model: input.model } : {}),
+        ...(input.reasoningEffort ? { reasoningEffort: input.reasoningEffort } : {}),
+      })
+      .pipe(toMessagingOperationFailed);
+    for (const text of whatsappOrchestratorMemories()) this.#agents.createMemory({ agentId: agent.id, text });
+    this.#shareOrchestrator("whatsapp", agent.id);
+    const sectionId = yield* this.#placeInIntegrations(agent.id).pipe(
+      Effect.catch((failure) => {
+        this.#warn(failure.cause);
+        return Effect.succeed(null);
+      }),
+    );
+    return { agentId: agent.id, sectionId };
+  }, Effect.uninterruptible).bind(this);
 
   /**
    * The orchestrator of a platform: one agent for every Slack workspace, every Discord server, or every
@@ -1931,7 +2049,9 @@ export class MessagingService {
             ? "error.messaging.discordNotConnected"
             : platform === "telegram"
               ? "error.messaging.telegramNotConnected"
-              : "error.messaging.notConnected",
+              : platform === "whatsapp"
+                ? "error.messaging.whatsappNotLinked"
+                : "error.messaging.notConnected",
         ),
       );
     return record;

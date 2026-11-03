@@ -365,6 +365,7 @@ import type {
   AddSlackOrchestratorInput,
   AddSlackOrchestratorResult,
   AddTelegramOrchestratorInput,
+  AddWhatsAppOrchestratorInput,
   ConnectTelegramChatInput,
   DiscordAccess,
   DiscordRoleList,
@@ -381,10 +382,13 @@ import type {
   SetMessagingEnabledInput,
   SetSlackEnabledInput,
   SetTelegramEnabledInput,
+  SetWhatsAppAllowedChatsInput,
+  SetWhatsAppEnabledInput,
   SlackOverview,
   SlackWorkspaceInput,
   TelegramChatInput,
   TelegramOverview,
+  WhatsAppOverview,
 } from "./ipc-messaging";
 import type { NotificationOpenedEvent, NotificationPreference } from "./ipc-notifications";
 import type {
@@ -1125,6 +1129,20 @@ export const IPC_ENDPOINTS = {
     setTelegramEnabled: request<SetTelegramEnabledInput, void>()("messaging:set-telegram-enabled"),
     addTelegramOrchestrator: request<AddTelegramOrchestratorInput, AddMessagingOrchestratorResult>()(
       "messaging:add-telegram-orchestrator",
+    ),
+    // The WhatsApp account linked to this computer. A connect starts the link, and the overview carries
+    // the pairing QR code while the phone has not scanned it. The login stays in this computer's data
+    // folder, and an unlink logs the account out of WhatsApp and deletes it.
+    getWhatsAppOverview: request<undefined, WhatsAppOverview>()("messaging:get-whatsapp-overview"),
+    connectWhatsApp: request<undefined, void>()("messaging:connect-whatsapp"),
+    disconnectWhatsApp: request<undefined, void>()("messaging:disconnect-whatsapp"),
+    reconnectWhatsApp: request<undefined, void>()("messaging:reconnect-whatsapp"),
+    setWhatsAppEnabled: request<SetWhatsAppEnabledInput, void>()("messaging:set-whatsapp-enabled"),
+    addWhatsAppOrchestrator: request<AddWhatsAppOrchestratorInput, AddMessagingOrchestratorResult>()(
+      "messaging:add-whatsapp-orchestrator",
+    ),
+    setWhatsAppAllowedChats: request<SetWhatsAppAllowedChatsInput, WhatsAppOverview>()(
+      "messaging:set-whatsapp-allowed-chats",
     ),
     // The same for a joined server with `connectors-v1`, which an owner or admin manages from here.
     // The host opens no page: main opens it in this computer's browser. A Slack or Discord install

@@ -356,6 +356,95 @@ export const messages = defineMessages("connector", {
     "This is the last chat, so the Telegram Orchestrator and its conversations are deleted from OpenBot.",
   "connector.telegram.keep": "Keep connected",
   "connector.telegram.close": "Close",
+  // Marketplace > Apps > WhatsApp: the user's own WhatsApp account, linked as a device with a QR code.
+  // The WhatsApp Orchestrator answers the chats on the allowlist.
+  "connector.whatsapp.title": "WhatsApp",
+  "connector.whatsapp.description":
+    "Link your own WhatsApp account as a device, and choose the chats that can reach an agent. The WhatsApp Orchestrator asks the right agent and answers.",
+  "connector.whatsapp.statusConnected": "Connected",
+  "connector.whatsapp.statusAttention": "Needs attention",
+  "connector.whatsapp.summaryConnected": {
+    one: "{count} allowed chat · WhatsApp Orchestrator answers",
+    other: "{count} allowed chats · WhatsApp Orchestrator answers",
+  },
+  "connector.whatsapp.summaryNoChats": "No chat is allowed yet",
+  "connector.whatsapp.summaryNoAgent": "No agent answers yet",
+  "connector.whatsapp.summaryLinking": "Waiting for the QR scan",
+  "connector.whatsapp.attentionTitle": {
+    one: "{count} problem with WhatsApp",
+    other: "{count} problems with WhatsApp",
+  },
+  "connector.whatsapp.attentionDescription": "The status below says what to do.",
+  "connector.whatsapp.connect": "Link WhatsApp",
+  "connector.whatsapp.addAgent": "Add agent",
+  "connector.whatsapp.actionFailed": "WhatsApp did not accept the change",
+  "connector.whatsapp.accountTitle": "Account",
+  "connector.whatsapp.linkedNote": "Messages from the allowed chats reach the agent below. Nothing else does.",
+  "connector.whatsapp.linkingNote": "Waiting for the QR scan on your phone.",
+  "connector.whatsapp.helpError":
+    "Hive cannot reach WhatsApp. Reconnect, or unlink and link the account again. If the phone removed this device, link it again.",
+  "connector.whatsapp.showQr": "Show QR code",
+  "connector.whatsapp.pause": "Pause",
+  "connector.whatsapp.resume": "Resume",
+  "connector.whatsapp.reconnect": "Reconnect",
+  "connector.whatsapp.unlink": "Unlink",
+  "connector.whatsapp.disconnectAllTitle": "Unlink WhatsApp",
+  "connector.whatsapp.disconnectAllSummary":
+    "The account logs out of WhatsApp, and Hive deletes its login and its allowed chats. The WhatsApp Orchestrator and its conversations are deleted from Hive.",
+  "connector.whatsapp.disconnectAllSummaryKept":
+    "The account logs out of WhatsApp, and Hive deletes its login and its allowed chats.",
+  // {action} is a button, such as Pause; {name} is the account name.
+  "connector.whatsapp.rowAction": "{action}: {name}",
+  "connector.whatsapp.chatsTitle": "Allowed chats",
+  "connector.whatsapp.chatsDescription":
+    "Only these chats can reach an agent. Hive drops every other message before it reads it.",
+  "connector.whatsapp.chatsEmpty": "No chat is allowed yet. Nothing reaches an agent.",
+  "connector.whatsapp.chatsAddLabel": "Phone number or chat id",
+  "connector.whatsapp.chatsAddHint": "A phone number with its country code, such as 447700900123, or a group id.",
+  "connector.whatsapp.chatsAdd": "Allow",
+  "connector.whatsapp.chatsInvalid": "This is not a phone number or a WhatsApp chat id.",
+  "connector.whatsapp.chatsRemove": "Remove",
+  "connector.whatsapp.chatsRemoveLabel": "Remove {chat}",
+  "connector.whatsapp.chatGroup": "Group chat",
+  "connector.whatsapp.chatDirect": "Direct chat",
+  "connector.whatsapp.orchestratorTitle": "WhatsApp Orchestrator",
+  "connector.whatsapp.orchestratorDescription":
+    "This agent receives the messages from your allowed chats. It answers short ones itself, gives other work to the right agent, and posts the answer in the chat.",
+  "connector.whatsapp.orchestratorNone": "No agent answers yet",
+  "connector.whatsapp.orchestratorNoneDescription":
+    "Add the WhatsApp Orchestrator, or the allowed chats get no answer.",
+  "connector.whatsapp.mentionNote":
+    "In a direct chat, every message goes to the agent. In a group, mention your account.",
+  "connector.whatsapp.stepPhone": "Phone",
+  "connector.whatsapp.stepAgent": "Agent",
+  "connector.whatsapp.connectTitle": "Link your phone",
+  "connector.whatsapp.connectDescription":
+    "Hive links to your WhatsApp account as a device, the way WhatsApp Web does. The login stays on this computer.",
+  "connector.whatsapp.connectStepOpen": "Open WhatsApp on your phone",
+  "connector.whatsapp.connectStepLinked": "Open Settings, then Linked devices, then Link a device",
+  "connector.whatsapp.connectStepScan": "Scan this code. This dialog continues when the phone links",
+  "connector.whatsapp.connectWaiting": "Waiting for WhatsApp to make a code.",
+  "connector.whatsapp.qrLabel": "WhatsApp pairing QR code",
+  "connector.whatsapp.agentStepTitle": "Add the WhatsApp Orchestrator",
+  "connector.whatsapp.agentStepDescription":
+    "This new agent answers the messages from your allowed chats. Allow a chat after this step.",
+  "connector.whatsapp.orchestratorName": "WhatsApp Orchestrator",
+  "connector.whatsapp.orchestratorRole": "Answers in WhatsApp and asks the team",
+  "connector.whatsapp.orchestratorDoesReceive": "Receives every message from an allowed chat first",
+  "connector.whatsapp.orchestratorDoesDelegate": "Gives each task to the agent that fits best",
+  "connector.whatsapp.orchestratorDoesAnswer": "Posts the answer in the same chat",
+  "connector.whatsapp.orchestratorModel": "Model",
+  "connector.whatsapp.doneTitle": "WhatsApp is linked",
+  "connector.whatsapp.doneDescription":
+    "Allow the chats that can reach your agent in Allowed chats. Until then, nothing reaches it.",
+  "connector.whatsapp.done": "Done",
+  "connector.whatsapp.disconnectTitle": "Unlink WhatsApp?",
+  "connector.whatsapp.leaveDescription": "The account logs out of WhatsApp, and this computer deletes its login.",
+  "connector.whatsapp.disconnectEffect": "Nobody can reach your agents through WhatsApp until you link it again.",
+  "connector.whatsapp.removeEffectKept": "The conversations and the WhatsApp Orchestrator stay in Hive.",
+  "connector.whatsapp.removeEffectDeleted": "The WhatsApp Orchestrator and its conversations are deleted from Hive.",
+  "connector.whatsapp.keep": "Keep linked",
+  "connector.whatsapp.close": "Close",
   // Marketplace > 1Password: a vault that the user shares with OpenBot through a service account.
   "connector.onePassword.title": "1Password",
   "connector.onePassword.description":

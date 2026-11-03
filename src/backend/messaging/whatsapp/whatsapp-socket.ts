@@ -61,6 +61,7 @@ export interface WhatsAppSocket {
     options?: { quoted?: WhatsAppMessage },
   ): Promise<WhatsAppMessage | undefined>;
   groupMetadata(jid: string): Promise<{ subject: string }>;
+  logout(message?: string): Promise<void>;
   end(error: Error | undefined): void;
 }
 

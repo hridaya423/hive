@@ -13,6 +13,7 @@ import type {
   MessagingWorkspaceInput,
   SetDiscordAccessInput,
   SetMessagingEnabledInput,
+  SetWhatsAppEnabledInput,
 } from "@openbot/contracts/ipc";
 import {
   isAgentModel,
@@ -32,6 +33,11 @@ export function parseMessagingWorkspaceInput(value: unknown): MessagingWorkspace
 export function parseSetMessagingEnabledInput(value: unknown): SetMessagingEnabledInput {
   if (!isObject(value) || !isBoolean(value.enabled)) throw new Error("A messaging request is invalid.");
   return { workspaceId: requireString(value.workspaceId, "Workspace id"), enabled: value.enabled };
+}
+
+export function parseSetWhatsAppEnabledInput(value: unknown): SetWhatsAppEnabledInput {
+  if (!isObject(value) || !isBoolean(value.enabled)) throw new Error("A messaging request is invalid.");
+  return { enabled: value.enabled };
 }
 
 export function parseConnectTelegramChatInput(value: unknown): ConnectTelegramChatInput {

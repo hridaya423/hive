@@ -10,8 +10,10 @@ import {
   isDiscordRoleList,
   isMessagingOverview,
   isTelegramOverview,
+  isWhatsAppOverview,
   type MessagingOverview,
   type TelegramOverview,
+  type WhatsAppOverview,
 } from "@openbot/contracts/ipc";
 
 /** The orchestrator that main created, and the sidebar section it went to. */
@@ -37,5 +39,10 @@ export function decodeDiscordAccessReply(value: unknown): DiscordAccess {
 
 export function decodeDiscordRolesReply(value: unknown): DiscordRoleList {
   if (!isDiscordRoleList(value)) throw new Error("Invalid Discord roles response.");
+  return value;
+}
+
+export function decodeWhatsAppOverviewReply(value: unknown): WhatsAppOverview {
+  if (!isWhatsAppOverview(value)) throw new Error("Invalid WhatsApp overview response.");
   return value;
 }

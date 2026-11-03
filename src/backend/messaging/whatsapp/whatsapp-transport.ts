@@ -6,6 +6,7 @@ import type { MessagingTransport, TransportSink } from "../messaging-types";
 import type { WhatsAppSession } from "./whatsapp-session";
 import {
   WHATSAPP_CLOSE,
+  type WhatsAppClient,
   type WhatsAppConnect,
   type WhatsAppConnectionUpdate,
   type WhatsAppMessage,
@@ -24,9 +25,17 @@ function closeStatus(error: Error | undefined): number | undefined {
   return isNumber(status) ? status : undefined;
 }
 
-/** Shows the pairing QR code to the user. `null` removes it, after the account is linked. */
-export interface WhatsAppPairing {
-  qr(code: string | null): void;
+/** The pairing QR code that the settings page shows. It is null once the phone has scanned it. */
+export class WhatsAppPairing {
+  #code: string | null = null;
+
+  qr(code: string | null): void {
+    this.#code = code;
+  }
+
+  code(): string | null {
+    return this.#code;
+  }
 }
 
 export interface WhatsAppTransportOptions {
@@ -69,11 +78,29 @@ export class WhatsAppTransport implements MessagingTransport {
 
   readonly stop = Effect.fn("WhatsAppTransport.stop")(() => Effect.sync(() => this.#close()));
 
+  /** Logs the account out of WhatsApp, so the phone drops this device, and deletes the login. */
+  readonly unlink = Effect.fn("WhatsAppTransport.unlink")(() =>
+    Effect.promise(async () => {
+      const client = this.#detach();
+      this.#options.pairing.qr(null);
+      await client?.socket.logout().catch(() => undefined);
+      client?.socket.end(undefined);
+      await rm(this.#options.authDir, { recursive: true, force: true });
+    }),
+  );
+
   #close(): void {
+    this.#options.pairing.qr(null);
+    this.#detach()?.socket.end(undefined);
+  }
+
+  #detach(): WhatsAppClient | null {
     this.#sink = null;
     this.#generation += 1;
     this.#clearTimer();
-    this.#dropClient();
+    const client = this.#options.session.client;
+    this.#options.session.client = null;
+    return client;
   }
 
   #dropClient(): void {

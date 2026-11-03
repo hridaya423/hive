@@ -7,6 +7,7 @@ import {
   type DiscordAccess,
   type DiscordRoleList,
   decodeHostMessagingOverview,
+  decodeSetWhatsAppAllowedChatsInput,
   isAddMessagingOrchestratorResult,
   isDiscordAccess,
   isDiscordRoleList,
@@ -22,6 +23,7 @@ import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
 import { runCauseEffect } from "../../backend/effect-boundary";
 import type { MessagingService } from "../../backend/messaging/messaging-service";
+import { WHATSAPP_WORKSPACE_ID } from "../../backend/messaging/whatsapp/whatsapp-session";
 import type { RelayedMessagingInstalls } from "../relayed-messaging-installs";
 import type { ResponseDecoder } from "../remote-host-decoding";
 import type { RemoteRequestInit } from "../remote-server-client";
@@ -39,6 +41,7 @@ import {
   parseMessagingWorkspaceInput,
   parseSetDiscordAccessInput,
   parseSetMessagingEnabledInput,
+  parseSetWhatsAppEnabledInput,
 } from "./messaging-inputs";
 import { scopedHandler } from "./scoped-handler";
 
@@ -56,6 +59,10 @@ interface MessagingIpcDependencies {
     | "addOrchestrator"
     | "telegramOverview"
     | "whatsappOverview"
+    | "connectWhatsApp"
+    | "disconnectWhatsApp"
+    | "setWhatsAppAllowedChats"
+    | "addWhatsAppOrchestrator"
     | "connectTelegramChat"
     | "disconnectTelegramChat"
     | "addTelegramOrchestrator"
@@ -197,6 +204,21 @@ export function messagingIpcHandlers({
       addTelegramOrchestrator: payloadHandler(parseAddTelegramOrchestratorInput, (input) =>
         runCauseEffect(messaging.addTelegramOrchestrator(input)),
       ),
+      getWhatsAppOverview: handler(() => messaging.whatsappOverview()),
+      connectWhatsApp: handler(() => runCauseEffect(messaging.connectWhatsApp())),
+      disconnectWhatsApp: handler(() => runCauseEffect(messaging.disconnectWhatsApp())),
+      reconnectWhatsApp: handler(() =>
+        runCauseEffect(Effect.asVoid(messaging.reconnect("whatsapp", WHATSAPP_WORKSPACE_ID, false))),
+      ),
+      setWhatsAppEnabled: payloadHandler(parseSetWhatsAppEnabledInput, ({ enabled }) =>
+        runCauseEffect(messaging.setEnabled("whatsapp", WHATSAPP_WORKSPACE_ID, enabled)),
+      ),
+      addWhatsAppOrchestrator: payloadHandler(parseAddTelegramOrchestratorInput, (input) =>
+        runCauseEffect(messaging.addWhatsAppOrchestrator(input)),
+      ),
+      setWhatsAppAllowedChats: payloadHandler(decodeSetWhatsAppAllowedChatsInput, ({ chats }) =>
+        runCauseEffect(messaging.setWhatsAppAllowedChats(chats)),
+      ),
       hostOverview: scopedHandler(parseHostMessagingPlatformInput, {
         local: ({ platform }) => overview(platform),
         remote: ({ platform }, serverId) =>
@@ -210,7 +232,9 @@ export function messagingIpcHandlers({
                 ? messaging.connectSlackWorkspace(true)
                 : platform === "discord"
                   ? messaging.connectDiscordGuild(true)
-                  : messaging.connectTelegramChat(place ?? "group", true),
+                  : platform === "whatsapp"
+                    ? messaging.connectWhatsApp()
+                    : messaging.connectTelegramChat(place ?? "group", true),
             ),
           ),
         remote: async ({ platform, place }, serverId) =>
@@ -227,7 +251,9 @@ export function messagingIpcHandlers({
               ? messaging.disconnectSlackWorkspace(workspaceId)
               : platform === "discord"
                 ? messaging.disconnectDiscordGuild(workspaceId)
-                : messaging.disconnectTelegramChat(workspaceId),
+                : platform === "whatsapp"
+                  ? messaging.disconnectWhatsApp()
+                  : messaging.disconnectTelegramChat(workspaceId),
           ),
         remote: async ({ platform, workspaceId }, serverId) => {
           await post(serverId, CONNECTORS_ROUTES.messagingDisconnect, decodeEmpty, { platform, workspaceId });
@@ -255,9 +281,11 @@ export function messagingIpcHandlers({
       hostAddOrchestrator: scopedHandler(parseHostAddMessagingOrchestratorInput, {
         local: ({ platform, workspaceId }) =>
           runCauseEffect(
-            platform === "telegram" || workspaceId === null
-              ? messaging.addTelegramOrchestrator({})
-              : messaging.addOrchestrator(platform, { workspaceId }),
+            platform === "whatsapp"
+              ? messaging.addWhatsAppOrchestrator({})
+              : platform === "telegram" || workspaceId === null
+                ? messaging.addTelegramOrchestrator({})
+                : messaging.addOrchestrator(platform, { workspaceId }),
           ),
         remote: ({ platform, workspaceId }, serverId) =>
           post(serverId, CONNECTORS_ROUTES.messagingOrchestrator, decodeOrchestrator, { platform, workspaceId }),

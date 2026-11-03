@@ -23,6 +23,7 @@ import { githubConnectorPort, hostGitHubConnectorPort } from "./github-connector
 import { hostMessagingApi } from "./host-messaging-port";
 import { localMessagingApi, type MessagingApi, type MessagingConnectorOptions } from "./messaging-connector";
 import { hostOnePasswordConnectorPort } from "./onepassword-connector-port";
+import { localWhatsAppApi } from "./whatsapp-connector";
 
 const context = createSimpleContext({
   name: "ConnectorsProvider",
@@ -76,7 +77,7 @@ const context = createSimpleContext({
       },
     };
     const computer = createConnectorSet(
-      { github: githubConnectorPort, ...LOCAL_CONNECTOR_TRANSPORTS, messaging },
+      { github: githubConnectorPort, ...LOCAL_CONNECTOR_TRANSPORTS, messaging, whatsapp: localWhatsAppApi() },
       {
         agents: agentList,
         models,

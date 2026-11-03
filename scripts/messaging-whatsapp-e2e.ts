@@ -16,7 +16,7 @@ import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { MessagingService } from "../src/backend/messaging/messaging-service";
+import { type MessagingCredentials, MessagingService } from "../src/backend/messaging/messaging-service";
 import { MessagingThreads } from "../src/backend/messaging/messaging-threads";
 import { whatsappDriver } from "../src/backend/messaging/whatsapp/whatsapp-driver";
 import type {
@@ -27,6 +27,7 @@ import type {
   WhatsAppOutbound,
   WhatsAppSocket,
 } from "../src/backend/messaging/whatsapp/whatsapp-socket";
+import { WhatsAppPairing } from "../src/backend/messaging/whatsapp/whatsapp-transport";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import { inertBrowserHost, memoryCredentials, unused, waitFor } from "./agent-service-support";
@@ -111,6 +112,11 @@ class FakeSocket implements WhatsAppSocket {
     this.ended = true;
   };
 
+  loggedOut = false;
+  logout = async () => {
+    this.loggedOut = true;
+  };
+
   update(update: WhatsAppConnectionUpdate): void {
     for (const handler of this.#handlers["connection.update"]) handler(update);
   }
@@ -124,6 +130,13 @@ const sockets: FakeSocket[] = [];
 const connectCalls: string[] = [];
 let connectFailures = 0;
 const qrCodes: Array<string | null> = [];
+
+class RecordingPairing extends WhatsAppPairing {
+  override qr(code: string | null): void {
+    qrCodes.push(code);
+    super.qr(code);
+  }
+}
 const logLines: string[] = [];
 const MEDIA = new Uint8Array([1, 2, 3, 4]);
 
@@ -133,6 +146,8 @@ const connect = async (dir: string): Promise<WhatsAppClient> => {
     connectFailures -= 1;
     throw new Error("network down");
   }
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "creds.json"), "{}");
   const socket = new FakeSocket();
   sockets.push(socket);
   return { socket, downloadMedia: async () => MEDIA };
@@ -167,20 +182,27 @@ function text(chat: string, body: string, options: { id?: string; from?: string;
   return { id, message };
 }
 
-const credentials = memoryCredentials();
-
 interface Booted {
   messaging: MessagingService;
   threads: MessagingThreads;
   connectionId: string;
   agentId: string;
+  credentials: MessagingCredentials;
+  agents: AgentService;
 }
 
-async function boot<T>(use: (services: Booted) => Promise<T>): Promise<T> {
-  const database = new OpenBotDatabase(userData);
-  const store = new AgentStore(userData, home, database);
-  const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
-  const sidebar = new SidebarLayoutStore(join(userData, "sidebar-layout.json"));
+async function boot<T>(
+  use: (services: Booted) => Promise<T>,
+  options: { linked: boolean; profile?: string },
+): Promise<T> {
+  const credentials = memoryCredentials();
+  const pairing = new RecordingPairing();
+  const data = options.profile ? join(root, options.profile, "user-data") : userData;
+  const agentHome = options.profile ? join(root, options.profile, "home") : home;
+  const database = new OpenBotDatabase(data);
+  const store = new AgentStore(data, agentHome, database);
+  const mailbox = new MailboxStore(data, store.sharedRoot, store.database);
+  const sidebar = new SidebarLayoutStore(join(data, "sidebar-layout.json"));
   await runCauseEffect(sidebar.initialize());
   await runCauseEffect(store.initialize());
   await runCauseEffect(mailbox.initialize());
@@ -211,13 +233,14 @@ async function boot<T>(use: (services: Booted) => Promise<T>): Promise<T> {
       whatsappDriver({
         connect,
         authDir,
-        pairing: { qr: (code) => qrCodes.push(code) },
+        pairing,
         retryDelayMs: () => 0,
         logger: createOpenBotLogger("whatsapp-e2e", (line) => logLines.push(line)),
       }),
     ],
-    downloadsRoot: join(userData, "messaging-downloads"),
+    downloadsRoot: join(data, "messaging-downloads"),
     sidebar,
+    whatsappPairing: pairing,
   });
   const agent = await runCauseEffect(
     agents.createAgentProfile({
@@ -228,17 +251,21 @@ async function boot<T>(use: (services: Booted) => Promise<T>): Promise<T> {
       avatarHue: 280,
     }),
   );
-  const record = threads.store.ensureConnection("whatsapp", "whatsapp", "WhatsApp");
-  await runCauseEffect(
-    credentials.set(record.connectionId, {
-      account: "whatsapp",
-      allowedChats: `447700900002,${ALLOWED_GROUP}`,
-    }),
-  );
-  threads.store.updateConnection(record.connectionId, { enabled: true, orchestratorAgentId: agent.id });
+  let connectionId = "";
+  if (options.linked) {
+    const record = threads.store.ensureConnection("whatsapp", "whatsapp", "WhatsApp");
+    connectionId = record.connectionId;
+    await runCauseEffect(
+      credentials.set(record.connectionId, {
+        account: "whatsapp",
+        allowedChats: `447700900002,${ALLOWED_GROUP}`,
+      }),
+    );
+    threads.store.updateConnection(record.connectionId, { enabled: true, orchestratorAgentId: agent.id });
+  }
   await runCauseEffect(messaging.start());
   try {
-    return await use({ messaging, threads, connectionId: record.connectionId, agentId: agent.id });
+    return await use({ messaging, threads, connectionId, agentId: agent.id, credentials, agents });
   } finally {
     await runCauseEffect(messaging.stop());
     await runCauseEffect(agents.stop());
@@ -250,164 +277,262 @@ const key = (connectionId: string, chat: string, id: string) => `messaging:${con
 
 try {
   mkdirSync(OUT, { recursive: true });
-  await boot(async ({ messaging, threads, connectionId }) => {
-    await step("the connection shows a QR code while no account is linked, then connects", async () => {
-      await waitFor("the first socket", () => sockets.length > 0);
-      liveSocket().update({ connection: "connecting" });
-      liveSocket().update({ qr: "2@pairing-code" });
-      assert.deepEqual(qrCodes, ["2@pairing-code"]);
-      assert.notEqual(messaging.whatsappOverview().connections[0]?.state, "connected");
-      liveSocket().update({ connection: "open" });
-      await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
-      assert.equal(qrCodes.at(-1), null, "The QR code stayed after the link.");
-      assert.deepEqual(connectCalls, [authDir]);
-      return { qrCodes, authDir: "whatsapp-auth" };
-    });
-
-    await step("a text from an allowed chat reaches the bound agent, and the reply goes to the same chat", async () => {
-      const { id, message } = text(ALLOWED, "what is on today?");
-      liveSocket().receive(message);
-      await waitFor("the message in the mailbox", () => threads.received(key(connectionId, ALLOWED, id)));
-      await waitFor("the received reaction", () =>
-        liveSocket().sent.some(
-          (sent) => sent.jid === ALLOWED && "react" in sent.content && sent.content.react.text === "👀",
-        ),
-      );
-      const place = threads.store.links(threads.store.connection(connectionId)?.orchestratorAgentId ?? "")[0];
-      assert.equal(place?.platformChannelId, ALLOWED);
-      const answer = await runCauseEffect(
-        threads.outboundTool("messaging_post", {
-          connection: connectionId,
-          place: ALLOWED,
-          text: "Two meetings: **stand-up** at 9 and the review at 14.",
-        }),
-      );
-      assert.equal(answer.success, true, "The post failed.");
-      const reply = liveSocket().sent.find((sent) => sent.jid === ALLOWED && "text" in sent.content);
-      assert.ok(reply && "text" in reply.content);
-      assert.equal(reply.content.text, "Two meetings: *stand-up* at 9 and the review at 14.");
-      return { reply: reply.content.text };
-    });
-
-    await step("a message from a chat that is not allowed is dropped and logged as a count only", async () => {
-      const { id, message } = text(STRANGER, STRANGER_TEXT);
-      const before = liveSocket().sent.length;
-      liveSocket().receive(message);
-      await new Promise((done) => setTimeout(done, 100));
-      assert.equal(threads.received(key(connectionId, STRANGER, id)), false);
-      assert.equal(liveSocket().sent.length, before, "The stranger got a reaction or an answer.");
-      const dropLines = logLines.filter((line) => line.includes("dropped"));
-      assert.ok(dropLines.length >= 1, "The drop was not logged.");
-      for (const line of logLines) {
-        assert.ok(!line.includes(STRANGER_TEXT), "The log holds message text.");
-        assert.ok(!line.includes("447700900099"), "The log holds a chat id.");
-      }
-      assert.match(dropLines[0] ?? "", /"count":1/u);
-      return { dropped: dropLines.length };
-    });
-
-    await step("the agent cannot post to a chat that is not allowed", async () => {
-      const before = liveSocket().sent.length;
-      const answer = await runCauseEffect(
-        threads.outboundTool("messaging_post", { connection: connectionId, place: STRANGER, text: "hello" }),
-      );
-      assert.equal(answer.success, false, "A post to a stranger went out.");
-      assert.equal(liveSocket().sent.length, before);
-      return { refused: true };
-    });
-
-    await step("a group message needs a mention, and it removes the mention from the text", async () => {
-      const plain = text(ALLOWED_GROUP, "chatter between people", { from: "447700900003@s.whatsapp.net" });
-      liveSocket().receive(plain.message);
-      const mention = text(ALLOWED_GROUP, "summarise the launch", {
-        from: "447700900003@s.whatsapp.net",
-        mention: true,
+  await boot(
+    async ({ messaging, threads, connectionId }) => {
+      await step("the connection shows a QR code while no account is linked, then connects", async () => {
+        await waitFor("the first socket", () => sockets.length > 0);
+        liveSocket().update({ connection: "connecting" });
+        liveSocket().update({ qr: "2@pairing-code" });
+        assert.deepEqual(qrCodes, ["2@pairing-code"]);
+        assert.notEqual(messaging.whatsappOverview().connections[0]?.state, "connected");
+        liveSocket().update({ connection: "open" });
+        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
+        assert.equal(qrCodes.at(-1), null, "The QR code stayed after the link.");
+        assert.deepEqual(connectCalls, [authDir]);
+        return { qrCodes, authDir: "whatsapp-auth" };
       });
-      liveSocket().receive(mention.message);
-      await waitFor("the group mention", () => threads.received(key(connectionId, ALLOWED_GROUP, mention.id)));
-      assert.equal(threads.received(key(connectionId, ALLOWED_GROUP, plain.id)), false);
-      return { received: true };
-    });
 
-    await step("our own sent messages in the self chat do not loop back", async () => {
-      const own = liveSocket().sent.length;
-      const echo: WhatsAppMessage = {
-        key: { remoteJid: ME, id: "OUT1", fromMe: true },
-        message: { conversation: "echo" },
-        messageTimestamp: 1_793_000_100,
-      };
-      liveSocket().receive(echo);
-      await new Promise((done) => setTimeout(done, 50));
-      assert.equal(threads.received(key(connectionId, ME, "OUT1")), false);
-      assert.equal(liveSocket().sent.length, own);
-      return { ignored: true };
-    });
-
-    await step("a lost connection reconnects with backoff and keeps the same auth folder", async () => {
-      const first = sockets.length;
-      connectFailures = 2;
-      liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(408) } });
-      await waitFor("a new socket after two failed attempts", () => sockets.length > first);
-      liveSocket().update({ connection: "open" });
-      await waitFor("connected again", () => messaging.whatsappOverview().connections[0]?.state === "connected");
-      assert.equal(connectCalls.length, first + 3, "The backoff did not try three times.");
-      assert.ok(connectCalls.every((dir) => dir === authDir));
-      return { attempts: connectCalls.length };
-    });
-
-    await step("a restart request after pairing reconnects at once", async () => {
-      const before = sockets.length;
-      liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(515) } });
-      await waitFor("the restart socket", () => sockets.length > before);
-      liveSocket().update({ connection: "open" });
-      return { restarted: true };
-    });
-
-    await step("the phone unlinks the account: the connection stops and the auth folder is cleared", async () => {
-      mkdirSync(authDir, { recursive: true });
-      writeFileSync(join(authDir, "creds.json"), "{}");
-      const before = sockets.length;
-      liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(401) } });
-      await waitFor("the stopped state", () => messaging.whatsappOverview().connections[0]?.state === "invalid_token");
-      await new Promise((done) => setTimeout(done, 50));
-      assert.equal(sockets.length, before, "It reconnected after the unlink.");
-      assert.equal(existsSync(join(authDir, "creds.json")), false);
-      return { state: "invalid_token" };
-    });
-  });
-
-  await boot(async ({ messaging, threads, connectionId }) => {
-    await step("an empty allowlist lets nothing through", async () => {
-      const before = sockets.length;
-      await runCauseEffect(credentials.set(connectionId, { account: "whatsapp" }));
-      await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", false));
-      await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", true));
-      await waitFor("a new socket", () => sockets.length > before);
-      liveSocket().update({ connection: "open" });
-      const { id, message } = text(ALLOWED, "hello");
-      liveSocket().receive(message);
-      await new Promise((done) => setTimeout(done, 100));
-      assert.equal(threads.received(key(connectionId, ALLOWED, id)), false);
-      return { dropped: true };
-    });
-
-    await step("an allowed chat with no bound agent is told how to bind one", async () => {
-      const before = sockets.length;
-      await runCauseEffect(credentials.set(connectionId, { account: "whatsapp", allowedChats: NEW_CHAT }));
-      threads.store.updateConnection(connectionId, { orchestratorAgentId: null });
-      await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", false));
-      await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", true));
-      await waitFor("a new socket", () => sockets.length > before);
-      liveSocket().update({ connection: "open" });
-      const { message } = text(NEW_CHAT, "anyone there?");
-      liveSocket().receive(message);
-      const reply = await waitFor("the no-agent reply", () =>
-        liveSocket().sent.find((sent) => "text" in sent.content && sent.content.text.includes("Bind an agent")),
+      await step(
+        "a text from an allowed chat reaches the bound agent, and the reply goes to the same chat",
+        async () => {
+          const { id, message } = text(ALLOWED, "what is on today?");
+          liveSocket().receive(message);
+          await waitFor("the message in the mailbox", () => threads.received(key(connectionId, ALLOWED, id)));
+          await waitFor("the received reaction", () =>
+            liveSocket().sent.some(
+              (sent) => sent.jid === ALLOWED && "react" in sent.content && sent.content.react.text === "👀",
+            ),
+          );
+          const place = threads.store.links(threads.store.connection(connectionId)?.orchestratorAgentId ?? "")[0];
+          assert.equal(place?.platformChannelId, ALLOWED);
+          const answer = await runCauseEffect(
+            threads.outboundTool("messaging_post", {
+              connection: connectionId,
+              place: ALLOWED,
+              text: "Two meetings: **stand-up** at 9 and the review at 14.",
+            }),
+          );
+          assert.equal(answer.success, true, "The post failed.");
+          const reply = liveSocket().sent.find((sent) => sent.jid === ALLOWED && "text" in sent.content);
+          assert.ok(reply && "text" in reply.content);
+          assert.equal(reply.content.text, "Two meetings: *stand-up* at 9 and the review at 14.");
+          return { reply: reply.content.text };
+        },
       );
-      assert.equal(reply.jid, NEW_CHAT);
-      return { replied: true };
-    });
-  });
+
+      await step("a message from a chat that is not allowed is dropped and logged as a count only", async () => {
+        const { id, message } = text(STRANGER, STRANGER_TEXT);
+        const before = liveSocket().sent.length;
+        liveSocket().receive(message);
+        await new Promise((done) => setTimeout(done, 100));
+        assert.equal(threads.received(key(connectionId, STRANGER, id)), false);
+        assert.equal(liveSocket().sent.length, before, "The stranger got a reaction or an answer.");
+        const dropLines = logLines.filter((line) => line.includes("dropped"));
+        assert.ok(dropLines.length >= 1, "The drop was not logged.");
+        for (const line of logLines) {
+          assert.ok(!line.includes(STRANGER_TEXT), "The log holds message text.");
+          assert.ok(!line.includes("447700900099"), "The log holds a chat id.");
+        }
+        assert.match(dropLines[0] ?? "", /"count":1/u);
+        return { dropped: dropLines.length };
+      });
+
+      await step("the agent cannot post to a chat that is not allowed", async () => {
+        const before = liveSocket().sent.length;
+        const answer = await runCauseEffect(
+          threads.outboundTool("messaging_post", { connection: connectionId, place: STRANGER, text: "hello" }),
+        );
+        assert.equal(answer.success, false, "A post to a stranger went out.");
+        assert.equal(liveSocket().sent.length, before);
+        return { refused: true };
+      });
+
+      await step("a group message needs a mention, and it removes the mention from the text", async () => {
+        const plain = text(ALLOWED_GROUP, "chatter between people", { from: "447700900003@s.whatsapp.net" });
+        liveSocket().receive(plain.message);
+        const mention = text(ALLOWED_GROUP, "summarise the launch", {
+          from: "447700900003@s.whatsapp.net",
+          mention: true,
+        });
+        liveSocket().receive(mention.message);
+        await waitFor("the group mention", () => threads.received(key(connectionId, ALLOWED_GROUP, mention.id)));
+        assert.equal(threads.received(key(connectionId, ALLOWED_GROUP, plain.id)), false);
+        return { received: true };
+      });
+
+      await step("our own sent messages in the self chat do not loop back", async () => {
+        const own = liveSocket().sent.length;
+        const echo: WhatsAppMessage = {
+          key: { remoteJid: ME, id: "OUT1", fromMe: true },
+          message: { conversation: "echo" },
+          messageTimestamp: 1_793_000_100,
+        };
+        liveSocket().receive(echo);
+        await new Promise((done) => setTimeout(done, 50));
+        assert.equal(threads.received(key(connectionId, ME, "OUT1")), false);
+        assert.equal(liveSocket().sent.length, own);
+        return { ignored: true };
+      });
+
+      await step("a lost connection reconnects with backoff and keeps the same auth folder", async () => {
+        const first = sockets.length;
+        connectFailures = 2;
+        liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(408) } });
+        await waitFor("a new socket after two failed attempts", () => sockets.length > first);
+        liveSocket().update({ connection: "open" });
+        await waitFor("connected again", () => messaging.whatsappOverview().connections[0]?.state === "connected");
+        assert.equal(connectCalls.length, first + 3, "The backoff did not try three times.");
+        assert.ok(connectCalls.every((dir) => dir === authDir));
+        return { attempts: connectCalls.length };
+      });
+
+      await step("a restart request after pairing reconnects at once", async () => {
+        const before = sockets.length;
+        liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(515) } });
+        await waitFor("the restart socket", () => sockets.length > before);
+        liveSocket().update({ connection: "open" });
+        return { restarted: true };
+      });
+
+      await step("the phone unlinks the account: the connection stops and the auth folder is cleared", async () => {
+        mkdirSync(authDir, { recursive: true });
+        writeFileSync(join(authDir, "creds.json"), "{}");
+        const before = sockets.length;
+        liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(401) } });
+        await waitFor(
+          "the stopped state",
+          () => messaging.whatsappOverview().connections[0]?.state === "invalid_token",
+        );
+        await new Promise((done) => setTimeout(done, 50));
+        assert.equal(sockets.length, before, "It reconnected after the unlink.");
+        assert.equal(existsSync(join(authDir, "creds.json")), false);
+        return { state: "invalid_token" };
+      });
+    },
+    { linked: true },
+  );
+
+  await boot(
+    async ({ messaging, threads, connectionId, credentials }) => {
+      await step("an empty allowlist lets nothing through", async () => {
+        const before = sockets.length;
+        await runCauseEffect(credentials.set(connectionId, { account: "whatsapp" }));
+        await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", false));
+        await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", true));
+        await waitFor("a new socket", () => sockets.length > before);
+        liveSocket().update({ connection: "open" });
+        const { id, message } = text(ALLOWED, "hello");
+        liveSocket().receive(message);
+        await new Promise((done) => setTimeout(done, 100));
+        assert.equal(threads.received(key(connectionId, ALLOWED, id)), false);
+        return { dropped: true };
+      });
+
+      await step("an allowed chat with no bound agent is told how to bind one", async () => {
+        const before = sockets.length;
+        await runCauseEffect(credentials.set(connectionId, { account: "whatsapp", allowedChats: NEW_CHAT }));
+        threads.store.updateConnection(connectionId, { orchestratorAgentId: null });
+        await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", false));
+        await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", true));
+        await waitFor("a new socket", () => sockets.length > before);
+        liveSocket().update({ connection: "open" });
+        const { message } = text(NEW_CHAT, "anyone there?");
+        liveSocket().receive(message);
+        const reply = await waitFor("the no-agent reply", () =>
+          liveSocket().sent.find((sent) => "text" in sent.content && sent.content.text.includes("Bind an agent")),
+        );
+        assert.equal(reply.jid, NEW_CHAT);
+        return { replied: true };
+      });
+    },
+    { linked: true },
+  );
+
+  await boot(
+    async ({ messaging, agents }) => {
+      await step("a fresh profile shows no WhatsApp link and no allowed chat", async () => {
+        const overview = messaging.whatsappOverview();
+        assert.deepEqual(overview, { connections: [], qr: null, allowedChats: [] });
+      });
+
+      await step("connect starts the link, shows the QR code, and clears it after the scan", async () => {
+        const before = sockets.length;
+        await runCauseEffect(messaging.connectWhatsApp());
+        await waitFor("the socket", () => sockets.length > before);
+        liveSocket().update({ connection: "connecting" });
+        liveSocket().update({ qr: "2@fresh-code" });
+        const waiting = messaging.whatsappOverview();
+        assert.equal(waiting.qr, "2@fresh-code");
+        assert.equal(waiting.connections.length, 1);
+        assert.equal(waiting.connections[0]?.state, "connecting");
+        assert.deepEqual(waiting.allowedChats, []);
+        liveSocket().update({ connection: "open" });
+        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
+        assert.equal(messaging.whatsappOverview().qr, null, "The QR code stayed after the link.");
+        return { state: "connected" };
+      });
+
+      await step("the allowlist editor stores clean chat ids and rejects an invalid one", async () => {
+        const rejected = await runCauseEffect(Effect.result(messaging.setWhatsAppAllowedChats(["not a chat"])));
+        assert.ok(rejected._tag === "Failure", "An invalid chat id was accepted.");
+        assert.deepEqual(messaging.whatsappOverview().allowedChats, []);
+        const before = sockets.length;
+        const saved = await runCauseEffect(
+          messaging.setWhatsAppAllowedChats(["+44 7700 900002", "447700900002", ALLOWED_GROUP]),
+        );
+        assert.deepEqual(saved.allowedChats, [ALLOWED, ALLOWED_GROUP]);
+        await waitFor("a socket with the new list", () => sockets.length > before);
+        liveSocket().update({ connection: "open" });
+        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
+        const stranger = text(STRANGER, STRANGER_TEXT);
+        liveSocket().receive(stranger.message);
+        const allowed = text(ALLOWED, "hello from the list");
+        liveSocket().receive(allowed.message);
+        const reply = await waitFor("the no-agent reply", () =>
+          liveSocket().sent.find((sent) => "text" in sent.content && sent.content.text.includes("Bind an agent")),
+        );
+        assert.equal(reply.jid, ALLOWED);
+        assert.ok(!liveSocket().sent.some((sent) => sent.jid === STRANGER), "A stranger got a reply.");
+        return { allowedChats: saved.allowedChats };
+      });
+
+      await step("add orchestrator binds a WhatsApp agent to the account", async () => {
+        const added = await runCauseEffect(messaging.addWhatsAppOrchestrator({}));
+        assert.equal(messaging.whatsappOverview().connections[0]?.orchestratorAgentId, added.agentId);
+        const agent = agents.listAgents().find((candidate) => candidate.id === added.agentId);
+        assert.equal(agent?.name, "WhatsApp Orchestrator");
+        const again = await runCauseEffect(messaging.addWhatsAppOrchestrator({}));
+        assert.equal(again.agentId, added.agentId, "A second orchestrator was made.");
+        return { agentId: added.agentId };
+      });
+
+      await step(
+        "unlink logs the account out, deletes the login and the orchestrator, and a new link shows a new QR",
+        async () => {
+          const unlinked = liveSocket();
+          const agentId = messaging.whatsappOverview().connections[0]?.orchestratorAgentId ?? "";
+          assert.ok(existsSync(join(authDir, "creds.json")), "The test login was never written.");
+          await runCauseEffect(messaging.disconnectWhatsApp());
+          assert.equal(unlinked.loggedOut, true, "The account was not logged out of WhatsApp.");
+          assert.equal(unlinked.ended, true);
+          assert.equal(existsSync(authDir), false, "The login stayed on disk.");
+          assert.deepEqual(messaging.whatsappOverview(), { connections: [], qr: null, allowedChats: [] });
+          assert.equal(
+            agents.listAgents().some((candidate) => candidate.id === agentId),
+            false,
+            "The orchestrator stayed.",
+          );
+          const before = sockets.length;
+          await runCauseEffect(messaging.connectWhatsApp());
+          await waitFor("a new socket", () => sockets.length > before);
+          liveSocket().update({ qr: "2@second-code" });
+          assert.equal(messaging.whatsappOverview().qr, "2@second-code");
+          return { relinked: true };
+        },
+      );
+    },
+    { linked: false, profile: "fresh" },
+  );
 
   report.passed = true;
 } finally {

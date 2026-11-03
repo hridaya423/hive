@@ -3,6 +3,7 @@ import type {
   MessagingDesktopApi,
   MessagingPlatform,
   MessagingRole,
+  WhatsAppOverview,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { clone } from "./mock-support";
@@ -36,6 +37,11 @@ const PREVIEW_ROLES: readonly MessagingRole[] = [
 
 /** The time Telegram takes in the preview before a chat links: the user picks the chat there. */
 const TELEGRAM_LINK_MS = 1_500;
+
+/** The time the preview phone takes to scan the WhatsApp QR code. */
+const WHATSAPP_SCAN_MS = 4_000;
+
+const PREVIEW_WHATSAPP_QR = "2@preview-pairing-code,fG3pQ9xLm0aVn7TzK1sRw8uYdE4cHbJ6oXi5NtPqAe2Mg=,preview";
 
 /**
  * The Slack workspaces, Discord servers and Telegram chats of the preview host. Connecting Slack or
@@ -98,6 +104,15 @@ export function createMockMessaging(orchestrator: () => string): MessagingDeskto
     if (!current) throw new Error(sourceText("error.messaging.notConnected"));
     chats.set(workspaceId, { ...current, ...update });
   };
+  let whatsapp: MessagingConnection | null = null;
+  let whatsappQr: string | null = null;
+  let whatsappChats: string[] = [];
+  const whatsappOverview = (): WhatsAppOverview =>
+    clone({ connections: whatsapp ? [whatsapp] : [], qr: whatsappQr, allowedChats: whatsappChats });
+  const changeWhatsApp = (update: Partial<MessagingConnection>) => {
+    if (!whatsapp) throw new Error(sourceText("error.messaging.whatsappNotLinked"));
+    whatsapp = { ...whatsapp, ...update };
+  };
   const api: Omit<MessagingDesktopApi, `host${string}`> = {
     getSlackOverview: slack.overview,
     connectSlackWorkspace: slack.connect,
@@ -159,13 +174,52 @@ export function createMockMessaging(orchestrator: () => string): MessagingDeskto
       for (const workspaceId of chats.keys()) changeChat(workspaceId, { orchestratorAgentId: agentId });
       return { agentId, sectionId: null };
     },
+    getWhatsAppOverview: async () => whatsappOverview(),
+    connectWhatsApp: async () => {
+      whatsapp = {
+        workspaceId: "whatsapp",
+        workspaceName: "WhatsApp",
+        platform: "whatsapp",
+        enabled: true,
+        state: "connecting",
+        botUserId: null,
+        missingScopes: [],
+        retryAt: null,
+        credentials: "saved",
+        orchestratorAgentId: whatsapp?.orchestratorAgentId ?? null,
+      };
+      whatsappQr = PREVIEW_WHATSAPP_QR;
+      setTimeout(() => {
+        if (whatsapp?.state !== "connecting") return;
+        whatsappQr = null;
+        changeWhatsApp({ state: "connected", botUserId: "447700900001" });
+      }, WHATSAPP_SCAN_MS);
+    },
+    disconnectWhatsApp: async () => {
+      whatsapp = null;
+      whatsappQr = null;
+      whatsappChats = [];
+    },
+    reconnectWhatsApp: async () => changeWhatsApp({ enabled: true, state: "connected" }),
+    setWhatsAppEnabled: async ({ enabled }) => changeWhatsApp({ enabled, state: enabled ? "connected" : "paused" }),
+    addWhatsAppOrchestrator: async () => {
+      const agentId = orchestrator();
+      changeWhatsApp({ orchestratorAgentId: agentId });
+      return { agentId, sectionId: null };
+    },
+    setWhatsAppAllowedChats: async ({ chats: next }) => {
+      whatsappChats = [
+        ...new Set(next.map((chat) => (chat.includes("@") ? chat : `${chat.replace(/\D/gu, "")}@s.whatsapp.net`))),
+      ];
+      return whatsappOverview();
+    },
   };
   // The preview has one host, so a joined server's connections are the same ones.
   const overview = {
     slack: api.getSlackOverview,
     discord: api.getDiscordOverview,
     telegram: api.getTelegramOverview,
-    whatsapp: async () => ({ connections: [] }),
+    whatsapp: async () => whatsappOverview(),
   };
   return {
     ...api,
@@ -175,31 +229,41 @@ export function createMockMessaging(orchestrator: () => string): MessagingDeskto
         ? api.connectSlackWorkspace()
         : platform === "discord"
           ? api.connectDiscordGuild()
-          : api.connectTelegramChat({ place: place ?? "group" }),
+          : platform === "whatsapp"
+            ? api.connectWhatsApp()
+            : api.connectTelegramChat({ place: place ?? "group" }),
     hostDisconnect: ({ platform, workspaceId }) =>
       platform === "slack"
         ? api.disconnectSlackWorkspace({ workspaceId })
         : platform === "discord"
           ? api.disconnectDiscordGuild({ workspaceId })
-          : api.disconnectTelegramChat({ workspaceId }),
+          : platform === "whatsapp"
+            ? api.disconnectWhatsApp()
+            : api.disconnectTelegramChat({ workspaceId }),
     hostReconnect: ({ platform, workspaceId }) =>
       platform === "slack"
         ? api.reconnectSlackWorkspace({ workspaceId })
         : platform === "discord"
           ? api.reconnectDiscordGuild({ workspaceId })
-          : api.reconnectTelegramChat({ workspaceId }),
+          : platform === "whatsapp"
+            ? api.reconnectWhatsApp()
+            : api.reconnectTelegramChat({ workspaceId }),
     hostSetEnabled: ({ platform, ...input }) =>
       platform === "slack"
         ? api.setSlackEnabled(input)
         : platform === "discord"
           ? api.setDiscordEnabled(input)
-          : api.setTelegramEnabled(input),
+          : platform === "whatsapp"
+            ? api.setWhatsAppEnabled({ enabled: input.enabled })
+            : api.setTelegramEnabled(input),
     hostAddOrchestrator: ({ platform, workspaceId }) =>
-      platform === "telegram" || workspaceId === null
-        ? api.addTelegramOrchestrator({})
-        : platform === "slack"
-          ? api.addSlackOrchestrator({ workspaceId })
-          : api.addDiscordOrchestrator({ workspaceId }),
+      platform === "whatsapp"
+        ? api.addWhatsAppOrchestrator({})
+        : platform === "telegram" || workspaceId === null
+          ? api.addTelegramOrchestrator({})
+          : platform === "slack"
+            ? api.addSlackOrchestrator({ workspaceId })
+            : api.addDiscordOrchestrator({ workspaceId }),
     hostGetDiscordAccess: (input) => api.getDiscordAccess(input),
     hostListDiscordRoles: (input) => api.listDiscordRoles(input),
     hostSetDiscordAccess: (input) => api.setDiscordAccess(input),

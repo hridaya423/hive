@@ -39,6 +39,10 @@ export const MESSAGING_CREDENTIAL_STATES = ["missing", "saved", "unreadable"] as
 export type MessagingCredentialState = (typeof MESSAGING_CREDENTIAL_STATES)[number];
 
 export const MESSAGING_LIMITS = {
+  /** The chats that the WhatsApp allowlist holds, and the length of one entry. */
+  whatsappChats: 64,
+  whatsappChat: 64,
+  whatsappQr: 1_024,
   name: 256,
   scope: 64,
   scopes: 32,
@@ -133,6 +137,26 @@ export type SlackWorkspaceInput = MessagingWorkspaceInput;
 export type SetSlackEnabledInput = SetMessagingEnabledInput;
 export type AddSlackOrchestratorInput = AddMessagingOrchestratorInput;
 export type AddSlackOrchestratorResult = AddMessagingOrchestratorResult;
+
+/**
+ * The WhatsApp account linked to this computer. `qr` is the pairing code while a link waits for the phone
+ * to scan it, and null otherwise. `allowedChats` are the chats that can reach an agent, as phone numbers
+ * or jids: empty by default, so nothing reaches an agent until the user names a chat.
+ */
+export interface WhatsAppOverview extends MessagingOverview {
+  qr: string | null;
+  allowedChats: string[];
+}
+
+export interface SetWhatsAppEnabledInput {
+  enabled: boolean;
+}
+
+export interface SetWhatsAppAllowedChatsInput {
+  chats: string[];
+}
+
+export type AddWhatsAppOrchestratorInput = Omit<AddMessagingOrchestratorInput, "workspaceId">;
 
 /** The Telegram chats linked to this computer. Each is one connection; one orchestrator answers all. */
 export type TelegramOverview = MessagingOverview;
@@ -266,6 +290,28 @@ export function isTelegramOverview(value: unknown): value is TelegramOverview {
     value.connections.length <= TELEGRAM_ROUTE_CHATS_LIMIT &&
     value.connections.every(isMessagingConnection)
   );
+}
+
+export function isWhatsAppOverview(value: unknown): value is WhatsAppOverview {
+  return (
+    isMessagingOverview(value) &&
+    isDynamicRecord(value) &&
+    (value.qr === null || isBoundedString(value.qr, MESSAGING_LIMITS.whatsappQr)) &&
+    isWhatsAppChatList(value.allowedChats)
+  );
+}
+
+export function isWhatsAppChatList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MESSAGING_LIMITS.whatsappChats &&
+    value.every((chat) => isBoundedString(chat, MESSAGING_LIMITS.whatsappChat))
+  );
+}
+
+export function decodeSetWhatsAppAllowedChatsInput(value: unknown): SetWhatsAppAllowedChatsInput {
+  if (!isDynamicRecord(value) || !isWhatsAppChatList(value.chats)) throw new Error("Invalid WhatsApp chats.");
+  return { chats: value.chats };
 }
 
 const ROLE_ID = /^[0-9]{1,24}$/u;

@@ -1,4 +1,4 @@
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createOpenBotLogger, type Logger } from "@openbot/logging";
 import { Effect, Result } from "effect";
 import type { MessagingAnswerFile } from "../messaging-threads";
@@ -15,12 +15,11 @@ import {
   type StatusReaction,
 } from "../messaging-types";
 import { whatsappChunks, whatsappText } from "./whatsapp-render";
-import { jidUser, WhatsAppSession } from "./whatsapp-session";
+import { jidUser, WHATSAPP_WORKSPACE_ID, WhatsAppSession } from "./whatsapp-session";
 import type { WhatsAppConnect, WhatsAppMessage, WhatsAppOutbound } from "./whatsapp-socket";
 import { type WhatsAppPairing, WhatsAppTransport, whatsappRetryDelayMs } from "./whatsapp-transport";
 import { whatsappChatIsGroup } from "./whatsapp-updates";
 
-const WHATSAPP_WORKSPACE_ID = "whatsapp";
 const WHATSAPP_FILE_BYTES_LIMIT = 64 * 1024 * 1024;
 
 const REACTIONS: Record<StatusReaction, string> = {
@@ -233,7 +232,7 @@ export interface WhatsAppDriverOptions {
   connect: WhatsAppConnect;
   /** The folder of Baileys' multi-file login, in Hive's data folder and never in git. */
   authDir: string;
-  pairing?: WhatsAppPairing;
+  pairing: WhatsAppPairing;
   retryDelayMs?: (attempt: number) => number;
   logger?: Logger;
 }
@@ -245,6 +244,7 @@ export interface WhatsAppDriverOptions {
  */
 export function whatsappDriver(options: WhatsAppDriverOptions): MessagingDriver {
   const logger = options.logger ?? createOpenBotLogger("whatsapp");
+  let transport: WhatsAppTransport | null = null;
   let current: { allowed: string; session: WhatsAppSession } | null = null;
   const session = (credentials: Record<string, string>): WhatsAppSession => {
     const allowed = credentials.allowedChats ?? "";
@@ -255,14 +255,18 @@ export function whatsappDriver(options: WhatsAppDriverOptions): MessagingDriver 
     platform: "whatsapp",
     requiredCredential: "account",
     createAdapter: (credentials) => new WhatsAppAdapter(session(credentials)),
-    createTransport: (credentials) =>
-      new WhatsAppTransport({
+    createTransport: (credentials) => {
+      transport = new WhatsAppTransport({
         connect: options.connect,
         authDir: options.authDir,
         session: session(credentials),
-        pairing: options.pairing ?? { qr: () => {} },
+        pairing: options.pairing,
         retryDelayMs: options.retryDelayMs ?? whatsappRetryDelayMs,
         logger,
-      }),
+      });
+      return transport;
+    },
+    unlink: () =>
+      transport ? transport.unlink() : Effect.promise(() => rm(options.authDir, { recursive: true, force: true })),
   };
 }

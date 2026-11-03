@@ -10,6 +10,8 @@ interface StoredMessage {
   entry: ContextEntry;
 }
 
+export const WHATSAPP_WORKSPACE_ID = "whatsapp";
+
 /** The user part of a jid, without the device: `4477:7@s.whatsapp.net` gives `4477`. */
 export function jidUser(jid: string): string {
   return jid.split("@")[0]?.split(":")[0] ?? "";
@@ -25,6 +27,15 @@ export function normalizeChat(value: string): string | null {
   }
   const digits = trimmed.replace(/[\s+()-]/gu, "");
   return /^[0-9]{5,20}$/u.test(digits) ? `${digits}@s.whatsapp.net` : null;
+}
+
+/** The distinct chats of a comma or line separated list, as jids. A value that names no chat is left out. */
+export function allowedChatList(value: string): string[] {
+  const chats = value
+    .split(/[,\n]/u)
+    .map(normalizeChat)
+    .filter((chat): chat is string => chat !== null);
+  return [...new Set(chats)];
 }
 
 /**
@@ -43,12 +54,7 @@ export class WhatsAppSession {
   readonly #sent = new Set<string>();
 
   constructor(allowedChats: string) {
-    this.#allowed = new Set(
-      allowedChats
-        .split(/[,\n]/u)
-        .map(normalizeChat)
-        .filter((chat): chat is string => chat !== null),
-    );
+    this.#allowed = new Set(allowedChatList(allowedChats));
   }
 
   get allowedChats(): readonly string[] {

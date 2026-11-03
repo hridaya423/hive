@@ -10,10 +10,10 @@ import type {
   AgentStatus,
   AvatarHue,
   ClientAgentModelOption,
-  ConnectorPlatform,
   CustomAgentSummary,
   CustomProviderSummary,
   MessagingConnection,
+  MessagingPlatform,
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import {
@@ -85,7 +85,7 @@ export interface ChannelText {
   title: AppTextKey;
   description: AppTextKey;
   connect: AppTextKey;
-  attentionTitle: `connector.${ConnectorPlatform}.attentionTitle`;
+  attentionTitle: `connector.${MessagingPlatform}.attentionTitle`;
   attentionDescription: AppTextKey;
   disconnectAllTitle: AppTextKey;
   /** Disconnect: one place, or every place in the danger zone. */
@@ -93,7 +93,7 @@ export interface ChannelText {
   reconnect: AppTextKey;
   pause: AppTextKey;
   resume: AppTextKey;
-  rowAction: `connector.${ConnectorPlatform}.rowAction`;
+  rowAction: `connector.${MessagingPlatform}.rowAction`;
   addAgent: AppTextKey;
   orchestratorTitle: AppTextKey;
   orchestratorDescription: AppTextKey;

@@ -43,6 +43,8 @@ export const messages = defineMessages("status.messaging", {
   "status.messaging.whatsappNoAgent": "No agent can answer here yet. Bind an agent to WhatsApp in Hive.",
   "status.messaging.telegramLinked":
     "OpenBot is connected to this chat. Mention {bot} or reply to a message of OpenBot to ask the agents.",
+  "status.messaging.whatsappOrchestratorName": "WhatsApp Orchestrator",
+  "status.messaging.whatsappOrchestratorTitle": "Answers in WhatsApp and asks the team",
   "status.messaging.telegramOrchestratorName": "Telegram Orchestrator",
   "status.messaging.telegramOrchestratorTitle": "Answers in Telegram and asks the team",
 });

@@ -253,6 +253,7 @@ import {
   decodeDiscordRolesReply,
   decodeMessagingOverviewReply,
   decodeTelegramOverviewReply,
+  decodeWhatsAppOverviewReply,
 } from "./messaging-decoding";
 import { decodeProviderRuntimeSnapshot } from "./provider-runtime";
 import { decodeRoutineFlowCanvas, decodeRoutineFlowLink } from "./routine-flow-decoding";
@@ -1101,6 +1102,13 @@ const openbotApi: OpenBotDesktopApi = {
     reconnectTelegramChat: decodeVoid,
     setTelegramEnabled: decodeVoid,
     addTelegramOrchestrator: decodeAddOrchestratorReply,
+    getWhatsAppOverview: decodeWhatsAppOverviewReply,
+    connectWhatsApp: decodeVoid,
+    disconnectWhatsApp: decodeVoid,
+    reconnectWhatsApp: decodeVoid,
+    setWhatsAppEnabled: decodeVoid,
+    addWhatsAppOrchestrator: decodeAddOrchestratorReply,
+    setWhatsAppAllowedChats: decodeWhatsAppOverviewReply,
     // A joined server can list up to the Telegram limit; main has already read its states.
     hostOverview: decodeTelegramOverviewReply,
     hostConnect: decodeVoid,

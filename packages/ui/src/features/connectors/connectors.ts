@@ -18,6 +18,7 @@ export const CONNECTORS: Readonly<Record<ConnectorId, ConnectorDefinition>> = {
   slack: { server: CONNECTORS_CAPABILITY },
   discord: { server: CONNECTORS_CAPABILITY },
   telegram: { server: CONNECTORS_CAPABILITY },
+  whatsapp: { server: null },
   github: { server: CONNECTORS_CAPABILITY },
   onepassword: { server: ONEPASSWORD_CONNECTOR_CAPABILITY },
   bitwarden: { server: BITWARDEN_CONNECTOR_CAPABILITY },
