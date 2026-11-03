@@ -75,8 +75,6 @@ export interface WorkerBindings {
   TELEGRAM_BOT_ID?: string;
   TELEGRAM_BOT_USERNAME?: string;
   /** An OpenPanel server client and its write-only secret, for account events. Set only in production. */
-  OPENPANEL_CLIENT_ID?: string;
-  OPENPANEL_CLIENT_SECRET?: string;
   /** The public Client ID of the OpenBot GitHub App. */
   GITHUB_APP_CLIENT_ID?: string;
   /** The private key of the OpenBot GitHub App as a PKCS #8 PEM. Without it, no installation token is issued. */

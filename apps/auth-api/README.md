@@ -85,11 +85,6 @@ For a deployed Worker, `bun run api:deploy` decrypts `.env.production`. It sends
 `wrangler secret put` through standard input, and `GITHUB_APP_PRIVATE_KEY` when it is set. It then
 builds and deploys the Worker.
 
-Production also requires `OPENPANEL_CLIENT_ID` and `OPENPANEL_CLIENT_SECRET` from an OpenPanel
-write-only server client. Keep both in the encrypted `.env.production` for local deployment and in
-the `cloudflare-production` GitHub Environment for CI. Both deployment paths check these values
-before remote changes. Test deployments do not send account analytics.
-
 `GITHUB_APP_PRIVATE_KEY` is the OpenBot GitHub App's private key as a PKCS #8 PEM. GitHub gives a
 PKCS #1 key; convert it with `openssl pkcs8 -topk8 -nocrypt -in <key>.pem`. With the key, the
 Worker gives the desktop installation tokens, so GitHub shows `openbotgit[bot]` as the author of an

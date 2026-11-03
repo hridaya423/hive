@@ -1,7 +1,7 @@
 import { env, waitUntil } from "cloudflare:workers";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { Effect } from "effect";
-import { type AccountAnalytics, createAccountAnalytics } from "./account-analytics";
+import { NO_ACCOUNT_ANALYTICS } from "./account-analytics";
 import { AccountAttribution } from "./account-attribution";
 import { adminTokenMatches } from "./admin-token";
 import { AgentMarketplace, AgentMarketplaceError } from "./agent-marketplace";
@@ -30,30 +30,20 @@ import {
 } from "./remote-control-plane";
 import { SkillMarketplace, SkillMarketplaceError } from "./skill-marketplace";
 import { SlackAppError, SlackAppService } from "./slack-app";
-import { requireWorkerBindings, type TeamInviteEmailDelivery, type WorkerBindings } from "./types";
-
-function accountAnalytics(bindings: WorkerBindings): AccountAnalytics {
-  return createAccountAnalytics({
-    clientId: bindings.OPENPANEL_CLIENT_ID,
-    clientSecret: bindings.OPENPANEL_CLIENT_SECRET,
-    fetch: (input, init) => fetch(input, init),
-    schedule,
-  });
-}
+import { requireWorkerBindings, type TeamInviteEmailDelivery } from "./types";
 
 export function requestAuthService(): AuthService {
   const bindings = requireWorkerBindings(env);
   const exposeDevelopmentCode = bindings.AUTH_EXPOSE_DEVELOPMENT_CODE === "true";
-  const analytics = accountAnalytics(bindings);
   return new AuthService({
     repository: new D1AuthRepository(bindings.DB),
-    delivery: exposeDevelopmentCode ? null : createEmailCodeDelivery(bindings, analytics),
+    delivery: exposeDevelopmentCode ? null : createEmailCodeDelivery(bindings, NO_ACCOUNT_ANALYTICS),
     exposeDevelopmentCode,
     // The revocation is already written and the cron redelivers it, so the answer does not wait.
     flushSessionRevocations: () => Effect.sync(() => schedule(deliverPendingRemoteAuthEvents(bindings, Date.now()))),
     profileChanged: (userId) => notifyAccountProfileChanged(bindings, userId, schedule),
-    analytics,
-    attribution: new AccountAttribution({ database: bindings.DB, analytics }),
+    analytics: NO_ACCOUNT_ANALYTICS,
+    attribution: new AccountAttribution({ database: bindings.DB, analytics: NO_ACCOUNT_ANALYTICS }),
   });
 }
 
@@ -214,7 +204,7 @@ export const requireSkillsAdmin = Effect.fn("Auth.requireSkillsAdmin")(function*
 
 export function requestTeamInviteEmailDelivery(): TeamInviteEmailDelivery | null {
   const bindings = requireWorkerBindings(env);
-  return createTeamInviteEmailDelivery(bindings, accountAnalytics(bindings));
+  return createTeamInviteEmailDelivery(bindings, NO_ACCOUNT_ANALYTICS);
 }
 
 export function requestRemoteControlPlane(): RemoteControlPlane {
