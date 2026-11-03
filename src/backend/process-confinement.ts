@@ -338,7 +338,6 @@ export function kimiStatePaths(env: NodeJS.ProcessEnv = process.env, home = home
   };
 }
 
-/** The folder of the Copilot CLI: `COPILOT_HOME`, else `~/.copilot`. OpenBot shares it with the user's own CLI. */
 export function copilotHome(env: NodeJS.ProcessEnv = process.env, home = homedir()): string {
   return env.COPILOT_HOME?.trim() || join(home, ".copilot");
 }

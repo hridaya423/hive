@@ -528,8 +528,7 @@ export const resolveCopilotCli: (input?: {
   Effect.catchDefect((cause) => Effect.fail(providerFailure(cause))),
 );
 
-/** Copilot prints `GitHub Copilot CLI 1.0.105.` and, on the next line, how to update. */
-export function parseCopilotVersion(output: string): string {
+function parseCopilotVersion(output: string): string {
   const version = output.match(/^GitHub Copilot CLI v?(\d+\.\d+\.\d+)\b/mu)?.[1];
   if (!version) throw new CodexCliError(sourceText("error.provider.copilotVersionUnreadable"), "invalid");
   return version;

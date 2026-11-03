@@ -96,3 +96,9 @@ Done before this session. Bun 1.4.2 at `~/.bun/bin/bun`. `bun install --frozen-l
 ## Blocked on Hridya (Phase 3)
 - `hridaya423` has no Copilot access (`access_type_sku: "no_access"`, `cli_enabled: false`). Say which GitHub account has Copilot Pro (GitHub Education may need activating at github.com/settings/copilot). Then run `copilot login`, and the spikes 1, 2, 3, 4 (real CLI), 6, 7 can run.
 - After login, check `security find-generic-password -s copilot-cli` shows an item, then run a Workspace only agent on Copilot. If it says "Authentication required" or the CLI fails to write `~/.copilot/config.json`, change `copilotStatePaths` (`config.json` is protected now, an unverified guess).
+
+### Phase 3 review (2026-11-03)
+- Reviewed `git diff d1e92e4d7..HEAD` myself in the thermo-nuclear style (no sub-agents). Fixed: removed explanation comments that restate code, unexported `parseCopilotVersion`. Kept, as judgement: `resolveCopilotCli` copies the shape of `resolveKimiCli` (one more copy of a loop; a shared helper would also change Kimi and Hermes, out of scope).
+- Final state: conformance e2e passes (9 drivers), `typecheck:node`, `:contracts`, `:renderer` exit 0, the pre-commit hook ran every `typecheck:*` project.
+- The `docs/provider-terms.md` change landed in the `feat: github copilot provider` commit, not in a separate Task 3.4 commit (a `git add -A` staged it). No Task 3.3 commit (skipped).
+- Not verified: `bun scripts/team-api-routes-e2e.ts` (edited expected lists only); Workspace only Copilot with the real CLI; Team API peers; a real turn, the model picker with real models, and the full provider settings page.

@@ -354,7 +354,6 @@ function confineHermesTarget(
 
 const COPILOT_ARGV: readonly string[] = ["--acp"];
 
-/** The sandbox lets a Copilot process write in its folder, not create it, so OpenBot makes it. */
 function confineCopilotTarget(
   target: SpawnTarget,
   confinement: ProcessConfinement,
@@ -1239,12 +1238,10 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
   },
   {
     id: "copilot",
-    // `login --web-flow` opens GitHub in the browser and keeps the token in the login Keychain.
     signIn: {
       kind: "cli-command",
       command: { argv: ["login", "--web-flow"], env: () => ({}), timeoutMs: CLI_LOGIN_TIMEOUT_MS },
     },
-    // With `--device-code`, the CLI prints GitHub's device page and a code, and waits until it is confirmed.
     codeSignIn: {
       kind: "cli",
       flow: "device",

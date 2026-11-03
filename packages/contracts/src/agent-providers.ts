@@ -544,9 +544,7 @@ const AGENT_PROVIDER_DESCRIPTOR_TABLE = {
     approvalsInFullAccess: true,
     foldersInFullAccess: false,
   },
-  // GitHub Copilot CLI (`copilot --acp`), which the user installs. It signs in with `copilot login` and
-  // keeps the token in the login Keychain, so OpenBot never holds it. The user's own Copilot plan
-  // answers. The CLI reads `AGENTS.md`, and `.agents/skills` and `~/.agents/skills` (`copilot skill --help`).
+  // The CLI reads `AGENTS.md`, `.agents/skills` and `~/.agents/skills` itself (`copilot skill --help`).
   copilot: {
     id: "copilot",
     displayName: "Copilot",
