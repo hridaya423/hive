@@ -42,14 +42,8 @@ import {
   CUSTOM_CHOICE,
   ONBOARDING_ROLES,
 } from "@/features/onboarding/model/onboarding-roles";
-import { hostedServerCalls } from "@/features/servers/api/hosted-servers";
 import { useAppDrawer } from "@/features/servers/components/app-drawer-shell";
-import {
-  refreshHostedServerAvailability,
-  useHostedServerAvailability,
-} from "@/features/servers/model/hosted-server-availability";
 import { useMobileWorkspace } from "@/features/workspace/context/mobile-workspace-context";
-import { devFeatureOverride } from "@/shared/lib/dev-feature-overrides";
 import { haptics } from "@/shared/lib/haptics";
 import { refreshMobileFeatures, useMobileFeature } from "@/shared/lib/mobile-features";
 import { useText } from "@/shared/lib/text";
@@ -277,18 +271,6 @@ export function OnboardingFlow({
   // The server step shows only while the account has no connected server.
   const needsServer = !online;
 
-  // A cloud server is a choice only when the account can have one, as in the server drawer.
-  const accountHasPlans = useHostedServerAvailability(
-    (state) => session !== null && state.userId === session.user.id && state.available,
-  );
-  const cloudServersOn = useMobileFeature(session?.apiUrl ?? "", "cloudServers");
-  const showsPlans = devFeatureOverride("cloudServers") ?? (accountHasPlans && cloudServersOn);
-  useEffect(() => {
-    if (!session || step !== "server") return;
-    void refreshHostedServerAvailability(session.user.id, hostedServerCalls(session));
-    void refreshMobileFeatures(session.apiUrl);
-  }, [session, step]);
-
   // The keyboard closes while the field that opened it is still there. On Android, a focused field
   // that goes with its step's exit animation leaves the keyboard open, with nothing to type into
   // and no way to close it.
@@ -499,9 +481,6 @@ export function OnboardingFlow({
         motion={motion}
         connecting={connecting}
         onComputer={connectComputer}
-        onCloud={
-          showsPlans ? () => router.push({ pathname: "/hosted-server", params: { entryPoint: "onboarding" } }) : null
-        }
         onInvitation={() => router.push("/add-server")}
         onBack={previous !== null ? back : null}
         onSkip={skip}

@@ -23,7 +23,7 @@ export const navigationFonts = {
  * read `navigationFonts`, so a screen that sets `headerTitleStyle` adds this font. Android headers
  * still read the theme fonts.
  */
-export const headerTitleFont = isIOS ? navigationFonts.bold : {};
+const headerTitleFont = isIOS ? navigationFonts.bold : {};
 
 /** Stack `screenOptions` that keep the app font in iOS headers, with the weights of `navigationFonts`. */
 export const headerFontOptions = isIOS

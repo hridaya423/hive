@@ -69,7 +69,6 @@ import { createEffect, createMemo, createSignal, createStore, For, onCleanup, Sh
 import { actionToast } from "../../action-toast";
 import { type DesktopAnalyticsScope, desktopAnalytics } from "../../analytics";
 import { writeClipboardText } from "../../clipboard";
-import { HostedUpsellRoutinesNotice, hostedUpsellRoutineCreated } from "../servers/hosted-server-upsell-controller";
 import { isEventRoutine, routineListSummary, routineScheduleOf } from "./routine-summary";
 import type { RoutineEditorRecord, RoutinesPort } from "./routines-port";
 
@@ -535,9 +534,6 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
         });
       }
       trackRoutineAction(analytics, action, current, startedAt, "succeeded");
-      if (action === "create" && saved.active) {
-        hostedUpsellRoutineCreated({ id: saved.id, name: saved.name, agentId: null });
-      }
     } catch (caught) {
       trackRoutineAction(analytics, action, current, startedAt, "failed");
       setError(errorMessage(caught, t("routine.settings.saveFailed")));
@@ -1127,11 +1123,6 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
         </Show>
       </div>
       {/* Out of the scroll area, so the offer stays at the bottom of the panel. */}
-      <Show when={!draft() && !loading()}>
-        <div class="agent-routines-footer">
-          <HostedUpsellRoutinesNotice count={routines().filter((routine) => routine.active).length} />
-        </div>
-      </Show>
       <ConfirmDialog
         open={pendingExit() !== null}
         onCancel={() => setPendingExit(null)}

@@ -2,10 +2,8 @@ import type {
   AccountSession,
   AppInfo,
   AvatarImageInput,
-  BillingDesktopApi,
   CentralAuthUser,
   DynamicIslandGeometry,
-  HostedServersDesktopApi,
   MobileConnectedDevice,
   MobileConnectLink,
   MobileConnectTicket,
@@ -26,14 +24,11 @@ import {
   Tabs,
   TriangleAlert,
 } from "@openbot/ui";
-import { BillingPanel } from "@openbot/ui/features/billing/BillingPanel";
-import { createBillingStore } from "@openbot/ui/features/billing/billing-store";
 import type { GeneralSettingsValue } from "@openbot/ui/features/settings/app-settings";
 import { SettingsDialogShell, type SettingsPagePlacement } from "@openbot/ui/features/settings/SettingsDialogShell";
 import { SettingsMobileConnectTab } from "@openbot/ui/features/settings/SettingsMobileConnectTab";
 import { SettingsProfileTab } from "@openbot/ui/features/settings/SettingsProfileTab";
 import { SettingsUpdatesTab } from "@openbot/ui/features/settings/SettingsUpdatesTab";
-import { createSettingsHostedServersStore } from "@openbot/ui/features/settings/stores/hosted-servers-store";
 import { createSettingsMobileConnectStore } from "@openbot/ui/features/settings/stores/mobile-connect-store";
 import { createSettingsProfileStore } from "@openbot/ui/features/settings/stores/profile-store";
 import { createSettingsUpdatesStore } from "@openbot/ui/features/settings/stores/updates-store";
@@ -94,13 +89,6 @@ export interface SettingsModalProps {
   onRevokeAccountSession?: (sessionId: string) => Promise<void>;
   onSignOut?: (() => Promise<void>) | undefined;
   processAvatarFile?: (file: File) => Promise<AvatarImageInput>;
-  billingApi?: BillingDesktopApi;
-  /** The account's hosted servers. The tab is shown only when the account server offers them. */
-  hostedServersApi?: HostedServersDesktopApi | undefined;
-  /** Opens the add server dialog from the Hosted servers tab. */
-  onAddHostedServer?: (() => void) | undefined;
-  /** A hosted server that the server menu asked to delete. Each nonce opens its confirmation once. */
-  hostedServerDeleteRequest?: { serverId: string; nonce: number } | null;
   onTestNotification?: () => void | Promise<void>;
   /** Opens the operating system notification settings. Shown only on macOS and Windows. */
   onOpenNotificationSettings?: () => void | Promise<void>;
@@ -122,9 +110,7 @@ export interface SettingsModalProps {
  */
 export function SettingsModal(props: SettingsModalProps) {
   const i18n = useI18n();
-  const [activeTab, setActiveTab] = createSignal<SettingsTab>(
-    untrack(() => (props.initialTab === "hosted-servers" ? "billing" : props.initialTab)) ?? "general",
-  );
+  const [activeTab, setActiveTab] = createSignal<SettingsTab>(untrack(() => props.initialTab) ?? "general");
   let modalElement: HTMLElement | undefined;
   const profile = createSettingsProfileStore(props, () => activeTab() === "profile");
   const profileActivity = createProfileActivityStore(
@@ -133,11 +119,6 @@ export function SettingsModal(props: SettingsModalProps) {
   );
   const mobileConnect = createSettingsMobileConnectStore(props, () => activeTab() === "mobile-connect");
   const updates = createSettingsUpdatesStore(props);
-  const billing = createBillingStore(
-    () => props.billingApi,
-    () => props.open && activeTab() === "billing",
-  );
-  const hostedServers = createSettingsHostedServersStore(props, () => activeTab() === "billing");
   const voice = createSettingsVoiceStore(() => props.open && activeTab() === "voice");
   const notificationLevels = createNotificationLevelsStore({
     visible: () => props.open && activeTab() === "notifications",
@@ -148,22 +129,10 @@ export function SettingsModal(props: SettingsModalProps) {
     value: () => props.value,
     onValueChange: (value) => props.onValueChange(value),
   });
-  let handledHostedServerDeleteNonce = 0;
-  createEffect(
-    () => (props.open ? props.hostedServerDeleteRequest : null),
-    (request) => {
-      if (!request || request.nonce === handledHostedServerDeleteNonce) return;
-      handledHostedServerDeleteNonce = request.nonce;
-      hostedServers.requestDeleteById(request.serverId);
-    },
-  );
 
   const dynamicIslandShown = () => dynamicIslandSettingsShown(props.appInfo?.platform, props.chatWindow === true);
   createEffect(
-    () => {
-      const tab = props.open ? props.openTab : undefined;
-      return tab === "hosted-servers" ? "billing" : tab;
-    },
+    () => (props.open ? props.openTab : undefined),
     (tab) => {
       if (!tab) return;
       setActiveTab(tab);
@@ -188,7 +157,6 @@ export function SettingsModal(props: SettingsModalProps) {
         (value === "dynamic-island" && dynamicIslandShown()) ||
         value === "computer-use" ||
         value === "profile" ||
-        value === "billing" ||
         value === "mobile-connect" ||
         value === "updates"
       ) {
@@ -342,15 +310,6 @@ export function SettingsModal(props: SettingsModalProps) {
             canListSessions={Boolean(props.onListAccountSessions)}
             canRevokeSession={Boolean(props.onRevokeAccountSession)}
             onSignOut={props.onSignOut}
-          />
-        </Tabs.Content>
-
-        <Tabs.Content value="billing" class="settings-modal-tab-panel" data-tab="billing">
-          <BillingPanel
-            store={billing}
-            available={Boolean(props.billingApi)}
-            hostedServers={hostedServers}
-            onAddServer={hostedServers.state.available ? props.onAddHostedServer : undefined}
           />
         </Tabs.Content>
 

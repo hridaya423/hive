@@ -1,18 +1,6 @@
 import type { AppInfo } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import {
-  Bell,
-  Bot,
-  CircleArrowDown,
-  CreditCard,
-  Mic,
-  MousePointer2,
-  PanelTop,
-  Server,
-  Settings,
-  Smartphone,
-  UserRound,
-} from "@openbot/ui";
+import { Bell, Bot, CircleArrowDown, Mic, MousePointer2, PanelTop, Settings, Smartphone, UserRound } from "@openbot/ui";
 
 export type SettingsTab =
   | "general"
@@ -22,10 +10,8 @@ export type SettingsTab =
   | "dynamic-island"
   | "computer-use"
   | "profile"
-  | "billing"
   | "mobile-connect"
-  | "updates"
-  | "hosted-servers";
+  | "updates";
 
 /**
  * A row of a tab that the settings search finds. The title key is also the anchor of the row: the
@@ -153,13 +139,6 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
     rows: [{ titleKey: "computerUse.permissions.title", descriptionKey: "computerUse.permissions.description" }],
   },
   {
-    value: "billing",
-    titleKey: "settings.tab.billing.title",
-    descriptionKey: "settings.tab.billing.description",
-    icon: CreditCard,
-    rows: [],
-  },
-  {
     value: "mobile-connect",
     titleKey: "settings.tab.mobileConnect.title",
     descriptionKey: "settings.tab.mobileConnect.description",
@@ -191,13 +170,6 @@ export const navItems: ReadonlyArray<SettingsNavItem> = [
       { titleKey: "settings.updates.managed.title", descriptionKey: "settings.updates.managed.description" },
     ],
   },
-  {
-    value: "hosted-servers",
-    titleKey: "settings.tab.hostedServers.title",
-    descriptionKey: "settings.tab.hostedServers.description",
-    icon: Server,
-    rows: [],
-  },
 ];
 
 export function navItem(tab: SettingsTab): SettingsNavItem {
@@ -206,12 +178,8 @@ export function navItem(tab: SettingsTab): SettingsNavItem {
   return found;
 }
 
-/**
- * Whether the settings panel and its search show the tab. Hosted servers opens from its own entry, not
- * from this panel.
- */
+/** Whether the settings panel and its search show the tab. */
 export function settingsTabShown(tab: SettingsTab, dynamicIslandShown: boolean): boolean {
-  if (tab === "hosted-servers") return false;
   return tab !== "dynamic-island" || dynamicIslandShown;
 }
 

@@ -10,8 +10,6 @@ import {
   type DirectConversationSnapshot,
   type DirectMessage,
   type DirectThreadSummary,
-  type HostedServerIssue,
-  type HostedServerStart,
   type HostStatus,
   type InvitePreview,
   type InviteSummary,
@@ -268,9 +266,6 @@ function server(summary: DynamicRecord): ServerSummary {
     issue,
     connectionSequence,
     hostRestart,
-    hostedSleep,
-    hostedIssue,
-    hostedStart,
     memberLimit,
     hosted,
     keyChangedAt,
@@ -310,12 +305,6 @@ function server(summary: DynamicRecord): ServerSummary {
     ...(issue === undefined ? {} : { issue: issue === null ? null : serverIssue(issue) }),
     ...(connectionSequence === undefined ? {} : { connectionSequence }),
     ...(hostRestart === undefined ? {} : { hostRestart: hostRestart === null ? null : serverHostRestart(hostRestart) }),
-    // Only the indicator reads it, so a value from a newer main process shows no indicator.
-    ...(hostedSleep === undefined
-      ? {}
-      : { hostedSleep: hostedSleep === "sleeping" || hostedSleep === "waking" ? hostedSleep : null }),
-    ...(hostedIssue === undefined ? {} : { hostedIssue: decodeHostedIssue(hostedIssue) }),
-    ...(hostedStart === undefined ? {} : { hostedStart: decodeHostedStart(hostedStart) }),
     ...(memberLimit === undefined ? {} : { memberLimit }),
     ...(hosted === undefined ? {} : { hosted }),
     ...(keyChangedAt === undefined ? {} : { keyChangedAt }),
@@ -450,17 +439,4 @@ function remoteDesktopDisplay(display: DynamicRecord): RemoteDesktopDisplay {
 function teamRole(value: unknown): TeamRole {
   if (!isOneOf(TEAM_ROLES, value)) throw new Error("Invalid role.");
   return value;
-}
-
-function decodeHostedIssue(value: unknown): HostedServerIssue | null {
-  if (value === null || value === "plan_ended" || value === "wake_failed" || value === "start_timeout") return value;
-  throw new Error("Invalid hostedIssue.");
-}
-
-function decodeHostedStart(value: unknown): HostedServerStart | null {
-  if (value === null) return null;
-  const start = decodeRecord(value, "hosted start");
-  const { step } = start;
-  if (step !== "machine" && step !== "openbot" && step !== "provider_limit") throw new Error("Invalid hostedStart.");
-  return { step, startedAt: requiredNumber(start, "startedAt") };
 }

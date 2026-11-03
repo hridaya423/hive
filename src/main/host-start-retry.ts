@@ -1,10 +1,9 @@
 import { Deferred, Effect } from "effect";
 import type { RemoteWorkflowError } from "./remote-service-effects";
 /**
- * A hosted server has nobody to press Retry, so it publishes the host again after a failed start. A
- * start that could not sign in leaves the host idle or unconfigured, so those phases also start again.
- * Nothing here stops the server. The Worker stops it when it reports no use (`HostedServerActivity`).
- * A desktop server uses it too, to publish again after a failed publish at launch or a Signal failure.
+ * Publishes the host again after a failed start, as nobody presses Retry on a server. A start that
+ * could not sign in leaves the host idle or unconfigured, so those phases also start again. A desktop
+ * server uses it to publish again after a failed publish at launch or a Signal failure.
  */
 
 import type { HostPhase } from "@openbot/contracts/ipc";
@@ -14,7 +13,7 @@ const CHECK_INTERVAL_MS = 60_000;
 const START_RETRY_DELAYS_MS = [30_000, 60_000, 2 * 60_000, 5 * 60_000, 10 * 60_000];
 const RETRY_PHASES: ReadonlySet<HostPhase> = new Set(["error", "idle", "unconfigured"]);
 
-export interface HostedServerStartRetryOptions {
+export interface HostStartRetryOptions {
   hostPhase: () => HostPhase;
   /** Signs in again when the first start could not, then publishes the host. */
   startHost: () => Effect.Effect<unknown, RemoteWorkflowError>;
@@ -22,15 +21,15 @@ export interface HostedServerStartRetryOptions {
   now?: () => number;
 }
 
-export class HostedServerStartRetry {
-  readonly #options: HostedServerStartRetryOptions;
+export class HostStartRetry {
+  readonly #options: HostStartRetryOptions;
   readonly #now: () => number;
   #timer: ReturnType<typeof setInterval> | null = null;
   #pending: Deferred.Deferred<void, RemoteWorkflowError> | null = null;
   #startFailures = 0;
   #nextStartAt = 0;
 
-  constructor(options: HostedServerStartRetryOptions) {
+  constructor(options: HostStartRetryOptions) {
     this.#options = options;
     this.#now = options.now ?? Date.now;
   }
@@ -67,7 +66,7 @@ export class HostedServerStartRetry {
     }).pipe(Effect.uninterruptible);
   }
 
-  readonly #tickEffect = Effect.fn("HostedServerStartRetry.tick")(function* (this: HostedServerStartRetry) {
+  readonly #tickEffect = Effect.fn("HostStartRetry.tick")(function* (this: HostStartRetry) {
     const now = this.#now();
     const phase = this.#options.hostPhase();
     if (phase === "online") {

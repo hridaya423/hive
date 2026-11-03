@@ -673,9 +673,6 @@ export const STORY_SERVERS: [ServerSummary, ...ServerSummary[]] = [
     remoteDesktopAvailable: false,
     role: "owner",
     active: false,
-    hostedSleep: "sleeping",
-    hostedIssue: null,
-    hostedStart: null,
   },
 ];
 

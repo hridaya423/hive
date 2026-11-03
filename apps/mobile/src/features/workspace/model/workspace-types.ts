@@ -348,8 +348,6 @@ export interface MobileWorkspaceContextValue {
   removeServer: (serverId: string) => Promise<void>;
   refreshServers: () => Promise<void>;
   refreshServer: (serverId: string) => Promise<void>;
-  /** The account server says that a hosted server starts, for example after a restart. The app connects again soon. */
-  hostedServerStarting: (serverId: string) => void;
   /** An owner or admin of an online host that serves `host-admin-v1`. The host checks the role again. */
   canEditServerIdentity: (serverId: string) => boolean;
   /**

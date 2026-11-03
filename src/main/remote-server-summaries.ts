@@ -70,9 +70,6 @@ export function remoteServerSummaries(
         issue: status.issue,
         connectionSequence: status.connectionSequence,
         hostRestart: status.hostRestart ?? null,
-        hostedSleep: status.hostedSleep ?? null,
-        hostedIssue: status.hostedIssue ?? null,
-        hostedStart: status.hostedStart ?? null,
       };
     }),
   ];

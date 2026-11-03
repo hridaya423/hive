@@ -51,39 +51,18 @@ export const HistoryLoading: Story = {
   render: () => <ConversationLoadNotice name="Research agent" loading error={null} onRetry={() => {}} />,
 };
 
-export const StartingServer: Story = {
-  render: () => <ServerConnectionNotice name="My server" phase="waking" initial onRetry={() => {}} />,
-};
-/** The machine runs and OpenBot on it starts. The time counts from the wake. */
-export const StartingOpenBot: Story = {
-  render: () => (
-    <ServerConnectionNotice
-      name="My server"
-      phase="waking"
-      start={{ step: "openbot", startedAt: Date.now() - 4 * 60_000 }}
-      initial
-      onRetry={() => {}}
-    />
-  ),
-};
-/** The provider refused the start for a short time, and the account server tries again. */
-export const StartRateLimited: Story = {
-  render: () => (
-    <ServerConnectionNotice
-      name="My server"
-      phase="waking"
-      start={{ step: "provider_limit", startedAt: Date.now() - 45_000 }}
-      initial={false}
-      onRetry={() => {}}
-    />
-  ),
-};
 export const UpdatingServer: Story = {
   render: () => <ServerConnectionNotice name="My server" phase="updating" initial={false} onRetry={() => {}} />,
 };
-export const StartFailed: Story = {
+export const Blocked: Story = {
   render: () => (
-    <ServerConnectionNotice name="My server" phase="blocked" issue="start_timeout" initial onRetry={() => {}} />
+    <ServerConnectionNotice
+      name="My server"
+      phase="blocked"
+      detail="The host is not available."
+      initial
+      onRetry={() => {}}
+    />
   ),
 };
 export const Reconnecting: Story = {

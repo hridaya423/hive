@@ -2,7 +2,6 @@ import { Effect } from "effect";
 // App identity, first-run setup, the analytics preference, external links and the data and
 // diagnostics exports.
 
-import { HOSTED_SERVER_CONTACT_URL } from "@openbot/contracts/hosted-servers";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
   type AnalyticsPreference,
@@ -66,8 +65,7 @@ import { stringPayload } from "./validation";
  *
  * `mac-screen-recording` is not a web page. macOS opens a settings pane from a URL, and the table is
  * what keeps that address out of the renderer. It is the same pane the Computer Use panel opens, so
- * it is read from `mac-permission-urls.ts` rather than written twice. `hosted-server-contact` is a
- * `mailto:` address, which `openUrl` refuses; the web client opens the same constant.
+ * it is read from `mac-permission-urls.ts` rather than written twice.
  */
 const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
   "agent-setup": "https://github.com/nightly-labs/openbot/blob/main/docs/TROUBLESHOOTING.md",
@@ -84,7 +82,6 @@ const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
   github: "https://github.com/nightly-labs/openbot",
   x: "https://x.com/OpenBot_",
   "grok-bot-export": GROK_BOT_EXPORT_URL,
-  "hosted-server-contact": HOSTED_SERVER_CONTACT_URL,
   "mac-screen-recording": MAC_PERMISSION_URLS["screen-recording"],
 };
 

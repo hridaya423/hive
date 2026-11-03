@@ -117,7 +117,7 @@ const Agents = createSimpleContext({
      * which takes seconds after a launch, so an empty list here does not mean the server has no
      * agents. Main reports such a host as `offline` until the first connection is up, so that state
      * counts as connecting too. A failed connection reports `error` or an issue, and an incompatible
-     * or sleeping server keeps its own state. Only a successful read can settle the roster.
+     * server keeps its own state. Only a successful read can settle the roster.
      */
     const agentListConnecting = createMemo(() => {
       if (agentListSettled()) return false;
@@ -126,8 +126,7 @@ const Agents = createSimpleContext({
       return (
         server?.kind === "remote" &&
         (server.state === "offline" || server.state === "connecting" || server.state === "online") &&
-        server.issue == null &&
-        server.hostedSleep !== "sleeping"
+        server.issue == null
       );
     });
     const [settingsRequest, setSettingsRequest] = createSignal<AgentSettingsRequest | null>(null);

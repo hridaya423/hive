@@ -148,7 +148,6 @@ import { AppBehaviorService } from "./app-behavior-service";
 import { AppearanceService } from "./appearance-service";
 import { ApprovalAutomation, readApprovalAutomation } from "./approval-automation-store";
 import { AutomationServer } from "./automation-server";
-import { BillingDesktopService } from "./billing-service";
 import { managedBitwardenCli } from "./bitwarden-cli-installer";
 import { BitwardenConnectorService } from "./bitwarden-connector-service";
 import { BitwardenConnectorStore } from "./bitwarden-connector-store";
@@ -204,11 +203,8 @@ import { HermesImportService } from "./hermes-import-service";
 import { HostEventsRuntime } from "./host-events-runtime";
 import { agentWebhookRoutineWriter, HostEventsService } from "./host-events-service";
 import { HostService } from "./host-service";
+import { HostStartRetry } from "./host-start-retry";
 import { HostUpdateCoordinator } from "./host-update-coordinator";
-import { CLIENT_USE_WINDOW_MS, HostedServerActivity } from "./hosted-server-activity";
-import { applyHostedServerAccount, type HostedServerEnvironment } from "./hosted-server-bootstrap";
-import { HostedServerDesktopService, withHostingDeveloperKey } from "./hosted-server-service";
-import { HostedServerStartRetry } from "./hosted-server-start-retry";
 import { IdleRestart } from "./idle-restart";
 import { loadIngressQueueKey } from "./ingress-queue-key";
 import { InstanceTransferService } from "./instance-transfer-service";
@@ -427,9 +423,7 @@ const TEARDOWN_ORDER = {
   idleRestart: 11,
   hostUpdateCoordinator: 12,
   requestedUpdate: 13,
-  hostedServerStartRetry: 14,
   launchPublishRetry: 14.5,
-  hostedServerActivity: 15,
   serverMemory: 16,
   serverMode: 17,
   computerUseHighlight: 18,
@@ -513,11 +507,9 @@ export interface ApplicationServiceContext {
   developmentRemoteRole: DevelopmentRemoteRole | null;
   developmentTestClientEnabled: boolean;
   /** Set only in a hosted server VM. */
-  hostedServer: HostedServerEnvironment | null;
   /** Set only in a self-hosted server that `install-server.sh` installed. */
   serverMode: ServerModeEnvironment | null;
   /** Set only by `bun run dev --hosting=test`. */
-  hostingDeveloperKey: string | null;
   /** Set only in a local server that the desktop app started as its child. See `local-server-child.ts`. */
   localServerChild: LocalServerChildEnvironment | null;
   macHapticFeedback: MacHapticFeedback;
@@ -622,8 +614,6 @@ export interface ApplicationServices {
   localServers: LocalServers | null;
   centralAuth: CentralAuthManager;
   skills: SkillMarketplaceService;
-  billing: BillingDesktopService;
-  hostedServers: HostedServerDesktopService;
   routineFeed: RoutineFeedServer;
   events: HostEventsService;
   eventsRuntime: HostEventsRuntime;
@@ -903,9 +893,7 @@ export async function createApplicationServices({
   analyticsCaptureUrl,
   developmentRemoteRole,
   developmentTestClientEnabled,
-  hostedServer,
   serverMode: serverModeEnvironment,
-  hostingDeveloperKey,
   localServerChild,
   macHapticFeedback,
   teardown,
@@ -1074,18 +1062,6 @@ export async function createApplicationServices({
   await Effect.runPromise(skillCreator.syncAll(store.list()));
   await Effect.runPromise(dataSkill.syncAll(store.list()));
   performance.mark("openbot:services.skills");
-  const billing = new BillingDesktopService(centralAuth, openLink);
-  const hostedServers = new HostedServerDesktopService(
-    withHostingDeveloperKey(centralAuth, hostingDeveloperKey),
-    openLink,
-    Date.now,
-    // A new server is running, but the joined list has no entry for it yet: read the list again.
-    (serverId) => {
-      if (!remoteServers.list().some((server) => server.id === serverId))
-        void Effect.runPromise(remoteServers.invalidateDirectory());
-    },
-    (serverId, server) => remoteServers.hostedServerStarting(serverId, server),
-  );
   const sidebarLayout = new SidebarLayoutStore(join(app.getPath("userData"), SIDEBAR_LAYOUT_FILE));
   await runCauseEffect(sidebarLayout.initialize());
   const mailbox = new MailboxStore(app.getPath("userData"), store.sharedRoot, store.database);
@@ -1100,17 +1076,16 @@ export async function createApplicationServices({
   teardown.push(TEARDOWN_ORDER.teamWebRtcBridge, "the team WebRTC bridge", () =>
     runCauseEffect(teamWebRtcBridge.stop()),
   );
-  // Only a hosted, self-hosted or container server: one unit or container holds OpenBot and every
+  // Only a self-hosted or container server: one unit or container holds OpenBot and every
   // agent process. The desktop app does not hold turns for memory.
-  const hostMemory =
-    hostedServer || serverModeEnvironment
-      ? new ServerMemory({
-          hostedPlan: hostedServer !== null,
-          onError: (message, error) => logger.warn(message, toLogValue(error)),
-          onAgentProcessStopped: (stopped) =>
-            logger.warn("Stopped a leftover agent process to free memory.", { ...stopped }),
-        })
-      : null;
+  const hostMemory = serverModeEnvironment
+    ? new ServerMemory({
+        hostedPlan: false,
+        onError: (message, error) => logger.warn(message, toLogValue(error)),
+        onAgentProcessStopped: (stopped) =>
+          logger.warn("Stopped a leftover agent process to free memory.", { ...stopped }),
+      })
+    : null;
   // Every provider process on a server gets the marker of leftover agent processes and the CPU limit
   // module for Node. The module must exist: Node does not start when a `--require` file is missing.
   // On the desktop it gets the marker only, so Settings › Agents can list what agents left running.
@@ -1254,11 +1229,11 @@ export async function createApplicationServices({
     path: join(app.getPath("userData"), APP_BEHAVIOR_PREFERENCE_FILE),
     loginItem: createLoginItem({
       appVariant,
-      server: Boolean(hostedServer || serverModeEnvironment || localServerChild),
+      server: Boolean(serverModeEnvironment || localServerChild),
     }),
-    offersBackground: !hostedServer && !serverModeEnvironment && !localServerChild,
+    offersBackground: !serverModeEnvironment && !localServerChild,
     menuBar: process.platform === "darwin",
-    offersKeepAwake: process.platform !== "linux" && !hostedServer && !serverModeEnvironment && !localServerChild,
+    offersKeepAwake: process.platform !== "linux" && !serverModeEnvironment && !localServerChild,
   });
   await runCauseEffect(appBehavior.load());
   void Effect.runPromise(appBehavior.refreshLoginItem()).catch((error) =>
@@ -2261,26 +2236,6 @@ export async function createApplicationServices({
       }),
     );
   }
-  // At the same position. A failure leaves the host unconfigured and the app running, so the log
-  // shows why; a throw here would make systemd restart the app with a claim that may be spent.
-  let hostedServerSignedIn = false;
-  const signInHostedServer = (
-    environment: HostedServerEnvironment,
-    initialization: Effect.Effect<CentralAuthState, RemoteWorkflowError>,
-  ) =>
-    applyHostedServerAccount({ environment, centralAuth, centralAuthInitialization: initialization, teamStore }).pipe(
-      Effect.tap(() =>
-        Effect.sync(() => {
-          hostedServerSignedIn = true;
-        }),
-      ),
-    );
-  if (hostedServer) {
-    await runCauseEffect(signInHostedServer(hostedServer, centralAuthInitialization)).catch((error) =>
-      logger.error("The hosted server could not sign in:", toLogValue(error)),
-    );
-  }
-
   const teamChatStore = new TeamChatStore(store.database);
   performance.mark("openbot:services.hosted");
   const remoteDesktopRuntime = await Effect.runPromise(
@@ -2508,8 +2463,6 @@ export async function createApplicationServices({
     // Present, so the host advertises `browser-profiles-v1`. Only owners and admins change profiles;
     // any member reads the profile labels of the tabs they can see.
     browserProfiles,
-    // True on a hosted server, so the host advertises `focus-use-v1`. Any member can send it.
-    focusUse: hostedServer !== null,
     // Each member present advertises its admin capability. Every admin route requires an owner or admin.
     admin: {
       agents: agentAdminSettings,
@@ -2571,7 +2524,7 @@ export async function createApplicationServices({
       },
       routineResults: routineResultRuntime,
       // The desktop app's own server only. The servers are made below, after this host.
-      ...(localServerChild || serverModeEnvironment || hostedServer
+      ...(localServerChild || serverModeEnvironment
         ? {}
         : {
             localServers: {
@@ -2772,7 +2725,7 @@ export async function createApplicationServices({
   teardown.push(TEARDOWN_ORDER.trace, "the trace file", () => Effect.runPromise(trace.close()));
   const resourceMonitor = new ResourceMonitor({
     userDataPath: app.getPath("userData"),
-    server: hostedServer !== null || serverModeEnvironment !== null,
+    server: serverModeEnvironment !== null,
     trace,
     statementTimings,
     tabProcessIds: () => browser.tabProcessIds(),
@@ -2888,7 +2841,7 @@ export async function createApplicationServices({
       accountReady: centralAuthInitialization,
       // A joined host keeps the member's phones quiet while this computer has input and this desktop
       // shows the events of that host: in a focused window, or as notifications.
-      ...(hostedServer || serverModeEnvironment || localServerChild
+      ...(serverModeEnvironment || localServerChild
         ? {}
         : {
             computerActivity: {
@@ -2908,11 +2861,6 @@ export async function createApplicationServices({
             },
           }),
       getLocalHostId: () => teamStore.getIdentity()?.serverId ?? null,
-      hostedServers: {
-        unavailable: (serverId, wake) => hostedServers.unavailableHost(serverId, wake),
-        wake: (serverId) => hostedServers.wake(serverId),
-        status: (serverId) => hostedServers.status(serverId),
-      },
       webrtcTransport: new TeamWebRtcClientTransport({
         bridge: teamWebRtcBridge,
         listHosts: () => centralAuth.listRemoteHosts(),
@@ -2948,7 +2896,7 @@ export async function createApplicationServices({
   performance.mark("openbot:services.plugin-catalog");
   // Not on a server: a local server is a workspace of the desktop app.
   const localServers =
-    localServerChild || serverModeEnvironment || hostedServer
+    localServerChild || serverModeEnvironment
       ? null
       : new LocalServers({
           registryPath: join(app.getPath("userData"), LOCAL_SERVERS_FILE),
@@ -3258,14 +3206,6 @@ export async function createApplicationServices({
         return { ok: true, checks: ["initialization-succeeded", "agent-list"] };
       }),
   });
-  // A client that used the server in the last minutes still uses it.
-  const clientInUse = () =>
-    host.connectedClientCount() > 0 && Date.now() - (host.lastClientUseAt() ?? 0) < CLIENT_USE_WINDOW_MS;
-  // A client wakes a hosted server, and reading is not use. Without this, a member who only reads
-  // would see the restart at the end of the disk restore.
-  const startedAt = Date.now();
-  const clientInUseSinceStart = () =>
-    clientInUse() || (host.connectedClientCount() > 0 && Date.now() - startedAt < CLIENT_USE_WINDOW_MS);
   requestedUpdate = new RequestedUpdate({
     updater,
     describeReadiness: describeRestartReadiness,
@@ -3273,8 +3213,6 @@ export async function createApplicationServices({
     savePreference: (change) => writeUpdatePreference(updatePreferenceFile, change),
     log: (message) => logger.info(message),
     announce: (state, version) => host.announceRestart(state, version),
-    // boat restores the disk of a woken server lazily, so its start no longer applies a release.
-    clientInUse: hostedServer ? clientInUseSinceStart : undefined,
   });
   const remoteUpdate = requestedUpdate;
   teardown.push(TEARDOWN_ORDER.requestedUpdate, "the requested update", () =>
@@ -3303,58 +3241,12 @@ export async function createApplicationServices({
     log: (message) => logger.info(message),
   });
   teardown.push(TEARDOWN_ORDER.idleRestart, "the restart when idle", () => idleRestart.dispose());
-  if (hostedServer) {
-    const hostedServerStartRetry = new HostedServerStartRetry({
-      hostPhase: () => host.getStatus().phase,
-      startHost: () =>
-        Effect.gen(function* () {
-          // A start with no answer from the account server ends in the auth error state, and only a
-          // retry reads the stored session again.
-          if (centralAuth.getState().status !== "signed_in") yield* centralAuth.retry().pipe(toRemoteWorkflowError);
-          if (!hostedServerSignedIn) yield* signInHostedServer(hostedServer, Effect.succeed(centralAuth.getState()));
-          return yield* host.start();
-        }),
-      onError: (message, error) => logger.warn(message, toLogValue(error)),
-    });
-    hostedServerStartRetry.start();
-    teardown.push(TEARDOWN_ORDER.hostedServerStartRetry, "the hosted server start retry", () =>
-      Effect.runPromise(hostedServerStartRetry.stop()),
-    );
-    const hostedServerActivity = new HostedServerActivity({
-      hostId: hostedServer.hostId,
-      // A live Slack, Discord or Telegram connection counts only when Signal cannot start the server for
-      // the next message and keep it (an older Signal, or no queue key): stopped, the server could not
-      // hear it. An open browser view does not count: a view that the user forgot would keep the server
-      // running. Input in the view counts as client use.
-      inUse: () =>
-        service.hasActiveWork().length > 0 ||
-        (messaging.hasLiveConnection() && !signalIngress.queueReady()) ||
-        host.describeRestartBlockers().some((reason) => reason !== "browser-view") ||
-        clientInUse(),
-      nextRunAt: () => {
-        const dueAt = service.nextRoutineDueAt();
-        return dueAt ? Date.parse(dueAt) : null;
-      },
-      report: (path, report) =>
-        centralAuth
-          .requestAuthorized(
-            path,
-            { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(report) },
-            () => undefined,
-          )
-          .pipe(toRemoteWorkflowError),
-      onError: (message, error) => logger.warn(message, toLogValue(error)),
-    });
-    hostedServerActivity.start();
-    teardown.push(TEARDOWN_ORDER.hostedServerActivity, "the hosted server activity report", () =>
-      Effect.runPromise(hostedServerActivity.stop()),
-    );
-  } else if (!serverModeEnvironment && !localServerChild) {
+  if (!serverModeEnvironment && !localServerChild) {
     // A server that was published at the last quit is published again at launch, once (`index.ts`).
     // That start can fail when the network is not ready yet, such as at login after an update, and
     // the server then stayed private until the user published it again. A published server that a
     // Signal failure puts in the error phase later is published again in the same way.
-    const launchPublishRetry = new HostedServerStartRetry({
+    const launchPublishRetry = new HostStartRetry({
       hostPhase: () => host.getStatus().phase,
       startHost: () =>
         Effect.gen(function* () {
@@ -3390,7 +3282,7 @@ export async function createApplicationServices({
       logger.error("The server control socket did not start:", toLogValue(error)),
     );
     // Nobody presses Retry on a server either. A server that is signed out has nothing to publish.
-    const serverStartRetry = new HostedServerStartRetry({
+    const serverStartRetry = new HostStartRetry({
       hostPhase: () => host.getStatus().phase,
       startHost: () =>
         Effect.gen(function* () {
@@ -3483,8 +3375,6 @@ export async function createApplicationServices({
     localServers,
     centralAuth,
     skills,
-    billing,
-    hostedServers,
     routineFeed,
     events,
     eventsRuntime,

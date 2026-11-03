@@ -16,7 +16,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { AppState, Keyboard, Pressable, View } from "react-native";
 
 import { useMobileSession } from "@/features/auth/context/mobile-session-context";
-import { LocalServerOptions, type LocalServerPathname } from "@/features/servers/components/local-server-options";
+import { LocalServerOptions } from "@/features/servers/components/local-server-options";
 import { SERVER_ROLE_KEYS } from "@/features/servers/model/server-role";
 import { useMobileWorkspace } from "@/features/workspace/context/mobile-workspace-context";
 import { useLiveServerRecovery } from "@/features/workspace/context/server-recovery-countdown";
@@ -54,18 +54,9 @@ function describeInvite(preview: RemoteInvitePreview, t: MobileTranslate, format
 export function AddServerScreen({
   initialInvite = "",
   onJoined,
-  scanHref = "/add-server/scan",
-  underHeader = false,
-  localServerPathname,
 }: {
   initialInvite?: string;
   onJoined?: () => void;
-  /** The scanner page of the sheet that shows this page. */
-  scanHref?: Href;
-  /** An inner page under a native header: its back button replaces Cancel. */
-  underHeader?: boolean;
-  /** The create page of a server on an owned computer, in this sheet. Without it, the page offers none. */
-  localServerPathname?: LocalServerPathname;
 } = {}) {
   const { t, format, errorDetails, sourceText } = useText();
   const [foreground, accentForeground, success] = useThemeColor(["foreground", "accent-foreground", "success"]);
@@ -155,7 +146,7 @@ export function AddServerScreen({
     <SheetScrollView
       scrollEdgeEffect={false}
       className="bg-sheet"
-      contentContainerClassName={`gap-6 px-5 pb-safe-offset-5 ${underHeader ? "pt-4" : "pt-12"}`}
+      contentContainerClassName="gap-6 px-5 pb-safe-offset-5 pt-12"
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
     >
@@ -225,7 +216,7 @@ export function AddServerScreen({
                 label={t("mobile.server.join.scanShort")}
                 onPress={() => {
                   Keyboard.dismiss();
-                  router.push(scanHref);
+                  router.push("/add-server/scan");
                 }}
               />
             </View>
@@ -276,23 +267,21 @@ export function AddServerScreen({
           )}
 
           {/* Another way to get a server: one more on a computer that runs OpenBot, while no link is typed. */}
-          {localServerPathname && !inviteLink.trim() ? <LocalServerOptions pathname={localServerPathname} /> : null}
+          {!inviteLink.trim() ? <LocalServerOptions /> : null}
 
-          {underHeader ? null : (
-            <Pressable
-              accessibilityRole="button"
-              className="min-h-11 items-center justify-center"
-              disabled={joining}
-              onPress={() => {
-                void haptics.impact("soft");
-                router.back();
-              }}
-            >
-              <Typography.Paragraph weight="semibold" className="text-text-secondary">
-                {t("common.cancel")}
-              </Typography.Paragraph>
-            </Pressable>
-          )}
+          <Pressable
+            accessibilityRole="button"
+            className="min-h-11 items-center justify-center"
+            disabled={joining}
+            onPress={() => {
+              void haptics.impact("soft");
+              router.back();
+            }}
+          >
+            <Typography.Paragraph weight="semibold" className="text-text-secondary">
+              {t("common.cancel")}
+            </Typography.Paragraph>
+          </Pressable>
         </View>
       )}
     </SheetScrollView>

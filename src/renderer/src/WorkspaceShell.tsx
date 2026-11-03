@@ -23,14 +23,12 @@ import { WorkspaceServerOnboarding } from "./features/onboarding/WorkspaceServer
 import { useRemoteDesktop } from "./features/remote-desktop/remote-desktop-context";
 import { WorkspaceRoutineFlows } from "./features/routine-flows/WorkspaceRoutineFlows";
 import { createRoutineTimezonePrompt, desktopRoutineZoneTargets } from "./features/schedule/routine-timezone-prompt";
-import { createHostedUpsellOffline } from "./features/servers/hosted-server-upsell-controller";
 import { createRemoteSyncMarks } from "./features/servers/remote-sync-marks";
 import { createServerConnectionToast } from "./features/servers/server-connection-toast";
 import { useServerScope } from "./features/servers/server-scope";
 import { followsServerUpdate, ServerUpdateDialogHost } from "./features/servers/server-update-flow";
 import { useServers } from "./features/servers/servers-context";
 import { WorkspaceServerRail } from "./features/servers/WorkspaceServerRail";
-import { useSettings } from "./features/settings/settings-context";
 import { WorkspaceSidebar } from "./features/sidebar/WorkspaceSidebar";
 import { TasksPanel } from "./features/tasks/TasksPanel";
 import { createHostRestartToasts, type HostRestartView } from "./features/updates/host-restart-toast";
@@ -69,7 +67,6 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
   const chatWindow = platform.chatWindow !== null;
   const { sourceText, t } = useText();
   const scope = useServerScope();
-  const settings = useSettings();
   const channels = useChannels();
   const channelOpen = () => channels.state.selectedId !== null;
   const windowPage = useWindowPage();
@@ -143,8 +140,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
 
   const blockedRemoteServer = createMemo(() => {
     const server = activeServer();
-    // A hosted server that sleeps or wakes keeps the workspace on screen. The next input wakes it.
-    if (server?.kind !== "remote" || server.hostedSleep) return null;
+    if (server?.kind !== "remote") return null;
     return server.state === "incompatible" || (server.issue && server.issue.code !== "network_unavailable")
       ? server
       : null;
@@ -159,10 +155,6 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
     "workspace-ready": () => remote() && scope.loaded(),
     "conversation-ready": () => remote() && activeConversation()?.loaded === true,
   });
-  // Only Signal knows that the computer is off. A remote server is also "offline" before its first connection.
-  const offlineUpsell = createHostedUpsellOffline(
-    () => remote() && activeServer()?.issue?.reference === "signal/host_unavailable",
-  );
   // The transport failure comes first: a workspace load fails when the transport fails. Signal and
   // the host send English source text, so show the issue in the reader's language. The scope failure
   // is already translated.
@@ -192,7 +184,7 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
             id: server.id,
             name: server.name,
             ready: scope.loaded(),
-            quiet: Boolean(server.hostedSleep || server.hostRestart?.state === "restarting" || blockedRemoteServer()),
+            quiet: Boolean(server.hostRestart?.state === "restarting" || blockedRemoteServer()),
           }
         : null;
     });
@@ -238,13 +230,10 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
                 <ServerConnectionNotice
                   name={activeServer()?.name ?? ""}
                   initial={!scope.connection.hasContent}
-                  issue={activeServer()?.hostedIssue ?? null}
-                  start={activeServer()?.hostedStart ?? null}
                   detail={connectionFailure()?.message ?? null}
                   reference={connectionFailure()?.reference ?? null}
                   updateVersion={activeServer()?.hostRestart?.version ?? null}
                   phase={serverWorkspacePhase({
-                    hostedSleep: activeServer()?.hostedSleep,
                     updating: activeServer()?.hostRestart?.state === "restarting",
                     blocked: serversLoadFailed(),
                     waiting: scope.connection.failed,
@@ -261,8 +250,6 @@ export function WorkspaceShell(props: { account: () => CentralAuthUser }) {
                     (activeServer()?.state === "online" && scope.connection.recovery.phase === "connecting")
                   }
                   onRetry={retry}
-                  onManage={() => settings.openAppSettings(null, "hosted-servers")}
-                  upsell={offlineUpsell()}
                 />
               </Show>
               <Show when={scope.loaded() && agentChatOpen() && !serverOnboardingOpen()}>

@@ -2,8 +2,6 @@ import { type AppAppearance, isAppAppearance } from "@openbot/contracts/app-appe
 import type { CentralAuthUser } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import {
-  Button,
-  CreditCard,
   Item,
   ItemActions,
   ItemContent,
@@ -63,8 +61,6 @@ export interface WebAccountSettingsProps {
   calls: WebAccountCalls;
   appearance: AppAppearance;
   onChangeAppearance: (appearance: AppAppearance) => void;
-  /** Closes these settings and opens the plans and servers of the account. */
-  onOpenBilling: () => void;
   onSignOut: () => Promise<void>;
   /** The levels of each host and its agents, which apply on all devices of the user. */
   notifications: WebNotificationSettings;
@@ -155,20 +151,6 @@ export default function WebAccountSettings(props: WebAccountSettingsProps) {
                 );
               })}
             </Tabs.List>
-            <div class="settings-modal-nav">
-              <Button
-                variant="ghost"
-                type="button"
-                class="settings-modal-nav-item"
-                onClick={() => {
-                  props.onOpenChange(false);
-                  props.onOpenBilling();
-                }}
-              >
-                <CreditCard aria-hidden="true" />
-                <span>{t("account.menu.billing")}</span>
-              </Button>
-            </div>
           </>
         }
       >

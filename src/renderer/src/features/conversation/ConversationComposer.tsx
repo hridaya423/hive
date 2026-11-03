@@ -678,11 +678,7 @@ export function ConversationComposer() {
                     : props.runtime
                       ? props.server?.state === "online"
                         ? t("composer.placeholder.hostSetup")
-                        : props.server?.hostedSleep === "sleeping"
-                          ? t("composer.placeholder.hostSleeping")
-                          : props.server?.hostedSleep === "waking"
-                            ? t("composer.placeholder.hostWaking")
-                            : t("composer.placeholder.connectHost")
+                        : t("composer.placeholder.connectHost")
                       : t("composer.placeholder.cliSetup")
                   : replyTarget()
                     ? t("composer.placeholder.reply")

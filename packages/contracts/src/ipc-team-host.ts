@@ -106,32 +106,7 @@ export interface ServerSummary {
   connectionSequence?: number;
   /** The host said it restarts into an update (`host-update-v1`). Cleared when the connection comes back. */
   hostRestart?: { state: Exclude<HostRestartState, "none">; version: string | null } | null;
-  /**
-   * A hosted server that the account service stopped for no use (`sleeping`), or that starts after the
-   * user's input (`waking`). Cleared when the connection comes back.
-   */
-  hostedSleep?: HostedServerSleep | null;
-  /** A hosted start needs user action. This is local IPC metadata, not a Team API field. */
-  hostedIssue?: HostedServerIssue | null;
-  /** The step of a hosted start in progress, while `hostedSleep` is `waking`. Local IPC metadata. */
-  hostedStart?: HostedServerStart | null;
 }
-
-export type HostedServerIssue = "plan_ended" | "wake_failed" | "start_timeout";
-
-/**
- * `machine`: the provider starts the machine. `openbot`: the machine runs and OpenBot on it starts.
- * `provider_limit`: the provider refused the start for a short time, and the account server tries again.
- */
-export type HostedServerStartStep = "machine" | "openbot" | "provider_limit";
-
-export interface HostedServerStart {
-  step: HostedServerStartStep;
-  /** When the client began to wait, in milliseconds since the epoch. */
-  startedAt: number;
-}
-
-export type HostedServerSleep = "sleeping" | "waking";
 
 export interface JoinServerInput {
   inviteUrl: string;

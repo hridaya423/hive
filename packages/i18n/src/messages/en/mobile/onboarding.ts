@@ -12,8 +12,6 @@ export const messages = defineMessages("mobile.onboarding", {
   "mobile.onboarding.server.body": "Agents run on a server. Choose how to connect one.",
   "mobile.onboarding.server.computer": "My computer",
   "mobile.onboarding.server.computerBody": "Use OpenBot on your computer as the server.",
-  "mobile.onboarding.server.cloud": "Cloud server",
-  "mobile.onboarding.server.cloudBody": "Use a server that OpenBot runs for you.",
   "mobile.onboarding.server.invitation": "Invitation",
   "mobile.onboarding.server.invitationBody": "Join a server that someone shared with you.",
   "mobile.onboarding.server.computerTitle": "Connect your computer",

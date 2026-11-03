@@ -149,8 +149,7 @@ export function useGlobalSearchSources(open: () => boolean) {
         });
       }
       for (const item of navItems) {
-        // Hosted servers shows only for an account with hosting, which the dialog checks when it opens.
-        if (item.value === "hosted-servers" || (item.value === "dynamic-island" && !dynamicIslandShown)) continue;
+        if (item.value === "dynamic-island" && !dynamicIslandShown) continue;
         list.push({
           id: `settings:${item.value}`,
           label: t(item.titleKey),

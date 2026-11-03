@@ -1,40 +1,27 @@
 import { defineMessages } from "../../message";
 
 export const messages = defineMessages("server", {
-  "server.connection.planEnded": "The plan for {name} has ended",
-  "server.connection.wakeFailed": "Could not start {name}",
-  "server.connection.startTimeout": "{name} did not start in time",
-  "server.connection.sleeping": "{name} is asleep",
-  "server.connection.waking": "Starting {name}",
-  "server.connection.startProgress": "{step} · {time}",
-  "server.connection.providerLimit": "The cloud provider limits new starts now. OpenBot tries again soon.",
   "server.connection.updating": "Updating {name}",
   "server.connection.loading": "Loading {name}",
   "server.connection.connecting": "Connecting to {name}",
   "server.connection.reconnecting": "Reconnecting to {name}",
   "server.connection.blocked": "{name} needs your attention",
   "server.connection.nextRetry": "Next attempt in {seconds} seconds.",
-  "server.connection.wakeHint": "Use this workspace or select Retry to start the server.",
-  "server.connection.planHint": "Open account settings to check the server plan.",
   "server.connection.loadingHint": "You can select another server while this one loads.",
   "server.connection.cachedHint": "Loaded content and drafts are kept. Server actions will resume after reconnection.",
   "server.connection.conversationFailed": "The conversation could not load. Try again.",
   "server.connection.panelsFailed": "Some workspace panels could not load. Try again.",
   "server.connection.retry": "Retry",
-  "server.connection.manage": "Open settings",
   "server.connection.restored": "Connection to {name} restored",
   "server.connection.details": "Details",
 
   "server.status.steps": "Connection steps",
   "server.status.updateCause": "{name} restarts to install OpenBot {version}.",
   "server.status.updateCauseNoVersion": "{name} restarts to install an OpenBot update.",
-  "server.status.wakeCause": "{name} was stopped. OpenBot starts it again.",
   "server.status.connectCause": "This app connects to {name}.",
   "server.status.connectionCause": "This app lost its connection to {name}. It connects again automatically.",
   "server.status.stepUpdate": "Install the update",
   "server.status.stepUpdateDetail": "OpenBot stops, installs the update and starts again.",
-  "server.status.stepWake": "Start the server",
-  "server.status.stepWakeDetail": "This can take a few minutes.",
   "server.status.stepConnect": "Connect",
   "server.status.stepConnectDetail": "This app opens a connection to the server.",
   "server.status.stepLoad": "Load the workspace",
@@ -77,45 +64,6 @@ export const messages = defineMessages("server", {
   "server.join.account": "Account",
   "server.join.emailBound": "This invitation only works for its email recipient.",
   "server.join.unknownDate": "Unknown",
-  // The dialog that the plus button on the server rail opens. {price} is a formatted amount, such as "€20".
-  "server.add.title": "Run OpenBot 24/7 on an external server",
-  "server.add.description":
-    "OpenBot Servers keep your agents and routines running, even when your computer is off. We handle the infrastructure and maintenance, so your server is ready to use without any technical setup.",
-  "server.add.billing.label": "Billing period",
-  "server.add.currency.label": "Currency",
-  "server.add.billing.monthly": "Monthly",
-  "server.add.billing.yearly": "Yearly",
-  "server.add.billing.save": "Save {percent}%",
-  // The switch left of the billing period, when the account has no license. Work adds a license to the server.
-  "server.add.use.label": "Use",
-  "server.add.use.personal": "Personal",
-  "server.add.use.work": "Work",
-  // The row under the plans that sets the users of the license. It is disabled for personal use.
-  "server.add.license.people": "People at work",
-  // A toast when "Fewer members" is at the people who use the account's servers now. The license must include them.
-  "server.add.license.minimum": {
-    one: "{count} person uses your servers now, so you cannot choose fewer.",
-    other: "{count} people use your servers now, so you cannot choose fewer.",
-  },
-  // On each plan that the people fit, for work. {percent} is a whole number, such as 20.
-  "server.add.license.bundle": "Bundle −{percent}%",
-  // The plan summary for work: the price includes the license. {license} is the license line, such as
-  // "Team license, 5 members".
-  "server.add.license.included": "Includes {license}",
-  "server.add.license.includedTrial": "Includes {license}, free until {date}",
-  "server.add.billedMonthly": "Billed monthly",
-  "server.add.billedYearly": "{price} billed yearly",
-  // {amount} is a formatted amount, such as "€120". It follows the yearly price.
-  "server.add.yearlySaving": "Save {amount}",
-  // Visually hidden. It comes before the struck-through monthly price on yearly billing.
-  "server.add.regularPrice": "Regular price {price}",
-  "server.add.choosePlan": "Choose {plan}",
-  // The footer under the plans, for needs that the plans do not cover.
-  "server.add.custom.title": "Need more power or a custom solution?",
-  "server.add.custom.description":
-    "Get dedicated infrastructure, additional storage, or features tailored to your workflow.",
-  "server.add.custom.action": "Contact us",
-  "server.add.join.action": "Join a server",
   // A small menu in the top corner of the hosted server plans, with the ways to add a server without a plan.
   "server.add.otherOptions": "Other options",
   // An item in the "Other options" menu of the hosted server plans. The server runs on this computer, with its own agents, chats and files.
@@ -131,65 +79,6 @@ export const messages = defineMessages("server", {
     "OpenBot stops the server and moves its agents, chats and files to the trash.",
   "server.local.deleting": "Deleting server…",
   "server.local.deletedTitle": "Deleted {name}",
-  // Shown over the plans when the account has the maximum number of hosted servers. The plans are disabled.
-  "server.add.limit.title": "This account has the maximum number of servers",
-  "server.add.limit.description": {
-    one: "An account can have {count} paid server. To add a server, delete one first.",
-    other: "An account can have {count} paid servers. To add a server, delete one first.",
-  },
-  // Opens the list of the account's hosted servers, where the user can delete one.
-  "server.add.limit.manage": "Manage servers",
-  // The offer of a hosted server after a new routine that depends on the user's computer.
-  "server.upsell.modal.title": "Routines stop when your computer sleeps",
-  // {name} is the routine.
-  "server.upsell.modal.description":
-    "{name} runs only while your computer is on. An OpenBot server keeps it running 24/7.",
-  // Labels in the small picture above the modal text: a laptop and a server, each with a status.
-  "server.upsell.modal.computer": "Your computer",
-  "server.upsell.modal.server": "OpenBot server",
-  "server.upsell.modal.running": "Running",
-  "server.upsell.modal.stopped": "Stopped",
-  "server.upsell.notice.title.local": {
-    one: "{count} routine needs this computer on",
-    other: "{count} routines need this computer on",
-  },
-  "server.upsell.notice.title.remote": {
-    one: "{count} routine needs {server} on",
-    other: "{count} routines need {server} on",
-  },
-  "server.upsell.notice.description": "An OpenBot server runs them 24/7.",
-  // One line under the notice that the user's computer is offline.
-  "server.upsell.offline": "An OpenBot server stays on 24/7, so routines keep running.",
-  "server.upsell.seePlans": "See plans",
-  "server.upsell.notNow": "Not now",
-  "server.hosted.progressTitle": "Setting up {name}",
-  // The setup waits for the first payment on the Stripe page in the browser.
-  "server.hosted.paymentTitle": "Finish the payment in your browser",
-  "server.hosted.paymentDescription": "The setup starts when Stripe confirms the payment.",
-  "server.hosted.openPayment": "Open the payment page again",
-  "server.hosted.openingPayment": "Opening…",
-  "server.hosted.paymentFailed": "Could not open the payment page.",
-  // The name of a new server. {number} is a number, such as 2.
-  "server.hosted.defaultName": "Cloud server",
-  "server.hosted.defaultNameNumbered": "Cloud server {number}",
-  "server.hosted.step.create": "Create the machine",
-  "server.hosted.step.start": "Start OpenBot",
-  "server.hosted.step.connect": "Connect to your account",
-  "server.hosted.detail.create.reserve": "Reserving a private machine",
-  "server.hosted.detail.create.copy": "Copying OpenBot to the machine",
-  "server.hosted.detail.create.key": "Adding a one-time sign-in key",
-  "server.hosted.detail.start.boot": "Turning on the machine",
-  "server.hosted.detail.start.app": "Starting OpenBot",
-  "server.hosted.detail.start.wait": "Waiting for OpenBot to answer",
-  "server.hosted.detail.connect.signIn": "Signing in as you",
-  "server.hosted.detail.connect.publish": "Adding the server to your account",
-  "server.hosted.detail.connect.check": "Checking the connection",
-  "server.hosted.readyTitle": "{name} is ready",
-  "server.hosted.readyDescription": "It works also when this computer is off, and starts again when you use it.",
-  "server.hosted.open": "Open server",
-  "server.hosted.failedTitle": "The server could not start",
-  "server.hosted.failedDescription": "Try again. If it fails again, delete the server in Settings.",
-  "server.hosted.tryAgain": "Try again",
   "server.role.admin": "Admin",
   "server.role.member": "Member",
   "server.mute.for15Minutes": "For 15 minutes",
@@ -208,10 +97,6 @@ export const messages = defineMessages("server", {
   "server.state.offline": "offline",
   "server.state.error": "error",
   "server.state.incompatible": "incompatible",
-  "server.state.sleeping": "asleep",
-  "server.state.waking": "waking",
-  "server.sleep.tooltipSleeping": "{name} is asleep because nobody used it. Press a key or click to wake it.",
-  "server.sleep.tooltipWaking": "{name} is waking. This takes about a minute.",
   "server.menu.open": "Open server menu for {name}",
   "server.menu.label": "Server menu",
   "server.menu.layout": "Server layout",

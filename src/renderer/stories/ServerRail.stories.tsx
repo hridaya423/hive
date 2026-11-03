@@ -14,8 +14,6 @@ const args: Parameters<typeof ServerRail>[0] = {
   onOpenSettings: fn(),
   onLeave: fn(),
   onDelete: fn(),
-  // The stopped hosted server in `mock-hosted-servers.ts`.
-  canDelete: (serverId) => serverId === "6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f",
 };
 
 const MANY_SERVERS = createManyServers();

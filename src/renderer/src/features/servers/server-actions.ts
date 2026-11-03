@@ -21,18 +21,13 @@ export function useServerActions() {
     servers,
     setServerMuted,
     setJoinServerOpen,
-    setAddServerOpen,
     setCreateLocalServerOpen,
-    hostedServersAvailable,
-    hostedServerIds,
-    hostedServersLoaded,
-    refreshHostedServersAvailable,
     localServerHidden,
     setLocalServerHidden,
   } = useServers();
   const { selectServer } = useServerSelection();
   const { openServerSettings, requestLeaveServer, requestRestartServer } = useServerSettings();
-  const { openHostedServerDelete, openNotificationLevels } = useSettings();
+  const { openNotificationLevels } = useSettings();
 
   function remoteServers(): ServerSummary[] {
     return servers().filter((server) => server.kind === "remote");
@@ -66,29 +61,14 @@ export function useServerActions() {
     void selectServer(serverId).catch(selectFailed);
   }
 
-  /**
-   * Opens the hosted server plans when the account can create a hosted server, otherwise the invite
-   * dialog. It uses the last answer, so the click does not wait for the network; the read after it is
-   * for the next click.
-   */
+  /** Opens the invite dialog. */
   function add(): void {
     if (platform.landingPreview) return;
-    if (hostedServersAvailable()) setAddServerOpen(true, "server_rail");
-    else setJoinServerOpen(true);
-    void refreshHostedServersAvailable();
+    setJoinServerOpen(true);
   }
 
   /** Opens the dialog that names a new server on this computer. The landing preview has no main process. */
   const createLocal = platform.landingPreview ? undefined : () => setCreateLocalServerOpen(true);
-
-  /**
-   * The item for a server on this computer in the add menus of the rail and the server menu. The hosted
-   * server plans show it in their "Other options" menu, so the add menus show it only when the add
-   * button opens the invite dialog in place of the plans.
-   */
-  function addMenuCreateLocal(): (() => void) | undefined {
-    return hostedServersAvailable() ? undefined : createLocal;
-  }
 
   /**
    * Hides the server on this computer. When it is open, another server opens in its place: the first
@@ -126,13 +106,12 @@ export function useServerActions() {
     onLeave: requestLeaveServer,
     // The same confirmation: main removes an owned server from the account instead of leaving it.
     onRemove: requestLeaveServer,
-    canRemove: (serverId) => hostedServersLoaded() && !hostedServerIds().has(serverId) && !onThisComputer(serverId),
+    canRemove: (serverId) => !onThisComputer(serverId),
     // A server on this computer uses the leave confirmation, which deletes it in that case.
-    onDelete: (serverId, trigger) =>
-      onThisComputer(serverId) ? requestLeaveServer(serverId, trigger) : openHostedServerDelete(serverId, trigger),
-    canDelete: (serverId) => hostedServerIds().has(serverId) || onThisComputer(serverId),
+    onDelete: requestLeaveServer,
+    canDelete: onThisComputer,
     onRestart: requestRestartServer,
-    canRestart: (serverId) => hostedServerIds().has(serverId) || onThisComputer(serverId),
+    canRestart: onThisComputer,
     onHide: (serverId) => void hideLocal(serverId),
     // Only beside another server: the list is never empty.
     canHide: () => remoteServers().length > 0,
@@ -143,8 +122,6 @@ export function useServerActions() {
     select,
     add,
     createLocal,
-    addMenuCreateLocal,
-    addCreatesServer: hostedServersAvailable,
     hiddenLocal,
     callbacks,
   };

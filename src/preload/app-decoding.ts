@@ -5,15 +5,6 @@
 // carries, so a value the renderer reads always has the shape its type says.
 
 import { isAgentTemplateId } from "@openbot/contracts/agent-template-links";
-import { type BillingState, parseBillingState } from "@openbot/contracts/billing";
-import {
-  type HostedServerCatalog,
-  type HostedServerList,
-  type HostedServerSummary,
-  parseHostedServerCatalog,
-  parseHostedServerList,
-  parseHostedServerSummary,
-} from "@openbot/contracts/hosted-servers";
 import {
   type AccountSession,
   AGENT_DEFAULT_KEYS,
@@ -594,30 +585,6 @@ export function decodeOnePasswordConnectorStatus(value: unknown): OnePasswordCon
   const status = parseOnePasswordConnectorStatus(value);
   if (!status) throw new Error("Invalid 1Password connector response.");
   return status;
-}
-
-export function decodeBillingState(value: unknown): BillingState {
-  const state = parseBillingState(value);
-  if (!state) throw new Error("Invalid billing state response.");
-  return state;
-}
-
-export function decodeHostedServer(value: unknown): HostedServerSummary {
-  const server = parseHostedServerSummary(value);
-  if (!server) throw new Error("Invalid hosted server response.");
-  return server;
-}
-
-export function decodeHostedServerCatalog(value: unknown): HostedServerCatalog {
-  const catalog = parseHostedServerCatalog(value);
-  if (!catalog) throw new Error("Invalid hosted server plans response.");
-  return catalog;
-}
-
-export function decodeHostedServerList(value: unknown): HostedServerList {
-  const list = parseHostedServerList(value);
-  if (!list) throw new Error("Invalid hosted server list response.");
-  return list;
 }
 
 /**

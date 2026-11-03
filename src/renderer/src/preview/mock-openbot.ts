@@ -192,7 +192,6 @@ import {
 } from "./fixtures";
 import { mockAgentAnalytics, mockHostAnalytics } from "./mock-agent-analytics";
 import { createMockAuth, type MockAuthOptions } from "./mock-auth";
-import { createMockBilling, previewBillingServers } from "./mock-billing";
 import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
 import { createMockChannels, type MockChannelSeed } from "./mock-channels";
@@ -200,7 +199,6 @@ import { createMockEvents } from "./mock-events";
 import { createMockGitHubConnector } from "./mock-github-connector";
 import { createMockHostTimezone } from "./mock-host-timezone";
 import { createMockHostUpdate, type MockHostUpdateOptions } from "./mock-host-update";
-import { createMockHostedServers } from "./mock-hosted-servers";
 import { createMockLinkAccount } from "./mock-link-account";
 import { createMockMessaging } from "./mock-messaging";
 import { createMockOnePasswordConnector } from "./mock-onepassword-connector";
@@ -1085,7 +1083,6 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       ? Promise.resolve(clone((routineRuns.get(routineId) ?? []).slice(0, limit)))
       : mockChannels.listChannelRoutineRuns({ channelId: owner.id, routineId, limit }),
   );
-  const billingPlans = previewBillingServers();
 
   const api: OpenBotDesktopApi = {
     getAppInfo: async () => clone(appInfo),
@@ -1429,9 +1426,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     onePasswordConnector: createMockOnePasswordConnector(),
     bitwardenConnector: createMockBitwardenConnector(),
     vault: createMockVault(),
-    billing: createMockBilling(billingPlans),
     routineFeed: createMockRoutineFeed(),
-    hostedServers: createMockHostedServers(billingPlans),
     customProviders: {
       list: async () => clone(customProviders),
       /**

@@ -1,7 +1,6 @@
 import { AppLogo } from "@openbot/brand";
-import { Button, buttonVariants, Download, ErrorReference, Heading, Link2, RefreshCw, Server, Text } from "@openbot/ui";
+import { Button, buttonVariants, Download, ErrorReference, Heading, Link2, RefreshCw, Text } from "@openbot/ui";
 import { useText } from "@openbot/ui/text";
-import { Show } from "solid-js";
 
 /** The first screen of the web client when the account has no computer to connect to. */
 export function WebConnectComputer(props: {
@@ -10,11 +9,6 @@ export function WebConnectComputer(props: {
   /** The code of the failed host list read. */
   reference?: string | null;
   onJoin: () => void;
-  /**
-   * Opens the hosted server plans. Leave it out when the account cannot create a hosted server. With
-   * it, the hosted server is the first action, because it needs no install.
-   */
-  onCreateServer?: (() => void) | undefined;
   onRefresh: () => void;
 }) {
   const { t } = useText();
@@ -26,20 +20,9 @@ export function WebConnectComputer(props: {
           <Heading as="h2" size="lg" id="web-connect-title">
             {props.failed ? t("webClient.notice.hostsFailed") : t("webClient.notice.connectComputer")}
           </Heading>
-          <Text tone="muted">
-            {props.onCreateServer ? t("webClient.connect.descriptionHosted") : t("webClient.connect.description")}
-          </Text>
+          <Text tone="muted">{t("webClient.connect.description")}</Text>
           <ErrorReference reference={props.failed ? props.reference : null} />
         </header>
-
-        <Show when={props.onCreateServer}>
-          {(createServer) => (
-            <Button class="web-connect-hosted" onClick={() => createServer()()}>
-              <Server aria-hidden="true" />
-              {t("webClient.notice.createServer")}
-            </Button>
-          )}
-        </Show>
 
         <ol class="web-connect-steps">
           <li>
@@ -65,7 +48,7 @@ export function WebConnectComputer(props: {
         <footer class="web-connect-actions">
           <div class="web-connect-primary-actions">
             <a
-              class={`web-connect-download ${buttonVariants({ variant: props.onCreateServer ? "outline" : "default" })}`}
+              class={`web-connect-download ${buttonVariants({ variant: "default" })}`}
               href="/download"
               target="_blank"
               rel="noreferrer"

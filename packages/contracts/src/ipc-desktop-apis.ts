@@ -61,10 +61,7 @@ export type PluginsDesktopApi = GroupApi<IpcEndpoints["plugins"]>;
 export type GitHubConnectorDesktopApi = GroupApi<IpcEndpoints["githubConnector"]>;
 export type LinkAccountDesktopApi = GroupApi<IpcEndpoints["linkAccount"]>;
 export type OnePasswordConnectorDesktopApi = GroupApi<IpcEndpoints["onePasswordConnector"]>;
-export type BillingDesktopApi = GroupApi<IpcEndpoints["billing"]>;
 export type RoutineFeedDesktopApi = GroupApi<IpcEndpoints["routineFeed"]>;
-
-export type HostedServersDesktopApi = GroupApi<IpcEndpoints["hostedServers"]>;
 
 /**
  * The user's own model endpoints. `save` and `delete` both answer with the whole list plus how the
