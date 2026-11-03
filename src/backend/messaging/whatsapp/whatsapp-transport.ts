@@ -59,6 +59,7 @@ export class WhatsAppTransport implements MessagingTransport {
   #attempt = 0;
   #timer: ReturnType<typeof setTimeout> | null = null;
   #generation = 0;
+  #halted = false;
 
   constructor(options: WhatsAppTransportOptions) {
     this.#options = options;
@@ -71,7 +72,7 @@ export class WhatsAppTransport implements MessagingTransport {
   }
 
   reconnect(): void {
-    if (!this.#sink || this.#options.session.client) return;
+    if (!this.#sink || this.#halted || this.#options.session.client) return;
     this.#clearTimer();
     void this.#open();
   }
@@ -156,10 +157,12 @@ export class WhatsAppTransport implements MessagingTransport {
     const status = closeStatus(update.lastDisconnect?.error);
     this.#dropClient();
     if (status === WHATSAPP_CLOSE.loggedOut) {
+      this.#halted = true;
       this.#generation += 1;
       this.#options.pairing.qr(null);
       void rm(this.#options.authDir, { recursive: true, force: true }).finally(() => sink.state("invalid_token"));
     } else if (status === WHATSAPP_CLOSE.replaced) {
+      this.#halted = true;
       this.#generation += 1;
       sink.state("error");
     } else if (status === WHATSAPP_CLOSE.restartRequired) {

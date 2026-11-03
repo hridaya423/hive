@@ -433,6 +433,9 @@ try {
         await new Promise((done) => setTimeout(done, 50));
         assert.equal(sockets.length, before, "It reconnected after the unlink.");
         assert.equal(existsSync(join(authDir, "creds.json")), false);
+        messaging.resume();
+        await new Promise((done) => setTimeout(done, 50));
+        assert.equal(sockets.length, before, "A wake from sleep opened a socket for an unlinked account.");
         return { state: "invalid_token" };
       });
     },
