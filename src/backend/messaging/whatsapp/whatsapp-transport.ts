@@ -50,7 +50,7 @@ export interface WhatsAppTransportOptions {
 /**
  * The inbound half of the linked account: the socket to WhatsApp, which this host opens itself. It
  * reconnects with a backoff, shows the pairing QR code while no account is linked, and stops when the
- * phone unlinks the account. A message from a chat outside the allowlist is dropped before anything
+ * phone unlinks the account or WhatsApp restricts the number. A message from a chat outside the allowlist is dropped before anything
  * reads it, and only the number of drops is logged.
  */
 export class WhatsAppTransport implements MessagingTransport {
@@ -161,9 +161,11 @@ export class WhatsAppTransport implements MessagingTransport {
       this.#generation += 1;
       this.#options.pairing.qr(null);
       void rm(this.#options.authDir, { recursive: true, force: true }).finally(() => sink.state("invalid_token"));
-    } else if (status === WHATSAPP_CLOSE.replaced) {
+    } else if (status === WHATSAPP_CLOSE.replaced || status === WHATSAPP_CLOSE.forbidden) {
       this.#halted = true;
       this.#generation += 1;
+      if (status === WHATSAPP_CLOSE.forbidden)
+        this.#options.logger.warn("WhatsApp restricted or banned this number, so Hive stopped trying to connect.");
       sink.state("error");
     } else if (status === WHATSAPP_CLOSE.restartRequired) {
       void this.#open();

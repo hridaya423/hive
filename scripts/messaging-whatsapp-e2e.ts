@@ -443,6 +443,36 @@ try {
   );
 
   await boot(
+    async ({ messaging }) => {
+      await step("a restricted number (403) stops the connection instead of retrying without end", async () => {
+        const before = sockets.length;
+        await runCauseEffect(messaging.connectWhatsApp());
+        await waitFor("a socket for the link", () => sockets.length > before);
+        liveSocket().update({ connection: "open" });
+        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
+        const opened = sockets.length;
+        liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(403) } });
+        await waitFor("the error state", () => messaging.whatsappOverview().connections[0]?.state === "error");
+        await new Promise((done) => setTimeout(done, 100));
+        assert.equal(sockets.length, opened, "It reconnected a restricted number.");
+        assert.equal(messaging.whatsappOverview().connections[0]?.state, "error");
+        messaging.resume();
+        await new Promise((done) => setTimeout(done, 50));
+        assert.equal(sockets.length, opened, "A wake from sleep opened a socket for a restricted number.");
+        return { state: "error" };
+      });
+
+      await step("a new link after a restriction opens a socket again", async () => {
+        const before = sockets.length;
+        await runCauseEffect(messaging.connectWhatsApp());
+        await waitFor("a socket for the new link", () => sockets.length > before);
+        return { relinked: true };
+      });
+    },
+    { linked: true, profile: "edges" },
+  );
+
+  await boot(
     async ({ messaging, threads, connectionId, credentials }) => {
       await step("an empty allowlist lets nothing through", async () => {
         const before = sockets.length;

@@ -71,4 +71,4 @@ export interface WhatsAppClient {
 /** Opens a socket whose login is kept in `authDir`. The caller listens to it and ends it. */
 export type WhatsAppConnect = (authDir: string) => Promise<WhatsAppClient>;
 
-export const WHATSAPP_CLOSE = { loggedOut: 401, replaced: 440, restartRequired: 515 } as const;
+export const WHATSAPP_CLOSE = { loggedOut: 401, forbidden: 403, replaced: 440, restartRequired: 515 } as const;
