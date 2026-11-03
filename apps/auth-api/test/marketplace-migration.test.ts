@@ -111,8 +111,8 @@ describe("marketplace presentation migration", () => {
     database.exec("UPDATE users SET name = NULL");
     expect((await runApiEffect(skills.list({ query: "owner@example.com" }))).skills).toEqual([]);
     expect((await runApiEffect(agents.list({ query: "owner@example.com" }))).agents).toEqual([]);
-    expect((await runApiEffect(skills.list({}))).skills.map((item) => item.creatorName)).toEqual(["OpenBot user"]);
-    expect((await runApiEffect(agents.list({}))).agents.map((item) => item.creatorName)).toEqual(["OpenBot user"]);
+    expect((await runApiEffect(skills.list({}))).skills.map((item) => item.creatorName)).toEqual(["Hive user"]);
+    expect((await runApiEffect(agents.list({}))).agents.map((item) => item.creatorName)).toEqual(["Hive user"]);
 
     expect((await runApiEffect(agents.list({ category: "coding" }))).agents).toEqual([]);
     expect((await runApiEffect(agents.list({ category: "other" }))).agents.map((item) => item.id)).toEqual(["agent-1"]);
