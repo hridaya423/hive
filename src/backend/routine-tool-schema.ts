@@ -52,10 +52,11 @@ export const routineScheduleZodSchema = z
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         time: routineTimeSchema,
       })
-      .strict()
-      .describe("One run, then the routine pauses."),
+      .strict(),
   ])
-  .describe("Weekday 0 is Sunday. Times are local.");
+  .describe(
+    "Fields by kind: hourly minute; daily and weekdays time; weekly weekday (0 is Sunday) and time; monthly day and time; interval amount, unit and anchorAt; advanced months, days and time; custom expression; once date and time (one run, then the routine pauses). Times are local.",
+  );
 
 /**
  * Each run starts a new provider session that reads only the newest chat messages, so an instruction
