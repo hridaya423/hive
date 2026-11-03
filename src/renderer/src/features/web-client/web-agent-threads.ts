@@ -25,8 +25,9 @@ import {
 import { Effect } from "effect";
 import { onCleanup, untrack } from "solid-js";
 import type { AgentTasksPort } from "../agent-tasks/agent-tasks-port";
-import { createAgentTasks, isAgentTaskEvent } from "../agent-tasks/agent-tasks-state";
+import { createAgentTasks } from "../agent-tasks/agent-tasks-state";
 import { createAgentThreadTabs } from "../agent-threads/agent-thread-tabs";
+import { isTaskEvent } from "../tasks/tasks-port";
 import type { WebWorkspace } from "./web-client-context";
 
 /** The host names attachment previews with the desktop `openbot-attachment:` scheme, which a browser cannot load. */
@@ -111,7 +112,7 @@ export function createWebAgentThreads(options: {
       if (event.type === "runtime-snapshot") tasks.reload();
       else if (event.type === "agent-task-conversation")
         tasks.applyEvent({ ...event, snapshot: withoutPreviewUrls(event.snapshot) });
-      else if (isAgentTaskEvent(event)) tasks.applyEvent(event);
+      else if (isTaskEvent(event)) tasks.applyEvent(event);
     }),
   );
   return { tasks, tabs };

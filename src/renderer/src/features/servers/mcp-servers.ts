@@ -16,13 +16,6 @@ import {
 import { type AppTextKey, type AppTranslate, matchingSourceKeys } from "@openbot/i18n";
 import { currentText } from "@openbot/ui/text";
 
-export type {
-  McpServerConfig,
-  McpSignInState,
-  McpTestResult,
-} from "@openbot/contracts/ipc";
-export { mcpConfigErrors, mcpConfigIsValid, normalizeMcpConfig } from "@openbot/contracts/ipc";
-
 /** The badge variants this panel uses, narrowed from the shared `Badge` set. */
 export type McpStatusVariant = "success-light" | "destructive-light" | "warning-light" | "secondary";
 

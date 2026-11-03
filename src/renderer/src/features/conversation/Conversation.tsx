@@ -3,8 +3,6 @@ import { ConversationView } from "./ConversationView";
 import { useConversationController } from "./conversation-controller-context";
 import type { ConversationProps } from "./conversation-types";
 
-export { createConversationController } from "./conversation-controller";
-
 /**
  * The scoped half of the conversation surface.
  *
