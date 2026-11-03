@@ -160,7 +160,6 @@ import {
   decodeHostedServer,
   decodeHostedServerCatalog,
   decodeHostedServerList,
-  decodeLicenseState,
   decodeLinkAccountStatus,
   decodeMobileConnectedDevices,
   decodeMobileConnectLink,
@@ -984,13 +983,6 @@ const openbotApi: OpenBotDesktopApi = {
   billing: bridgeGroup(IPC_ENDPOINTS.billing, {
     getState: decodeBillingState,
     openPortal: decodeVoid,
-  }),
-  license: bridgeGroup(IPC_ENDPOINTS.license, {
-    getState: decodeLicenseState,
-    openCheckout: decodeVoid,
-    setUsers: decodeLicenseState,
-    changePlan: decodeLicenseState,
-    setRenewal: decodeLicenseState,
   }),
   hostedServers: bridgeGroup(IPC_ENDPOINTS.hostedServers, {
     lifecycle: decodeVoid,

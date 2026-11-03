@@ -37,7 +37,6 @@ import {
   Text,
   UsersRound,
 } from "@openbot/ui";
-import type { LicenseCalls } from "@openbot/ui/features/billing/license-store";
 import type { ProviderSettingsDetail } from "@openbot/ui/features/settings/ProviderSettingsPage";
 import {
   SaveBarDock,
@@ -89,13 +88,6 @@ export interface ServerSettingsModalProps {
    */
   onRotateHostKey?: (() => Promise<void>) | undefined;
   onCreateInvite: (input: { role: "admin" | "member"; email?: string; permanent?: boolean }) => Promise<InviteSummary>;
-  /**
-   * The license of the signed-in account. When the owner invites a person to a full license, the
-   * Members section first asks to add a user to it. Absent on surfaces with no account license.
-   */
-  license?: Pick<LicenseCalls, "getState" | "setUsers" | "changePlan"> | undefined;
-  /** Opens the contact page when a full license already has the most users that the app sells. */
-  onContactUs?: () => void;
   onUpdateMember: (input: UpdateTeamMemberInput) => Promise<void>;
   onRemoveMember: (memberId: string) => Promise<void>;
   onRevokeInvite: (inviteId: string) => Promise<void>;

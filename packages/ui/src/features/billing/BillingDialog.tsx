@@ -11,8 +11,6 @@ export interface BillingDialogProps {
   store: BillingStore;
   /** The hosted servers of the account. A server whose plan ended is renewed or deleted here. */
   hostedServers?: SettingsHostedServersStore | undefined;
-  /** The License part, above the server plans. */
-  license?: JSX.Element;
 }
 
 /** The Billing panel in a dialog, for the web client, which has no Billing settings. */
@@ -41,7 +39,7 @@ export function BillingDialog(props: BillingDialogProps): JSX.Element {
               </Dialog.Description>
             </header>
             <div class="billing-dialog-body">
-              <BillingPanel store={props.store} available hostedServers={props.hostedServers} license={props.license} />
+              <BillingPanel store={props.store} available hostedServers={props.hostedServers} />
             </div>
           </Dialog.Content>
         </Dialog.Overlay>

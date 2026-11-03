@@ -1,14 +1,7 @@
 import { parseBillingSessionUrl, parseBillingState } from "@openbot/contracts/billing";
-import {
-  PRICING_ORDER_PARAMS,
-  type PricingOrder,
-  parseLicenseCheckoutUrl,
-  parseLicenseState,
-  parsePricingOrder,
-} from "@openbot/contracts/license";
+import { PRICING_ORDER_PARAMS, type PricingOrder, parsePricingOrder } from "@openbot/contracts/license";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import type { BillingCalls } from "@openbot/ui/features/billing/billing-store";
-import type { LicenseCalls } from "@openbot/ui/features/billing/license-store";
 import { currentText } from "@openbot/ui/text";
 
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -36,35 +29,6 @@ export function createWebBillingCalls(
       return state;
     },
     openPortal: (portal) => openStripe("v1/me/billing/portal", JSON.stringify(portal)),
-  };
-}
-
-/**
- * The license calls for a signed-in browser, through the `/api/browser/v1/me/license...` operations.
- * Checkout goes only to a Stripe Checkout URL.
- */
-export function createWebLicenseCalls(
-  accountFetch: typeof fetch,
-  navigate: (url: string) => void = (url) => window.location.assign(url),
-): LicenseCalls {
-  const request = browserRequest(accountFetch);
-
-  async function state(path: string, body?: string) {
-    const license = await request(path, parseLicenseState, body);
-    if (!license) throw new Error(currentText().sourceText("error.billing.invalidResponse"));
-    return license;
-  }
-
-  return {
-    getState: () => state("v1/me/license"),
-    async openCheckout(checkout) {
-      const url = await request("v1/me/license/checkout", parseLicenseCheckoutUrl, JSON.stringify(checkout));
-      if (!url) throw new Error(currentText().sourceText("error.billing.notStripePage"));
-      navigate(url);
-    },
-    setUsers: (users) => state("v1/me/license/users", JSON.stringify(users)),
-    changePlan: (plan) => state("v1/me/license/plan", JSON.stringify(plan)),
-    setRenewal: (renewal) => state("v1/me/license/renewal", JSON.stringify(renewal)),
   };
 }
 

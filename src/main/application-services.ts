@@ -28,7 +28,6 @@ import { type AgentHostSettingsService, createAgentHostSettings } from "./agent-
 import { type AgentInstructionsFiles, createAgentInstructionsFiles } from "./agent-instructions-files";
 import { type BrowserProfileService, createBrowserProfileService } from "./browser-profile-service";
 import { HostReleaseService } from "./host-release-service";
-import { LicenseDesktopService } from "./license-service";
 import { LocalSignInWindows } from "./local-sign-in-window";
 import { LocalSkillLibrary } from "./local-skill-library";
 import { localSkillTools } from "./local-skill-tools";
@@ -624,7 +623,6 @@ export interface ApplicationServices {
   centralAuth: CentralAuthManager;
   skills: SkillMarketplaceService;
   billing: BillingDesktopService;
-  license: LicenseDesktopService;
   hostedServers: HostedServerDesktopService;
   routineFeed: RoutineFeedServer;
   events: HostEventsService;
@@ -1077,7 +1075,6 @@ export async function createApplicationServices({
   await Effect.runPromise(dataSkill.syncAll(store.list()));
   performance.mark("openbot:services.skills");
   const billing = new BillingDesktopService(centralAuth, openLink);
-  const license = new LicenseDesktopService(centralAuth, openLink);
   const hostedServers = new HostedServerDesktopService(
     withHostingDeveloperKey(centralAuth, hostingDeveloperKey),
     openLink,
@@ -3487,7 +3484,6 @@ export async function createApplicationServices({
     centralAuth,
     skills,
     billing,
-    license,
     hostedServers,
     routineFeed,
     events,

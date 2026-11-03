@@ -129,7 +129,6 @@ import {
   requiredNumber,
   requiredString,
 } from "@openbot/contracts/ipc-decoding";
-import { type LicenseState, parseLicenseState } from "@openbot/contracts/license";
 import {
   isMarketplaceAgentId,
   isMarketplaceSkillSlug,
@@ -600,12 +599,6 @@ export function decodeOnePasswordConnectorStatus(value: unknown): OnePasswordCon
 export function decodeBillingState(value: unknown): BillingState {
   const state = parseBillingState(value);
   if (!state) throw new Error("Invalid billing state response.");
-  return state;
-}
-
-export function decodeLicenseState(value: unknown): LicenseState {
-  const state = parseLicenseState(value);
-  if (!state) throw new Error("Invalid license state response.");
   return state;
 }
 
