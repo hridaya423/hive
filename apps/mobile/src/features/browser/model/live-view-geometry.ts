@@ -1,3 +1,5 @@
+import { clamp } from "@/features/chat/model/image-viewer-geometry";
+
 // Where the host's page is on the phone screen. The page is fitted into the stage, the area the
 // live view has, and the user can zoom it. A zoom is a scale about the stage's top-left corner and
 // then a translation, so a stage point `p` of the fitted page shows at `scale * p + (x, y)`.
@@ -131,8 +133,4 @@ export function revealFraction(stage: Size, frame: Size, zoom: Zoom, fraction: P
     y: zoom.y + shift(point.y, stage.height),
   };
   return clampZoom(stage, frame, moved);
-}
-
-export function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(maximum, Math.max(minimum, value));
 }

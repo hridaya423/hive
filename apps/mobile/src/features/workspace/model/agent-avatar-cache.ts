@@ -10,7 +10,7 @@ import { Directory, File, Paths } from "expo-file-system";
 const ROOT = "agent-avatars-v1";
 const MAX_BYTES = 20 * 1024 * 1024;
 
-const segment = (value: string) => value.replace(/[^A-Za-z0-9._-]/gu, "_").replace(/^\.+/u, "_");
+export const segment = (value: string) => value.replace(/[^A-Za-z0-9._-]/gu, "_").replace(/^\.+/u, "_");
 const agentFolder = (serverId: string, agentId: string) =>
   new Directory(Paths.cache, ROOT, segment(serverId), segment(agentId));
 const version = (avatarUrl: string) => new URL(avatarUrl).searchParams.get("v");
