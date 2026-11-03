@@ -24,6 +24,11 @@ export function decodeRecord(value: unknown, label: string): DynamicRecord {
   return value;
 }
 
+export function nonNegativeInteger(value: unknown, label: string): number {
+  if (!isNumber(value) || !Number.isSafeInteger(value) || value < 0) throw new Error(`Invalid ${label}.`);
+  return value;
+}
+
 export function requiredString(record: DynamicRecord, field: string): string {
   const value = record[field];
   if (!isString(value)) throw new Error(`Invalid ${field}.`);
