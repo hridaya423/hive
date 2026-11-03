@@ -1,15 +1,27 @@
 import { ANDROID_PUSH_TOKEN_PATTERN } from "@openbot/contracts/team-protocol/push-notifications-android-v1";
+import * as Crypto from "expo-crypto";
 import { File, Paths } from "expo-file-system";
 import * as Notifications from "expo-notifications";
 import type { NotificationPermission } from "@/features/settings/model/push-notifications";
 import { androidChannelId, createAndroidChannels } from "./android-notification-channels";
+import { ntfyInstallToken } from "./ntfy-install-token";
 import { type PushNotificationsNative, SOUND_PREVIEW_KEY } from "./push-notifications-native.types";
 
 /** `OpenBotMessagingService.kt` reads this file in the files folder of the app (`Paths.document`). */
 const KEYS_FILE = "push-notifications.json";
 
-/** A build without the Firebase file has no token. The host sends to ntfy and ignores the token, but it asks for one. */
-const NTFY_REGISTRATION_TOKEN = "hive-ntfy-no-firebase-token-0000000";
+/** A build without the Firebase file has no token. The host asks for one and tells phones apart by it, so each install keeps its own random one. */
+const INSTALL_TOKEN_FILE = "ntfy-install-token.txt";
+
+const installTokenStore = {
+  read() {
+    const file = new File(Paths.document, INSTALL_TOKEN_FILE);
+    return file.exists ? file.textSync() : null;
+  },
+  write(token: string) {
+    new File(Paths.document, INSTALL_TOKEN_FILE).writeSync(token);
+  },
+};
 
 /**
  * The Firebase messaging service of the app opens the notifications also while the app does not
@@ -28,7 +40,7 @@ export const androidPushNotifications: PushNotificationsNative = {
     try {
       return fcmToken((await Notifications.getDevicePushTokenAsync()).data);
     } catch {
-      return NTFY_REGISTRATION_TOKEN;
+      return ntfyInstallToken(installTokenStore, Crypto.randomUUID);
     }
   },
   onDeviceToken(listener) {
