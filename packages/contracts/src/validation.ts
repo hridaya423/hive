@@ -144,3 +144,11 @@ export function isGeneratedAgentId(agentId: string): boolean {
   const prefix = agentId.startsWith("agent-") ? "agent-" : agentId.startsWith("bot-") ? "bot-" : null;
   return prefix !== null && isUuidV4(agentId.slice(prefix.length));
 }
+
+export function parseServerName(value: string): string | null {
+  const name = value.trim();
+  if (name.length < INPUT_LIMITS.serverNameMin || name.length > INPUT_LIMITS.serverName || /\p{Cc}/u.test(name)) {
+    return null;
+  }
+  return slugifyTeamServerName(name).length >= INPUT_LIMITS.serverNameMin ? name : null;
+}

@@ -3,7 +3,6 @@ import { messages as errorApp } from "./error/app";
 import { messages as errorAttachment } from "./error/attachment";
 import { messages as errorAuth } from "./error/auth";
 import { messages as errorBackend } from "./error/backend";
-import { messages as errorBilling } from "./error/billing";
 import { messages as errorComputerUse } from "./error/computerUse";
 import { messages as errorConnector } from "./error/connector";
 import { messages as errorHost } from "./error/host";
@@ -47,7 +46,6 @@ export const source = {
   ...errorBackend,
   ...errorSkill,
   ...errorMarketplace,
-  ...errorBilling,
   ...errorAttachment,
   ...errorImport,
   ...errorUpdate,
