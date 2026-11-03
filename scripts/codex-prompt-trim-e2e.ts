@@ -1,5 +1,5 @@
 // Runs the real `codex app-server` against a fake Responses server, to check that a thread with the
-// features that OpenBot sets declares no goal tools. Codex sends each other tool and its permission
+// features that OpenBot sets declares no goal tools and no multi-agent tool. Codex sends each other tool and its permission
 // text as before: at Ask first Codex runs with no sandbox, and that text makes the model ask before a
 // destructive command. A local server stands in for the model and records the tools and the
 // instructions of each request, so no account or key is used.
@@ -100,6 +100,8 @@ const VARIANTS: Record<"before" | "after", { config: Partial<typeof CODEX_FEATUR
   after: { config: CODEX_FEATURES_CONFIG },
 };
 const GOAL_TOOLS = ["create_goal", "get_goal", "update_goal"];
+const MULTI_AGENT_TOOLS = ["multi_agent_v1"];
+const TRIMMED_TOOLS = [...GOAL_TOOLS, ...MULTI_AGENT_TOOLS];
 
 await rm(OUT, { recursive: true, force: true });
 await mkdir(OUT, { recursive: true });
@@ -176,10 +178,10 @@ try {
   }
   const { before, after } = results;
   assert(before && after, "Codex sent no model request.");
-  for (const tool of GOAL_TOOLS) assert.ok(before.tools.includes(tool), `Codex ${cli.version} declares no ${tool}.`);
+  for (const tool of TRIMMED_TOOLS) assert.ok(before.tools.includes(tool), `Codex ${cli.version} declares no ${tool}.`);
   assert.deepEqual(
     after.tools,
-    before.tools.filter((tool) => !GOAL_TOOLS.includes(tool)),
+    before.tools.filter((tool) => !TRIMMED_TOOLS.includes(tool)),
     "Other tools changed.",
   );
   const permissions = (request: Recorded) =>

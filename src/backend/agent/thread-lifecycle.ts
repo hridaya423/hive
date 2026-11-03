@@ -131,9 +131,15 @@ const CODEX_TOOLS_CONFIG = { update_plan: { enabled: true } } as const;
 /**
  * Codex declares `create_goal`, `get_goal` and `update_goal` in each request, about 3.5k characters.
  * A goal continues the turn by itself until the agent marks it done, and only the user can pause or
- * resume it. OpenBot has no control for a goal, so it turns the feature off.
+ * resume it. OpenBot has no control for a goal, so it turns the feature off. OpenBot has its own agent
+ * messaging, so it also turns off Codex's multi-agent tool (the models that use `multi_agent_v1`; Codex
+ * 0.166.0 ignores the key for GPT-6, which has the `collaboration` tools) and the collaboration mode text.
  */
-export const CODEX_FEATURES_CONFIG = { "features.goals": false } as const;
+export const CODEX_FEATURES_CONFIG = {
+  "features.goals": false,
+  "features.multi_agent": false,
+  include_collaboration_mode_instructions: false,
+} as const;
 
 /**
  * Codex gives each MCP server that is not `required` 1 second to start before a turn's first step,
@@ -827,6 +833,8 @@ export class ThreadLifecycle {
         project_doc_max_bytes: number;
         mcp_optional_startup_grace_ms: number;
         "features.goals": false;
+        "features.multi_agent": false;
+        include_collaboration_mode_instructions: false;
         "features.code_mode.direct_only_tool_namespaces": string[];
         [variable: `shell_environment_policy.set.${string}`]: string;
       } & ReturnType<typeof codexSandboxConfig>;
