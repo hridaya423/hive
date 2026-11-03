@@ -21,6 +21,7 @@ import { runCauseEffect } from "../backend/effect-boundary";
 import type { MailboxStore } from "../backend/mailbox-store";
 import { attachmentCorsHeaders, attachmentDocumentHeaders, chatVisualResponse } from "./chat-visual-protocol";
 import { buildContentSecurityPolicy, readSelfHostedSignalOrigin } from "./content-security-policy";
+import { controlPlaneUrls } from "./control-plane-urls";
 import { filePreviewPages } from "./file-preview-pages";
 import { fileResponse } from "./file-response";
 import type { RemoteServerManager } from "./remote-server-manager";
@@ -29,10 +30,11 @@ import type { TeamStore } from "./team-store";
 import { isTrustedRendererUrl } from "./trusted-renderer";
 
 export function configureContentSecurityPolicy(): void {
+  const controlPlane = controlPlaneUrls(process.env, app.isPackaged);
   const policy = buildContentSecurityPolicy(
     app.isPackaged,
     process.env.REMOTE_SIGNAL_URL,
-    readSelfHostedSignalOrigin(process.env.OPENBOT_AUTH_API_URL, process.env.OPENBOT_REMOTE_SIGNAL_URL),
+    readSelfHostedSignalOrigin(controlPlane.authApiUrl, controlPlane.signalUrl),
   );
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {

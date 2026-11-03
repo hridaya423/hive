@@ -180,6 +180,7 @@ import {
   chooseTarget,
   liveSession,
 } from "./computer-use-target-window";
+import { controlPlaneUrls } from "./control-plane-urls";
 import { isSupportedCuaDriverTarget, resolveCuaDriver } from "./cua-driver-artifact";
 import { CuaDriverDaemonClient } from "./cua-driver-daemon-client";
 import { CuaDriverRuntime, cuaDriverCommandAlias, resolveCuaDriverEndpoint } from "./cua-driver-runtime";
@@ -989,11 +990,12 @@ export async function createApplicationServices({
   });
   teardown.push(TEARDOWN_ORDER.dynamicIsland, "the Dynamic Island", () => dynamicIsland.destroy());
   const centralAuthApiUrl = readCentralAuthApiUrl(
-    process.env.OPENBOT_AUTH_API_URL,
-    app.isPackaged ? "https://api.openbot.run" : "http://127.0.0.1:3100",
+    controlPlaneUrls(process.env, app.isPackaged).authApiUrl,
+    "http://127.0.0.1:3100",
   );
   const centralAuth = new CentralAuthManager({
     apiUrl: centralAuthApiUrl,
+    ownerSignIn: true,
     mobileConnectApiUrl: readMobileConnectApiUrl(process.env.OPENBOT_MOBILE_AUTH_API_URL, centralAuthApiUrl),
     storagePath: join(app.getPath("userData"), CENTRAL_AUTH_FILE),
     ...safeStorageCipher("error.app.macSecureStorageUnavailable"),

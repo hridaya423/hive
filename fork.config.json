@@ -1,0 +1,14 @@
+{
+  "app": {
+    "id": "dev.hridaya.hive",
+    "name": "Hive",
+    "urlScheme": "dev.hridaya.hive"
+  },
+  "controlPlane": {
+    "accountApiUrl": "https://hridyas-mini.tail59dec9.ts.net:8446",
+    "signalUrl": "wss://hridyas-mini.tail59dec9.ts.net:8447/v1/signal",
+    "workerPort": 3100,
+    "signalPort": 3101,
+    "signalHealthPort": 3102
+  }
+}
