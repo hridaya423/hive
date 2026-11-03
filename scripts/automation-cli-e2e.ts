@@ -319,7 +319,7 @@ try {
   });
   busy = false;
   await Effect.runPromise(server.stop());
-  await check("a stopped app exits 5", ["list"], 5, (run) => run.stderr.includes("OpenBot is not running"));
+  await check("a stopped app exits 5", ["list"], 5, (run) => run.stderr.includes("Hive is not running"));
   await check("a wrong command line exits 2 also when the app is stopped", ["agent", "foo", "Ada"], 2, (run) =>
     run.stderr.includes("Usage:"),
   );
