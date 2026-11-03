@@ -180,6 +180,13 @@ const answerPage: ConversationPage = {
 };
 const relaySendsWithNtfy: NotificationRelayRequest[] = [];
 
+const ntfySender = createNtfySender({
+  url: `http://127.0.0.1:${ntfyAddress.port}`,
+  topic: NTFY_TOPIC,
+  token: NTFY_TOKEN,
+});
+let ntfySends = 0;
+
 const ntfyPhones = new PushNotificationService({
   agents: { ...agents, readConversationPageFor: () => Effect.succeed(answerPage) },
   store: { list: () => [], replace: () => Effect.void },
@@ -188,11 +195,10 @@ const ntfyPhones = new PushNotificationService({
       relaySendsWithNtfy.push(request);
       return "sent" as const;
     }),
-  ntfy: createNtfySender({
-    url: `http://127.0.0.1:${ntfyAddress.port}`,
-    topic: NTFY_TOPIC,
-    token: NTFY_TOKEN,
-  }),
+  ntfy: (notice) => {
+    ntfySends += 1;
+    return ntfySender(notice);
+  },
   hiddenAgentIds: () => new Set(),
   memberActive: (memberId) => memberId === MEMBER,
   lastUseElsewhere: () => null,
@@ -501,7 +507,7 @@ try {
     },
   );
 
-  await step("two Android installs without Firebase keep their own registrations", async () => {
+  await step("two Android installs without Firebase share one topic, so one event makes one POST", async () => {
     ntfyPhones.remove(ANDROID);
     const installs = [0, 1].map(() => {
       let saved: string | null = null;
@@ -521,6 +527,7 @@ try {
     });
     assert.notEqual(installs[0], installs[1], "Two installs share one token.");
     const before = ntfyRequests.length;
+    const sendsBefore = ntfySends;
     for (const [index, token] of installs.entries()) {
       ntfyPhones.register(
         `${ANDROID}-${index}`,
@@ -541,19 +548,24 @@ try {
         },
       );
     }
-    events.emit("event", reply(AGENT_B, "turn-two-installs"));
-    await new Promise<void>((resolveRequest, reject) => {
-      const deadline = setTimeout(() => reject(new Error("Fewer than two ntfy requests.")), STEP_DEADLINE_MS);
-      const check = () => {
-        if (ntfyRequests.length < before + 2) return;
-        clearTimeout(deadline);
-        waiters.delete(check);
-        resolveRequest();
-      };
-      waiters.add(check);
-      check();
-    });
-    assert.equal(ntfyRequests.length, before + 2);
+    for (const [agentId, title] of [
+      [AGENT_B, "Agent B"],
+      [AGENT_A, "Agent A"],
+    ] as const) {
+      events.emit("event", reply(agentId, `turn-two-installs-${agentId}`));
+      await new Promise<void>((resolveRequest, reject) => {
+        const deadline = setTimeout(() => reject(new Error("No ntfy request before the deadline.")), STEP_DEADLINE_MS);
+        const check = () => {
+          if (!ntfyRequests.slice(before).some((request) => request.body.title === title)) return;
+          clearTimeout(deadline);
+          waiters.delete(check);
+          resolveRequest();
+        };
+        waiters.add(check);
+        check();
+      });
+    }
+    assert.equal(ntfySends - sendsBefore, 2, "One event did not make exactly one POST to the topic.");
     return { installs: installs.length };
   });
   passed = true;
