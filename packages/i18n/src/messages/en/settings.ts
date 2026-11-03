@@ -47,7 +47,7 @@ export const messages = defineMessages("settings", {
   "settings.restoreWorkspace.title": "Restore the last workspace on launch",
   "settings.restoreWorkspace.description": "Open the workspace and tasks from your previous session.",
   "settings.externalLinks.title": "Open external links in",
-  "settings.externalLinks.description": "Links in chats, sign-in pages and billing pages open here.",
+  "settings.externalLinks.description": "Links in chats and sign-in pages open here.",
   // The two link targets. The saved value stays in English; only the label is translated.
   "settings.externalLinks.defaultBrowser": "Default browser",
   "settings.externalLinks.openbot": "Hive",
