@@ -2,11 +2,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use `executing-plans` to implement task-by-task. Read `handoff` (receive direction) first if you were given this plan as a handoff.
 
-**Goal:** Turn upstream OpenBot into a private, single-user app for Hridya that has no OpenBot account, no paid or commercial code, no Dynamic Island, a first-class GitHub Copilot provider, a Mac mini that runs routines while the MacBook sleeps, and about half the per-turn token cost.
+**Goal:** Turn upstream OpenBot into **Hive**, a private single-user app for Hridya. Nothing goes to upstream. There is no paid or commercial code. GitHub Copilot is a first-class provider. Fallback chains span providers and accounts (for example Codex account 1 → Codex account 2 → Copilot). A Mac mini runs routines while the MacBook sleeps. Per-turn token cost is about half of today's.
 
-**Architecture:** Keep upstream's architecture and wire protocols. Change behaviour by deletion and by configuration first, and by new code only where no setting exists. The account service is not rewritten. It moves onto the Mac mini behind Tailscale and signs its one owner in without email (Phase 5), so the trust protocol between hosts, clients and the phone stays as upstream tested it. The fork installs side by side with upstream under a new app id, so the live upstream install and its `openbot.db` are never touched.
+**Architecture:** Keep upstream's architecture and wire protocols. Change behaviour by deletion and by configuration first, and by new code only where no setting exists. The account system stays, but its service runs on Hridya's Mac mini behind Tailscale instead of nightly-labs' cloud (Phase 5). It signs its one owner in without email. So the trust protocol between hosts, clients and the phone stays as upstream tested it, and no request reaches upstream. The fork installs side by side with upstream under a new app id, so the live upstream install and its `openbot.db` are never touched.
 
-**Tech Stack:** Electron 3x + electron-vite, Solid (renderer), Effect 4.0.0, Bun 1.4.2 workspaces, SQLite (`openbot.db`), Cloudflare Worker code (`apps/auth-api`, run locally), Signal (`remote/api`), Expo SDK 58 / React Native 0.88 (`apps/mobile`), Codex app-server and ACP CLIs as providers.
+**Tech Stack:** Electron 3x + electron-vite, Solid (renderer), Effect 4.0.0, Bun 1.4.2 workspaces, SQLite (`openbot.db`), Cloudflare Worker code (`apps/auth-api`, run locally), Signal (`remote/api`), Expo SDK 58 / React Native 0.88 (`apps/mobile`, Android build), Codex app-server and ACP CLIs as providers.
 
 ---
 
@@ -21,6 +21,7 @@
 - Hridya's global rules (`~/AGENTS.md`): no code comments except the allowed kinds, smallest diff that works, no AI-shaped code, evidence before claims, keep `progress.md` current, prose in short plain sentences without em dashes.
 - Repo test policy (`AGENTS.md`, "Tests" and "Checks"): end-to-end scripts are the default. Vitest only for migrations, the trust boundary, redaction and lint rules. Run one test worker. Do not run the broad checks (`bun run check`, `bun run typecheck`, `bun run test`) locally; run the narrow ones listed per task.
 - Drive GUIs on the Mac mini, not on the MacBook screen. Hridya works on the MacBook.
+- Hridya's phone is **Android**. Android emulators and the Android SDK are on the Windows PC (T3 device host `win-pc`, AVD `Pixel_API_37`, SDK `D:\Android\Sdk`). The MacBook has `adb` but no SDK. Ignore iOS-only work and the Dynamic Island; leave that code as upstream has it.
 
 **Research behind every decision.** Six reports in `docs/plans/research/`. Each has file:line evidence, the exact commands, and open questions. This plan cites them as `[R-accounts]`, `[R-commercial]`, `[R-copilot]`, `[R-multihost]`, `[R-tokens]`, `[R-mobile]`:
 
@@ -42,7 +43,8 @@ Measurement scripts from R-tokens are saved in `docs/plans/research/measure/` (`
 - Copilot ACP preset exists: `packages/contracts/src/acp-agent-presets.ts:20`.
 - Headless server mode is Linux only: `src/main/server-mode.ts:53`.
 - Computer Use is on unless set false: `packages/contracts/src/ipc-agents.ts:45-47`.
-- Island coordinator seeds turn state on a server switch: `src/renderer/src/turns.tsx:75`.
+- Codex already supports up to 10 accounts, each in its own `CODEX_HOME` (`src/backend/provider-drivers.ts:768-769`, `MAX_PROVIDER_ACCOUNTS` in `packages/contracts/src/ipc-agent-status.ts:97`). Claude, Grok and Gemini do too.
+- Backup models: each agent has up to 8 `{provider, model, providerAccountId}` entries with `automatic` switching (`packages/contracts/src/ipc-agents.ts:109-123`). Failover causes include `authentication` (`src/backend/agent/turn-lifecycle.ts:101-108`). Per `docs/architecture/providers.md` ("Backup models and failover"), channel tasks, a refused `turn/start` and a provider that fails to start do **not** fail over.
 - Default agent access is `full` (`ipc-agents.ts:38`). `#ownProcessFor` returns `null` (shared Codex process) for an unconfined agent on the default account (`src/backend/agent/provider-runtime.ts:2364-2370`). This conflicts with R-tokens' claim that each agent runs its own app-server. Task 1.1 settles it.
 
 ## Decisions
@@ -51,36 +53,36 @@ Each decision is reversible unless marked. Change one only with a reason recorde
 
 | # | Decision | Why | Alternative kept open |
 |---|---|---|---|
-| D1 | Side-by-side identity. Working names: product `OpenBot Personal`, app id `dev.hridaya.openbot`, URL scheme `openbot-personal`, data folder `~/Library/Application Support/OpenBot Personal`. All four live in one place each (Task 0.3), so Hridya can rename later. | A shared id shares the data folder, the keychain names and `openbot://` with upstream, and the first launch would migrate the live `openbot.db` with no backup. [R-commercial §5] | Replace upstream once the fork is trusted |
+| D1 | Name and identity. Product **Hive** (a crew of agents working for the hive; Hridya's projects live in `~/honey`). App id `dev.hridaya.hive`, URL scheme `dev.hridaya.hive` (reverse-DNS, so it cannot collide with another app's scheme), data folder `~/Library/Application Support/Hive`, Android package `dev.hridaya.hive`. Each value lives in one place (`fork.config.json`, Task 0.3). | A shared id with upstream would share the data folder, keychain names and `openbot://` links, and the first launch would migrate the live `openbot.db` with no backup. [R-commercial §5] | Rename via `fork.config.json` |
 | D2 | No auto-update. Delete `publish:`. The fork updates by rebuilding (`bun run package`) and copying the app. | Removing `publish` stops `app-update.yml` being written, and the existing check keeps the updater off (`application-services.ts:3183-3203`). [R-commercial §4] | Point `publish` at a private fork repo later |
 | D3 | Tokens first (Phase 1). | It is Hridya's daily pain, it is measurable, and it touches few files. A Codex agent's first request is 55K–61K tokens, against 25K for plain Codex. Computer Use schemas are about 22K of that. [R-tokens M1] | none |
-| D4 | The account becomes a private "control plane" on the Mac mini. Run the existing Worker (`apps/auth-api`) and Signal (`remote/api`) on the mini behind `tailscale serve` HTTPS. Replace email codes with owner sign-in that trusts the tailnet. Hridya never sees an account, and nightly-labs holds nothing. | Ripping the account out (R-accounts Option B) edits about 150 files and rewrites the host-client trust boundary, on machines where agents have full disk access. Option A keeps the tested protocol and makes about 20 account edits. [R-accounts §Options] | Option B later, after Phase 5 works. The commercial deletions in Phase 2 help both options. |
-| D5 | Multi-host = the mini is the single always-on host for routine agents. The MacBook joins it as a client and keeps its own local host for agents that need MacBook-only things. No two-host lease or database sync. | SQLite is the source of truth, and migrations are irreversible. A lease plus sync (Option B) risks both, plus provider session files. Keep-awake does not survive a closed lid, so the MacBook cannot be the always-on host. [R-multihost §Options] | Remote execution from the mini onto the MacBook through MCP (Option C) |
-| D6 | Copilot via the user's own `copilot` CLI over ACP. Stage 0 is a no-code custom agent. Stage 1 is a first-class provider copied from the Hermes driver. No managed runtime download. | `copilot --acp` exists (public preview since 2026-01-28). OpenBot already ships the preset. OpenBot never touches the credential: it lives in the macOS keychain item `copilot-cli`. [R-copilot] | Copilot through OpenCode (Option B) |
-| D7 | iPhone push: foreground only at first. Direct APNs from Hridya's own host only after a paid Apple Developer account is confirmed. | Upstream's push relay uses the nightly-labs APNs key and bundle id. A backgrounded iPhone is reachable only through APNs. [R-mobile §Push] | Direct APNs (Phase 7.4) |
-| D8 | Remove Dynamic Island completely: the desktop notch window, the iOS Live Activity, and the host sender. Split the coordinator and keep its per-server turn-state half. | `turns.tsx:75` uses the coordinator to seed turn state after a server switch. A plain delete would empty the queues and approvals after every switch. [R-mobile §B, §C] | none |
+| D4 | Accounts stay; upstream goes. Run the existing Worker (`apps/auth-api`) and Signal (`remote/api`) on the mini behind `tailscale serve` HTTPS. Owner sign-in trusts the Tailscale identity header, so there is no email step. Hridya asked for "nothing goes to upstream", not for account removal. | Removing accounts (R-accounts Option B) edits about 150 files and rewrites the host-client trust boundary. Option A keeps the tested protocol and makes about 20 account edits. [R-accounts §Options] | Option B, only if Hridya asks |
+| D5 | Multi-host = the mini is the single always-on host for routine agents. The MacBook joins it as a client and keeps its own local host for agents that need MacBook-only things. No two-host lease or database sync. | SQLite is the source of truth, and migrations are irreversible. A lease plus sync (Option B) risks both. Keep-awake does not survive a closed lid. [R-multihost §Options] | Remote execution from the mini onto the MacBook through MCP (Option C) |
+| D6 | Copilot is a **first-class provider** (not a custom agent): the user's own `copilot` CLI over ACP, copied from the Hermes driver, with sign-in, model picker, backup-model support and (if the spike allows) multiple accounts. No managed runtime download. Hridya's plan: **GitHub Copilot Pro through GitHub Education**. | `copilot --acp` exists (public preview since 2026-01-28). OpenBot never touches the credential (macOS keychain item `copilot-cli`). [R-copilot] | Copilot through OpenCode (R-copilot Option B) |
+| D7 | Fallback chains. Use the existing per-agent backup models and multi-account Codex. Add a host-wide default chain that every agent without its own chain uses, so one setting covers the crew. Close the failover gaps the code documents. | The machinery exists. What is missing is one place to set the chain, Copilot as a member, and failover on start failures. | none |
+| D8 | Phone push on **Android** through the private Worker's existing FCM relay, with Hridya's own Firebase project. No iOS work. | The Worker already sends Android notifications when it has `FCM_SERVICE_ACCOUNT` (`apps/auth-api/.env.example:37-38`). Upstream's `apps/mobile/google-services.json` belongs to nightly-labs' Firebase project and must be replaced. | Foreground-only (no Firebase) |
 | D9 | English only. Delete the 12 other locales (about 164K lines, 91% of `packages/i18n`). | One user, smaller build, fewer parity checks. [R-commercial §7] | Restore from `upstream` |
 | D10 | Slack, Discord and Telegram stay off and their app code is deleted. | They need nightly-labs' own bot and app registrations. [R-accounts §5] | A personal Telegram bot later |
-| D11 | Keep released Team API codecs (for example `live-activity-push-v1`) and stop advertising them. Do not regenerate fixtures unless a task requires it. | Codecs are cheap to keep. Deleting them breaks fixture tests for no gain. | Delete them in a cleanup pass |
-| D12 | Upstream sync is selective. Record the base SHA in `progress.md`. Cherry-pick fixes. Never merge upstream wholesale after Phase 2. | After the deletions, a merge would conflict across hundreds of files. | none |
+| D11 | Upstream sync is selective. Record the base SHA in `progress.md`. Cherry-pick fixes. Never merge upstream wholesale after Phase 2. | After the deletions, a merge would conflict across hundreds of files. | none |
 
 ## Open questions for Hridya (each blocks one task only)
 
-1. **Apple Developer account.** Blocks 7.3 (installing beyond 7-day free profiles) and 7.4 (push). Is there a paid team? The certificates on the MacBook belong to another person's teams (`HSLSDPZZDT`, `DV6NC6KRYL`) [R-mobile §Summary]. Ask before using them.
-2. **Copilot plan** (monthly or annual, Pro or Pro+). Blocks only the limit-text regex in 4.3. [R-copilot §Plans]
-3. **Final names** for D1. They are changeable at any time. Use the working names until Hridya says otherwise.
+1. **Copilot browser sign-in** (Task 3.1) and, for a second Copilot account, a second GitHub login (Task 3.3).
+2. **Second Codex account sign-in** (Task 4.1). Name the ChatGPT account to use.
+3. **Firebase project** for Android push (Task 7.3). A free Google account is enough. Hridya creates it, or approves the agent creating it in Hridya's Google account.
+
+Answered on 2026-11-03: paid Apple account exists but the phone is Android (iOS is out of scope); Copilot plan is Pro via GitHub Education; the name is Hive.
 
 ## External checks (what proves each phase, other than the agent)
 
 | Phase | Check | Pass | Fail |
 |---|---|---|---|
-| 1 | `agent_usage_records` in the fork's `openbot.db`: uncached input of the first request of a fresh Codex agent session. Same agent setup as the baseline. | ≤ 30,000 tokens (baseline 55,217–61,370) | > 40,000 |
-| 2 | 15 minutes of `lsof -nP -i -a -p <fork main pid>` while using the app, plus `grep -r "openbot.run\|nightly-labs" out/` on the build | No connection to `*.openbot.run`, `analytics.openbot.run` or `raw.githubusercontent.com/nightly-labs` | Any such connection |
-| 3 | `git grep -il "dynamic.island\|live.activit\|macBookNotch"` on code (not docs history), plus `bun scripts/desktop-notifications-e2e.ts` | Zero code hits. Desktop notifications pass. | Hits remain, or notifications regress |
-| 4 | A real turn on a Copilot agent, then a forced limit that fails over to the backup model | Turn completes; fail-over is logged | Either does not happen |
-| 5 | Fresh fork install on the MacBook with the mini on: no email screen, signed in as owner. Then with the mini off: the app opens and local agents work. | Both | Sign-in screen, or a blocked start |
+| 1 | `agent_usage_records` in Hive's `openbot.db`: uncached input of the first request of a fresh Codex agent session. Same agent setup as the baseline. | ≤ 30,000 tokens (baseline 55,217–61,370) | > 40,000 |
+| 2, 5 | 15 minutes of `lsof -nP -i -a -p <Hive main pid>` while using the app (resolve `api.openbot.run`, `signal.openbot.run`, `analytics.openbot.run` with `dig +short` first), plus `git grep -n "openbot\.run\|nightly-labs" -- src packages apps` | No connection to any nightly-labs host (after Phase 5; after Phase 2 only `api.` and `signal.` remain) | Any such connection |
+| 3 | A real turn on a Copilot agent: picker shows Copilot models, the turn completes, the model chosen is the model used | All three | Any missing |
+| 4 | Agent with chain Codex#1 → Codex#2 → Copilot. Force a limit on Codex#1 (fake in e2e; for real, a revoked or spent account), then on Codex#2 | Agent moves #1 → #2 → Copilot with a note each time, and returns to #1 when the hold ends | Stalls, errors, or skips an entry |
 | 6 | Close the MacBook lid across a routine's due time, then read the run history on the mini. `pmset -g log` on the mini shows no sleep. | Run recorded at the due time | Missed run |
-| 7 | The phone app pairs with the mini by QR over Tailscale and sends a message to an agent | Message delivered and answered | Pairing fails |
+| 7 | Android phone pairs with the mini by QR over Tailscale, sends a message, and gets a push notification with the app in the background | All three | Any missing |
 
 ---
 
@@ -110,9 +112,9 @@ Each decision is reversible unless marked. Change one only with a reason recorde
 
 **Step 1: Record the failing state.** `git grep -n "openbot://" -- src packages apps/mobile/src | wc -l`. Expected: more than 20 lines. The goal is one definition.
 **Step 2:** Add `APP_URL_SCHEME` to `packages/contracts` (one new file, or the module that already exports link builders). Replace every literal with it. Leave the scheme strings in released Team API fixtures alone (D11).
-**Step 3:** Rerun the grep. Expected: only the constant's own definition. Then `bun run typecheck:contracts && bun run typecheck:node && bun run typecheck:mobile`. Expected: pass. Deep links are covered again end to end in Task 0.3 Step 5 (`open "openbot-personal://join?..."` brings the app forward) and in Phase 7.
-**Step 4:** `bun run package`. Expected: `dist/mac-arm64/OpenBot Personal.app` exists and contains no `Contents/Resources/app-update.yml`. Check with `ls`.
-**Step 5:** Copy the app to the **mini** (GUI work belongs there) and launch it once. Run `open "openbot-personal://"`: the fork comes forward, upstream does not. Confirm that `~/Library/Application Support/OpenBot Personal` is created and `~/Library/Application Support/OpenBot` is untouched (compare `stat -f %m openbot.db` before and after).
+**Step 3:** Rerun the grep. Expected: only the constant's own definition. Then `bun run typecheck:contracts && bun run typecheck:node && bun run typecheck:mobile`. Expected: pass. Deep links are covered again end to end in Task 0.3 Step 5 (`open "dev.hridaya.hive://join?..."` brings the app forward) and in Phase 7.
+**Step 4:** `bun run package`. Expected: `dist/mac-arm64/Hive.app` exists and contains no `Contents/Resources/app-update.yml`. Check with `ls`.
+**Step 5:** Copy the app to the **mini** (GUI work belongs there) and launch it once. Run `open "dev.hridaya.hive://"`: the fork comes forward, upstream does not. Confirm that `~/Library/Application Support/Hive` is created and `~/Library/Application Support/OpenBot` is untouched (compare `stat -f %m openbot.db` before and after).
 **Step 6:** Commit: `feat: side-by-side identity and no auto-update`.
 
 ### Task 0.4: Token baseline you can re-run
@@ -203,7 +205,7 @@ Each routine starts a new session and pays a cold prefix of about 46K tokens [R-
 
 ### Task 1.7: IPC chatter and duplicate requests
 
-**Files:** `src/renderer/src/features/dynamic-island/dynamic-island-context.tsx:66-76` (deleted in Phase 3; skip if Phase 3 lands first), `team-typing.ts:9` (`servers:set-typing`), the callers of `agent:get-usage` (3 parallel calls, 1.45 s each) and `agent:session-settings:read` (5 calls, 744 ms mean) [R-tokens runtime findings 4–5].
+**Files:** `src/renderer/src/features/dynamic-island/dynamic-island-context.tsx:66-76` (the island is off in Hridya's settings, but this channel was still 30% of IPC calls; throttle it, do not remove the feature), `team-typing.ts:9` (`servers:set-typing`), the callers of `agent:get-usage` (3 parallel calls, 1.45 s each) and `agent:session-settings:read` (5 calls, 744 ms mean) [R-tokens runtime findings 4–5].
 
 **Step 1:** Reproduce with the app's own trace (`trace.ndjson` in the fork's data folder) for 10 minutes of normal use. Count calls per channel.
 **Step 2:** For each duplicate, share one in-flight request (coalesce in the renderer port) or throttle `set-typing` to one call per 2 s per thread.
@@ -264,7 +266,7 @@ Steps: move the types → typecheck → remove the calls → typecheck → delet
 
 ### Task 2.7: Worker shop code and marketing site
 
-**Files:** `apps/auth-api` routes for Stripe, licences, hosted servers, compare/marketing content (about 31K lines plus 35 MB of art), `apps/site-router`, `apps/status`. **Keep:** the D1 migration files, auth, sessions, hosts, tickets, memberships, invites and push routes (Phase 5 runs this Worker). Delete `apps/slack-app`, `apps/discord-app` and `apps/telegram-app` (D10).
+**Files:** `apps/auth-api` routes for Stripe, licences, hosted servers, compare/marketing content (about 31K lines plus 35 MB of art), `apps/site-router`, `apps/status`. **Keep:** the D1 migration files, auth, sessions, hosts, tickets, memberships, invites, and the notification relay with its FCM sender (Phase 5 runs this Worker; Phase 7 uses the relay). The iOS APNs code may stay; it does nothing without a key. Delete `apps/slack-app`, `apps/discord-app` and `apps/telegram-app` (D10).
 Steps: delete → `bun run typecheck:api` → `bun run test:api` → knip. Commit: `chore: strip the worker to auth and hosts`.
 
 ### Task 2.8: Repo furniture
@@ -278,71 +280,87 @@ Run the Phase 2 external check on a fresh `bun run package` build. Record the ho
 
 ---
 
-## Phase 3: Remove Dynamic Island (D8)
+## Phase 3: GitHub Copilot, first-class (D6)
 
-Inventory and order: [R-mobile "Dynamic Island inventory" A–C and "Recommended removal order"]. Shared code to keep is listed in [R-mobile "What shares code with normal notifications"].
+### Task 3.1: Spikes with the real CLI
 
-### Task 3.1: Split the coordinator first
+Run the spikes in [R-copilot "Real-CLI spikes"] in a scratch folder and record every result in `progress.md`. Install with `npm i -g @github/copilot` (check for a Homebrew formula first). Hridya does the browser step of `copilot login`. Confirm the keychain item `copilot-cli`. Capture:
+1. `session/new` config options, model ids, and effort options per model.
+2. Whether `set_config_option model` applies (R-copilot: 1.0.105 reports a model as current without applying it).
+3. MCP over `http` (OpenBot's bridge) and over `stdio`.
+4. Keychain access from a "Workspace only" (confined) agent.
+5. `gh`-token fallback with no `copilot login`.
+6. The exact error text of a spent premium-request allowance and of a 429. Hridya's plan is Copilot Pro through GitHub Education, which counts premium requests per month. Use a cheap way to hit a limit (a burst of requests), or wait for a real one and record it then.
+7. **Multiple accounts:** does `COPILOT_HOME=<dir> copilot login` keep a separate login, or do all homes share one keychain item? Look for a file-storage switch (like Antigravity's `AGY_ACP_FORCE_FILE_STORAGE`, `provider-drivers.ts:241-246`) in `copilot --help` and the docs.
 
-**Files:** `packages/team-client/src/dynamic-island-coordinator.ts` (606 lines) → new `packages/team-client/src/server-runtime-state.ts` (per-server turns, queues, prompts, approvals, failures only); `reconcileQueuesWithRuntimeWork` → the same new module; update `src/renderer/src/turns.tsx:23,38-40,75-82`, `src/renderer/src/features/agents/agent-event-bridge.tsx:4,405`; `packages/team-client/package.json:32-35` exports.
+### Task 3.2: The provider
 
-**Step 1: Reproduce today's behaviour** with the existing server-switch e2e (`scripts/schedule-server-switch-e2e.ts` or the one R-mobile names; find it with `git grep -l "serverState(" scripts`). Record that pending approvals survive a switch.
-**Step 2:** Move the state half into `server-runtime-state.ts`, with the same public methods `turns.tsx` uses. The presentation half stays behind for now.
-**Step 3:** Rerun the e2e. Expected: same result. **Step 4:** Commit: `refactor: split server runtime state from island coordinator`.
-
-### Task 3.2: Phone Live Activity
-
-**Files:** Per [R-mobile A]. Move `live-activity-keys.ts` to `apps/mobile/src/features/push-notifications/push-secret.ts` before deleting the folder. Send `liveActivityStartedAt: null` (the frozen `push-notifications-v1` schema keeps the field). Remove the `expo-widgets` plugin (`app.json:209-216`) and dependency (`package.json:81`).
-Check: `bun run typecheck:mobile`. Commit: `chore(mobile): remove live activity`.
-
-### Task 3.3: Host Live Activity sender
-
-**Files:** Per [R-mobile C]: delete `src/main/live-activity-push.ts`, `src/main/team-api/route-live-activity-push.ts`, `central-auth-manager.ts:922-960` (`sendLiveActivityPush`), the wiring at `application-services.ts:2662`, and the host references (`host-service.ts`, `team-api-server.ts:271,1095,1723,2228`). Set `push-notifications.ts`'s `liveActivityShows` to always false, or remove the option. Keep the `live-activity-push-v1` codec (D11). Rename `live-activity-seal.ts` → `push-seal.ts` and update its 3 importers.
-Check: `bun scripts/push-notification-away-e2e.ts` and `bun scripts/notification-summary-e2e.ts` pass. Edit, don't delete, the wired e2e scripts that mention Live Activity (`ci.yml:347-359`). Delete the unwired `scripts/live-activity-*-e2e.ts`. Commit: `chore: remove live activity sender`.
-
-### Task 3.4: Desktop notch window
-
-**Files:** Per [R-mobile B]: the main-process window, actions, preference store, IPC handlers, preload bridge and decoders, contracts (`ipc-dynamic-island.ts` and the endpoint group), renderer feature folder, settings tab and the 8 `macBookNotch*` settings, `packages/ui` island components, brand tokens, mock IPC (`src/renderer/src/preview/mock-openbot.ts`; required by `src/main/AGENTS.md`), stories, bench scenarios. Then the `koffi` dependency and `mac-panel-activation.ts`, but only after `git grep -n "setPreventsActivation\|macPanelActivation"` shows no other caller. Same check for `mac-haptic-feedback.ts`.
-**Trap:** `main-window.ts:269` keeps a hidden renderer alive for the island coordinator. After 3.1, check whether anything else needs it. If nothing does, remove it.
-Checks: `bun run build && bun run verify:preload`; `bun run test:desktop -- src/main/ipc-channel-coverage.test.ts src/main/trusted-ipc.test.ts` (trust boundary; must pass); `bun scripts/desktop-notifications-e2e.ts`; `bun run test:zero-filled-settings` if it exists. Commit: `chore: remove desktop dynamic island`.
-
-### Task 3.5: Presentation, strings, docs
-
-Delete `dynamic-island-presentation.ts`, `live-activity-props.ts`, `live-activity-text.ts`; keep `message-summary.ts`. Remove the island and Live Activity strings (English only by now), docs and PRIVACY sections. Run the Phase 3 external check. Commit: `chore: remove island presentation and docs`.
-
----
-
-## Phase 4: GitHub Copilot (D6)
-
-### Task 4.1: Stage 0 spikes, no code
-
-Run the seven spikes in [R-copilot "Real-CLI spikes"] in a scratch folder. Record each result in `progress.md`. Minimum: `npm i -g @github/copilot` (or `brew install copilot-cli` if that formula exists; check), `copilot login`, confirm the keychain item `copilot-cli`, then in the fork add the "GitHub Copilot" custom-agent preset and complete one turn. Hridya must do the browser sign-in step. Ask Hridya, don't guess the account.
-Capture: the model ids, whether `set_config_option model` applies, stdio and http MCP behaviour, keychain access from a Workspace-only agent, and the error text of a limit.
-
-### Task 4.2: First-class provider (Stage 1)
-
-**Files:** The table in [R-copilot "Files to touch"]. Template: the Hermes driver (`src/backend/provider-drivers.ts:1164-1224`, `cli.ts:444`).
+**Files:** The table in [R-copilot "Files to touch"]. Template: the Hermes driver (`src/backend/provider-drivers.ts:1164-1224`, `src/backend/cli.ts:444`).
 
 **Step 1: Failing test.** Add a `DriverCase` for `copilot` to `scripts/provider-conformance-e2e.ts` and a fake in `scripts/provider-fakes/agents/conformance.ts`. The fake reproduces "model reported as current but not applied". Run `bun scripts/provider-conformance-e2e.ts`. Expected: FAIL (`copilot` is not a provider).
-**Step 2:** Add `"copilot"` to `AGENT_PROVIDERS`, its descriptor (`LOCAL_ONLY`, `reportsUsage: false`, `steer: "deferred"`, `concurrentTurns: false`, `defaultModel: ""`), the `AgentAuthState` arm, `resolveCopilotCli` with `MINIMUM_COPILOT_VERSION` from the spike, and the driver row with `signIn` (`copilot login`) and `codeSignIn` (device flow).
-**Step 3:** Add `alwaysSetModel?: true` to `AcpFlavor` (`acp-flavor.ts`). Read it at `acp-configuration.ts:351`. Name the Copilot version that needs it in the code comment (the only kind of comment allowed there: an external constraint).
-**Step 4:** `copilotStatePaths()` in `process-confinement.ts` only if spike 4 showed the keychain works when confined. If it did not, mark Copilot as full-access only in the descriptor.
+**Step 2:** Add `"copilot"` to `AGENT_PROVIDERS`, its descriptor (`LOCAL_ONLY_PROVIDERS`, `reportsUsage: false`, `steer: "deferred"`, `concurrentTurns: false`, `defaultModel: ""`, `pickerOrder`), the `AgentAuthState` arm, `resolveCopilotCli` with `MINIMUM_COPILOT_VERSION` from the spike, and the driver row with `signIn` (`copilot login`) and `codeSignIn` (device flow; teach `src/backend/agent/cli-code-login.ts` Copilot's device-code lines from the spike).
+**Step 3:** Add `alwaysSetModel?: true` to `AcpFlavor` (`src/backend/acp-flavor.ts`). Read it at `src/backend/acp-configuration.ts:351`. Name the Copilot version that needs it in the code comment (an external constraint, the allowed kind of comment).
+**Step 4:** `copilotStatePaths()` in `src/backend/process-confinement.ts` only if spike 4 showed the keychain works when confined. Otherwise mark Copilot as full-access only in the descriptor.
 **Step 5:** Run the conformance e2e. Expected: PASS.
-**Step 6:** Logo variant and colours (`packages/brand`), the onboarding picker map (`SetupProviderPicker.tsx:126`), English strings only.
+**Step 6:** Logo variant and colours (`packages/brand`), the onboarding picker map (`SetupProviderPicker.tsx:126`) and settings rows, English strings only. Look at the provider settings and model picker on the mini (screenshot into `progress.md`).
 **Step 7:** Commit: `feat: github copilot provider`.
 
-### Task 4.3: Limits and fail-over
+### Task 3.3: Copilot accounts (only if spike 7 passed)
 
-**Files:** `src/backend/agent/provider-diagnostics.ts:247`, `scripts/provider-cli-canary.ts:50`.
-Add one narrow regex from spike 6's real text. Do not invent the text. Set the crew's agents to Codex first, Copilot as backup, or the reverse, as Hridya chooses. Run the Phase 4 external check. Commit: `feat: copilot limit fail-over`.
+**Files:** `src/backend/provider-drivers.ts` (Copilot driver row): `accounts: { homeVariable: "COPILOT_HOME", signIn: <copilot login>, signOut: <only if a logout command exists> }`, plus any storage switch the spike found in `accountEnvironment`. Template: the Codex row (`provider-drivers.ts:768-790`).
+**Step 1: Failing test:** extend the Copilot `DriverCase` with a second account and assert each account's process gets its own `COPILOT_HOME`. FAIL. **Step 2:** Implement. **Step 3:** PASS. **Step 4:** Commit: `feat: multiple copilot accounts`.
+If spike 7 failed, record "one Copilot account" in `progress.md` and skip this task.
 
-### Task 4.4: Terms note
+### Task 3.4: Limit text and terms
 
-Add a "GitHub Copilot" section to `docs/provider-terms.md` per [R-copilot "Terms text"]. State facts with dates. Claim no approval. Commit.
+**Files:** `src/backend/agent/provider-diagnostics.ts:247`, `scripts/provider-cli-canary.ts:50`, `docs/provider-terms.md`.
+Add one narrow regex from spike 6's real text. Do not invent the text: if no real text exists yet, leave a `TODO`-free note in `progress.md` and rely on the generic failover causes (`rate_limit`, `billing`), which already fail over when a turn did no work. Add a "GitHub Copilot" section to `docs/provider-terms.md` per [R-copilot "Terms text"]. Commit: `feat: copilot limits and terms`.
 
 ---
 
-## Phase 5: Private control plane, no account (D4)
+## Phase 4: Fallback chains (D7)
+
+Goal: one setting gives every agent a chain such as Codex account 1 → Codex account 2 → Copilot, and failover happens in every case where the turn did no work yet.
+
+### Task 4.1: Second Codex account
+
+**Files:** none (configuration).
+In Hive: Settings › Providers › Codex › add an account. Hridya signs in with the second ChatGPT account in the browser. Check that the account gets its own `CODEX_HOME` folder in Hive's provider state, and that the rail shows usage for both accounts. Record the account ids (`list_models` lists them) in `progress.md`.
+
+### Task 4.2: Host-wide default chain
+
+**Files:** Modify the host settings store in `src/main` that holds host-wide agent defaults (find it from where `DEFAULT_AGENT_ACCESS` or new-agent defaults are applied: `git grep -n "DEFAULT_AGENT_ACCESS" src`); `src/backend/agent-service.ts` (`#usageLimitMove`) and `src/backend/agent/usage-limit-gate.ts` (read `agent.backupModels ?? hostDefaultBackupModels`); `packages/contracts/src/ipc-agents.ts` (reuse `AgentBackupModels` and `isAgentBackupModels`; no new shape); the providers settings page (reuse the per-agent backup-model editor component; find it with `git grep -ln "backupModels" src/renderer packages/ui`); preload decoder and `src/renderer/src/preview/mock-openbot.ts` (required for IPC changes by `src/main/AGENTS.md`).
+
+Rules: an agent's own chain wins. `null` on the agent means "use the host default". An entry whose account was removed is skipped, the same way the per-agent list skips it today. No database migration: store the default in the host settings JSON file, not in `openbot.db`.
+
+**Step 1: Failing test.** Copy `scripts/backup-model-failover-e2e.ts` to a new case in the same script (`bun run test:backup-model-failover`): an agent with **no** backup models, a host default of `[codex/acct-2, claude-standin]`, and a forced overload on the first model. Expect the move to the host default's first entry. Run it; expected FAIL (the agent fails with its error).
+**Step 2:** Implement the fallback read and the setting. **Step 3:** Run; PASS. Also rerun the script's five existing checks; all PASS.
+**Step 4:** Add the "Fallback order" editor to Settings › Providers. Look at it on the mini.
+**Step 5:** Commit: `feat: host-wide fallback chain`.
+
+### Task 4.3: Fail over when a provider will not start
+
+**Files:** `src/backend/agent/turn-lifecycle.ts:101-108,892` (`FAILOVER_CAUSES` and its check), the drain path that handles a refused `turn/start` and a provider start failure (find from `providers.md` "do not fail over" and `git grep -n "turn/start" src/backend/agent`).
+
+Today a refused `turn/start` and a provider that fails to start do not fail over (`docs/architecture/providers.md`, "Backup models and failover"). Both happen before any work, so they are safe to move: the same `!acted` rule holds. Keep channel tasks out of scope; upstream excludes them on purpose, and Hridya's crew does not use channels.
+
+**Step 1: Failing test.** Add two cases to `scripts/backup-model-failover-e2e.ts`: the stand-in CLI exits at start for the failing model; and the stand-in refuses `turn/start` with an authentication error (the revoked Codex login seen in Hridya's logs on 2026-11-03). Expect a move to the backup with a note. FAIL.
+**Step 2:** Route both failures through the same `UsageLimitGate.failed` path with cause `provider_unavailable` or `authentication`. Mark the model failed for the same 10 minutes.
+**Step 3:** PASS, plus the earlier cases. **Step 4:** Commit: `feat: fail over on provider start failures`.
+
+### Task 4.4: Routine runs fail over
+
+**Files:** read `src/backend/agent/drain-scheduler.ts:747` (`startRoutineThread`).
+**Step 1:** Add a case to `scripts/backup-model-failover-e2e.ts`: a routine run on an agent whose first model is overloaded. Expected today: unknown. Run it.
+**Step 2:** If it fails over, record that and stop. If not, route routine runs through the same gate, then rerun. Commit only if code changed: `feat: routine runs fail over`.
+
+### Task 4.5: Apply the chain to the crew
+
+Set the host default chain to Codex account 1 → Codex account 2 → Copilot (Hridya may reorder). Clear per-agent chains on the crew agents so the default applies. Run the Phase 4 external check with the real accounts only when a limit happens naturally; do not burn an account on purpose.
+
+---
+
+## Phase 5: Private control plane, nothing to upstream (D4)
 
 Start with the spike. If the spike fails twice for different reasons, stop and record why. Then choose between A1 (Hridya's own Cloudflare account) and Option B with Hridya. Do not start B without Hridya.
 
@@ -352,7 +370,7 @@ Start with the spike. If the spike fails twice for different reasons, stop and r
 
 **Step 1:** On the mini (shell through the cua Space `mini`), check Tailscale: `tailscale status` and `tailscale cert` support (MagicDNS on).
 **Step 2:** Run the Worker locally with its dev stack (`apps/auth-api` `bun run dev`, or `scripts/dev-services.ts api`, which uses local D1 and R2: `scripts/dev-services.ts:300-441`). Run Signal with `bun src/index.ts` in `remote/api` and `REMOTE_TLS_DISABLED` (`remote/compose.dev.yaml`).
-**Step 3:** Expose both with `tailscale serve` HTTPS. The desktop needs HTTPS or loopback (`central-auth-manager.ts:2025-2032`). The phone accepts `http:` only for loopback and RFC 1918, not `100.64.0.0/10` (`mobile-connect.ts:137-149`). So HTTPS on `<mini>.<tailnet>.ts.net` is required.
+**Step 3:** Expose both with `tailscale serve` HTTPS. The desktop needs HTTPS or loopback (`central-auth-manager.ts:2025-2032`). The phone app accepts `http:` only for loopback and RFC 1918, not `100.64.0.0/10` (`mobile-connect.ts:137-149`). So HTTPS on `<mini>.<tailnet>.ts.net` is required.
 **Step 4:** Point a dev build at it: `OPENBOT_AUTH_API_URL`, `OPENBOT_REMOTE_SIGNAL_URL`, `OPENBOT_CONTROL_PLANE_ORIGIN`. Sign in with `AUTH_EXPOSE_DEVELOPMENT_CODE` (spike only).
 **Step 5:** Test the three unknowns in R-accounts, and record each:
 - Does the dev Worker stay up for 24 h? (`launchctl` a wrapper; check memory.)
@@ -392,7 +410,7 @@ Commit: `ops: control plane services on the mini`.
 
 ### Task 5.6: Phase 5 check and PRIVACY
 
-Run the Phase 5 and Phase 2 external checks (no `*.openbot.run` at all now). Rewrite `PRIVACY.md` to the real flows: the providers, visited pages, the mini, Apple only if Phase 7.4 ships. Commit.
+Run the Phase 5 and Phase 2 external checks (no `*.openbot.run` at all now). Rewrite `PRIVACY.md` to the real flows: the providers, visited pages, the mini, and Firebase for Android push after Phase 7. Commit.
 
 ---
 
@@ -401,9 +419,9 @@ Run the Phase 5 and Phase 2 external checks (no `*.openbot.run` at all now). Rew
 ### Task 6.1: The mini as host
 
 **Files:** none (configuration), `ops/mini/README.md` (document it).
-Follow [R-multihost "Milestone 1"] steps 1–4 with the fork build. The agents come from the **upstream** app on the MacBook (Hridya's live crew): Export there, Import into the fork on the mini. Then: install on the mini, launch at login, keep awake, auto-login, restart after power failure, "Prevent automatic sleeping" on power. Sign in Codex (and Copilot) on the mini through the app. Move the crew's routine agents with Server settings › Transfer (chat history does not move). Pause the same routines on the MacBook. Set `missedPolicy` per routine: `skip` for time-bound jobs, `run-once` for the hackathon sweep.
+Follow [R-multihost "Milestone 1"] steps 1–4 with the fork build. The agents come from the **upstream** app on the MacBook (Hridya's live crew): Export there, Import into the fork on the mini. Then: install on the mini, launch at login, keep awake, auto-login, restart after power failure, "Prevent automatic sleeping" on power. Sign in Codex (both accounts) and Copilot on the mini through the app, and set the host default chain (Task 4.2) there too, since the chain is per host. Move the crew's routine agents with Server settings › Transfer (chat history does not move). Pause the same routines on the MacBook. Set `missedPolicy` per routine: `skip` for time-bound jobs, `run-once` for the hackathon sweep.
 
-The crew's instructions are linked by `~/honey/openbot-crew/install.sh`, which reads `~/Library/Application Support/OpenBot/openbot.db`. On the mini, point it at `OpenBot Personal` (one variable at the top of the script), clone `~/honey/openbot-crew` there, and run it. Check each agent workspace has its `AGENTS.md` link.
+The crew's instructions are linked by `~/honey/openbot-crew/install.sh`, which reads `~/Library/Application Support/OpenBot/openbot.db`. On the mini, point it at `Hive` (one variable at the top of the script), clone `~/honey/openbot-crew` there, and run it. Check each agent workspace has its `AGENTS.md` link.
 
 ### Task 6.2: The MacBook joins the mini over Tailscale
 
@@ -420,29 +438,36 @@ Only if Phase 5's Signal proves unreliable. Follow [R-multihost "Milestone 2"]: 
 
 ---
 
-## Phase 7: Phone app, personal build
+## Phase 7: Android app, personal build (D8)
+
+Build and emulate on the Windows PC (`ssh win-pc`; AVD `Pixel_API_37`; SDK `D:\Android\Sdk`). Install on Hridya's phone with `adb install` over wireless debugging, or by copying the APK.
 
 ### Task 7.1: Identity
 
-**Files:** `apps/mobile/app.json:9,12,14,23` (scheme from `fork.config.json`, bundle id `dev.hridaya.openbot`, remove `applinks:openbot.run`), `app.config.js`, `eas.json`, the Android module namespaces (`apps/mobile/modules/*/expo-module.config.json`; Android is out of scope, so leave them unless typecheck needs a change). Drop `google-services.json` use (iPhone only). [R-mobile "Personal build requirements"]
+**Files:** `apps/mobile/app.json` (`android.package` → `dev.hridaya.hive`, scheme from `fork.config.json`, app name), `apps/mobile/app.config.js:8-13` (keep the optional `google-services.json` logic), `apps/mobile/eas.json` (drop the Play release profile), `apps/mobile/package.json:124-125` (delete `android:release:play`), the Android module namespaces only if the build requires it (`apps/mobile/modules/*/expo-module.config.json`, for example `share-files:7`). Delete upstream's `apps/mobile/google-services.json` (nightly-labs' Firebase project).
+Check: `bun run typecheck:mobile`. Commit: `feat(mobile): hive identity`.
 
-### Task 7.2: Pairing against the mini
+### Task 7.2: Debug build on the emulator
 
-The phone pairs by QR through the Worker. After Phase 5 that Worker is the mini. Test with `bun run dev:mobile` on the iOS simulator on the mini first: pair, open an agent, send a message.
+On `win-pc`: clone or sync the repo, `bun install --frozen-lockfile`, then `bun mobile:android` (debug, `scripts/mobile-android.ts`). Pair with a Hive desktop on the mini by QR (the emulator reaches the mini through the PC's Tailscale). Open an agent and send a message. Use T3 Device tools on `win-pc` for screenshots, and look at each screen.
 
-### Task 7.3: Install on Hridya's iPhone
+### Task 7.3: Push through Hridya's Firebase
 
-Needs answer to open question 1. With a free account: profiles last 7 days, max 3 devices and 10 App IDs (Apple's page). A free account likely has no App Groups (unconfirmed). Three targets use the group `group.run.openbot.mobile` [R-mobile]. After Phase 3 removes the Live Activity extension, check which targets still need the group. Remove the share and notification extensions if the free account cannot sign them, and record the loss.
+**Files:** `apps/mobile/google-services.json` (new, from Hridya's Firebase project; it is client config, not a secret, but keep it out of any public repo), the Worker's `FCM_SERVICE_ACCOUNT` (envsync on the mini, `apps/auth-api/.env.example:37-38`).
+**Step 1:** Hridya creates a Firebase project with Android app `dev.hridaya.hive` and downloads `google-services.json` and a service-account key.
+**Step 2:** `envsync set FCM_SERVICE_ACCOUNT` on the mini; restart the Worker service (Task 5.5).
+**Step 3:** Rebuild on `win-pc`. Background the app on the emulator, finish a turn on the mini, and confirm a notification arrives. Check `bun scripts/push-notification-away-e2e.ts` still passes on the desktop side.
+**Step 4:** Commit: `feat(mobile): push through own firebase`.
 
-### Task 7.4 (optional, paid account): Direct APNs
+### Task 7.4: Release APK on the phone
 
-Port `ApnsRelaySender` (`apps/auth-api/src/server/live-activity-relay.ts`, ES256 JWT with `jose`) into `src/main` as the sender behind `sendPushNotification` (`central-auth-manager.ts:969-995`). The `.p8` key comes from envsync on each host. Honour the phone's `environment` (sandbox for dev builds). Test with `bun scripts/push-notification-away-e2e.ts`, then a real lock-screen alert.
+Create a release keystore on `win-pc`; keep its password in envsync (`envsync set HIVE_ANDROID_KEYSTORE_PASSWORD`), never in git. Build with `bun mobile:android --variant release`. Install on Hridya's phone. Run the Phase 7 external check on the real phone.
 
 ---
 
 ## Execution notes
 
-- **Parallel work:** Phases 1, 3 and 4 touch different files. They can run in separate worktrees (`git worktree add ../openbot-phase1 personal`), one agent each. Merge them back into `personal` in order 1 → 3 → 4. Phase 2 must land before Phase 5. Phase 5 must land before Phases 6 and 7.
-- **After each phase:** use the `code-review` skill (thermo-nuclear mode) on the phase diff, then `code-deslop`. Record the findings and fixes in `progress.md`.
-- **Visual checks:** after Phases 2 and 3, look at the settings and server rail screens on the mini (`computer-use` skill). Screenshots go in `progress.md` as file paths. Tests do not catch a broken settings page.
-- **Stop and ask Hridya** only for: the Apple account (7.3, 7.4), the Copilot browser sign-in (4.1), the Phase 5 fallback choice, and any step that would touch `~/Library/Application Support/OpenBot` (the live upstream data).
+- **Order:** 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7. Phases 1 and 3 touch different files and can run in parallel worktrees (`git worktree add ../hive-phase1 personal`); merge 1 first. Phase 4 needs Phase 3 (Copilot in the chain). Phase 5 needs Phase 2. Phases 6 and 7 need Phase 5.
+- **After each phase:** use the `code-review` skill (thermo-nuclear mode) on the phase diff, then `code-deslop`. Record findings and fixes in `progress.md`.
+- **Visual checks:** after Phases 2, 3 and 4, look at the settings, provider and server-rail screens on the mini (`computer-use` skill). After Phase 7, look at the phone screens on `win-pc`. Record screenshot paths in `progress.md`.
+- **Stop and ask Hridya** only for: the Copilot and second Codex sign-ins, the Firebase project, the Phase 5 fallback choice, and any step that would touch `~/Library/Application Support/OpenBot` (the live upstream data).
