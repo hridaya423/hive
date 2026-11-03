@@ -83,3 +83,8 @@ Done before this session. Bun 1.4.2 at `~/.bun/bin/bun`. `bun install --frozen-l
 
 ### Surprise: "analytics" in contracts is two things
 `AgentAnalytics`, `HostAnalytics`, `readAgentAnalytics`, `readHostAnalytics`, `team-protocol/analytics-v1` and `host-analytics-v1` are the local **Usage report** (token counts from `openbot.db`). The research listed them as telemetry. They stay.
+
+## Task 2.8: repo furniture (branch `phase/2-furniture`)
+- Done: CLA, review and release workflows, deploy and announcement scripts, Linux and Windows packaging (`nix/`, `docker/`, `flake.*`, AppImage/NSIS targets), `install-server.sh`, `install-host-update-agent.sh`, host installer scripts, upstream skills `babysit`, `ship`, `smoke-and-ship`. `ci.yml` keeps its test jobs and loses `deploy-production` and the preview upload. README, PRIVACY, RELEASING, TROUBLESHOOTING rewritten for Hive. Docs of hosted servers, Docker and the Linux server removed.
+- Evidence: `bun run check:doc-links` and `check:agent-context` pass; `knip:check` shows only the 4 configuration hints; the script-target checker reports 0 missing targets; all workflow YAML parses.
+- Left for others: `apps/mobile/package.json` scripts `ios:release:testflight` and `android:release:play` call deleted workflows; stale hosted-server wording in `docs/web-client.md`, `remote/README.md`; `src` comments naming `install-server.sh`; `release-upgrade-safety` and `signal-deploy` skills name deleted files; `package.json` `repository`, `bugs`, `homepage` still name upstream.
