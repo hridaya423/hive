@@ -24,7 +24,7 @@ import { createOpenBotLogger } from "@openbot/logging";
 import { type Browser, type BrowserContext, chromium, type Page } from "playwright-core";
 import { type Spread, spread } from "./dev-automation/bench-stats";
 import { startRenderRecording } from "./dev-automation/render-metrics";
-import { freePort } from "./net-support";
+import { freePort, listen } from "./net-support";
 
 const logger = createOpenBotLogger("web-client-perf-e2e");
 const ROOT = resolve(import.meta.dirname, "..");
@@ -141,13 +141,6 @@ function measureBundle(samples: Samples): void {
   }
 }
 
-async function listen(server: Server): Promise<number> {
-  await new Promise<void>((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
-  const address = server.address();
-  assert.ok(address !== null && typeof address === "object", "The server has no TCP address.");
-  return address.port;
-}
-
 async function waitForOk(url: string, child: ChildProcess): Promise<void> {
   const deadline = Date.now() + 60_000;
   for (;;) {
@@ -225,7 +218,7 @@ async function startGzipProxy(upstream: string): Promise<{ url: string; server: 
       response.writeHead(502).end();
     });
   });
-  return { url: `http://127.0.0.1:${await listen(server)}`, server };
+  return { url: `http://127.0.0.1:${(await listen(server)).port}`, server };
 }
 
 // Records when the sign-in form shows and the long tasks before it, from the first byte of the page.
