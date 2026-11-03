@@ -1,5 +1,6 @@
 import type { ServerSummary } from "@openbot/contracts/ipc";
 import { ConfirmDialog, Spinner, toast } from "@openbot/ui";
+import { formatElapsed } from "@openbot/ui/utils";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import { CircleCheck, CircleDot, RotateCcw, TriangleAlert } from "../../icons";
@@ -301,8 +302,4 @@ function StepIcon(props: { status: StepStatus }): JSX.Element {
       </Show>
     </Show>
   );
-}
-
-function formatElapsed(seconds: number): string {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }

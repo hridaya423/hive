@@ -18,14 +18,6 @@ export function cx(...values: ClassValue[]): string {
     .join(" ");
 }
 
-export function truncateMiddle(value: string, maxLength: number): string {
-  if (value.length <= maxLength) return value;
-  const visibleLength = maxLength - 1;
-  const startLength = Math.ceil((visibleLength * 2) / 3);
-  const endLength = visibleLength - startLength;
-  return `${value.slice(0, startLength)}…${value.slice(-endLength)}`;
-}
-
 /**
  * Whether the user asked for less animation. Import this instead of redeclaring it; several
  * modules once held their own copy under different names. `matchMedia` is optional for jsdom.
@@ -71,4 +63,16 @@ export function createPressedPopupCue(): { ref: (element: HTMLElement) => void; 
       }),
     cue: () => (closing() ? "close" : ""),
   };
+}
+
+export function isDigit(character: string): boolean {
+  return /\d/u.test(character);
+}
+
+export function startOfDay(value: Date): number {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+}
+
+export function formatElapsed(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }

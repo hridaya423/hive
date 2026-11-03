@@ -1,5 +1,6 @@
 import type { HostedServerIssue } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
+import { formatElapsed } from "@openbot/ui/utils";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { ConfirmDialog } from "../../confirm-dialog";
@@ -173,8 +174,4 @@ function StepIcon(props: { status: StepStatus }): JSX.Element {
       </Show>
     </Show>
   );
-}
-
-function formatElapsed(seconds: number): string {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
