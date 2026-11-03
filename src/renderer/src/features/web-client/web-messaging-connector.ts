@@ -144,7 +144,8 @@ export function webHostMessaging(
       const page = await run(serverId, open);
       const address = messagingPage(platform, page.url);
       if (page.url !== null && !address) throw new Error(sourceText("error.team.connectorPageRefused"));
-      if (address && platform !== "telegram" && page.nonce !== null) remember(platform, page.nonce, serverId);
+      if (address && (platform === "slack" || platform === "discord") && page.nonce !== null)
+        remember(platform, page.nonce, serverId);
       if (address) tab.location.href = address;
       else tab.close();
     } catch (error) {

@@ -121,6 +121,9 @@ import { discordDriver, downloadDiscordAttachment } from "../backend/messaging/d
 import { MessagingOperationFailed, MessagingService } from "../backend/messaging/messaging-service";
 import { slackDriver } from "../backend/messaging/slack/slack-driver";
 import { telegramDriver } from "../backend/messaging/telegram/telegram-driver";
+import { baileysConnect } from "../backend/messaging/whatsapp/whatsapp-baileys";
+import { whatsappDriver } from "../backend/messaging/whatsapp/whatsapp-driver";
+import { WhatsAppPairing } from "../backend/messaging/whatsapp/whatsapp-transport";
 import { OpenBotDatabase } from "../backend/openbot-database";
 import { passwordVaultRouter } from "../backend/password-vault-router";
 import { sweepProviderTemp } from "../backend/provider-temp";
@@ -736,6 +739,7 @@ async function createMessagingServices({
   // Development only: `bun run dev:slack` names this loopback port, so a Slack install returns to this
   // dev app and not to an installed OpenBot that owns `dev.hridaya.hive://`.
   const developmentSlackCallbackPort = app.isPackaged ? 0 : Number(process.env.OPENBOT_DEV_SLACK_CALLBACK_PORT ?? 0);
+  const whatsappPairing = new WhatsAppPairing();
   const messaging = new MessagingService({
     threads: service.messaging,
     agents: {
@@ -757,11 +761,17 @@ async function createMessagingServices({
       slackDriver({ ingress: signalIngress }),
       discordDriver({ ingress: signalIngress }),
       telegramDriver({ ingress: signalIngress }),
+      whatsappDriver({
+        connect: baileysConnect,
+        pairing: whatsappPairing,
+        authDir: join(app.getPath("userData"), "whatsapp", "auth"),
+      }),
     ],
     downloadsRoot: join(app.getPath("userData"), "messaging-downloads"),
     statusPath: join(app.getPath("userData"), "openbot-messaging-status-v1.json"),
     ingress: signalIngress,
     sidebar: sidebarLayout,
+    whatsappPairing,
     slackApp: {
       authorize: (input) =>
         Effect.suspend(() => {

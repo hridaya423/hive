@@ -348,4 +348,6 @@ export interface MessagingDriver {
   readonly requiredCredential: string;
   createAdapter(credentials: Record<string, string>, options: MessagingDriverOptions): MessagingAdapter;
   createTransport(credentials: Record<string, string>, identity: ConnectionIdentity): MessagingTransport;
+  /** Logs out an account that lives on this host and deletes its login. Before the connection stops. */
+  unlink?(): Effect.Effect<void>;
 }

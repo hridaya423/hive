@@ -1,6 +1,6 @@
 import type { SkillCategory } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import { Lock } from "@openbot/ui";
+import { Lock, MessageCircle } from "@openbot/ui";
 import type { JSX } from "@solidjs/web";
 import { DiscordMark, GitHubMark, OnePasswordMark, SlackMark, TelegramMark } from "../settings/brand-marks";
 import type { ConnectorId } from "./connectors";
@@ -34,6 +34,12 @@ export const CONNECTOR_LISTINGS: Readonly<Record<ConnectorId, ConnectorListing>>
     tagline: "marketplace.app.telegramTagline",
     category: "productivity",
     Mark: () => <TelegramMark />,
+  },
+  whatsapp: {
+    title: "connector.whatsapp.title",
+    tagline: "marketplace.app.whatsappTagline",
+    category: "productivity",
+    Mark: () => <MessageCircle aria-hidden="true" />,
   },
   github: {
     title: "connector.github.title",

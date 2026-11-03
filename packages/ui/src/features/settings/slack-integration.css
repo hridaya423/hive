@@ -62,6 +62,25 @@
   gap: var(--openbot-space-1);
 }
 
+/* ------------------------------------------------ WhatsApp */
+
+.whatsapp-qr {
+  display: flex;
+  justify-content: center;
+  padding: var(--openbot-space-2) 0;
+}
+
+.whatsapp-chat-form {
+  display: flex;
+  gap: var(--openbot-space-2);
+  align-items: flex-end;
+  padding: var(--openbot-space-3) var(--openbot-space-4);
+}
+
+.whatsapp-chat-form > :first-child {
+  flex: 1;
+}
+
 /* ------------------------------------------------ Discord roles dialog */
 
 .discord-roles {
