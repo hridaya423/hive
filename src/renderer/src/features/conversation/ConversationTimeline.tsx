@@ -28,7 +28,7 @@ import { UnreadMessagesBanner, UnreadMessagesDivider } from "@openbot/ui/feature
 import { VoicePlayer } from "@openbot/ui/features/conversation/VoicePlayer";
 import { teamMemberName } from "@openbot/ui/features/team/TeamPersonAvatar";
 import { useText } from "@openbot/ui/text";
-import { createMemo, createSignal, For, Loading, lazy, onCleanup, Show, untrack } from "solid-js";
+import { createMemo, createSignal, For, Loading, lazy, onCleanup, type ParentProps, Show, untrack } from "solid-js";
 import { useShowAgentSteps } from "../../agent-steps-preference";
 import { planItems, planTitle } from "../../app-message-projection";
 import { currentDevicePlatform } from "../../send-shortcut-preference";
@@ -776,38 +776,43 @@ export function ConversationTimeline() {
                   const previous = previousMessage();
                   return previous !== undefined && markerRowEndsWithMarker(previous);
                 });
+                const VirtualRow = (rowProps: ParentProps<{ grouped?: "marker" | "sender" | undefined }>) => (
+                  <div
+                    data-index={virtualRow.index}
+                    data-grouped={rowProps.grouped}
+                    ref={messageVirtualizer.measureElement}
+                    class="virtual-chat-row"
+                    style={{
+                      transform: messageVirtualizer.isVirtualized()
+                        ? `translateY(${virtualRow.start - messageVirtualizer.scrollMargin()}px)`
+                        : "none",
+                    }}
+                  >
+                    <Show when={message()?.id === compactionBefore()}>
+                      <CompactionMarker />
+                    </Show>
+                    <Show when={dayMarker()}>
+                      {(label) => (
+                        <div class="time-marker">
+                          <span>{label()}</span>
+                        </div>
+                      )}
+                    </Show>
+                    <Show when={message()?.id === unreadBoundaryMessageId()}>
+                      <UnreadMessagesDivider
+                        animateIn={unreadDividerArrives}
+                        elementRef={(element) => {
+                          setUnreadMessagesDividerElement(element);
+                          scheduleUnreadDividerVisibilityUpdate();
+                        }}
+                      />
+                    </Show>
+                    {rowProps.children}
+                  </div>
+                );
                 if (markerOnly) {
                   return (
-                    <div
-                      data-index={virtualRow.index}
-                      data-grouped={groupedWithMarker() ? "marker" : undefined}
-                      ref={messageVirtualizer.measureElement}
-                      class="virtual-chat-row"
-                      style={{
-                        transform: messageVirtualizer.isVirtualized()
-                          ? `translateY(${virtualRow.start - messageVirtualizer.scrollMargin()}px)`
-                          : "none",
-                      }}
-                    >
-                      <Show when={message()?.id === compactionBefore()}>
-                        <CompactionMarker />
-                      </Show>
-                      <Show when={dayMarker()}>
-                        {(label) => (
-                          <div class="time-marker">
-                            <span>{label()}</span>
-                          </div>
-                        )}
-                      </Show>
-                      <Show when={message()?.id === unreadBoundaryMessageId()}>
-                        <UnreadMessagesDivider
-                          animateIn={unreadDividerArrives}
-                          elementRef={(element) => {
-                            setUnreadMessagesDividerElement(element);
-                            scheduleUnreadDividerVisibilityUpdate();
-                          }}
-                        />
-                      </Show>
+                    <VirtualRow grouped={groupedWithMarker() ? "marker" : undefined}>
                       <ChatRowBoundary>
                         <article
                           data-chat-search-message={message()?.id}
@@ -928,42 +933,14 @@ export function ConversationTimeline() {
                           </Show>
                         </article>
                       </ChatRowBoundary>
-                    </div>
+                    </VirtualRow>
                   );
                 }
                 if (untrack(() => initialMessage.kind === "plan")) {
                   // A plan has no bubble, reactions or time: it is the agent's live checklist.
                   const plan = () => message()?.plan ?? initialMessage.plan;
                   return (
-                    <div
-                      data-index={virtualRow.index}
-                      ref={messageVirtualizer.measureElement}
-                      class="virtual-chat-row"
-                      style={{
-                        transform: messageVirtualizer.isVirtualized()
-                          ? `translateY(${virtualRow.start - messageVirtualizer.scrollMargin()}px)`
-                          : "none",
-                      }}
-                    >
-                      <Show when={message()?.id === compactionBefore()}>
-                        <CompactionMarker />
-                      </Show>
-                      <Show when={dayMarker()}>
-                        {(label) => (
-                          <div class="time-marker">
-                            <span>{label()}</span>
-                          </div>
-                        )}
-                      </Show>
-                      <Show when={message()?.id === unreadBoundaryMessageId()}>
-                        <UnreadMessagesDivider
-                          animateIn={unreadDividerArrives}
-                          elementRef={(element) => {
-                            setUnreadMessagesDividerElement(element);
-                            scheduleUnreadDividerVisibilityUpdate();
-                          }}
-                        />
-                      </Show>
+                    <VirtualRow>
                       <ChatRowBoundary>
                         <article
                           data-chat-search-message={message()?.id}
@@ -980,42 +957,14 @@ export function ConversationTimeline() {
                           </Show>
                         </article>
                       </ChatRowBoundary>
-                    </div>
+                    </VirtualRow>
                   );
                 }
                 if (untrack(() => initialMessage.kind === "subagents")) {
                   // The subagents have no bubble, reactions or time: they are the live work of the turn.
                   const subagents = () => message()?.subagents ?? initialMessage.subagents;
                   return (
-                    <div
-                      data-index={virtualRow.index}
-                      ref={messageVirtualizer.measureElement}
-                      class="virtual-chat-row"
-                      style={{
-                        transform: messageVirtualizer.isVirtualized()
-                          ? `translateY(${virtualRow.start - messageVirtualizer.scrollMargin()}px)`
-                          : "none",
-                      }}
-                    >
-                      <Show when={message()?.id === compactionBefore()}>
-                        <CompactionMarker />
-                      </Show>
-                      <Show when={dayMarker()}>
-                        {(label) => (
-                          <div class="time-marker">
-                            <span>{label()}</span>
-                          </div>
-                        )}
-                      </Show>
-                      <Show when={message()?.id === unreadBoundaryMessageId()}>
-                        <UnreadMessagesDivider
-                          animateIn={unreadDividerArrives}
-                          elementRef={(element) => {
-                            setUnreadMessagesDividerElement(element);
-                            scheduleUnreadDividerVisibilityUpdate();
-                          }}
-                        />
-                      </Show>
+                    <VirtualRow>
                       <ChatRowBoundary>
                         <article
                           data-chat-search-message={message()?.id}
@@ -1032,7 +981,7 @@ export function ConversationTimeline() {
                           </Show>
                         </article>
                       </ChatRowBoundary>
-                    </div>
+                    </VirtualRow>
                   );
                 }
                 if (untrack(() => initialMessage.kind === "memory-changes")) {
@@ -1092,35 +1041,7 @@ export function ConversationTimeline() {
                     );
                   }
                   return (
-                    <div
-                      data-index={virtualRow.index}
-                      ref={messageVirtualizer.measureElement}
-                      class="virtual-chat-row"
-                      style={{
-                        transform: messageVirtualizer.isVirtualized()
-                          ? `translateY(${virtualRow.start - messageVirtualizer.scrollMargin()}px)`
-                          : "none",
-                      }}
-                    >
-                      <Show when={message()?.id === compactionBefore()}>
-                        <CompactionMarker />
-                      </Show>
-                      <Show when={dayMarker()}>
-                        {(label) => (
-                          <div class="time-marker">
-                            <span>{label()}</span>
-                          </div>
-                        )}
-                      </Show>
-                      <Show when={message()?.id === unreadBoundaryMessageId()}>
-                        <UnreadMessagesDivider
-                          animateIn={unreadDividerArrives}
-                          elementRef={(element) => {
-                            setUnreadMessagesDividerElement(element);
-                            scheduleUnreadDividerVisibilityUpdate();
-                          }}
-                        />
-                      </Show>
+                    <VirtualRow>
                       <ChatRowBoundary>
                         <article
                           data-chat-search-message={message()?.id}
@@ -1141,7 +1062,7 @@ export function ConversationTimeline() {
                           />
                         </article>
                       </ChatRowBoundary>
-                    </div>
+                    </VirtualRow>
                   );
                 }
                 const displayedReactions = createMemo(() => {
@@ -1175,36 +1096,7 @@ export function ConversationTimeline() {
                     ? undefined
                     : readAloudAction(message() ?? initialMessage);
                 return (
-                  <div
-                    data-index={virtualRow.index}
-                    data-grouped={groupedWithMarker() ? "marker" : continuesRun() ? "sender" : undefined}
-                    ref={messageVirtualizer.measureElement}
-                    class="virtual-chat-row"
-                    style={{
-                      transform: messageVirtualizer.isVirtualized()
-                        ? `translateY(${virtualRow.start - messageVirtualizer.scrollMargin()}px)`
-                        : "none",
-                    }}
-                  >
-                    <Show when={message()?.id === compactionBefore()}>
-                      <CompactionMarker />
-                    </Show>
-                    <Show when={dayMarker()}>
-                      {(label) => (
-                        <div class="time-marker">
-                          <span>{label()}</span>
-                        </div>
-                      )}
-                    </Show>
-                    <Show when={message()?.id === unreadBoundaryMessageId()}>
-                      <UnreadMessagesDivider
-                        animateIn={unreadDividerArrives}
-                        elementRef={(element) => {
-                          setUnreadMessagesDividerElement(element);
-                          scheduleUnreadDividerVisibilityUpdate();
-                        }}
-                      />
-                    </Show>
+                  <VirtualRow grouped={groupedWithMarker() ? "marker" : continuesRun() ? "sender" : undefined}>
                     <Show when={turnSteps.stepsAbove(message()?.id)}>
                       {(steps) => (
                         <ChatRowBoundary>
@@ -1394,7 +1286,7 @@ export function ConversationTimeline() {
                         )}
                       </Show>
                     </ChatRowBoundary>
-                  </div>
+                  </VirtualRow>
                 );
               }}
             </For>
