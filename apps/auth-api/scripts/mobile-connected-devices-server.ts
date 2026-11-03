@@ -79,7 +79,6 @@ function route(request: IncomingMessage, body: DynamicRecord) {
           challengeId: body.challengeId,
           code: body.code,
           sourceIp: SOURCE_IP,
-          surface: "desktop",
         }),
       };
     }

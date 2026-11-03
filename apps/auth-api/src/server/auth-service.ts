@@ -10,7 +10,6 @@ import {
   validateProfileName,
 } from "@openbot/contracts/validation";
 import { Context, Effect, Layer, Result, Schema } from "effect";
-import { type AccountAnalytics, type AccountSurface, NO_ACCOUNT_ANALYTICS } from "./account-analytics";
 import type { AccountAttribution } from "./account-attribution";
 import { randomToken, sha256 } from "./crypto";
 import type { AuthStoreError } from "./d1-auth-repository";
@@ -51,7 +50,6 @@ interface AuthServiceOptions {
   now?: () => number;
   flushSessionRevocations?: () => Effect.Effect<void, RemoteFailure>;
   profileChanged?: (userId: string) => Effect.Effect<void, RemoteFailure>;
-  analytics?: AccountAnalytics;
   /** Saves the first website visit that a sign-in on the web sends. */
   attribution?: AccountAttribution;
 }
@@ -79,7 +77,6 @@ class AuthDependencies extends Context.Service<
     now: () => number;
     flushSessionRevocations: () => Effect.Effect<void, RemoteFailure>;
     profileChanged: (userId: string) => Effect.Effect<void, RemoteFailure>;
-    analytics: AccountAnalytics;
     attribution: AccountAttribution | null;
   }
 >()("@openbot/auth-api/AuthDependencies") {}
@@ -111,7 +108,6 @@ export class AuthService {
       now: options.now ?? Date.now,
       flushSessionRevocations: options.flushSessionRevocations ?? (() => Effect.void),
       profileChanged: options.profileChanged ?? (() => Effect.void),
-      analytics: options.analytics ?? NO_ACCOUNT_ANALYTICS,
       attribution: options.attribution ?? null,
     });
   }
@@ -279,7 +275,6 @@ export class AuthService {
         challengeId: string;
         code: string;
         sourceIp: string;
-        surface: Exclude<AccountSurface, "mobile">;
         /** Only the web client sends one; it is already checked. */
         firstTouch?: FirstTouch | null;
       },
@@ -302,7 +297,7 @@ export class AuthService {
     ): Effect.fn.Return<{ sessionToken: string; user: AuthUser }, AuthWorkflowFailure, AuthDependencies> {
       const dependencies = yield* AuthDependencies;
       const device = yield* authValidate(() => normalizeMobileDevice(input.device));
-      const session = yield* this.#verifyEmailChallenge({ ...input, device, surface: "mobile" });
+      const session = yield* this.#verifyEmailChallenge({ ...input, device });
       // The new session replaces the earlier session of this device.
       yield* dependencies.flushSessionRevocations();
       return session;
@@ -334,7 +329,7 @@ export class AuthService {
       });
       if (!created) return yield* new AuthOperationError({ message: "Account operation failed." });
       yield* dependencies.repository.completeEmailChallengeDelivery(idHash, "sent", now);
-      return yield* this.#verifyEmailChallenge({ challengeId, code, sourceIp, surface: "desktop" });
+      return yield* this.#verifyEmailChallenge({ challengeId, code, sourceIp });
     },
     (operation) => operation.pipe(Effect.mapError(authFailure), Effect.provide(this.#layer)),
   ).bind(this);
@@ -345,7 +340,6 @@ export class AuthService {
       challengeId: string;
       code: string;
       sourceIp: string;
-      surface: AccountSurface;
       firstTouch?: FirstTouch | null;
       device?: MobileAuthDeviceIdentity;
     },
@@ -378,9 +372,6 @@ export class AuthService {
       yield* attribution
         .record(session.user.id, firstTouch, "sign_in")
         .pipe(Effect.catch(() => Effect.sync(() => console.warn("Account attribution save failed."))));
-    }
-    if (result.status === "verified" && result.created) {
-      dependencies.analytics.track(session.user.id, { name: "account_created", surface: input.surface, firstTouch });
     }
     return session;
   });

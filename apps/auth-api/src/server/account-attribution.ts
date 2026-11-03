@@ -1,6 +1,7 @@
 import { FIRST_TOUCH_CAMPAIGN_FIELDS, type FirstTouch, parseFirstTouch } from "@openbot/contracts/first-touch";
 import { Effect, Schema } from "effect";
-import type { AccountAnalytics, AttributionSource } from "./account-analytics";
+
+type AttributionSource = "sign_in";
 
 const LANDING_PAGES: readonly string[] = ["/", "/join"];
 
@@ -44,12 +45,10 @@ export function requestFirstTouch(value: unknown): FirstTouch | null {
  */
 export class AccountAttribution {
   readonly #database: D1Database;
-  readonly #analytics: AccountAnalytics;
   readonly #now: () => number;
 
-  constructor(options: { database: D1Database; analytics: AccountAnalytics; now?: () => number }) {
+  constructor(options: { database: D1Database; now?: () => number }) {
     this.#database = options.database;
-    this.#analytics = options.analytics;
     this.#now = options.now ?? Date.now;
   }
 
@@ -85,9 +84,7 @@ export class AccountAttribution {
         )
         .run(),
     );
-    const saved = result.meta.changes === 1;
-    if (saved) this.#analytics.track(userId, { name: "account_attributed", via, firstTouch: touch });
-    return saved;
+    return result.meta.changes === 1;
   }).bind(this);
 
   readonly read = Effect.fn("AccountAttribution.read")(function* (

@@ -1,7 +1,6 @@
 import { env, waitUntil } from "cloudflare:workers";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { Effect } from "effect";
-import { NO_ACCOUNT_ANALYTICS } from "./account-analytics";
 import { AccountAttribution } from "./account-attribution";
 import { adminTokenMatches } from "./admin-token";
 import { AgentMarketplace, AgentMarketplaceError } from "./agent-marketplace";
@@ -37,13 +36,12 @@ export function requestAuthService(): AuthService {
   const exposeDevelopmentCode = bindings.AUTH_EXPOSE_DEVELOPMENT_CODE === "true";
   return new AuthService({
     repository: new D1AuthRepository(bindings.DB),
-    delivery: exposeDevelopmentCode ? null : createEmailCodeDelivery(bindings, NO_ACCOUNT_ANALYTICS),
+    delivery: exposeDevelopmentCode ? null : createEmailCodeDelivery(bindings),
     exposeDevelopmentCode,
     // The revocation is already written and the cron redelivers it, so the answer does not wait.
     flushSessionRevocations: () => Effect.sync(() => schedule(deliverPendingRemoteAuthEvents(bindings, Date.now()))),
     profileChanged: (userId) => notifyAccountProfileChanged(bindings, userId, schedule),
-    analytics: NO_ACCOUNT_ANALYTICS,
-    attribution: new AccountAttribution({ database: bindings.DB, analytics: NO_ACCOUNT_ANALYTICS }),
+    attribution: new AccountAttribution({ database: bindings.DB }),
   });
 }
 
@@ -204,7 +202,7 @@ export const requireSkillsAdmin = Effect.fn("Auth.requireSkillsAdmin")(function*
 
 export function requestTeamInviteEmailDelivery(): TeamInviteEmailDelivery | null {
   const bindings = requireWorkerBindings(env);
-  return createTeamInviteEmailDelivery(bindings, NO_ACCOUNT_ANALYTICS);
+  return createTeamInviteEmailDelivery(bindings);
 }
 
 export function requestRemoteControlPlane(): RemoteControlPlane {
