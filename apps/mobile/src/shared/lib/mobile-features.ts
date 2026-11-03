@@ -66,7 +66,7 @@ export async function refreshMobileFeatures(apiUrl: string, force = false): Prom
  * development builds send the version of the app config; for a development build it is the same.
  * A release build sends its native version.
  */
-export function currentAppVersion(): string | null {
+function currentAppVersion(): string | null {
   if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) return Constants.expoConfig?.version ?? null;
   return Application.nativeApplicationVersion;
 }
