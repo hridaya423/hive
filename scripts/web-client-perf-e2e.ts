@@ -24,6 +24,7 @@ import { createOpenBotLogger } from "@openbot/logging";
 import { type Browser, type BrowserContext, chromium, type Page } from "playwright-core";
 import { type Spread, spread } from "./dev-automation/bench-stats";
 import { startRenderRecording } from "./dev-automation/render-metrics";
+import { freePort } from "./net-support";
 
 const logger = createOpenBotLogger("web-client-perf-e2e");
 const ROOT = resolve(import.meta.dirname, "..");
@@ -149,13 +150,6 @@ async function listen(server: Server): Promise<number> {
   const address = server.address();
   assert.ok(address !== null && typeof address === "object", "The server has no TCP address.");
   return address.port;
-}
-
-async function freePort(): Promise<number> {
-  const server = createServer();
-  const port = await listen(server);
-  await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
-  return port;
 }
 
 async function waitForOk(url: string, child: ChildProcess): Promise<void> {

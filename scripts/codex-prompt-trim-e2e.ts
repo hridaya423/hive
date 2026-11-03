@@ -6,7 +6,7 @@
 // `bun scripts/codex-prompt-trim-e2e.ts`. Writes .openbot-build/codex-prompt-trim-e2e/report.json.
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { createServer, type Server as HttpServer } from "node:http";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { CODEX_FEATURES_CONFIG } from "../src/backend/agent/thread-lifecycle";
@@ -14,6 +14,7 @@ import { CodexAppServerClient } from "../src/backend/app-server-client";
 import { resolveCodexCli } from "../src/backend/cli";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { decodeRecordResponse, getRecord, getString } from "../src/backend/protocol";
+import { listen } from "./net-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/codex-prompt-trim-e2e");
 const NL = String.fromCharCode(10);
@@ -86,20 +87,6 @@ function startFakeModel() {
     });
   });
   return listen(server).then((listening) => ({ requests, ...listening }));
-}
-
-async function listen(server: HttpServer) {
-  await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
-  const address = server.address();
-  assert(address && typeof address === "object");
-  return {
-    port: address.port,
-    close: () =>
-      new Promise<void>((done) => {
-        server.closeAllConnections();
-        server.close(() => done());
-      }),
-  };
 }
 
 function deadline(what: string): Promise<never> {

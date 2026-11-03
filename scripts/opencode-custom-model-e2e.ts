@@ -13,7 +13,6 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { createServer as createTcpServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -24,6 +23,7 @@ import { runCauseEffect } from "../src/backend/effect-boundary";
 import type { CustomProviderConfig } from "../src/backend/opencode-config";
 import { getArray, getString, isRecord } from "../src/backend/protocol";
 import { requireProviderDriver } from "../src/backend/provider-drivers";
+import { freePort } from "./net-support";
 import { runTurn, startThread, stopClients } from "./provider-fakes/host";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/opencode-custom-model");
@@ -125,16 +125,6 @@ const server = createServer((request: IncomingMessage, response: ServerResponse)
     response.end(String(error));
   });
 });
-
-/** A free TCP port for OpenCode's managed service, so the test does not meet a running OpenBot's. */
-async function freePort(): Promise<number> {
-  const probe = createTcpServer();
-  await new Promise<void>((listening) => probe.listen(0, "127.0.0.1", listening));
-  const address = probe.address();
-  await new Promise<void>((closed) => probe.close(() => closed()));
-  if (!address || typeof address === "string") throw new Error("The port probe has no port.");
-  return address.port;
-}
 
 let cliPath: string | null = null;
 try {

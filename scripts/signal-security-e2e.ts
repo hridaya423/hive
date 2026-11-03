@@ -10,7 +10,6 @@ import { createHmac, generateKeyPairSync, randomBytes, randomUUID } from "node:c
 import { createSocket, type Socket } from "node:dgram";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server } from "node:http";
-import { createServer as createNetServer } from "node:net";
 import { resolve } from "node:path";
 import {
   GITHUB_DELIVERY_BODY_BYTES_LIMIT,
@@ -41,6 +40,7 @@ import {
 } from "@openbot/contracts/signal-protocol/webhook-route";
 import { createOpenBotLogger } from "@openbot/logging";
 import { exportJWK, type JWTPayload, SignJWT } from "jose";
+import { freePort } from "./net-support";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = resolve(ROOT, ".openbot-build/signal-security-e2e");
@@ -191,19 +191,6 @@ function startEntryDns(): Promise<Socket> {
 function relayHosts(ready: { iceServers?: Array<{ urls: string | string[] }> }): string[] {
   const urls = (ready.iceServers ?? []).flatMap((server) => [server.urls].flat());
   return [...new Set(urls.map((url) => url.replace(/^(?:stun|turns?):/u, "").replace(/:[0-9]+(?:\?.*)?$/u, "")))];
-}
-
-function freePort(): Promise<number> {
-  return new Promise((resolvePort, reject) => {
-    const server = createNetServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      server.close(() =>
-        typeof address === "object" && address ? resolvePort(address.port) : reject(new Error("No port.")),
-      );
-    });
-  });
 }
 
 function hmac(secret: string, text: string, encoding: "hex" | "base64url") {
