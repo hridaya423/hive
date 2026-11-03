@@ -1,11 +1,10 @@
 import { Effect } from "effect";
-// App identity, first-run setup, the analytics preference, external links and the data and
+// App identity, first-run setup, external links and the data and
 // diagnostics exports.
 
 import { HOSTED_SERVER_CONTACT_URL } from "@openbot/contracts/hosted-servers";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import {
-  type AnalyticsPreference,
   type AppInfo,
   type AppSetupState,
   type AppVariant,
@@ -15,7 +14,6 @@ import {
   externalLinkAppName,
   GROK_BOT_EXPORT_URL,
 } from "@openbot/contracts/ipc";
-import { analyticsOnByDefault } from "@openbot/telemetry";
 import { app, type BrowserWindow, dialog, type OpenDialogOptions } from "electron";
 import { version as developmentVersion } from "../../../package.json";
 import type { AgentService } from "../../backend/agent-service";
@@ -23,7 +21,6 @@ import type { BrowserHost } from "../../backend/browser-host";
 import type { MailboxStore } from "../../backend/mailbox-store";
 import type { AgentDefaultsPreferenceStore } from "../agent-defaults-preference-store";
 import type { AgentMemoryLimitSetting } from "../agent-memory-limit-preference-store";
-import type { AnalyticsPreferenceService } from "../analytics-preference-service";
 import type { AppBehaviorService } from "../app-behavior-service";
 import type { AppearanceService } from "../appearance-service";
 import type { ApprovalAutomation } from "../approval-automation-store";
@@ -42,7 +39,6 @@ import { readSetupState, writeSetupState } from "../setup-store";
 import type { UpdateService } from "../update-service";
 import {
   parseAgentDefaults,
-  parseAnalyticsPreference,
   parseAppAppearancePreference,
   parseAppBehaviorPreferenceChange,
   parseAppInterfaceSizePreference,
@@ -100,7 +96,6 @@ export interface AppIpcDependencies {
   browser: BrowserHost;
   updater: UpdateService;
   setupFile: string;
-  analyticsPreferences: AnalyticsPreferenceService;
   approvalAutomation: ApprovalAutomation;
   busyMessageMode: BusyMessageModePreferenceStore;
   agentDefaults: AgentDefaultsPreferenceStore;
@@ -121,8 +116,6 @@ export interface AppIpcDependencies {
   interfaceSize: InterfaceSizeService;
   initializeAgent: () => Promise<void>;
   appVariant: AppVariant;
-  analyticsCaptureUrl: string | null;
-  analyticsInstallId: string | null;
   getMainWindow: () => BrowserWindow | null;
   openChatWindow: (target: ChatWindowTarget) => void;
   chatWindowTargets: () => ChatWindowTarget[];
@@ -136,7 +129,6 @@ export function appIpcHandlers({
   browser,
   updater,
   setupFile,
-  analyticsPreferences,
   approvalAutomation,
   busyMessageMode,
   agentDefaults,
@@ -155,8 +147,6 @@ export function appIpcHandlers({
   interfaceSize,
   initializeAgent,
   appVariant,
-  analyticsCaptureUrl,
-  analyticsInstallId,
   getMainWindow,
   openChatWindow,
   chatWindowTargets,
@@ -177,27 +167,9 @@ export function appIpcHandlers({
           version,
           platform,
           variant: appVariant,
-          ...(analyticsCaptureUrl ? { analyticsCaptureUrl } : {}),
-          ...(analyticsInstallId ? { analyticsInstallId } : {}),
         };
       }),
       getSetupState: handler(() => runCauseEffect(readSetupState(setupFile))),
-      getAnalyticsPreference: handler(() =>
-        runCauseEffect(
-          readSetupState(setupFile).pipe(Effect.flatMap((setup) => analyticsPreferences.read(setup.completed))),
-        ),
-      ),
-      // An answer the user gave on another device comes before the regional default.
-      getAnalyticsDefault: handler(
-        (): AnalyticsPreference => ({
-          enabled:
-            analyticsPreferences.accountAnswer() ??
-            analyticsOnByDefault(app.getLocaleCountryCode(), Intl.DateTimeFormat().resolvedOptions().timeZone),
-        }),
-      ),
-      setAnalyticsPreference: payloadHandler(parseAnalyticsPreference, (parsed) =>
-        runCauseEffect(analyticsPreferences.set(parsed.enabled, parsed.chosen === true)),
-      ),
       getApprovalAutomation: handler(() => approvalAutomation.current()),
       getBusyMessageModePreference: handler(() => busyMessageMode.get()),
       setBusyMessageModePreference: payloadHandler(parseBusyMessageModePreference, (parsed) =>
@@ -255,9 +227,6 @@ export function appIpcHandlers({
         runCauseEffect(interfaceSize.set(parsed)),
       ),
       saveSetup: payloadHandler(parseSetup, async (input): Promise<AppSetupState> => {
-        // Before the setup file: once setup is complete, a missing choice reads as an older user's "on".
-        const before = await runCauseEffect(readSetupState(setupFile));
-        await runCauseEffect(analyticsPreferences.saveDefault(before.completed));
         const state = await runCauseEffect(writeSetupState(setupFile, input));
         await runCauseEffect(service.setPreferredProvider(input.preferredProvider, input.preferredModel));
         await initializeAgent();

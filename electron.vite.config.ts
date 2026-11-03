@@ -16,7 +16,6 @@ export default defineConfig({
           "@openbot/i18n",
           "@openbot/logging",
           "@openbot/team-client",
-          "@openbot/telemetry",
           "@openbot/user-errors",
         ],
       }),

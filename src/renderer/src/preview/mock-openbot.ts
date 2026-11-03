@@ -31,7 +31,6 @@ import {
   type AgentTask,
   type AgentTasksSnapshot,
   type AgentTemplatePublication,
-  type AnalyticsPreference,
   type AppAppearancePreference,
   type AppBehaviorPreference,
   type AppInfo,
@@ -231,9 +230,6 @@ export interface MockOpenBotOptions
     MockHostUpdateOptions,
     MockRoutineResultsOptions {
   appInfo?: AppInfo;
-  analyticsPreference?: AnalyticsPreference;
-  /** The first value of the first-run analytics box. Clear, as in a region that asks for consent. */
-  analyticsDefault?: boolean;
   languagePreference?: AppLanguagePreference;
   setupState?: AppSetupState;
   agentStatus?: AgentStatus;
@@ -446,7 +442,6 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       message: null,
     };
   };
-  let analyticsPreference = clone<AnalyticsPreference>(options.analyticsPreference ?? { enabled: true });
   let approvalAutomation = clone<ApprovalAutomationPreference>(DEFAULT_APPROVAL_AUTOMATION_PREFERENCE);
   let busyMessageMode: BusyMessageModePreference = { mode: DEFAULT_BUSY_MESSAGE_MODE };
   let agentDefaults: AgentDefaults = { ...DEFAULT_AGENT_DEFAULTS };
@@ -1100,13 +1095,6 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     },
     // Only a joined admin changes the setup from outside the window, and the preview has none.
     onSetupState: () => () => undefined,
-    getAnalyticsPreference: async () => clone(analyticsPreference),
-    getAnalyticsDefault: async () => ({ enabled: options.analyticsDefault ?? false }),
-    setAnalyticsPreference: async ({ enabled }) => {
-      analyticsPreference = { enabled };
-      return clone(analyticsPreference);
-    },
-    onAnalyticsPreference: () => () => undefined,
     getApprovalAutomation: async () => clone(approvalAutomation),
     onApprovalAutomation: (listener) => {
       approvalAutomationListeners.add(listener);

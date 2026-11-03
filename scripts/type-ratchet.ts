@@ -19,7 +19,6 @@ const PROJECTS = [
   "packages/contracts/tsconfig.json",
   "packages/i18n/tsconfig.json",
   "packages/logging/tsconfig.json",
-  "packages/telemetry/tsconfig.json",
   "packages/team-client/tsconfig.json",
   "packages/user-errors/tsconfig.json",
 ];

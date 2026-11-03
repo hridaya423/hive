@@ -124,7 +124,7 @@ if a step fails. The steps have separate logs. The groups run in this order:
   together. The smoke test starts only after both succeed.
 - `Surfaces` completes setup, then runs three groups: `mobile:typecheck` with
   `typecheck:team-client`; `typecheck:remote`; and `typecheck:logging`,
-  `typecheck:telemetry`, `typecheck:user-errors`, and `typecheck:i18n`. Each command uses `bun run`
+  `typecheck:user-errors`, and `typecheck:i18n`. Each command uses `bun run`
   in its own step. Mobile generation stays inside `mobile:typecheck`. Compose validation starts
   after all groups succeed.
 

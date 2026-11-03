@@ -811,9 +811,6 @@ jobs:
           - name: Typecheck logging
             run: bun run typecheck:logging
 
-          - name: Typecheck telemetry
-            run: bun run typecheck:telemetry
-
           - name: Typecheck user errors
             run: bun run typecheck:user-errors
 

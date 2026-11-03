@@ -12,10 +12,6 @@ export interface AppInfo {
   version: string;
   platform: DesktopPlatform;
   variant: AppVariant;
-  /** Set only in an unpackaged build that a local analytics capture server reads. */
-  analyticsCaptureUrl?: string;
-  /** The random analytics ID of this install, for events that do not go with the account. */
-  analyticsInstallId?: string;
 }
 
 /** The phase list is the source of truth: `UpdatePhase` is derived from it. */
@@ -194,26 +190,11 @@ export interface SaveSetupInput {
   preferredModel: AgentModelId | null;
 }
 
-export interface AnalyticsPreference {
-  enabled: boolean;
-}
-
-export interface SetAnalyticsPreferenceInput {
-  enabled: boolean;
-  /** True when the user chose this value. Only a choice is sent to the account; a default is not. */
-  chosen?: boolean;
-}
-
 export interface CentralAuthUser {
   id: string;
   email: string;
   name: string | null;
   avatarUrl: string | null;
-  /**
-   * The latest product analytics answer of the account, from any device. Null or missing: the user
-   * never answered, or the account service is older.
-   */
-  analyticsEnabled?: boolean | null;
 }
 
 export interface CentralAuthIssue {

@@ -33,50 +33,6 @@ const CPU_CLASSES = ["le4", "le8", "le12", "le16", "gt16"] as const;
 const ARCHITECTURES = ["arm64", "x64", "other"] as const;
 const HOST_KINDS = ["desktop", "server"] as const;
 
-/** Closed-set values of the enum properties. The analytics sanitizer checks them again. */
-export const RESOURCE_ENUMS = {
-  ram_class: RAM_CLASSES,
-  cpu_class: CPU_CLASSES,
-  arch: ARCHITECTURES,
-  host_kind: HOST_KINDS,
-} as const;
-
-type GroupPropertyName = `${ProcessGroup}_rss_mb_p95` | `${ProcessGroup}_cpu_pct_p95`;
-type ProviderPropertyName = `provider_${ResourceProvider}_rss_mb_p95` | `provider_${ResourceProvider}_cpu_pct_p95`;
-type GonePropertyName = `gone_${GoneReason}_count`;
-
-export const RESOURCE_PROPERTY_NAMES = [
-  "total_rss_mb_p95",
-  "total_rss_mb_max",
-  "total_cpu_pct_p95",
-  "total_cpu_pct_max",
-  ...PROCESS_GROUPS.flatMap((group): GroupPropertyName[] => [`${group}_rss_mb_p95`, `${group}_cpu_pct_p95`]),
-  ...RESOURCE_PROVIDERS.flatMap((provider): ProviderPropertyName[] => [
-    `provider_${provider}_rss_mb_p95`,
-    `provider_${provider}_cpu_pct_p95`,
-  ]),
-  "main_loop_delay_ms_p95",
-  "main_loop_delay_ms_max",
-  "db_request_ms_p95",
-  "db_request_ms_max",
-  "db_request_count",
-  "db_slow_request_count",
-  "renderer_gone_count",
-  "child_gone_count",
-  ...GONE_REASONS.map((reason): GonePropertyName => `gone_${reason}_count`),
-  "active_turn_count_max",
-  "browser_tab_count_max",
-  "provider_process_count_max",
-  "ram_class",
-  "cpu_class",
-  "arch",
-  "host_kind",
-  "provider_tree_supported",
-  "sample_count",
-] as const;
-type ResourcePropertyName = (typeof RESOURCE_PROPERTY_NAMES)[number];
-export type ResourceProperties = Partial<Record<ResourcePropertyName, string | number | boolean>>;
-
 export interface DeviceClass {
   ramClass: (typeof RAM_CLASSES)[number];
   cpuClass: (typeof CPU_CLASSES)[number];
@@ -323,52 +279,6 @@ export const COUNTER = {
   databaseRequests: "db.requests",
   databaseSlow: "db.slow",
 } as const;
-
-const MB_STEP = 50;
-const roundMb = (value: number | undefined) =>
-  value === undefined ? undefined : Math.round(value / MB_STEP) * MB_STEP;
-const roundWhole = (value: number | undefined) => (value === undefined ? undefined : Math.round(value));
-
-/** The flat, coarse properties of the `system_resources` event for one closed day. */
-export function resourceEventProperties(day: ResourceDay, device: DeviceClass): ResourceProperties {
-  // A metric with no samples is undefined here and left out of the result.
-  const properties: { [Name in ResourcePropertyName]?: string | number | boolean | undefined } = {
-    total_rss_mb_p95: roundMb(percentile(day, METRIC.rss("total"), 0.95)),
-    total_rss_mb_max: roundMb(day.peaks[METRIC.rss("total")]),
-    total_cpu_pct_p95: roundWhole(percentile(day, METRIC.cpu("total"), 0.95)),
-    total_cpu_pct_max: roundWhole(day.peaks[METRIC.cpu("total")]),
-    main_loop_delay_ms_p95: roundWhole(percentile(day, METRIC.mainLoop, 0.95)),
-    main_loop_delay_ms_max: roundWhole(day.peaks[METRIC.mainLoop]),
-    db_request_ms_p95: roundWhole(percentile(day, METRIC.database, 0.95)),
-    db_request_ms_max: roundWhole(day.peaks[METRIC.database]),
-    db_request_count: day.counters[COUNTER.databaseRequests] ?? 0,
-    db_slow_request_count: day.counters[COUNTER.databaseSlow] ?? 0,
-    renderer_gone_count: day.counters[COUNTER.rendererGone] ?? 0,
-    child_gone_count: day.counters[COUNTER.childGone] ?? 0,
-    active_turn_count_max: roundWhole(day.peaks[METRIC.activeTurns]),
-    browser_tab_count_max: roundWhole(day.peaks[METRIC.browserTabs]),
-    provider_process_count_max: roundWhole(day.peaks[METRIC.providerProcesses]),
-    ram_class: device.ramClass,
-    cpu_class: device.cpuClass,
-    arch: device.arch,
-    host_kind: device.hostKind,
-    provider_tree_supported: day.providerTreeSupported,
-    sample_count: day.samples,
-  };
-  for (const group of PROCESS_GROUPS) {
-    properties[`${group}_rss_mb_p95`] = roundMb(percentile(day, METRIC.rss(group), 0.95));
-    properties[`${group}_cpu_pct_p95`] = roundWhole(percentile(day, METRIC.cpu(group), 0.95));
-  }
-  for (const provider of RESOURCE_PROVIDERS) {
-    properties[`provider_${provider}_rss_mb_p95`] = roundMb(percentile(day, METRIC.providerRss(provider), 0.95));
-    properties[`provider_${provider}_cpu_pct_p95`] = roundWhole(percentile(day, METRIC.providerCpu(provider), 0.95));
-  }
-  for (const reason of GONE_REASONS) {
-    const count = day.counters[COUNTER.goneReason(reason)];
-    if (count) properties[`gone_${reason}_count`] = count;
-  }
-  return Object.fromEntries(Object.entries(properties).filter(([, value]) => value !== undefined));
-}
 
 /** Electron's `details.reason`, in the closed set above. `null` for a clean exit. */
 export function goneReason(reason: string): GoneReason | null {

@@ -294,7 +294,6 @@ try {
       getChatWindows: () => [],
       getAgentService: () => agents ?? null,
       getHostService: () => null,
-      getHostAnalytics: () => null,
       getRemoteServerManager: () => manager,
       showMainWindow: () => undefined,
       getTranslate: () => translateFor("en"),

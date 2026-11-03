@@ -105,8 +105,6 @@ export interface BrowserHostTab {
    * goes to that view, and does not open on this screen.
    */
   viewContextMenu: { deliver: (menu: BrowserViewContextMenu) => void; until: number } | null;
-  /** The host of the last page reported as a site visit, so a navigation inside one site is not reported again. */
-  visitedHost?: string | undefined;
   // Pending consent permits human takeover; submission blocks captures until document replacement.
   secret?: { origin: string; submitted: boolean; replaced: boolean; running: boolean } | undefined;
 }

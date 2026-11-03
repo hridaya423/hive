@@ -135,7 +135,6 @@ import { ContextResetBusyError } from "@openbot/contracts/team-protocol/context-
 import type { QueueEditRequest } from "@openbot/contracts/team-protocol/queue-edit-v1";
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger } from "@openbot/logging";
-import { classifyFailure } from "@openbot/telemetry";
 import { Cause, Deferred, Effect, Exit, Fiber, Result, Schema, Scope, Semaphore } from "effect";
 import { AgentMemories } from "./agent/agent-memories";
 import { AgentRemoval, AgentRemovalFailed } from "./agent/agent-removal";
@@ -161,7 +160,7 @@ import { DeltaBuffer } from "./agent/delta-buffer";
 import type { SectionTeammates } from "./agent/developer-instructions";
 import { DrainScheduler } from "./agent/drain-scheduler";
 import { DuplicationGate, toAgentDuplicationFailed } from "./agent/duplication-gate";
-import type { FailureContext, FailureSignal } from "./agent/failure-signal";
+import type { FailureContext } from "./agent/failure-signal";
 import { type AgentHostedSites, HostedSiteCoordinator } from "./agent/hosted-site-coordinator";
 import { ImageGenRuntime } from "./agent/image-gen-runtime";
 import { InstructionsChanges } from "./agent/instructions-changes";
@@ -202,13 +201,7 @@ import { SessionSettings } from "./agent/session-settings";
 import { SIDE_QUESTION_CHAT_MESSAGES, sideQuestionPrompt } from "./agent/side-question";
 import type { AgentSidebar } from "./agent/sidebar-tools";
 import type { LocalSkillTools } from "./agent/skill-tools";
-import {
-  agentProviderAccount,
-  isRequestTimeout,
-  providerForAgent,
-  providerLabel,
-  type ToolUsageSignal,
-} from "./agent/thread-items";
+import { agentProviderAccount, isRequestTimeout, providerForAgent, providerLabel } from "./agent/thread-items";
 import { ThreadLifecycle } from "./agent/thread-lifecycle";
 import { toToolOperationFailed } from "./agent/tool-operation";
 import { type AgentBrowserHost, TurnLifecycle } from "./agent/turn-lifecycle";
@@ -252,7 +245,6 @@ import type { RoutineHoldWindow } from "./routine-store";
 import { type RoutineDueSource, RoutineTimer } from "./routine-timer";
 import type { SidebarLayoutStore } from "./sidebar-layout-store";
 import type { VaultItems } from "./vault-items";
-import type { WorkflowRunEnd } from "./workflows/workflows";
 import {
   listWorkspaceDirectory,
   type ResolvedSharedFile,
@@ -276,12 +268,9 @@ export type { RoutineMutationOptions } from "./agent/routine-scheduler";
 export type { ResolvedSharedFile } from "./workspace-paths";
 
 interface AgentServiceEvents {
-  failure: [failure: FailureSignal];
   event: [event: AgentEvent];
   /** Finished tool steps for the local host's product analytics. Never forwarded to a client. */
-  toolUsage: [usage: ToolUsageSignal];
   /** A workflow run ended, for the local host's product analytics. Never forwarded to a client. */
-  workflowRun: [end: WorkflowRunEnd];
 }
 
 export interface AgentServiceOptions {
@@ -1453,7 +1442,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       usageLimits: this.#usageLimits,
       planContinuation: this.#planContinuation,
       hooks: {
-        emitFailure: (failure) => this.emit("failure", failure),
         emit: (event) => this.#emit(event),
         emitError: (code, error, agentId, context) => this.#emitError(code, error, agentId, context),
         emitRuntimeSnapshot: () => this.#emitRuntimeSnapshot(),
@@ -1463,7 +1451,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
           this.#threads.dropRefusedProviderSession(agentId, externalThreadId),
         listAgents: () => this.listAgents(),
         redactMcp: (text) => this.#mcp.redact(text),
-        emitToolUsage: (usage) => this.emit("toolUsage", usage),
         turnModel: (agentId, turnId) => this.#drain.modelForTurn(agentId, turnId),
         mayFailOver: (agentId) => this.#usageLimitBackup(agentId) !== undefined,
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
@@ -2234,10 +2221,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
    */
   notifyBrowserProfilesChanged(): void {
     this.#emit({ type: "browser-profiles-changed" });
-  }
-
-  notifyWorkflowRunEnded(end: WorkflowRunEnd): void {
-    this.emit("workflowRun", end);
   }
 
   listModels(): AgentModelOption[] {
@@ -5133,12 +5116,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   }
 
   #emitError(code: string, error: unknown, agentId?: string, context?: FailureContext): void {
-    this.emit("failure", {
-      ...context,
-      code,
-      ...(agentId !== undefined ? { agentId } : {}),
-      causeCode: context?.causeCode ?? classifyFailure(error),
-    });
     this.#emit({
       type: "error",
       ...(agentId !== undefined ? { agentId } : {}),

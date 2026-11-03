@@ -21,7 +21,7 @@ import {
 import { type DynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger } from "@openbot/logging";
-import { type CauseCode, classifyFailure } from "@openbot/telemetry";
+import { type CauseCode, classifyFailure } from "@openbot/user-errors/failure-cause";
 import { Cause, Deferred, Effect, Exit, Schema, Scope } from "effect";
 import type { AgentClient } from "../agent-client";
 import type { AgentStore } from "../agent-store";
@@ -48,7 +48,7 @@ import type { BrowserUploadTarget } from "./browser-uploads";
 import { type ContextCompaction, compactsOnRequest } from "./context-compaction";
 import type { ConversationRuntime } from "./conversation-runtime";
 import type { DeltaBuffer } from "./delta-buffer";
-import type { FailureContext, FailureSignal } from "./failure-signal";
+import type { FailureContext } from "./failure-signal";
 import { readCapturedSteps } from "./handoff-tool-steps";
 import type { ImageGenRuntime } from "./image-gen-runtime";
 import { markIncompleteImageGeneration } from "./image-generation";
@@ -76,11 +76,9 @@ import {
   isNonActionableCodexWarning,
   isToolItem,
   refusedSessionFailure,
-  type ToolUsageSignal,
   toolFailed,
   toolProgressText,
   toolTraceDetail,
-  toolUsage,
   toThreadItem,
 } from "./thread-items";
 import { TurnTraces, traceMessage } from "./turn-traces";
@@ -142,7 +140,6 @@ export interface AgentBrowserHost extends AttentionBrowserHost, BrowserUploadTar
 }
 
 export interface TurnHooks {
-  emitFailure?(failure: FailureSignal): void;
   emit(event: AgentEvent): void;
   emitError(code: string, error: unknown, agentId?: string, context?: FailureContext): void;
   emitRuntimeSnapshot(): void;
@@ -156,8 +153,6 @@ export interface TurnHooks {
   dropRefusedSession(agentId: string, externalThreadId: string): Effect.Effect<void, TurnOperationFailed>;
   listAgents(): AgentSummary[];
   redactMcp(text: string): string;
-  /** A finished tool step, for product analytics only. It never reaches a renderer or a remote client. */
-  emitToolUsage(usage: ToolUsageSignal): void;
   /** The model this turn was started with, or null when the drain no longer knows it. */
   turnModel(agentId: string, turnId: string): string | null;
   /** Whether a provider error moves this agent to a backup model: it switches without asking and has a ready one. */
@@ -508,13 +503,9 @@ export class TurnLifecycle {
 
   /** Shows a provider error that was held for a failover that did not happen, as it shows with no backup. */
   #showFailoverError(agentId: string, threadId: string, failover: HeldProviderError): void {
-    if (failover.quiet) {
-      this.#hooks.emitFailure?.({ code: "agent_error", agentId, ...failover.context });
-      return;
-    }
+    if (failover.quiet) return;
     const taskId = this.#taskForThread(agentId, threadId);
     if (taskId !== null) {
-      this.#hooks.emitFailure?.({ code: "agent_error", agentId, ...failover.context });
       this.#hooks.taskFailed(taskId, failover.message);
     } else this.#hooks.emitError("agent_error", failover.message, agentId, failover.context);
   }
@@ -716,16 +707,6 @@ export class TurnLifecycle {
         const turnId = getString(turn, "id");
         if (!turnId) return;
         const status = getString(turn, "status") ?? "completed";
-        if (status === "failed" && !this.#turnErrors.has(turnId)) {
-          this.#hooks.emitFailure?.({
-            code: "agent_error",
-            agentId,
-            turnId,
-            provider: source.provider,
-            model: this.#hooks.turnModel(agentId, turnId),
-            causeCode: classifyFailure(getRecord(turn, "error")),
-          });
-        }
         this.#attention.clearForTurn(threadId, turnId);
         if (this.#observedCompactions.get(threadId) === turnId) {
           this.#observedCompactions.delete(threadId);
@@ -872,7 +853,6 @@ export class TurnLifecycle {
             this.#failoverTurns.set(errorTurnId, { message, context, quiet: true });
             return;
           }
-          this.#hooks.emitFailure?.({ code: "agent_error", ...(agentId !== undefined ? { agentId } : {}), ...context });
           return;
         }
         const context = {
@@ -898,7 +878,6 @@ export class TurnLifecycle {
         const taskId =
           notification.method === "error" && agentId && threadId ? this.#taskForThread(agentId, threadId) : null;
         if (taskId !== null) {
-          this.#hooks.emitFailure?.({ code: "agent_error", ...(agentId ? { agentId } : {}), ...context });
           this.#hooks.taskFailed(taskId, message);
         } else this.#hooks.emitError(`agent_${notification.method}`, message, agentId, context);
       }
@@ -1144,7 +1123,6 @@ export class TurnLifecycle {
         return;
       }
       if (failover && failedOver && failedKey !== null) {
-        this.#hooks.emitFailure?.({ code: "agent_error", agentId, ...failover.context });
         for (const { delivery } of deliveries) {
           const failed = this.#failoverRetries.get(delivery.id) ?? new Set<string>();
           this.#failoverRetries.set(delivery.id, failed.add(failedKey));
@@ -1175,7 +1153,6 @@ export class TurnLifecycle {
         yield* this.#hooks.dropRefusedSession(agentId, threadId);
         const taskId = taskTurn ? this.#taskForThread(agentId, threadId) : null;
         if (taskId !== null && failure !== undefined) {
-          this.#hooks.emitFailure?.({ code: "agent_error", agentId, causeCode: classifyFailure(failure) });
           this.#hooks.taskFailed(taskId, failure);
         } else this.#hooks.emitError("agent_error", failure, agentId);
       }
@@ -1615,8 +1592,6 @@ export class TurnLifecycle {
     item: ThreadItem,
     completed: boolean,
   ) {
-    const usage = completed ? toolUsage(item) : null;
-    if (usage) this.#hooks.emitToolUsage({ ...usage, agentId, turnId });
     if (yield* this.#images.handleItem(agentId, threadId, turnId, item, completed)) return;
     const toolProgress = toolProgressText(item, completed);
     this.#observeTraceStep(turnId, item, completed, toolProgress);

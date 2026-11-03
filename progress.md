@@ -63,3 +63,23 @@ Done before this session. Bun 1.4.2 at `~/.bun/bin/bun`. `bun install --frozen-l
 - Member limit now reads only `server_member_limits` (custom) and `DEFAULT_TEAM_MEMBER_LIMIT`. `SERVER_MEMBER_LIMIT_SQL` moved into `remote-control-plane.ts` (the migration test imports it there).
 - Checks (MacBook, through the lock): `typecheck:api` exit 0; `test:api` 17 files, 32 tests pass; `test:remote-auth-events`, `test:cloud-authorization`, `test:signal-entry-failover`, `test:invite-acceptance`, `test:host-key-handover`, `test:remote-signal-homes`, `test:mobile-connected-devices`, `test:smtp-stall`, `test:keep-previous-assets` exit 0 with no FAIL line; `api:build:check` exit 0; `knip:check` exit 0 (3 configuration hints only).
 - Left for other tasks: see the final report of this branch.
+
+## Phase 2 (branch `phase/2`, started 2026-11-03)
+
+### Task 2.1: done (4ece084d7)
+- Blocklist: `provider-runtime-releases.ts` now exports `bundledBlockedVersions`, built from the bundled `provider-runtime-blocklist.json`. `ProviderRuntimeManager` and `scripts/provider-cli-canary.ts` read it. The fetch of `raw.githubusercontent.com/nightly-labs/openbot/main/...` is gone.
+- `host-release-service.ts` no longer polls GitHub. Its status is always `unavailable`; the Team API route and `HostReleaseStatus` contract stay. `hosted-update-adapter.ts` (Linux hosted installer, polled upstream releases) deleted with its wiring in `application-services.ts`.
+- `app-archive-watch.ts`: the dialog has no "Download" button and never opens `openbot.run/download`.
+- `scripts/host-manager-macos.ts`: `stageLatest` returns null (no GitHub release lookup, no DMG download).
+- Analytics: desktop host and renderer enable only with a loopback capture URL (dev only). Before, a packaged production build sent events to `analytics.openbot.run`. CSP no longer lists `analytics.openbot.run`. Web client senders still gate on `window.location.origin === "https://openbot.run"` (removed in 2.6).
+- Check: `typecheck:node`, `typecheck:renderer` pass; CSP and host-release decoding tests pass (18 tests); `bun run build && bun run verify:preload` pass (712 methods); `knip:check` clean (4 pre-existing configuration hints).
+- "Before" network check, Mac mini, Phase 0 build of `Hive.app`, 15 min, `lsof -nP -i` on the Hive PID every 5 s (`~/hive-checks/before.log` on the mini). Remote peers: `172.67.136.14:443` (Cloudflare; `api.openbot.run`, `analytics.openbot.run` and `openbot.run` all resolve there: upstream contacted), `20.26.156.210:443` (`api.github.com`), `104.16.10.34:443` and `104.18.19.80:443` (`registry.npmjs.org` and `cdn`/registry style Cloudflare hosts), `57.144.62.128:443` (`lookaside.facebook.com`, Meta provider runtime check). `signal.openbot.run` (65.109.88.58) was not seen while signed out.
+
+### Task 2.2: done (a526877ee)
+- 12 locale folders deleted (1,272 files, 163,689 lines). `APP_LANGUAGES = ["system", "en"]`, `TRANSLATED_LOCALES = ["en"]`. `lazy-catalogs.ts`, `mobile-catalogs.native.ts` and the Vite alias deleted. `locale-loading.ts` is a stub, removed after the Worker merge.
+- Language wheel, language selector (desktop settings, web account settings), onboarding language step and the mobile language screen removed. The saved-language IPC and main service stay: an old saved `de` tag still reads back as the system default.
+- `bun run i18n:check` passes (11,939 English keys, was 11,949). `i18n-e2e.ts` and `i18n-fit-e2e.ts` deleted.
+- Checks: typecheck contracts, i18n, node, renderer, mobile pass; `app-decoding.test.ts` 90 tests pass; build + verify:preload pass; knip clean.
+
+### Surprise: "analytics" in contracts is two things
+`AgentAnalytics`, `HostAnalytics`, `readAgentAnalytics`, `readHostAnalytics`, `team-protocol/analytics-v1` and `host-analytics-v1` are the local **Usage report** (token counts from `openbot.db`). The research listed them as telemetry. They stay.

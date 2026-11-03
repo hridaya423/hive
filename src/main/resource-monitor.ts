@@ -14,8 +14,7 @@ import {
   type WebContents,
 } from "electron";
 import { providerProcessIds } from "../backend/provider-processes";
-import type { AnalyticsResourceSource } from "./analytics";
-import { AnalyticsOperationFailure, toAnalyticsOperationFailure } from "./analytics-effects";
+import { LocalOperationFailure, toLocalOperationFailure } from "./local-effects";
 import { readPreferenceFile, writePreferenceFile } from "./preference-file";
 import {
   addCount,
@@ -36,7 +35,6 @@ import {
   type ResourceProvider,
   recordPeak,
   recordValue,
-  resourceEventProperties,
   SLOW_DATABASE_STATEMENT_MS,
   type StatementTimings,
   summarizeDay,
@@ -85,11 +83,10 @@ interface ResourceSample {
 
 /**
  * Samples the CPU and memory of OpenBot's own processes and of the provider CLIs it starts, once a
- * minute, and keeps a summary for each local day. The summary goes into the diagnostics export, and
- * analytics sends the summary of the last closed day once. A failed sample is skipped: this must not
+ * minute, and keeps a summary for each local day. The summary goes into the diagnostics export. A failed sample is skipped: this must not
  * become the failure it would have recorded.
  */
-export class ResourceMonitor implements AnalyticsResourceSource {
+export class ResourceMonitor {
   readonly #options: ResourceMonitorOptions;
   readonly #summaryPath: string;
   readonly #samplesFile: { directory: string; path: string; maxBytes: number };
@@ -117,7 +114,6 @@ export class ResourceMonitor implements AnalyticsResourceSource {
   #closed = false;
   /** False until the saved days are read, so a quit before that does not overwrite them. */
   #loaded = false;
-  #onDayClosed: () => void = () => {};
 
   constructor(options: ResourceMonitorOptions) {
     this.#options = options;
@@ -132,10 +128,9 @@ export class ResourceMonitor implements AnalyticsResourceSource {
     });
   }
 
-  /** Loads the saved days and starts sampling. `onDayClosed` runs when a closed day waits to be sent. */
-  start(onDayClosed: () => void): void {
+  /** Loads the saved days and starts sampling. */
+  start(): void {
     if (this.#closed || this.#timer) return;
-    this.#onDayClosed = onDayClosed;
     app.on("render-process-gone", this.#rendererGone);
     app.on("child-process-gone", this.#childGone);
     powerMonitor.on("suspend", this.#suspend);
@@ -147,7 +142,6 @@ export class ResourceMonitor implements AnalyticsResourceSource {
           Effect.sync(() => {
             this.#loaded = true;
             this.#schedule();
-            this.#onDayClosed();
           }),
         ),
       ),
@@ -160,20 +154,6 @@ export class ResourceMonitor implements AnalyticsResourceSource {
     } else if (event.type === "turn-completed") {
       this.#activeTurns.delete(event.turnId);
     }
-  }
-
-  previousDay(): { day: string; properties: ReturnType<typeof resourceEventProperties> } | null {
-    const previous = this.#previous;
-    if (!previous || previous.samples === 0 || this.#previousHandled) return null;
-    return { day: previous.day, properties: resourceEventProperties(previous, this.#device) };
-  }
-
-  clearPreviousDay(day: string): Effect.Effect<void, AnalyticsOperationFailure> {
-    return Effect.suspend(() => {
-      if (this.#previous?.day !== day || this.#previousHandled) return Effect.void;
-      this.#previousHandled = true;
-      return this.#persist().pipe(toAnalyticsOperationFailure);
-    });
   }
 
   /** The last sample and the summaries of today and the last closed day, for the diagnostics export. */
@@ -277,7 +257,7 @@ export class ResourceMonitor implements AnalyticsResourceSource {
     this.#previousHandled = previousHandled;
   });
 
-  #persist(): Effect.Effect<void, AnalyticsOperationFailure> {
+  #persist(): Effect.Effect<void, LocalOperationFailure> {
     return this.#writes
       .withPermit(
         Effect.suspend(() => {
@@ -290,7 +270,7 @@ export class ResourceMonitor implements AnalyticsResourceSource {
           });
         }),
       )
-      .pipe(toAnalyticsOperationFailure, Effect.uninterruptible);
+      .pipe(toLocalOperationFailure, Effect.uninterruptible);
   }
 
   readonly #sample = Effect.fn("ResourceMonitor.sample")(function* (this: ResourceMonitor) {
@@ -406,7 +386,6 @@ export class ResourceMonitor implements AnalyticsResourceSource {
       .withPermit(appendRotatingLines(this.#samplesFile, [JSON.stringify(sample)]))
       .pipe(Effect.ignore, Effect.uninterruptible);
     if (closedDay || Date.now() - this.#persistedAt >= PERSIST_INTERVAL_MS) yield* this.#persist().pipe(Effect.ignore);
-    if (closedDay) this.#onDayClosed();
   });
 }
 
@@ -430,25 +409,23 @@ function loopDelayMs(nanoseconds: number): number {
   return Math.max(0, nanoseconds / 1e6 - LOOP_RESOLUTION_MS);
 }
 
-const listProcesses = Effect.callback<{ text: string; pid: number | undefined }, AnalyticsOperationFailure>(
-  (resume) => {
-    const child = execFile(
-      "ps",
-      ["-A", "-o", "pid=,ppid=,rss=,time=,comm="],
-      { encoding: "utf8", timeout: PS_TIMEOUT_MS, maxBuffer: PS_MAX_BUFFER },
-      (error, stdout) => {
-        resume(
-          error
-            ? Effect.fail(new AnalyticsOperationFailure({ cause: error }))
-            : Effect.succeed({ text: stdout, pid: child.pid }),
-        );
-      },
-    );
-    return Effect.sync(() => {
-      child.kill();
-    });
-  },
-);
+const listProcesses = Effect.callback<{ text: string; pid: number | undefined }, LocalOperationFailure>((resume) => {
+  const child = execFile(
+    "ps",
+    ["-A", "-o", "pid=,ppid=,rss=,time=,comm="],
+    { encoding: "utf8", timeout: PS_TIMEOUT_MS, maxBuffer: PS_MAX_BUFFER },
+    (error, stdout) => {
+      resume(
+        error
+          ? Effect.fail(new LocalOperationFailure({ cause: error }))
+          : Effect.succeed({ text: stdout, pid: child.pid }),
+      );
+    },
+  );
+  return Effect.sync(() => {
+    child.kill();
+  });
+});
 
 function sum(values: Iterable<number>): number {
   let total = 0;

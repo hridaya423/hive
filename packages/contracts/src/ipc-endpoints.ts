@@ -147,7 +147,6 @@ import type {
   UpdateAgentInput,
 } from "./ipc-agents";
 import type {
-  AnalyticsPreference,
   AppInfo,
   AppSetupState,
   BackgroundProcess,
@@ -166,7 +165,6 @@ import type {
   MacPermissionId,
   ProviderRuntimeSnapshot,
   SaveSetupInput,
-  SetAnalyticsPreferenceInput,
   UpdatePreference,
   UpdatePreferenceChange,
   UpdateRestartMode,
@@ -665,12 +663,6 @@ export const IPC_ENDPOINTS = {
     // A joined owner or admin can set the default provider of this computer (`provider-default-v1`),
     // so main tells the window.
     setupState: event<AppSetupState>()("app:setup-state"),
-    getAnalyticsPreference: request<undefined, AnalyticsPreference>()("app:get-analytics-preference"),
-    // The first value of the first-run analytics box, from the region of this computer.
-    getAnalyticsDefault: request<undefined, AnalyticsPreference>()("app:get-analytics-default"),
-    // Main follows the account's answer from another device, so it tells the window.
-    analyticsPreference: event<AnalyticsPreference>()("app:analytics-preference"),
-    setAnalyticsPreference: request<SetAnalyticsPreferenceInput, AnalyticsPreference>()("app:set-analytics-preference"),
     getApprovalAutomation: request<undefined, ApprovalAutomationPreference>()("app:get-approval-automation"),
     // A remote owner or admin can change a grant from a phone or the web client, so main tells the
     // window instead of the window only reading the value at start.

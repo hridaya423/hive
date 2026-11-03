@@ -13,7 +13,6 @@ import type {
 import { describe, expect, it } from "vitest";
 import {
   decodeAccountSessions,
-  decodeAnalyticsPreference,
   decodeAppAppearancePreference,
   decodeAppInfo,
   decodeAppLanguagePreference,
@@ -132,7 +131,6 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
       version: "1.0.0",
       platform: "darwin",
       variant: "production",
-      analyticsInstallId: "install-0b5c7c9e-8d55-4a3f-9d0e-2f7c1a6b4e21",
     } satisfies AppInfo,
   ],
   [
@@ -140,7 +138,6 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
     decodeAppSetupState,
     { completed: true, preferredProvider: "codex", preferredModel: null } satisfies AppSetupState,
   ],
-  ["analytics preference", decodeAnalyticsPreference, { enabled: false }],
   [
     "approval automation",
     decodeApprovalAutomationPreference,
@@ -184,7 +181,7 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
     decodeCentralAuthState,
     {
       status: "signed_in",
-      user: { id: "user-1", email: "user@example.com", name: null, avatarUrl: null, analyticsEnabled: true },
+      user: { id: "user-1", email: "user@example.com", name: null, avatarUrl: null },
     } satisfies CentralAuthState,
   ],
   [
@@ -244,11 +241,6 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
 ];
 
 const malformed: [string, (value: unknown) => unknown, unknown][] = [
-  [
-    "app info with an install ID that is not text",
-    decodeAppInfo,
-    { name: "OpenBot", version: "1.0.0", platform: "darwin", variant: "production", analyticsInstallId: 1 },
-  ],
   // The key never comes back to the renderer, so a record that carries one fails closed.
   ["a voice server with its key", decodeVoiceServerSettings, { ...voiceServer, apiKey: "sk-secret" }],
   [
@@ -277,7 +269,6 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
     decodeAppSetupState,
     { completed: true, preferredProvider: "other", preferredModel: null },
   ],
-  ["analytics preference without a switch", decodeAnalyticsPreference, {}],
   ["approval automation without overrides", decodeApprovalAutomationPreference, { defaultAutoApprove: true }],
   ["language preference with an unknown tag", decodeAppLanguagePreference, { language: "xx" }],
   ["appearance preference with no transparent window", decodeAppAppearancePreference, { appearance: "dark" }],
@@ -344,14 +335,6 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
   ["a custom agent with a two-line usage prompt", decodeCustomAgents, [{ ...customAgent, usagePrompt: "/usage\nrm" }]],
   ["custom agent usage of an invalid id", decodeCustomAgentUsage, [{ id: "Not An Id", text: "42%" }]],
   ["custom agent usage with no text", decodeCustomAgentUsage, [{ id: "devin", text: null }]],
-  [
-    "an account analytics answer that is not a yes or a no",
-    decodeCentralAuthState,
-    {
-      status: "signed_in",
-      user: { id: "user-1", email: "user@example.com", name: null, avatarUrl: null, analyticsEnabled: "yes" },
-    },
-  ],
   ["a model list with an empty id", decodeDiscoverModelsResult, { models: [{ id: "" }] }],
   [
     "detection settings without a switch",

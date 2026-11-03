@@ -208,7 +208,6 @@ export const messages = defineMessages("billing", {
   "billing.order.unit.free": "forever",
   "billing.order.cta.server": "Create a server",
   "billing.order.cta.license": "Buy a license",
-  "billing.order.cta.download": "Download",
   // Shown before an invite that makes the license too small.
   "billing.license.invite.title": "Add a user to the license?",
   "billing.license.invite.description": "This invite adds 1 user to your license: {price} more a month.",

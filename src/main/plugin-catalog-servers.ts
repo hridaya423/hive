@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { McpServerConfig } from "@openbot/contracts/ipc";
 import { isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { Effect } from "effect";
-import { analyticsIO, analyticsSync } from "./analytics-effects";
+import { localIO, localSync } from "./local-effects";
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/u;
 
@@ -21,21 +21,21 @@ export interface CatalogPluginServer {
 
 /**
  * Reads the plugin catalog that ships in the app resources. A missing or damaged catalog gives no
- * servers, so every configured server reports as `custom`: analytics must never stop startup.
+ * servers, so every configured server counts as the user's own: this must never stop startup.
  */
-export const loadCatalogPluginServers = Effect.fn("Analytics.loadPluginCatalog")(
+export const loadCatalogPluginServers = Effect.fn("PluginCatalog.load")(
   function* (root: string) {
-    const contents = yield* analyticsIO(() => readFile(join(root, "catalog.json"), "utf8"));
-    const catalog = yield* analyticsSync(() => JSON.parse(contents));
+    const contents = yield* localIO(() => readFile(join(root, "catalog.json"), "utf8"));
+    const catalog = yield* localSync(() => JSON.parse(contents));
     if (!isDynamicRecord(catalog) || !Array.isArray(catalog.plugins)) return [];
     const servers = yield* Effect.forEach(
       catalog.plugins,
-      Effect.fn("Analytics.loadPluginDetail")(function* (entry: unknown) {
+      Effect.fn("PluginCatalog.loadDetail")(function* (entry: unknown) {
         if (!isDynamicRecord(entry) || !isString(entry.slug) || !isString(entry.version)) return [];
         const { slug, version } = entry;
         if (!SLUG_PATTERN.test(slug) || !/^[\w.-]+$/u.test(version)) return [];
-        const contents = yield* analyticsIO(() => readFile(join(root, slug, `${version}.json`), "utf8"));
-        const detail = yield* analyticsSync(() => JSON.parse(contents));
+        const contents = yield* localIO(() => readFile(join(root, slug, `${version}.json`), "utf8"));
+        const detail = yield* localSync(() => JSON.parse(contents));
         return isDynamicRecord(detail) && Array.isArray(detail.apps)
           ? detail.apps.flatMap((app: unknown) => catalogServer(slug, app))
           : [];
@@ -67,18 +67,6 @@ function catalogServer(slug: string, app: unknown): CatalogPluginServer[] {
 function localSetupSteps(flow: unknown): string[] {
   if (!isDynamicRecord(flow) || flow.kind !== "local" || !Array.isArray(flow.steps)) return [];
   return flow.steps.filter(isString);
-}
-
-/**
- * Whether a provider can report the server named `configured` as `reported`. Claude changes each
- * character outside `[A-Za-z0-9_-]` to `_`, so this compares that form too, without case.
- */
-export function isReportedMcpServerName(configured: string, reported: string): boolean {
-  return (
-    configured === reported ||
-    configured.replace(/[^A-Za-z0-9_-]/gu, "_").toLowerCase() ===
-      reported.replace(/[^A-Za-z0-9_-]/gu, "_").toLowerCase()
-  );
 }
 
 /**

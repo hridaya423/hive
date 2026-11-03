@@ -20,7 +20,6 @@ import {
   AGENT_DEFAULT_KEYS,
   type AgentDefaults,
   type AgentMemoryLimitPreference,
-  type AnalyticsPreference,
   type AppAppearancePreference,
   type AppBehaviorPreference,
   type AppInfo,
@@ -150,20 +149,14 @@ import {
 
 export function decodeAppInfo(value: unknown): AppInfo {
   const info = decodeRecord(value, "app info");
-  const { platform, variant, analyticsCaptureUrl, analyticsInstallId } = info;
+  const { platform, variant } = info;
   if (!isOneOf(["darwin", "win32", "linux"] as const, platform)) throw new Error("Invalid platform.");
   if (!isOneOf(["production", "dev", "preview"] as const, variant)) throw new Error("Invalid variant.");
-  if (analyticsCaptureUrl !== undefined && !isString(analyticsCaptureUrl))
-    throw new Error("Invalid analytics capture URL.");
-  if (analyticsInstallId !== undefined && !isString(analyticsInstallId))
-    throw new Error("Invalid analytics install ID.");
   return {
     name: requiredString(info, "name"),
     version: requiredString(info, "version"),
     platform,
     variant,
-    ...(analyticsCaptureUrl === undefined ? {} : { analyticsCaptureUrl }),
-    ...(analyticsInstallId === undefined ? {} : { analyticsInstallId }),
   };
 }
 
@@ -173,10 +166,6 @@ export function decodeAppSetupState(value: unknown): AppSetupState {
   if (preferredProvider !== null && !isAgentProvider(preferredProvider)) throw new Error("Invalid preferredProvider.");
   if (preferredModel !== null && !isAgentModel(preferredModel)) throw new Error("Invalid preferredModel.");
   return { completed: requiredBoolean(state, "completed"), preferredProvider, preferredModel };
-}
-
-export function decodeAnalyticsPreference(value: unknown): AnalyticsPreference {
-  return { enabled: requiredBoolean(decodeRecord(value, "analytics preference"), "enabled") };
 }
 
 export const decodeApprovalAutomationPreference: (value: unknown) => ApprovalAutomationPreference = guardedDecoder(
@@ -286,15 +275,7 @@ function decodeCentralAuthUser(value: unknown): CentralAuthUser {
     email: requiredString(user, "email"),
     name: nullableString(user, "name"),
     avatarUrl: nullableString(user, "avatarUrl"),
-    ...optionalAnalyticsEnabled(user),
   };
-}
-
-function optionalAnalyticsEnabled(user: DynamicRecord): Pick<CentralAuthUser, "analyticsEnabled"> {
-  const { analyticsEnabled } = user;
-  if (analyticsEnabled === undefined) return {};
-  if (analyticsEnabled !== null && !isBoolean(analyticsEnabled)) throw new Error("Invalid analyticsEnabled.");
-  return { analyticsEnabled };
 }
 
 function decodeCentralAuthIssue(value: unknown): CentralAuthIssue {

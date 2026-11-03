@@ -38,7 +38,7 @@ void app.whenReady().then(async () => {
     statementTimings: new StatementTimings(),
     tabProcessIds: () => [],
   });
-  monitor.start(() => undefined);
+  monitor.start();
   const window = new BrowserWindow({ width: 480, height: 320, show: false });
   await window.loadURL(`data:text/html,${encodeURIComponent("<body>exit records</body>")}`);
   writeFileSync(argument("ready-file"), JSON.stringify({ pid: process.pid, crashDumps: app.getPath("crashDumps") }));
