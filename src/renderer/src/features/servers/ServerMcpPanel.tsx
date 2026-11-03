@@ -1,4 +1,12 @@
 import {
+  type McpServerConfig,
+  type McpSignInState,
+  type McpTestResult,
+  mcpConfigErrors,
+  mcpConfigIsValid,
+  normalizeMcpConfig,
+} from "@openbot/contracts/ipc";
+import {
   Badge,
   Blocks,
   Button,
@@ -42,21 +50,15 @@ import {
   isMcpHttpAddress,
   isMcpSignInCancelled,
   isMcpSignInOnHost,
-  type McpServerConfig,
-  type McpSignInState,
-  type McpTestResult,
   type McpTestState,
   mcpConfigChanged,
   mcpConfigDraft,
-  mcpConfigErrors,
-  mcpConfigIsValid,
   mcpFailureKind,
   mcpProviderLimitNote,
   mcpSaveConnects,
   mcpStatusLabel,
   mcpStatusVariant,
   mcpTestMessage,
-  normalizeMcpConfig,
 } from "./mcp-servers";
 
 /** Save-bar state, read live by the dialog footer. */

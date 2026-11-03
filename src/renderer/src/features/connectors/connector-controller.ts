@@ -3,7 +3,7 @@ import { classifyFailure } from "@openbot/telemetry";
 import type { ConnectorDetail } from "@openbot/ui/features/connectors/ConnectorDetailPanel";
 import type { ConnectorId } from "@openbot/ui/features/connectors/connectors";
 import { currentText } from "@openbot/ui/text";
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, onCleanup, onSettled } from "solid-js";
 import { actionToast } from "../../action-toast";
 import { type DesktopAnalyticsProperties, desktopAnalytics } from "../../analytics";
 
@@ -93,4 +93,48 @@ export function createConnectorActions(failed: AppTextKey, connector: ConnectorI
       });
   };
   return { busy, run, report, disposed: () => disposed };
+}
+
+/**
+ * Reads the status of a connection once and then follows the port's `changed` event into
+ * `setStatus`. Call it inside the owner of the controller, after `createConnectorActions`.
+ */
+export function createConnectorStatus<S>(
+  setStatus: (status: S) => unknown,
+  port: () => { status: () => Promise<S>; onChanged: (listener: (status: S) => void) => () => void },
+  disposed: () => boolean,
+) {
+  /** False until the first status read ends. Until then, the page does not show the default status. */
+  const [read, setRead] = createSignal(false);
+  /** Why the last status read failed, until a newer status comes. While it is set, the state is not known. */
+  const [statusError, setStatusError] = createSignal<string | null>(null);
+  /** Counts the statuses that came, so a failed read does not hide a status that came after it started. */
+  let statuses = 0;
+  const show = (next: S) => {
+    statuses += 1;
+    setStatus(next);
+    setStatusError(null);
+  };
+  const unsubscribe = port().onChanged((next) => {
+    if (!disposed()) show(next);
+  });
+  const reload = () => {
+    const before = statuses;
+    void port()
+      .status()
+      .then((next) => {
+        if (!disposed()) show(next);
+      })
+      .catch((error: unknown) => {
+        if (disposed() || before !== statuses) return;
+        const { t, errorMessage } = currentText();
+        setStatusError(errorMessage(error, t("connector.readFailed")));
+      })
+      .finally(() => {
+        if (!disposed()) setRead(true);
+      });
+  };
+  onSettled(reload);
+  onCleanup(unsubscribe);
+  return { read, statusError, show, reload };
 }

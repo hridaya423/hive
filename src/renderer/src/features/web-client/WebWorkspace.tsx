@@ -166,8 +166,9 @@ import { createChannelsController } from "../channels/channels-controller";
 import { globalSearchChannels } from "../channels/global-search-channels";
 import { createConnectorRegistry, createConnectorSet } from "../connectors/connector-registry";
 import { hostMessagingApi } from "../connectors/host-messaging-port";
-import { Conversation, createConversationController } from "../conversation/Conversation";
+import { Conversation } from "../conversation/Conversation";
 import { clearStoredQueueEdit } from "../conversation/composer-draft";
+import { createConversationController } from "../conversation/conversation-controller";
 import { ConversationControllerProvider } from "../conversation/conversation-controller-context";
 import { composerDraftKey } from "../conversation/conversation-keys";
 import type {

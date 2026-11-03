@@ -1,31 +1,12 @@
-import type {
-  AgentEvent,
-  AgentTask,
-  AgentTaskBranch,
-  AgentTasksSnapshot,
-  ConversationSnapshot,
-} from "@openbot/contracts/ipc";
+import type { AgentTask, AgentTaskBranch, AgentTasksSnapshot, ConversationSnapshot } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createStore, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
 import { desktopAnalytics } from "../../analytics";
 import { createScopeGuard } from "../../scope-lifetime";
+import { appendTaskDelta, type TaskDeltaEvent, type TaskEvent } from "../tasks/tasks-port";
 import type { AgentTasksPort } from "./agent-tasks-port";
-
-export type AgentTaskEvent = Extract<
-  AgentEvent,
-  { type: "agent-tasks-changed" | "agent-task-conversation" | "agent-task-conversation-delta" }
->;
-
-/** A task event of a host. Other events do not change a side thread. */
-export function isAgentTaskEvent(event: { type: string }): event is AgentTaskEvent {
-  return (
-    event.type === "agent-tasks-changed" ||
-    event.type === "agent-task-conversation" ||
-    event.type === "agent-task-conversation-delta"
-  );
-}
 
 interface AgentTasksState {
   /** The task list of each agent that loaded one, by agent id. */
@@ -116,28 +97,14 @@ export function createAgentTasks(options: AgentTasksOptions) {
     });
   }
 
-  function applyDelta(event: Extract<AgentTaskEvent, { type: "agent-task-conversation-delta" }>): void {
+  function applyDelta(event: TaskDeltaEvent): void {
     const stored = state.conversations[event.taskId];
     // A task that did not load its conversation reads it whole when it opens.
     if (!stored || event.revision <= stored.revision) return;
     setState((current) => {
       const conversation = current.conversations[event.taskId];
       if (!conversation) return;
-      conversation.revision = event.revision;
-      const existing = conversation.messages.find((message) => message.id === event.messageId);
-      if (existing) {
-        existing.text += event.delta;
-        existing.status = "streaming";
-        return;
-      }
-      conversation.messages.push({
-        id: event.messageId,
-        turnId: event.turnId,
-        author: "assistant",
-        text: event.delta,
-        createdAt: event.createdAt,
-        status: "streaming",
-      });
+      appendTaskDelta(conversation, event);
     });
   }
 
@@ -155,7 +122,7 @@ export function createAgentTasks(options: AgentTasksOptions) {
       void loadTasks(snapshot.agentId);
   }
 
-  function applyEvent(event: AgentTaskEvent): void {
+  function applyEvent(event: TaskEvent): void {
     if (event.type === "agent-tasks-changed") applyTasksChanged(event.snapshot);
     else if (event.type === "agent-task-conversation") applyConversation(event.taskId, event.snapshot);
     else applyDelta(event);

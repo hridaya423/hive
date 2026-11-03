@@ -123,7 +123,8 @@ function note(target: ServerUpdateTarget, status: HostUpdateStatus): void {
   });
 }
 
-async function readStatus(target: ServerUpdateTarget): Promise<HostUpdateStatus | null> {
+/** Reads the update status of a joined server for the header, with no dialog. */
+export async function readStatus(target: ServerUpdateTarget): Promise<HostUpdateStatus | null> {
   try {
     const status = await target.calls.getUpdateStatus(target.serverId);
     note(target, status);
@@ -140,11 +141,6 @@ export function serverUpdateBadge(serverId: string): { version: string; running:
   if (flow && running(flow)) return { version: flow.version, running: true };
   const version = available[serverId];
   return version ? { version, running: false } : null;
-}
-
-/** Reads the update status of a joined server for the header, with no dialog. */
-export async function checkServerUpdate(target: ServerUpdateTarget): Promise<void> {
-  await readStatus(target);
 }
 
 /**
