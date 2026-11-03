@@ -594,3 +594,37 @@ Undo: the tool never changes upstream. To undo an import into Hive, quit Hive, d
 - `HERMES_EXPORT_SKILL_ID` (above).
 - The GitHub connection uses the client ID of upstream's GitHub App `openbotgit` (`src/main/github-connector-config.ts`). The manifest in `scripts/github-app/manifest.json` shows that App's webhook pointed at upstream's Signal (now set to inactive in the manifest only). Make your own App with `bun scripts/create-github-app.ts`, or blank the client ID.
 - Not in the grep, still upstream's: `apps/auth-api/.env.production` (encrypted), `wrangler.jsonc` D1 and R2 ids, `GITHUB_APP_CLIENT_ID`, `APNS_TEAM_ID`; iOS ids `run.openbot.mobile`; the mobile store update check in `app-update.ts` (Play package `run.openbot.mobile`); `native-runtime.lock.json` (build-time download from the upstream release).
+
+## fix/copilot: Copilot sign-in and no-plan account
+
+Hridya's report: code and link sign-in for Copilot "just didn't work". Cause found: the sign-in works, GitHub refuses the account (no Copilot plan), and Hive showed that as an error toast and "sign-in required".
+
+### Evidence recorded from Copilot CLI 1.0.105 (2026-11-03, tokens never printed)
+- `copilot login`: web flow on a desktop, device code on a headless host (`--device-code`, `--web-flow` force one). Token goes to the system credential store, plain `~/.copilot` file if none. `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` win over the store. `~/.copilot/config.json` holds `lastLoggedInUser.login` (no token) after `//` comment lines.
+- ACP `initialize` answers fine, with `authMethods: [{ id: "copilot-login", ... terminal-auth: copilot login }]`. The failure is at `session/new` (Hive's model probe makes that call during start).
+- Not signed in (tested with an empty `HOME`): `session/new` -> `-32000 "Authentication required"`.
+- Signed in, no plan: `session/new` -> `-32603`, message `403 "unauthorized: not authorized to use this Copilot feature\n"`, `data: { category: "permission_denied", status: 403, error: "unauthorized: not authorized to use this Copilot feature\n" }`.
+- `copilot -p`: "Error: Access denied by policy settings ... Your Copilot subscription does not include this feature".
+
+### Commits (branch fix/copilot, one per item)
+1. `f0285e949` item 2 and 6: no-plan row. State stays `error` (the Team API codecs have a closed state list; a new state would fail closed for a v8 client) plus the local-only `planRequired` flag. Message names the login. Badge "No plan". "Open GitHub settings" (`copilot-plan`) and "Try again" (the provider restart, which checks again). No Connect. Cause `billing` (text rule in `failure-cause.ts`). New `scripts/copilot-sign-in-e2e.ts` over the conformance fake: no-plan row, re-check, web-flow sign-in, device-code sign-in, cancel, sign-in that ends with no plan.
+2. `981965f74` item 3: a failed start shows a toast only when an agent uses the provider or the user asked (Refresh, Try again, Restart). Otherwise the row and `lastError` keep it. Covered in the same e2e.
+3. `960939868` item 4: removed the `copilot` ACP preset (it fed both the scan and the form). `provider-detection-e2e.ts` checks a `copilot` file is not found and no preset id is a provider id.
+4. `f68e4feb5` item 5: the onboarding row rule counts `planRequired` as "the user has it". Settings > Providers already lists all providers.
+5. `f66218322` settings list line says "No plan" (committed without the lock by mistake; the hook ran).
+
+### Checks (through the lock)
+- `scripts/provider-conformance-e2e.ts`, `scripts/copilot-sign-in-e2e.ts` (7 cases), `scripts/provider-detection-e2e.ts`: pass. `typecheck:node`, `typecheck:renderer`: pass. Pre-commit hooks ran all typechecks.
+- The first run of `copilot-sign-in-e2e` failed as expected before the fix (row was `error` with the raw 403 text, toast emitted); the broken-start case failed before item 3.
+- A standalone onboarding-rows e2e could not typecheck in the node project (it imports a `.tsx` type), so the row rule is checked by the screenshot below.
+
+### Visual check (Mac mini, clone `~/honey/hive-fix-copilot`, `bun run dev`, fake `copilot` with no plan; stack stopped after)
+- Onboarding "Connect your plan": Claude, Hermes, Copilot "No plan" with "Open GitHub settings"; no toast. `/private/tmp/claude-501/-Users-hridyaagrawal--t3-worktrees-openbot-t3-25948939/7e86843c-38ed-4d53-a77e-f130fb69af1c/scratchpad/shots/onboarding-providers.png`
+- Settings > Providers > Copilot, no plan: `.../scratchpad/shots/dev-automation/settings-copilot-page.png`; after Try again with a plan: `.../scratchpad/shots/settings-copilot-recheck.png`; list: `.../scratchpad/shots/dev-automation/settings-providers-list.png` (taken before the list-line fix `f66218322`; the list reads "No plan" after).
+- Mini fixture: `~/honey/hive-fix-copilot-fixture` (fake CLI, mode file). I deleted only my own dev profile `OpenBot Dev wt-5c65116d...` and its setup file there. I did not touch `~/Library/Application Support/Hive` or `OpenBot`.
+
+### Not done / limits
+- The onboarding row has no "Try again" button (the host does not pass a restart callback there); the picker's Refresh re-checks.
+- The no-plan row is red like other `error` rows. Not restyled.
+- Real fix for Hridya: turn on Copilot at https://github.com/settings/copilot (`access_type_sku: no_access`). No code can make a turn work before that. Not run against the real account (that needs her plan).
+- Mobile and Team API clients see `state: "error"` with the message; `planRequired` is local only.
