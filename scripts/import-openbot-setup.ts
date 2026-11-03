@@ -1,9 +1,9 @@
 import { Database } from "bun:sqlite";
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs";
 import { chmod, cp, lstat, mkdir, mkdtemp, readdir, readlink, rm, unlink, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { APP_FOLDER_NAME } from "@openbot/contracts/app-url-scheme";
 import type { InstanceTransferResult } from "@openbot/contracts/ipc";
@@ -91,14 +91,24 @@ if (archiveIn && dryRun) usage("--dry-run reads the source profile. It does not 
 if (archiveIn && exportOnly) usage("--export-only and --archive-in exclude each other.");
 if (exportOnly && !archiveOut) usage("--export-only needs --archive-out.");
 if (!dryRun && !exportOnly && !targetUserData) usage("--target-user-data is required.");
-const inside = (path: string, parent: string) => path === parent || path.startsWith(`${parent}/`);
-if (
-  targetUserData &&
-  [targetUserData, join(targetHome, APP_FOLDER_NAME)].some(
-    (path) => inside(path, sourceUserData) || inside(path, sourceRoot),
-  )
-)
-  usage("The target is inside the source. This tool never writes to the source.");
+function canonical(path: string): string {
+  let existing = resolve(path);
+  const rest: string[] = [];
+  while (!existsSync(existing)) {
+    rest.unshift(basename(existing));
+    existing = dirname(existing);
+  }
+  return join(realpathSync(existing), ...rest).toLowerCase();
+}
+const inside = (path: string, parent: string) => {
+  const [child, root] = [canonical(path), canonical(parent)];
+  return child === root || child.startsWith(`${root}/`);
+};
+const writes = [targetUserData && join(targetHome, APP_FOLDER_NAME), targetUserData, archiveOut, reportPath].filter(
+  (path): path is string => path !== null && path !== undefined,
+);
+if (writes.some((path) => inside(path, sourceUserData) || inside(path, sourceRoot)))
+  usage("An output path is inside the source. This tool never writes to the source.");
 
 interface RoutineReport {
   name: string;

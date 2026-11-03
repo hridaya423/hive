@@ -174,9 +174,28 @@ try {
   assert.equal(targetRows("select 1 from projection_agents").length, 3);
   note("a second run adds nothing", { alreadyThere: second.target.alreadyThere });
 
-  const refused = runTool([...common, "--target-user-data", sourceUserData]);
-  assert.equal(refused.status, 2);
-  note("a target equal to the source is refused", { stderr: refused.stderr.split("\n")[0] });
+  const link = join(root, "link-to-source");
+  await symlink(sourceUserData, link);
+  const inSource = (name: string) => join(sourceRoot, name);
+  const refusals: Record<string, string[]> = {
+    "the source itself": ["--target-user-data", sourceUserData],
+    "a link to the source": ["--target-user-data", link],
+    "the source in other letter case": ["--target-user-data", sourceUserData.toUpperCase()],
+    "a target home inside the source root": [
+      "--target-home",
+      sourceRoot,
+      "--target-user-data",
+      join(root, "elsewhere"),
+    ],
+    "an archive inside the source root": ["--export-only", "--archive-out", inSource("crew.zip")],
+    "a report inside the source": ["--dry-run", "--report", join(link, "report.json")],
+  };
+  for (const [name, args] of Object.entries(refusals)) {
+    const refused = runTool([...sourceArgs, ...args]);
+    assert.equal(refused.status, 2, `${name}: ${refused.stderr}`);
+  }
+  assert.ok(!existsSync(inSource("crew.zip")) && !existsSync(join(sourceUserData, "report.json")));
+  note("a target, archive or report inside the source is refused", { cases: Object.keys(refusals) });
 
   assert.equal(fingerprint(sourceUserData) + fingerprint(sourceRoot), before, "The source changed.");
   note("the source profile is byte for byte unchanged", { fingerprint: before });
