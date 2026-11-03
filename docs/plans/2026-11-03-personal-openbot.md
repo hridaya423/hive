@@ -57,12 +57,12 @@ Each decision is reversible unless marked. Change one only with a reason recorde
 | D2 | No auto-update. Delete `publish:`. The fork updates by rebuilding (`bun run package`) and copying the app. | Removing `publish` stops `app-update.yml` being written, and the existing check keeps the updater off (`application-services.ts:3183-3203`). [R-commercial §4] | Point `publish` at a private fork repo later |
 | D3 | Tokens first (Phase 1). | It is Hridya's daily pain, it is measurable, and it touches few files. A Codex agent's first request is 55K–61K tokens, against 25K for plain Codex. Computer Use schemas are about 22K of that. [R-tokens M1] | none |
 | D4 | Accounts stay; upstream goes. Run the existing Worker (`apps/auth-api`) and Signal (`remote/api`) on the mini behind `tailscale serve` HTTPS. Owner sign-in trusts the Tailscale identity header, so there is no email step. Hridya asked for "nothing goes to upstream", not for account removal. | Removing accounts (R-accounts Option B) edits about 150 files and rewrites the host-client trust boundary. Option A keeps the tested protocol and makes about 20 account edits. [R-accounts §Options] | Option B, only if Hridya asks |
-| D5 | Multi-host = the mini is the single always-on host for routine agents. The MacBook joins it as a client and keeps its own local host for agents that need MacBook-only things. No two-host lease or database sync. | SQLite is the source of truth, and migrations are irreversible. A lease plus sync (Option B) risks both. Keep-awake does not survive a closed lid. [R-multihost §Options] | Remote execution from the mini onto the MacBook through MCP (Option C) |
+| D5 | Agents live on the host that suits them. The mini is the always-on host (routines, booking, hackathons). The MacBook runs its own host for MacBook-only work (T3 Code, `~/honey`) and is also a client of the mini. One client shows the agents of every host in one list, and an agent can move between hosts (Task 6.5). No two-host lease or database sync. | SQLite is the source of truth, and migrations are irreversible. A lease plus sync (Option B) risks both. Keep-awake does not survive a closed lid. [R-multihost §Options] | Remote execution from the mini onto the MacBook through MCP (Option C) |
 | D6 | Copilot is a **first-class provider** (not a custom agent): the user's own `copilot` CLI over ACP, copied from the Hermes driver, with sign-in, model picker, backup-model support and (if the spike allows) multiple accounts. No managed runtime download. Hridya's plan: **GitHub Copilot Pro through GitHub Education**. | `copilot --acp` exists (public preview since 2026-01-28). OpenBot never touches the credential (macOS keychain item `copilot-cli`). [R-copilot] | Copilot through OpenCode (R-copilot Option B) |
 | D7 | Fallback chains. Use the existing per-agent backup models and multi-account Codex. Add a host-wide default chain that every agent without its own chain uses, so one setting covers the crew. Close the failover gaps the code documents. | The machinery exists. What is missing is one place to set the chain, Copilot as a member, and failover on start failures. | none |
-| D8 | Phone notifications on **Android** through a self-hosted **ntfy** server on the mini, reachable only on the tailnet. The Hive host on the mini posts each notification to ntfy. The ntfy Android app (F-Droid or Play) subscribes to the topic and keeps its own connection, so neither Google Firebase nor the Worker relay is needed. A tap opens Hive through a `dev.hridaya.hive://` link. No iOS work. | No Google account, no Firebase file, no service-account key. Upstream's `apps/mobile/google-services.json` belongs to nightly-labs' Firebase project and is deleted. The host already takes the send step as an option (`send` in `src/main/push-notifications.ts:79-82`). | Firebase through the Worker's FCM relay (`apps/auth-api/src/server/android-notification-relay.ts`) |
+| D8 | Phone notifications on **Android** through a self-hosted **ntfy** server on the mini or the Windows PC (one URL setting), reachable only on the tailnet. The Hive host on the mini posts each notification to ntfy. The ntfy Android app (F-Droid or Play) subscribes to the topic and keeps its own connection, so neither Google Firebase nor the Worker relay is needed. A tap opens Hive through a `dev.hridaya.hive://` link. No iOS work. | No Google account, no Firebase file, no service-account key. Upstream's `apps/mobile/google-services.json` belongs to nightly-labs' Firebase project and is deleted. The host already takes the send step as an option (`send` in `src/main/push-notifications.ts:79-82`). | Firebase through the Worker's FCM relay (`apps/auth-api/src/server/android-notification-relay.ts`) |
 | D9 | English only. Delete the 12 other locales (about 164K lines, 91% of `packages/i18n`). | One user, smaller build, fewer parity checks. [R-commercial §7] | Restore from `upstream` |
-| D10 | Slack, Discord and Telegram stay off and their app code is deleted. | They need nightly-labs' own bot and app registrations. [R-accounts §5] | A personal Telegram bot later |
+| D10 | **WhatsApp** is the one chat channel, through Baileys (the WhatsApp Web protocol library, npm `baileys`) running inside the host on the mini (Phase 9). The shared messaging code in `src/backend/messaging` stays. Slack, Discord and Telegram get the cheapest path: their cloud apps go in Phase 2, and their backend code stays untouched. | Upstream's channels need nightly-labs' bot registrations. Baileys needs no business account and no cloud. Risk: it is not an official client, so WhatsApp can ban the number. Use a second number if that risk matters. | The official WhatsApp Cloud API (needs a Meta business account) |
 | D11 | Upstream sync is selective. Record the base SHA in `progress.md`. Cherry-pick fixes. Never merge upstream wholesale after Phase 2. | After the deletions, a merge would conflict across hundreds of files. | none |
 
 ## Open questions for Hridya (each blocks one task only)
@@ -70,6 +70,7 @@ Each decision is reversible unless marked. Change one only with a reason recorde
 1. **Copilot browser sign-in** (Task 3.1) and, for a second Copilot account, a second GitHub login (Task 3.3).
 2. **Second Codex account sign-in** (Task 4.1). Name the ChatGPT account to use.
 3. **ntfy app** on the phone (Task 7.3): install it and subscribe to the topic the agent gives.
+4. **WhatsApp** (Task 9.1): scan the QR with the number to link. A second number avoids a ban risk on the main one.
 
 Answered on 2026-11-03: paid Apple account exists but the phone is Android (iOS is out of scope); Copilot plan is Pro via GitHub Education; the name is Hive.
 
@@ -82,6 +83,8 @@ Answered on 2026-11-03: paid Apple account exists but the phone is Android (iOS 
 | 3 | A real turn on a Copilot agent: picker shows Copilot models, the turn completes, the model chosen is the model used | All three | Any missing |
 | 4 | Agent with chain Codex#1 → Codex#2 → Copilot. Force a limit on Codex#1 (fake in e2e; for real, a revoked or spent account), then on Codex#2 | Agent moves #1 → #2 → Copilot with a note each time, and returns to #1 when the hold ends | Stalls, errors, or skips an entry |
 | 6 | Close the MacBook lid across a routine's due time, then read the run history on the mini. `pmset -g log` on the mini shows no sleep. | Run recorded at the due time | Missed run |
+| 8 | `bun run dev:bench --compare <Phase 0 report>` on the same machine, plus Phase 1's token check | Every tracked metric is the same or better, and the metrics the climb targeted improve by the recorded amounts | Any regression beyond the run-to-run spread |
+| 9 | Hridya sends a WhatsApp message to the linked number from another phone | The right agent answers in the same chat, and a restart of the mini keeps the link | No answer, or a new QR scan after a restart |
 | 7 | Android phone pairs with the mini by QR over Tailscale, sends a message, and gets an ntfy notification with Hive closed | All three | Any missing |
 
 ---
@@ -223,6 +226,20 @@ Each routine starts a new session and pays a cold prefix of about 46K tokens [R-
 **Step 3:** `bun run dev:bench` after. Keep the change only if cold start drops by 10% or more. Otherwise revert it and record the numbers.
 
 Use the `performance` skill for this task.
+
+### Task 1.9: Tool descriptions at their minimum
+
+Use the `writing-for-agents` skill. A tool description tells the model when to call the tool and what it returns. It does not teach the domain, repeat the parameter schema, or list other tools.
+
+**Files:** `src/backend/agent/tool-catalog.ts` (`tool_search` embeds every tool name, about 4,000 characters, line 38; `request_api_key` 1,575 characters, `ask_user` 999), every tool definition the catalog collects (find with `git grep -ln "description:" src/backend/agent src/backend/*-tools.ts`), `src/backend/agent/developer-instructions.ts:263-303`, `tools/agent-context/budget.json`.
+
+**Step 1: The guard first.** Write `scripts/tool-choice-eval.ts`: 30 prompts, each with the tool a correct agent calls first (for example "remind me at 9" → `create_routine`). Run it against a real Codex agent on the current descriptions, 3 runs each. Record the pass rate. This is the floor; a shorter description that lowers it is reverted.
+**Step 2:** Rewrite one tool family at a time: one sentence for when to use it, one for what it returns, and parameter descriptions only where the name does not say it. Delete examples the schema already shows.
+**Step 3:** Run `bun run check:agent-context` and the eval. Keep the family only if the eval holds and `catalog.descriptions` (39,074 bytes) and `catalog.schemas` (79,659 bytes) drop.
+**Step 4:** Lower the numbers in `budget.json` to the new sizes, so a later change cannot grow them silently.
+**Step 5:** Commit per family: `perf: shorter <family> tool descriptions`.
+
+Target: half of today's `catalog.descriptions` bytes with no eval loss. Record the before and after in `progress.md`.
 
 ---
 
@@ -436,6 +453,17 @@ T3 Code runs on the MacBook (`http://127.0.0.1:3773/mcp`, loopback). To reach it
 
 Only if Phase 5's Signal proves unreliable. Follow [R-multihost "Milestone 2"]: a fixed `preferredPort` (`listen-loopback.ts:10-18`, `team-api-server.ts:497`), `tailscale serve` to that port, and a new optional Team API capability for password join. Do not change the meaning of an existing capability.
 
+### Task 6.5: All hosts in one place, and agents that move
+
+Goal: Hridya picks the host per agent for convenience. Badminton Booker lives on the mini. Coding Manager lives on the MacBook, next to T3 Code.
+
+**Files:** the server rail and agent list in `src/renderer` (start from `activeServer()` uses, `src/renderer/src/features/conversation/WorkspaceConversation.tsx:288,348,582`), `src/backend/agent-service.ts` (agent create path), the Team API agent routes (add a new optional capability; do not change a released protocol).
+
+**Step 1:** One agent list for all hosts. Each row shows its host. Opening an agent switches to its host without a second click. Unread counts and running state come from every joined host, not only the active one.
+**Step 2:** "Move to <host>": the client reads the agent's settings, instructions, routines, MCP servers, backup models and workspace files from the source host, creates the agent on the target host through the new Team API capability, and then removes it from the source only after the target confirms. Conversation history stays on the source host as a read-only archive. Secrets and provider sign-ins do not move; the target uses its own accounts.
+**Step 3: Test first.** An e2e with two host processes (copy the two-host setup of `scripts/remote-sync-perf-e2e.ts`): move an agent with one routine, then check the routine is on the target, gone from the source, and fires on the target. FAIL before Step 2, PASS after.
+**Step 4:** Look at the list and the move dialog on the mini. Commit: `feat: agents across hosts`.
+
 ---
 
 ## Phase 7: Android app, personal build (D8)
@@ -457,7 +485,7 @@ On `win-pc`: clone or sync the repo, `bun install --frozen-lockfile`, then `bun 
 
 Design: when the host has an ntfy URL and topic, it sends the plain title and body to ntfy with an HTTP `POST`, with a `Click` header that holds the `dev.hridaya.hive://` link to the agent. It keeps upstream's rules for who is away, levels per agent, and resend delays. Plain text is acceptable because ntfy, the host and the phone are all on Hridya's tailnet. Protect the topic with an ntfy access token. Keep the token in envsync (`envsync set HIVE_NTFY_TOKEN`), never in git.
 
-**Step 1:** On the mini, install ntfy (`brew install ntfy`). Run `ntfy serve` as a launchd service, bound to `127.0.0.1`, with `auth-default-access: deny-all`. Publish it with `tailscale serve`. Create one user and one token. Check with `curl -H "Authorization: Bearer $TOKEN" -d test https://<mini>.ts.net/<topic>` from the MacBook. The command must succeed, and the same command with no token must fail with 403.
+**Step 1:** Install ntfy on the mini (`brew install ntfy`, launchd service) or on the Windows PC (the Windows binary, as a service with `nssm` or Task Scheduler). Prefer the machine that stays on. Run `ntfy serve` bound to `127.0.0.1`, with `auth-default-access: deny-all`. Publish it with `tailscale serve`. Create one user and one token. Check with `curl -H "Authorization: Bearer $TOKEN" -d test https://<mini>.ts.net/<topic>` from the MacBook. The command must succeed, and the same command with no token must fail with 403.
 **Step 2: Failing test.** Extend `scripts/push-notification-away-e2e.ts` with a fake ntfy endpoint. The member is away and an agent finishes a turn. Expect one `POST` with the agent name as the title and the answer as the body. FAIL.
 **Step 3:** Implement the ntfy send. **Step 4:** PASS, with the existing away and level cases.
 **Step 5:** Hridya installs the ntfy app and subscribes to `https://<mini>.ts.net/<topic>` with the token, with instant delivery on. Lock the phone, finish a turn on the mini, and confirm that the notification arrives and a tap opens Hive on that agent.
@@ -469,9 +497,56 @@ Create a release keystore on `win-pc`; keep its password in envsync (`envsync se
 
 ---
 
+## Phase 8: Performance hill-climb
+
+Use the `performance` skill. A climb is a loop: measure, change one thing, measure again, keep it only if it wins beyond the run-to-run spread, else revert. Record every attempt in `progress.md`, the losers too.
+
+### Task 8.1: The scoreboard
+
+**Files:** `scripts/dev-automation/bench.ts` (already measures RAM, CPU, start-up marks and renderer work, with `--compare`), `scripts/remote-sync-perf-e2e.ts` (`bun run perf:remote`), `scripts/web-client-perf-e2e.ts` (`bun run perf:web`), Phase 0's token script.
+
+Add the metrics the bench lacks, each as a number in the bench report:
+1. Time from send to first streamed token on a fake provider (app overhead only, with the provider time removed).
+2. Main-process event-loop delay p99 during a 3-agent burst.
+3. IPC messages per second while idle and while one agent streams.
+4. Idle CPU and RAM of the whole process tree after 10 minutes, including each provider child process.
+5. Cold start to interactive, and warm reopen.
+6. First-request tokens and tokens per follow-up turn (from Phase 0).
+
+Run the full scoreboard 5 times on the Phase 0 build and save it as the baseline report. Record the spread of each metric.
+
+### Task 8.2: Climb
+
+Work from the largest measured cost down. Profile before each change (CPU profile of the main process with `--cpu-prof`, a renderer trace through CDP, `sample` on provider children). Candidates from the research, to confirm or reject with numbers: the 16.4 MB eager renderer load, IPC chatter (Task 1.7), one provider process per agent against a shared one (Task 1.1), SQLite writes on every streamed delta, and polling loops in the host. One change per commit: `perf: <what> (<metric> <before> → <after>)`.
+
+Stop a target when three attempts in a row give less than 2% each. Run the climb after Phase 2 (less code to measure) and again after Phase 7.
+
+### Task 8.3: Lock the wins
+
+Turn each kept win into a budget the bench fails on (start from `tools/agent-context/budget.json` as the pattern), so a later change cannot lose it.
+
+---
+
+## Phase 9: WhatsApp (D10)
+
+### Task 9.1: Spike
+
+In a scratch folder on the mini, install `baileys` with Bun and link a WhatsApp account by QR. Record in `progress.md`: does Baileys run under Bun 1.4.2 or only under Node; where it stores its auth state (use the multi-file auth state in Hive's data folder, never in git); reconnect after a network drop and after a mini restart; text, images, voice notes, replies and reactions in and out; group messages.
+
+### Task 9.2: The adapter
+
+**Files:** Create `src/backend/messaging/whatsapp/` with a transport and an adapter that implement `MessagingTransport` and `MessagingAdapter` (`src/backend/messaging/messaging-types.ts:136-224`). Template: `src/backend/messaging/telegram/` (1,102 lines), but the transport talks to WhatsApp directly from the host, with no relay. Modify `MESSAGING_PLATFORMS` (`packages/contracts/src/ipc-messaging.ts:15`), `messagingPage` (line 185), and the channel settings UI. If Task 9.1 shows Baileys needs Node, run it as a child process of the host over stdio, the same way provider CLIs run.
+
+**Step 1: Failing test.** A fake Baileys socket in the style of the provider fakes: an inbound text reaches the bound agent, and the answer goes back to the same chat. FAIL.
+**Step 2:** Implement the transport (connect, QR state to the UI, reconnect with backoff, auth state on disk) and the adapter (post, edit if WhatsApp allows it, react, upload, download, history from the local store).
+**Step 3:** PASS. **Step 4:** Only Hridya's own number and chosen chats can reach an agent: an allowlist of chat ids, default empty. A message from any other chat is dropped and logged as a count only.
+**Step 5:** Link the real account on the mini, bind it to Chief of Staff, and run the Phase 9 external check. Commit: `feat: whatsapp channel`.
+
+---
+
 ## Execution notes
 
-- **Order:** 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7. Phases 1 and 3 touch different files and can run in parallel worktrees (`git worktree add ../hive-phase1 personal`); merge 1 first. Phase 4 needs Phase 3 (Copilot in the chain). Phase 5 needs Phase 2. Phases 6 and 7 need Phase 5.
+- **Order:** 0 → 1 → 2 → 8 (first climb) → 3 → 4 → 5 → 6 → 7 → 9 → 8 (second climb). Phase 9 needs only the mini host from Phase 6. Phases 1 and 3 touch different files and can run in parallel worktrees (`git worktree add ../hive-phase1 personal`); merge 1 first. Phase 4 needs Phase 3 (Copilot in the chain). Phase 5 needs Phase 2. Phases 6 and 7 need Phase 5.
 - **After each phase:** use the `code-review` skill (thermo-nuclear mode) on the phase diff, then `code-deslop`. Record findings and fixes in `progress.md`.
 - **Visual checks:** after Phases 2, 3 and 4, look at the settings, provider and server-rail screens on the mini (`computer-use` skill). After Phase 7, look at the phone screens on `win-pc`. Record screenshot paths in `progress.md`.
-- **Stop and ask Hridya** only for: the Copilot and second Codex sign-ins, the Phase 5 fallback choice, the ntfy app on the phone, and any step that would touch `~/Library/Application Support/OpenBot` (the live upstream data).
+- **Stop and ask Hridya** only for: the Copilot and second Codex sign-ins, the WhatsApp QR scan and which number to use, the Phase 5 fallback choice, the ntfy app on the phone, and any step that would touch `~/Library/Application Support/OpenBot` (the live upstream data).
