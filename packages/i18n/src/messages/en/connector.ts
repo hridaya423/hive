@@ -385,7 +385,7 @@ export const messages = defineMessages("connector", {
   "connector.whatsapp.helpError":
     "Hive cannot reach WhatsApp. Reconnect, or unlink and link the account again. If the phone removed this device, link it again.",
   "connector.whatsapp.helpRestricted":
-    "This number is restricted by WhatsApp. Hive stopped trying to connect. Wait a while, then reconnect. If it stays restricted, unlink the account and use another number.",
+    "This number is restricted by WhatsApp. Wait a while, then reconnect, or use another number.",
   "connector.whatsapp.unlinkIncompleteTitle": "The phone may still list this device",
   "connector.whatsapp.unlinkIncompleteDescription":
     "WhatsApp did not confirm the logout. Hive deleted its login, but the phone may still show this device. Remove it in WhatsApp under Linked devices.",
