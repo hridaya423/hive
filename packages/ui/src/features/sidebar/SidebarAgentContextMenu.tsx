@@ -3,7 +3,7 @@
  * away is `SidebarMoveToSubmenu`, which the channel menu shows too; everything here is agent-only.
  */
 
-import { AppWindow, ContextMenu, Copy, MessageCirclePlus, Moon, Pin, PinOff, RotateCcw } from "@openbot/ui";
+import { AppWindow, ContextMenu, Copy, MessageCirclePlus, Moon, Pin, PinOff, RotateCcw, Server } from "@openbot/ui";
 import { Show } from "solid-js";
 import type { AgentProfile } from "../../data";
 import { useText } from "../../text";
@@ -14,7 +14,7 @@ import { useSidebarScope } from "./sidebar-scope";
 
 /** `userHidden` swaps the hide item for a restore item that names the section the agent goes back to. */
 export function SidebarAgentContextMenu(menuProps: { agent: AgentProfile; pinned: boolean; userHidden?: boolean }) {
-  const { customSectionById, openDelete, props } = useSidebarScope();
+  const { customSectionById, openDelete, props, setMoveAgentId } = useSidebarScope();
   const { t } = useText();
   const ref = (): SidebarPinnedItem => ({ kind: "agent", id: menuProps.agent.id });
   const restoreLabel = () => {
@@ -66,6 +66,12 @@ export function SidebarAgentContextMenu(menuProps: { agent: AgentProfile; pinned
                 ? t("sidebar.agentMenu.duplicating")
                 : t("sidebar.agentMenu.duplicate")}
             </span>
+          </ContextMenu.Item>
+        </Show>
+        <Show when={!menuProps.userHidden && props.onMoveAgent && (props.moveTargets?.length ?? 0) > 0}>
+          <ContextMenu.Item onSelectAfterClose={() => setMoveAgentId(menuProps.agent.id)}>
+            <Server class="agent-context-icon size-4" aria-hidden="true" />
+            <span>{t("sidebar.agentMenu.moveToHost")}</span>
           </ContextMenu.Item>
         </Show>
         <Show when={!menuProps.userHidden && props.onHideAgent}>

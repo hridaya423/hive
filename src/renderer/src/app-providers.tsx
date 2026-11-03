@@ -27,6 +27,7 @@ import { DynamicIslandBridge } from "./features/dynamic-island/dynamic-island-br
 import { DynamicIslandProvider } from "./features/dynamic-island/dynamic-island-context";
 import { SetupProvider } from "./features/onboarding/onboarding-context";
 import { RemoteDesktopProvider } from "./features/remote-desktop/remote-desktop-context";
+import { HostRosterProvider } from "./features/servers/host-roster";
 import { ServerScopeProvider } from "./features/servers/server-scope";
 import { ServerSelectionProvider } from "./features/servers/server-selection";
 import { ServerSettingsProvider } from "./features/servers/server-settings";
@@ -115,29 +116,31 @@ export function AppProviders(props: ParentProps<AppProps>): JSX.Element {
                         <ProviderDetectionProvider>
                           <ServersProvider>
                             <DynamicIslandProvider>
-                              <ServerSettingsProvider>
-                                <RemoteDesktopProvider>
-                                  <ServerSwitchProvider>
-                                    <AnsweredPromptsProvider>
-                                      <UiErrorsProvider>
-                                        <UsageProvider>
-                                          <WindowPageProvider>
-                                            <AgentReadTrackingProvider>
-                                              {/* Links and invitations open in the main window. */}
-                                              <Show when={!props.chatWindow}>
-                                                <AppBootstrap />
-                                              </Show>
-                                              <ServerScopeBoundary stableConversation={stableConversation}>
-                                                {props.children}
-                                              </ServerScopeBoundary>
-                                            </AgentReadTrackingProvider>
-                                          </WindowPageProvider>
-                                        </UsageProvider>
-                                      </UiErrorsProvider>
-                                    </AnsweredPromptsProvider>
-                                  </ServerSwitchProvider>
-                                </RemoteDesktopProvider>
-                              </ServerSettingsProvider>
+                              <HostRosterProvider>
+                                <ServerSettingsProvider>
+                                  <RemoteDesktopProvider>
+                                    <ServerSwitchProvider>
+                                      <AnsweredPromptsProvider>
+                                        <UiErrorsProvider>
+                                          <UsageProvider>
+                                            <WindowPageProvider>
+                                              <AgentReadTrackingProvider>
+                                                {/* Links and invitations open in the main window. */}
+                                                <Show when={!props.chatWindow}>
+                                                  <AppBootstrap />
+                                                </Show>
+                                                <ServerScopeBoundary stableConversation={stableConversation}>
+                                                  {props.children}
+                                                </ServerScopeBoundary>
+                                              </AgentReadTrackingProvider>
+                                            </WindowPageProvider>
+                                          </UsageProvider>
+                                        </UiErrorsProvider>
+                                      </AnsweredPromptsProvider>
+                                    </ServerSwitchProvider>
+                                  </RemoteDesktopProvider>
+                                </ServerSettingsProvider>
+                              </HostRosterProvider>
                             </DynamicIslandProvider>
                           </ServersProvider>
                         </ProviderDetectionProvider>

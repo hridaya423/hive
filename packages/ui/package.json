@@ -253,6 +253,7 @@
     "./features/workflows/WorkflowCanvas": "./src/features/workflows/WorkflowCanvas.tsx",
     "./features/workflows/workflows.css": "./src/features/workflows/workflows.css",
     "./features/sidebar/Sidebar": "./src/features/sidebar/Sidebar.tsx",
+    "./features/sidebar/MoveAgentDialog": "./src/features/sidebar/MoveAgentDialog.tsx",
     "./features/mobile-app/android-play-store": "./src/features/mobile-app/android-play-store.ts",
     "./features/mobile-app/ios-app-store": "./src/features/mobile-app/ios-app-store.ts",
     "./features/sidebar/SidebarCommunityCard": "./src/features/sidebar/SidebarCommunityCard.tsx",

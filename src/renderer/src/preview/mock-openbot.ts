@@ -3359,6 +3359,13 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
         return clone({ agents: imported, skipped: [], signIn: ["claude"], warnings: [] });
       },
       discard: async () => undefined,
+      moveAgent: async ({ agentId }) => {
+        const moved = agents.find((agent) => agent.id === agentId);
+        if (!moved) throw new Error("The agent is not on this server.");
+        agents = agents.filter((agent) => agent.id !== agentId);
+        emitAgentEvent({ type: "agents-changed", agents });
+        return { agentId, name: moved.name, warnings: [], signIn: [] };
+      },
     },
     remoteDesktop: mockTeam.remoteDesktop,
   };

@@ -7,7 +7,7 @@
  * is the one part that needs a closure of its own, and `createSidebarDragEngine` is it.
  */
 
-import { createContext, createEffect, onCleanup, useContext } from "solid-js";
+import { createContext, createEffect, createSignal, onCleanup, useContext } from "solid-js";
 import { createScrollFades } from "../../components/createScrollFades";
 import { createSidebarDragEngine } from "./createSidebarDragEngine";
 import type { SidebarProps } from "./sidebar-types";
@@ -20,6 +20,7 @@ import { createSidebarPendingStore } from "./stores/pending-store";
 export function createSidebarScope(props: SidebarProps) {
   const layoutMutable = () => props.layoutMutable !== false;
   const scrollFades = createScrollFades();
+  const [moveAgentId, setMoveAgentId] = createSignal<string | null>(null);
 
   const { announce, announceError, reorderAnnouncement } = createSidebarAnnouncementStore();
   // The drag state is built from the data store, so the data store reads it through this reference,
@@ -193,6 +194,7 @@ export function createSidebarScope(props: SidebarProps) {
     movePinnedItem,
     moveFolderTo,
     moveSection,
+    moveAgentId,
     openDelete,
     orderedPeople,
     pending,
@@ -203,6 +205,7 @@ export function createSidebarScope(props: SidebarProps) {
     resolvedPinnedItems,
     saveSectionEditor,
     scrollFades,
+    setMoveAgentId,
     sectionDeleteTarget,
     sectionCanNest,
     sectionChildren,

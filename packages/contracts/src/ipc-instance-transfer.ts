@@ -90,6 +90,21 @@ export interface InstanceTransferResult {
   warnings: string[];
 }
 
+/** Moves one agent from one server to another, `LOCAL_SERVER_ID` naming this computer's own server. */
+export interface MoveAgentInput {
+  agentId: string;
+  sourceServerId: string;
+  targetServerId: string;
+}
+
+/** The agent as the target server now holds it. The source keeps a hidden, read-only copy. */
+export interface MoveAgentResult {
+  agentId: string;
+  name: string;
+  warnings: string[];
+  signIn: AgentProviderId[];
+}
+
 function invalid(label: string): never {
   throw new Error(`Invalid ${label}.`);
 }
@@ -117,6 +132,30 @@ export function parseApplyInstanceTransferInput(value: unknown): ApplyInstanceTr
   if (!isBoolean(input.includeSettings)) invalid("import request");
   if (input.keys.length === 0 && !input.includeSettings) invalid("import request");
   return { token: input.token, keys: input.keys, includeSettings: input.includeSettings };
+}
+
+export function parseMoveAgentInput(value: unknown): MoveAgentInput {
+  const input = decodeRecord(value, "move request");
+  if (!isIdentifier(input.agentId) || !isIdentifier(input.sourceServerId) || !isIdentifier(input.targetServerId))
+    invalid("move request");
+  if (input.sourceServerId === input.targetServerId) invalid("move request");
+  return { agentId: input.agentId, sourceServerId: input.sourceServerId, targetServerId: input.targetServerId };
+}
+
+export function decodeMoveAgentResult(value: unknown): MoveAgentResult {
+  const result = decodeRecord(value, "move result");
+  if (
+    !isIdentifier(result.agentId) ||
+    !isBoundedString(result.name, INPUT_LIMITS.agentName) ||
+    !isUniqueList(result.signIn, 32, isAgentProvider)
+  )
+    invalid("move result");
+  return {
+    agentId: result.agentId,
+    name: result.name,
+    warnings: decodeImportMessages(result.warnings, "move warnings"),
+    signIn: result.signIn,
+  };
 }
 
 function decodeTransferAgent(value: unknown): InstanceTransferAgent {

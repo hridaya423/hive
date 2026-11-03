@@ -10,6 +10,7 @@ import { useText } from "../../text";
 import { SidebarChannelRow } from "./SidebarChannelRow";
 import { SidebarEmptyState } from "./SidebarEmptyState";
 import { SidebarHiddenGroup } from "./SidebarHiddenGroup";
+import { SidebarHostAgentsGroup } from "./SidebarHostAgentsGroup";
 import { SidebarPinnedGroup } from "./SidebarPinnedGroup";
 import { SidebarSectionList } from "./SidebarSectionList";
 import { SidebarWaitingGroup } from "./SidebarWaitingGroup";
@@ -53,6 +54,7 @@ export function SidebarNav() {
             waitingChats().length === 0 &&
             filteredChats().length === 0 &&
             userHiddenAgentList().length === 0 &&
+            (props.otherHostAgents?.length ?? 0) === 0 &&
             (props.showPeople === false || orderedPeople().length === 0) &&
             pending.sectionEditor?.target.kind !== "create"
           }
@@ -63,6 +65,7 @@ export function SidebarNav() {
         <SidebarWaitingGroup />
         <SidebarSectionList />
         <SidebarHiddenGroup />
+        <SidebarHostAgentsGroup />
         <Show when={props.showingArchivedChannels}>
           <section class="sidebar-chat-group sidebar-section" aria-label={t("sidebar.deletedChannels.title")}>
             <h2 class="sidebar-section-name">{t("sidebar.deletedChannels.title")}</h2>

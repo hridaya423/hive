@@ -184,6 +184,29 @@ including unfinished `.part` files, before it writes a new file. Concurrent uplo
 for this cleanup. If cleanup fails, the operation fails; the next upload or export retries it.
 Later operations keep the current process's files. Local files selected by the user are kept.
 
+### Moving an agent between hosts
+
+The desktop moves one agent from one host to another with calls that released capabilities already
+serve. It adds no Team API capability, route or protocol version. `instance-transfer:move-agent` is an
+IPC endpoint of this app, and `src/main/agent-move.ts` runs it with one `MoveHost` for each side: the
+computer's own server through its services, a joined server through `instance-transfer-v1`,
+`agent-backup-models-v1` and `agent-hidden-v1`. Both sides need an owner or admin. The renderer shows
+the move only when both hosts offer those capabilities.
+
+The order protects the agent. The source exports the agent with its files and no server settings. The
+target stages the file and applies the one agent. The move then compares the routine and memory counts
+that the target reports with the source's counts. A difference, or a refusal, deletes the new agent on
+the target and leaves the source as it was. Only then does the source hide the agent (`agent-hidden-v1`),
+which stops its routines, and delete the routines it can list. The hidden agent keeps its chat history as a
+read-only archive. Backup models go through `agent-backup-models-v1`; a target that refuses them gets a
+warning. Provider sign-ins, secrets and MCP servers do not move: MCP servers belong to a host, and the
+target uses its own accounts. A one-time routine of a joined source stays behind, hidden with the agent,
+because the released routine list omits it.
+
+The sidebar lists the agents of every other connected host in "On other hosts" (`host-roster.tsx`). A row
+names its host, shows the working, unread and waiting state that the host reports, and switches to the
+host and opens the agent in one press.
+
 ### Routine flows
 
 `routine-flows-v1` serves the routine canvas (see [Routine flows](agents.md#routine-flows)) to a

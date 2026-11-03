@@ -33,6 +33,23 @@ export type SidebarView = "agents" | "routines";
  */
 export const SIDEBAR_HIDDEN_GROUP_OPEN_ID = "hidden-agents:open";
 
+/** The "On other hosts" group is open by default, so its id in `collapsedSectionIds` records that the user collapsed it. */
+export const SIDEBAR_HOSTS_GROUP_COLLAPSED_ID = "other-hosts:collapsed";
+
+/** One agent of another host, in the "On other hosts" group. */
+export interface SidebarHostAgent {
+  serverId: string;
+  serverName: string;
+  agent: AgentProfile;
+  state?: SidebarAgentState | undefined;
+}
+
+/** A host that an agent can move to. */
+export interface SidebarMoveTarget {
+  id: string;
+  name: string;
+}
+
 export interface SidebarProps {
   /** The switch over the list is shown only when the caller handles `onViewChange`. */
   view?: SidebarView | undefined;
@@ -54,6 +71,14 @@ export interface SidebarProps {
   /** Brings a deleted channel back to the list. Without it, a row in Deleted channels has no menu. */
   onRestoreChannel?: ((channelId: string) => void) | undefined;
   serverName: string;
+  /** The agents of the other joined hosts. Their group shows the host on each row, and so do the rows of this host. */
+  otherHostAgents?: readonly SidebarHostAgent[] | undefined;
+  /** Opens an agent of another host: the app switches to that host and selects the agent. */
+  onSelectHostAgent?: ((serverId: string, agentId: string) => void) | undefined;
+  /** The hosts an agent can move to. Without any, the agent menu shows no move item. */
+  moveTargets?: readonly SidebarMoveTarget[] | undefined;
+  /** Moves an agent to another host. It settles when the target holds the agent. */
+  onMoveAgent?: ((agentId: string, targetServerId: string) => Promise<void>) | undefined;
   onOpenServerSettings?: ((trigger: HTMLElement) => void) | undefined;
   /** The desktop server menu. Without it, the server name opens the server settings. */
   serverMenu?: Omit<ServerMenuProps, "serverName" | "compact"> | undefined;
