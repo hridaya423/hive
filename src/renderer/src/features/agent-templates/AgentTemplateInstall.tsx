@@ -13,7 +13,7 @@ interface InstallState {
 }
 
 /**
- * The dialog an `openbot://agents/<id>` link opens. It reads the template by the id the link named
+ * The dialog an `dev.hridaya.hive://agents/<id>` link opens. It reads the template by the id the link named
  * and installs it only when the user presses Add agent: on `server` when one is given, whose host
  * downloads the template itself, otherwise on this computer.
  */

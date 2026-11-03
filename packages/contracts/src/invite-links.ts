@@ -1,3 +1,4 @@
+import { APP_URL_PROTOCOL, APP_URL_SCHEME } from "./app-url-scheme";
 import { isOpenBotTeamApiHostname } from "./validation";
 
 export const OPENBOT_INVITE_ORIGIN = "https://openbot.run";
@@ -88,7 +89,7 @@ export function createInviteUrl(payload: InviteLinkPayload, options: InviteLinkO
 
 export function createOpenBotInviteUrl(payload: InviteLinkPayload, options: InviteLinkOptions = {}): string {
   validatePayload(payload, options);
-  const url = new URL("openbot://join");
+  const url = new URL(`${APP_URL_SCHEME}://join`);
   writePayload(url, payload);
   return url.toString();
 }
@@ -147,7 +148,7 @@ export function parseInviteUrl(value: string, options: InviteLinkOptions = {}): 
   const canonical =
     url.protocol === "https:" && url.origin === OPENBOT_INVITE_ORIGIN && url.pathname === OPENBOT_INVITE_PATH;
   const customScheme =
-    url.protocol === "openbot:" && url.hostname === "join" && (url.pathname === "" || url.pathname === "/");
+    url.protocol === APP_URL_PROTOCOL && url.hostname === "join" && (url.pathname === "" || url.pathname === "/");
   if (
     (!canonical && !customScheme) ||
     url.username !== "" ||

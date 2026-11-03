@@ -184,7 +184,7 @@ export function SkillsMarketplace() {
 }
 
 /**
- * A shared agent from an `openbot://agents/<id>` link. It is added where a marketplace agent is: on
+ * A shared agent from an `dev.hridaya.hive://agents/<id>` link. It is added where a marketplace agent is: on
  * the selected joined server when this account administers it, otherwise on this computer.
  */
 function SharedAgentInstall() {

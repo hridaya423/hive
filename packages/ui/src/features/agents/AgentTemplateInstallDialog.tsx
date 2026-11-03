@@ -18,7 +18,7 @@ export interface AgentTemplateInstallDialogProps {
 }
 
 /**
- * What an `openbot://agents/<id>` link opens. It shows all of what the agent will follow before
+ * What an `dev.hridaya.hive://agents/<id>` link opens. It shows all of what the agent will follow before
  * anything is installed: a link alone never adds an agent.
  */
 export function AgentTemplateInstallDialog(props: AgentTemplateInstallDialogProps) {

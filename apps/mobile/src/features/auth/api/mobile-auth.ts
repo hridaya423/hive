@@ -1,3 +1,4 @@
+import { APP_URL_SCHEME } from "@openbot/contracts/app-url-scheme";
 import { type AvatarMimeType, isValidAvatarImage } from "@openbot/contracts/avatar-images";
 import { AVATAR_IMAGE_LIMITS } from "@openbot/contracts/input-limits";
 import { OPENBOT_CONTROL_PLANE_ORIGIN } from "@openbot/contracts/invite-links";
@@ -744,8 +745,9 @@ function decodeStoredMobileCredential(value: unknown): MobileCredential {
 /** The Mobile Connect rule for an account service origin: HTTPS, or HTTP on a private network. */
 function normalizeAccountApiUrl(value: string): string | null {
   return (
-    parseMobileConnectUrl(`openbot://mobile-connect?api=${encodeURIComponent(value)}&ticket=${"x".repeat(32)}`)
-      ?.apiUrl ?? null
+    parseMobileConnectUrl(
+      `${APP_URL_SCHEME}://mobile-connect?api=${encodeURIComponent(value)}&ticket=${"x".repeat(32)}`,
+    )?.apiUrl ?? null
   );
 }
 

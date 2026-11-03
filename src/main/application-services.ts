@@ -765,7 +765,7 @@ async function createMessagingServices({
     Effect.runPromise(signalIngress.dispose()),
   );
   // Development only: `bun run dev:slack` names this loopback port, so a Slack install returns to this
-  // dev app and not to an installed OpenBot that owns `openbot://`.
+  // dev app and not to an installed OpenBot that owns `dev.hridaya.hive://`.
   const developmentSlackCallbackPort = app.isPackaged ? 0 : Number(process.env.OPENBOT_DEV_SLACK_CALLBACK_PORT ?? 0);
   const messaging = new MessagingService({
     threads: service.messaging,
@@ -895,7 +895,7 @@ async function createMessagingServices({
   );
   teardown.push(TEARDOWN_ORDER.messaging, "the messaging connections", () => Effect.runPromise(messaging.stop()));
   if (developmentSlackCallbackPort > 0) {
-    // As `openbot://` does for a packaged build, a finished install brings OpenBot to the front.
+    // As `dev.hridaya.hive://` does for a packaged build, a finished install brings OpenBot to the front.
     const callback = await startSlackDevCallbackServer(developmentSlackCallbackPort, async (nonce, grant) => {
       const received = await runCauseEffect(messaging.completeSlackWorkspace(nonce, grant));
       if (received) app.focus({ steal: true });
@@ -1440,7 +1440,7 @@ export async function createApplicationServices({
   }
   /*
    * Where a returning grant lands. The loopback listener is the address RFC 8252 gives a native
-   * app and the only one some authorization servers accept - Canva refuses `openbot://mcp-auth`
+   * app and the only one some authorization servers accept - Canva refuses `dev.hridaya.hive://mcp-auth`
    * on its own authorization page, where OpenBot cannot see the failure or explain it.
    *
    * A port that cannot be bound is not fatal: the deep link is still registered with the
@@ -1480,7 +1480,7 @@ export async function createApplicationServices({
     },
   }).catch((error: unknown) => {
     logger.warn(
-      "OpenBot could not listen for MCP sign-ins on this machine, so the openbot:// link is used instead. Servers that refuse it cannot be signed in to:",
+      `OpenBot could not listen for MCP sign-ins on this machine, so the ${MCP_OAUTH_REDIRECT_URL} link is used instead. Servers that refuse it cannot be signed in to:`,
       toLogValue(error),
     );
     return null;

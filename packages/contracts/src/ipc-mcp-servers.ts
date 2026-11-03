@@ -347,7 +347,7 @@ const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost"]);
 
 /**
  * The loopback address that a sign-in page sends the browser back to, or `null`. A sign-in that returns
- * to another address, such as `openbot://`, has no callback to listen for. The host names it, and the
+ * to another address, such as `dev.hridaya.hive://`, has no callback to listen for. The host names it, and the
  * client reads it again from the page it opens, so a host cannot name a port that the page does not use.
  */
 export function loopbackCallback(pageUrl: string): NonNullable<SignInRelayStatus["callback"]> | null {

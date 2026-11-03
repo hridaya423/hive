@@ -1,10 +1,10 @@
-appId: app.openbot.desktop
-productName: OpenBot
-copyright: Copyright © 2026 Synthetify Labs spółka z ograniczoną odpowiedzialnością
+appId: dev.hridaya.hive
+productName: Hive
+copyright: Copyright © 2026 Synthetify Labs spółka z ograniczoną odpowiedzialnością; modified by Hridya Agrawal
 protocols:
-  - name: OpenBot invitations
+  - name: Hive invitations
     schemes:
-      - openbot
+      - dev.hridaya.hive
 asar: true
 artifactName: ${productName}-${version}-${arch}.${ext}
 electronUpdaterCompatibility: ">=2.16"
@@ -18,10 +18,6 @@ electronFuses:
   onlyLoadAppFromAsar: true
   loadBrowserProcessSpecificV8Snapshot: false
   grantFileProtocolExtraPrivileges: false
-publish:
-  provider: github
-  owner: nightly-labs
-  repo: openbot
 files:
   - out/**/*
   - package.json
@@ -93,7 +89,7 @@ toolsets:
 mac:
   category: public.app-category.productivity
   minimumSystemVersion: "13.0"
-  notarize: true
+  notarize: false
   hardenedRuntime: true
   # macOS 26 shows the catalog that `CFBundleIconName` names, with our own dark version; without it,
   # macOS 26 makes the dark icon a black tile with black eyes. The catalog also has flat images, and
@@ -132,7 +128,6 @@ mac:
   darkModeSupport: true
   extendInfo:
     CFBundleIconName: Icon
-    ElectronTeamID: ZTRDTUL87R
     NSMicrophoneUsageDescription: OpenBot uses the microphone to transcribe voice prompts locally on this Mac.
     # Computer Use runs the driver as a child process, so macOS asks for both grants in OpenBot's
     # name and shows these sentences. Under the hardened runtime, macOS shows the Automation prompt

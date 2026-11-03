@@ -16,7 +16,7 @@ import {
 
 export interface MarketplaceModalProps extends MarketplaceControllerProps {
   /**
-   * The listing an `openbot://plugins/<slug>` link or a chat suggestion asked for. It opens the app
+   * The listing an `dev.hridaya.hive://plugins/<slug>` link or a chat suggestion asked for. It opens the app
    * page; a link never connects, so what a link can do is show a user a listing they then decide
    * about.
    */

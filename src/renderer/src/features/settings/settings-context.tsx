@@ -73,7 +73,7 @@ const Settings = createSimpleContext({
     // Undefined until main answers. The Settings preview then draws the notch it had before.
     const [builtInDisplayGeometry, setBuiltInDisplayGeometry] = createSignal<DynamicIslandGeometry | undefined>();
     /**
-     * The plugin an `openbot://plugins/<slug>` link asked for, held beside the open flag because the
+     * The plugin an `dev.hridaya.hive://plugins/<slug>` link asked for, held beside the open flag because the
      * marketplace is loaded lazily: the slug has to outlive the chunk load that shows it. It is a
      * slug and never a listing, so the link cannot describe what the user is about to install.
      */
@@ -89,7 +89,7 @@ const Settings = createSimpleContext({
      */
     const [pendingMarketplaceListing, setPendingMarketplaceListing] = createSignal<MarketplaceListingLink | null>(null);
     /**
-     * The template an `openbot://agents/<id>` link named. The install dialog reads the template by
+     * The template an `dev.hridaya.hive://agents/<id>` link named. The install dialog reads the template by
      * this id and installs only after the user presses Add agent.
      */
     const [pendingAgentTemplateId, setPendingAgentTemplateId] = createSignal<string | null>(null);

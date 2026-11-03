@@ -2,7 +2,7 @@
 //
 // The OpenBot Slack app's client secret lives only on the Worker (`apps/auth-api`), so the Worker
 // exchanges the OAuth code. It must not keep the token, and the browser that carries the
-// result back to `openbot://` must not be able to read it, so the Worker seals it to the host
+// result back to `dev.hridaya.hive://` must not be able to read it, so the Worker seals it to the host
 // (`./host-grant.ts`).
 
 import { createHostGrantKeyPair, type HostGrantKind, openHostGrant, sealHostGrant } from "./host-grant";

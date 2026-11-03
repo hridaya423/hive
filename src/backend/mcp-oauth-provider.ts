@@ -146,7 +146,7 @@ export interface McpOAuthOptions {
   /**
    * Where the authorization server sends the grant back. One address serves every server.
    *
-   * A loopback http address while this app is listening on one, and the `openbot://mcp-auth` deep
+   * A loopback http address while this app is listening on one, and the `dev.hridaya.hive://mcp-auth` deep
    * link when it could not bind a port. `describeUnusableRedirectUrl` refuses anything else.
    */
   redirectUrl: string;
@@ -272,7 +272,7 @@ export class McpOAuth implements McpOAuthAuthority {
    *
    * `state` is the only thing the return leg carries that names the attempt, and an attempt that is
    * not in here is one this run did not start - which is what makes a forged or replayed
-   * `openbot://mcp-auth` link do nothing.
+   * `dev.hridaya.hive://mcp-auth` link do nothing.
    */
   readonly #waiting = new Map<string, (code: string) => void>();
   /** The waiting sign-ins whose page an opener of their own showed, not the user's browser. */
@@ -893,7 +893,7 @@ class McpOAuthClientProvider implements OAuthClientProvider {
    * The registration this installation already has with that authorization server - unless it
    * names an address the grant can no longer come back to, and the attempt in hand needs one.
    *
-   * The redirect address is not fixed for all time. A build that sent `openbot://mcp-auth` and one
+   * The redirect address is not fixed for all time. A build that sent `dev.hridaya.hive://mcp-auth` and one
    * that listens on a loopback port register different `redirect_uris`, and the port changes on
    * each start - so a stored registration often names another address. An authorization request
    * made against it earns an `Invalid redirect URI.` on the authorization page, where the user can
@@ -1362,7 +1362,7 @@ export function isLoopback(hostname: string): boolean {
  * URI.` there and OpenBot never learns of it.
  *
  * Two kinds are allowed, and they are the two RFC 8252 gives a native application: loopback http,
- * which is what this app listens on, and a private-use scheme such as `openbot://mcp-auth`, which
+ * which is what this app listens on, and a private-use scheme such as `dev.hridaya.hive://mcp-auth`, which
  * the operating system routes. An `https` address belongs to a web site, and a plain-text address
  * anywhere but loopback would put the grant on the wire.
  */

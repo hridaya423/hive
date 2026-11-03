@@ -1,7 +1,7 @@
 /**
  * Development only: where a Slack install returns when `bun run dev:slack` runs.
  *
- * A packaged build gets the install back as an `openbot://slack-workspace` link. On a computer that
+ * A packaged build gets the install back as an `dev.hridaya.hive://slack-workspace` link. On a computer that
  * also has OpenBot installed, the operating system sends that link to the installed app, not to the
  * dev app. So the dev app names this loopback listener as the return address, and a development
  * account API sends the browser here. The waiting connect checks `nonce` the same way, so a request
@@ -10,6 +10,7 @@
 
 import { createServer, type Server } from "node:http";
 import type { Socket } from "node:net";
+import { APP_URL_SCHEME } from "@openbot/contracts/app-url-scheme";
 import { sourceText } from "@openbot/i18n/source";
 import { parseDeepLink } from "./deep-link-router";
 
@@ -54,7 +55,7 @@ async function answer(
   receive: (nonce: string, grant: string) => Promise<boolean>,
 ): Promise<boolean> {
   if (method !== "GET" || !url?.startsWith(SLACK_DEV_CALLBACK_PATH)) return false;
-  const link = parseDeepLink(`openbot://${url.replace(/^\/+/u, "")}`);
+  const link = parseDeepLink(`${APP_URL_SCHEME}://${url.replace(/^\/+/u, "")}`);
   if (link?.kind !== "slack-workspace") return false;
   return receive(link.nonce, link.grant).catch(() => false);
 }

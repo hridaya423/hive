@@ -1,7 +1,7 @@
 // A Slack or Discord install that the browser client starts for a joined server (`connectors-v1`)
 // returns to `/slack/connect` or `/discord/connect`, which have the same origin as the client. The
 // client marks the install's nonce in local storage. When the page finds the mark, it gives the
-// sealed grant to the client tab on a broadcast channel and opens no `openbot://` link. The client
+// sealed grant to the client tab on a broadcast channel and opens no `dev.hridaya.hive://` link. The client
 // tab answers that it took the grant and sends it on to the host; only the host can open it.
 
 import { isBoundedString } from "./ipc-bounded-values";

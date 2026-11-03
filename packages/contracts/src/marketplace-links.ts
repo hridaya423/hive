@@ -5,8 +5,8 @@
  * ```
  * https://openbot.run/marketplace/agents/<id>     the link a person shares and the app copies
  * https://openbot.run/marketplace/skills/<slug>
- * openbot://marketplace/agents/<id>               the link the page button opens
- * openbot://marketplace/skills/<slug>
+ * dev.hridaya.hive://marketplace/agents/<id>               the link the page button opens
+ * dev.hridaya.hive://marketplace/skills/<slug>
  * /app?marketplaceAgent=<id>                      the page's link to the browser client
  * /app?marketplaceSkill=<slug>
  * ```
@@ -19,6 +19,8 @@
  * Both forms are built from that value and never read from catalog data, so a listing cannot put a
  * foreign address behind the button that copies its own link.
  */
+
+import { APP_URL_PROTOCOL, APP_URL_SCHEME } from "./app-url-scheme";
 
 export const OPENBOT_MARKETPLACE_ORIGIN = "https://openbot.run";
 export const OPENBOT_MARKETPLACE_PATH = "/marketplace";
@@ -97,7 +99,7 @@ function isMarketplaceShareOrigin(origin: string): boolean {
 /** The link the page's button opens, which raises the app on this listing. */
 export function createOpenBotMarketplaceUrl(link: MarketplaceListingLink): string {
   assertListing(link);
-  return `openbot://${OPENBOT_MARKETPLACE_HOST}/${LISTING_SEGMENTS[link.kind]}/${link.id}`;
+  return `${APP_URL_SCHEME}://${OPENBOT_MARKETPLACE_HOST}/${LISTING_SEGMENTS[link.kind]}/${link.id}`;
 }
 
 /**
@@ -136,7 +138,7 @@ export function parseMarketplaceUrl(value: string): MarketplaceListingLink {
   const prefix = `${OPENBOT_MARKETPLACE_PATH}/`;
   const canonical =
     url.protocol === "https:" && url.origin === OPENBOT_MARKETPLACE_ORIGIN && url.pathname.startsWith(prefix);
-  const customScheme = url.protocol === "openbot:" && url.hostname === OPENBOT_MARKETPLACE_HOST;
+  const customScheme = url.protocol === APP_URL_PROTOCOL && url.hostname === OPENBOT_MARKETPLACE_HOST;
   if (
     (!canonical && !customScheme) ||
     url.username !== "" ||

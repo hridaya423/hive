@@ -4,7 +4,7 @@
  *
  * ```
  * https://openbot.run/plugins/<slug>    the link a person shares and the app copies
- * openbot://plugins/<slug>              the link the page button opens
+ * dev.hridaya.hive://plugins/<slug>              the link the page button opens
  * /app?plugin=<slug>                    the page's link to the browser client, on the same origin
  * ```
  *
@@ -19,6 +19,8 @@
  * `invite-links.ts` is untouched by this: it owns `join`, and the router asks it first, so no invite
  * rule becomes weaker.
  */
+
+import { APP_URL_PROTOCOL, APP_URL_SCHEME } from "./app-url-scheme";
 
 export const OPENBOT_PLUGIN_ORIGIN = "https://openbot.run";
 export const OPENBOT_PLUGIN_PATH_PREFIX = "/plugins/";
@@ -59,7 +61,7 @@ export function pluginSlugFromWebAppSearch(search: string): string | null {
 /** The link the page's button opens, which raises the app on this listing. */
 export function createOpenBotPluginUrl(slug: string): string {
   assertPluginSlug(slug);
-  return `openbot://${OPENBOT_PLUGIN_HOST}/${slug}`;
+  return `${APP_URL_SCHEME}://${OPENBOT_PLUGIN_HOST}/${slug}`;
 }
 
 /**
@@ -94,7 +96,7 @@ export function parsePluginUrl(value: string): string {
     url.protocol === "https:" &&
     url.origin === OPENBOT_PLUGIN_ORIGIN &&
     url.pathname.startsWith(OPENBOT_PLUGIN_PATH_PREFIX);
-  const customScheme = url.protocol === "openbot:" && url.hostname === OPENBOT_PLUGIN_HOST;
+  const customScheme = url.protocol === APP_URL_PROTOCOL && url.hostname === OPENBOT_PLUGIN_HOST;
   if (
     (!canonical && !customScheme) ||
     url.username !== "" ||

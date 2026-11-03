@@ -101,7 +101,7 @@ export class SignInRelayClient {
   }
 
   /**
-   * A callback that reached this computer's MCP grant listener or its `openbot://mcp-auth` link with
+   * A callback that reached this computer's MCP grant listener or its `dev.hridaya.hive://mcp-auth` link with
    * a `state` that no local sign-in started. Answers whether a relayed sign-in took it.
    */
   deliver(state: string, query: string): boolean {

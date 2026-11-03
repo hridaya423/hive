@@ -1,4 +1,5 @@
 import { join, resolve } from "node:path";
+import { APP_URL_SCHEME } from "@openbot/contracts/app-url-scheme";
 import { parseInviteUrl, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
 import {
   type AgentEvent,
@@ -258,7 +259,7 @@ if (commandLineUserDataDirectory) {
     ),
   );
 }
-app.setName("OpenBot");
+app.setName("Hive");
 app.enableSandbox();
 if (process.platform === "win32") app.setAppUserModelId("app.openbot.desktop");
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -908,7 +909,7 @@ function requestDesktopNotificationPermission(
 }
 
 /** `null` for every state but a signed-in one, matching what the two principal trackers store. */
-/** The Dock tile, the Linux desktop entry and the `openbot://` scheme. A local server has none of them. */
+/** The Dock tile, the Linux desktop entry and the `dev.hridaya.hive://` scheme. A local server has none of them. */
 async function presentApplication(): Promise<void> {
   await ensureMacApplicationPresence(
     process.platform,
@@ -920,7 +921,7 @@ async function presentApplication(): Promise<void> {
   // (`build/installer.nsh`), and each start writes it again for installs from before that script.
   // A Windows development build does not register: the handler would be bare `electron.exe`.
   // A macOS development build does not register either: macOS ignores the path and arguments and
-  // names the `com.github.Electron` bundle, so the link took `openbot://` from an installed
+  // names the `com.github.Electron` bundle, so the link took `dev.hridaya.hive://` from an installed
   // OpenBot and opened some worktree's bare Electron.app. `bun run dev:slack` has a loopback return.
   await Effect.runPromise(
     installLinuxDesktopEntry({ platform: process.platform, environment: process.env, iconPath: appIconPath }),
@@ -929,8 +930,8 @@ async function presentApplication(): Promise<void> {
     process.platform === "linux" ||
     ((process.platform === "darwin" || process.platform === "win32") && app.isPackaged)
   ) {
-    if (!app.setAsDefaultProtocolClient("openbot")) {
-      logger.warn("Unable to register the openbot:// scheme. Invitation links will not open OpenBot.");
+    if (!app.setAsDefaultProtocolClient(APP_URL_SCHEME)) {
+      logger.warn(`Unable to register the ${APP_URL_SCHEME}:// scheme. Invitation links will not open Hive.`);
     }
   }
 }

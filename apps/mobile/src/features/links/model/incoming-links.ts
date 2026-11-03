@@ -3,6 +3,7 @@ import {
   OPENBOT_AGENT_TEMPLATE_PATH_PREFIX,
   parseAgentTemplateUrl,
 } from "@openbot/contracts/agent-template-links";
+import { APP_URL_PROTOCOL, APP_URL_SCHEME } from "@openbot/contracts/app-url-scheme";
 import { parseInviteUrl, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
 import { parseMobileConnectUrl } from "@openbot/contracts/mobile-connect";
 import { createPluginShareUrl, parsePluginUrl } from "@openbot/contracts/plugin-links";
@@ -36,7 +37,7 @@ function parseIncomingLink(value: string): IncomingLink {
 }
 
 /**
- * The session is not loaded when the system opens a link, so an `openbot://join` link for any
+ * The session is not loaded when the system opens a link, so an `dev.hridaya.hive://join` link for any
  * self-hosted account service counts as an invitation here. The add-server screen checks it again
  * with the service of the session, and refuses a link for another service.
  */
@@ -49,7 +50,7 @@ function isInviteLink(value: string): boolean {
   }
   try {
     const url = new URL(value);
-    if (url.protocol !== "openbot:") return false;
+    if (url.protocol !== APP_URL_PROTOCOL) return false;
     parseInviteUrl(value, { selfHostedApiOrigin: selfHostedApiOrigin(url.searchParams.get("api") ?? undefined) });
     return true;
   } catch {
@@ -90,7 +91,7 @@ export function pendingSignInLinkId(): string | undefined {
 }
 
 export function redirectIncomingLink(path: string): string {
-  if (path === "openbot://" || path === "openbot:///" || path === "openbot:") return "/";
+  if (path === `${APP_URL_SCHEME}://` || path === `${APP_URL_SCHEME}:///` || path === APP_URL_PROTOCOL) return "/";
   // Expo Go and ordinary internal routes retain Expo Router's normal behavior.
   if (/^exps?:\/\//u.test(path)) return path;
   if (path.startsWith("/") && !path.startsWith("//")) {

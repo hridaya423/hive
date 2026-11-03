@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { APP_URL_SCHEME } from "@openbot/contracts/app-url-scheme";
 import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { Effect, Schema } from "effect";
 import { causeHelpers } from "../backend/effect-boundary";
@@ -17,7 +18,7 @@ const ICON_FILE_NAME = "openbot.png";
 const WM_CLASS = "openbot";
 
 /**
- * The desktop entry that makes an `openbot://` link reach the app.
+ * The desktop entry that makes an `dev.hridaya.hive://` link reach the app.
  *
  * `Exec` names the AppImage itself, because that is the only path that survives a restart, and `%U`
  * is what passes the invitation URL to it.
@@ -33,7 +34,7 @@ function linuxDesktopEntry(appImagePath: string, iconPath: string): string {
     "Terminal=false",
     "Categories=Development;",
     `StartupWMClass=${WM_CLASS}`,
-    "MimeType=x-scheme-handler/openbot;",
+    `MimeType=x-scheme-handler/${APP_URL_SCHEME};`,
   ].join("\n")}\n`;
 }
 
@@ -75,7 +76,7 @@ export const installLinuxDesktopEntry = Effect.fn("LinuxDesktopEntry.install")(f
   );
   if (result._tag === "Success") return result.success;
   logger.warn(
-    "Unable to install the desktop entry, so openbot:// links stay unregistered.",
+    `Unable to install the desktop entry, so ${APP_URL_SCHEME}:// links stay unregistered.`,
     toLogValue(result.failure.cause),
   );
   return null;

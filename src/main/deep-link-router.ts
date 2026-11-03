@@ -1,5 +1,5 @@
 /**
- * What an `openbot://` or `https://openbot.run/...` link means.
+ * What an `dev.hridaya.hive://` or `https://openbot.run/...` link means.
  *
  * The scheme carries more than one kind of link now, so the decision of which kind a URL is has one
  * home rather than one `try` per entry point. `src/main/index.ts` has four ways a link arrives -
@@ -20,6 +20,7 @@
  */
 
 import { parseAgentTemplateUrl } from "@openbot/contracts/agent-template-links";
+import { APP_URL_PROTOCOL, APP_URL_SCHEME } from "@openbot/contracts/app-url-scheme";
 import { type InviteLinkOptions, parseInviteUrl } from "@openbot/contracts/invite-links";
 import { type MarketplaceListingLink, parseMarketplaceUrl } from "@openbot/contracts/marketplace-links";
 import { parsePluginUrl } from "@openbot/contracts/plugin-links";
@@ -41,7 +42,7 @@ export type DeepLink =
  * after they accept it at registration. This stays as the fallback, and for the servers that take
  * it, it is the shorter path: the operating system hands the link straight to the running app.
  */
-export const MCP_OAUTH_REDIRECT_URL = "openbot://mcp-auth";
+export const MCP_OAUTH_REDIRECT_URL = `${APP_URL_SCHEME}://mcp-auth`;
 
 const MCP_OAUTH_HOST = "mcp-auth";
 const SLACK_WORKSPACE_HOST = "slack-workspace";
@@ -78,8 +79,8 @@ export function parseDeepLink(value: string, options: InviteLinkOptions = {}): D
 
 /**
  * The return leg of the Slack install, from the page at `/slack/connect`:
- * `openbot://slack-workspace?nonce=…&grant=…`, and of the Discord install, from `/discord/connect`:
- * `openbot://discord-guild?nonce=…&grant=…`. As with `mcp-auth`, the waiting sign-in checks
+ * `dev.hridaya.hive://slack-workspace?nonce=…&grant=…`, and of the Discord install, from `/discord/connect`:
+ * `dev.hridaya.hive://discord-guild?nonce=…&grant=…`. As with `mcp-auth`, the waiting sign-in checks
  * `nonce`, so a link this run did not start does nothing.
  */
 function parseSlackUrl(value: string): DeepLink | null {
@@ -89,7 +90,7 @@ function parseSlackUrl(value: string): DeepLink | null {
   } catch {
     return null;
   }
-  if (url.protocol !== "openbot:") return null;
+  if (url.protocol !== APP_URL_PROTOCOL) return null;
   if (url.hostname === SLACK_WORKSPACE_HOST) {
     const nonce = url.searchParams.get("nonce");
     const grant = url.searchParams.get("grant");
@@ -104,7 +105,7 @@ function parseSlackUrl(value: string): DeepLink | null {
 }
 
 /**
- * The return leg of an MCP sign-in: `openbot://mcp-auth?code=…&state=…`.
+ * The return leg of an MCP sign-in: `dev.hridaya.hive://mcp-auth?code=…&state=…`.
  *
  * Both halves are required and neither is inspected here. `state` is what the waiting sign-in is
  * keyed by, so a link this run did not start finds nothing and does nothing - which is the check
@@ -119,7 +120,7 @@ function parseMcpAuthUrl(value: string): DeepLink | null {
   } catch {
     return null;
   }
-  if (url.protocol !== "openbot:" || url.hostname !== MCP_OAUTH_HOST) return null;
+  if (url.protocol !== APP_URL_PROTOCOL || url.hostname !== MCP_OAUTH_HOST) return null;
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   if (!code || !state) return null;

@@ -1,4 +1,5 @@
-const MOBILE_CONNECT_PROTOCOL = "openbot:";
+import { APP_URL_PROTOCOL } from "./app-url-scheme";
+
 const MOBILE_CONNECT_HOST = "mobile-connect";
 
 export interface MobileConnectHostBinding {
@@ -81,7 +82,7 @@ export function createMobileConnectUrl(payload: MobileConnectPayload): string {
   const apiUrl = normalizeMobileConnectApiUrl(payload.apiUrl);
   const ticket = normalizeMobileConnectTicket(payload.ticket);
   if (!apiUrl || !ticket) throw new Error("Invalid Mobile Connect payload.");
-  const url = new URL(`${MOBILE_CONNECT_PROTOCOL}//${MOBILE_CONNECT_HOST}`);
+  const url = new URL(`${APP_URL_PROTOCOL}//${MOBILE_CONNECT_HOST}`);
   url.searchParams.set("api", apiUrl);
   url.searchParams.set("ticket", ticket);
   if (payload.host) {
@@ -96,7 +97,7 @@ export function parseMobileConnectUrl(value: string): MobileConnectPayload | nul
   try {
     const url = new URL(value);
     if (
-      url.protocol !== MOBILE_CONNECT_PROTOCOL ||
+      url.protocol !== APP_URL_PROTOCOL ||
       url.hostname !== MOBILE_CONNECT_HOST ||
       (url.pathname !== "" && url.pathname !== "/") ||
       url.hash !== "" ||
