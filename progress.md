@@ -471,3 +471,72 @@ Hridya said: "dude this is just for personal use pls ignore that and setup baile
 - **Visual.** `bun run dev` on the mini (`~/honey/hive-followup-whatsapp-remote`, no keychain prompt now): the local WhatsApp page renders ("Not connected", "Link WhatsApp"). The joined-server page was NOT looked at: it needs a second signed-in dev instance joined to the first. Stack stopped with `dev:stop`.
 - **Follow-ups.** Mobile: no. Its connectors screen is keyed per platform (`ConnectorPlatform` excludes whatsapp, typed text maps, 470-line page) and the app has no QR renderer. Browser client (`WebWorkspace.tsx`): needs a `web-whatsapp` port like `web-messaging-connector.ts`; until then the page is hidden there. English strings only (`error.team.whatsappLinkUnsupported`).
 - **Not checked.** Real Baileys and WhatsApp, WebRTC transport, the joined-server page in the real app, `knip:check` (2 findings, both in files this change does not touch: `TAILNET_LOGIN_HEADER`, `NtfyNotice`).
+
+## Import tool: upstream OpenBot setup into Hive (branch `feat/import-openbot`, 2026-11-03)
+
+### Done
+- `scripts/import-openbot-setup.ts`: headless, read-only on upstream. Steps: (1) snapshot in a temp folder: `sqlite3 .backup` of `openbot.db` (try `mode=ro`; if that fails and no live `-wal` exists, `immutable=1`), `PRAGMA integrity_check`, copy of each agent workspace, `Shared` (not `Data`), avatars, sidebar file; every symlink in the copied workspaces is removed and listed in the report; the copied database gets the new workspace paths. (2) export with the real `InstanceTransferService.exportTo` over real `AgentStore`/`AgentService` on the snapshot. (3) import with the same service `stage`/`apply` into `--target-user-data`; agent files go to `<target-home>/Hive/Agents/<id>` (`APP_FOLDER_NAME`), never linked to `~/OpenBot`. (4) `--paused <agent>` turns off that agent's routines. `--run-once <routine>` sets "run once when missed". (5) report at `.openbot-build/import-openbot-setup/report.json` with a `doesNotMove` block.
+- Guards: refuses a target inside the upstream folders; refuses when a process has the target `openbot.db` open (`lsof`); an agent name that already exists in the target is left alone (second run adds nothing); the target database is checkpointed (`wal_checkpoint(truncate)`) so `openbot.db` holds everything.
+- `scripts/import-openbot-setup-e2e.ts`: builds an upstream-shaped profile with real services, runs the tool as a child process. PASS (7 steps, `.openbot-build/import-openbot-setup-e2e/report.json`): dry run writes no target; agents, routines, `--paused`, `--run-once`; memory and workspace file arrive inside the Hive folder, symlink left out; zero routine runs and zero deliveries; second run adds nothing; target equal to source refused (exit 2); source folder hash identical before and after.
+- Crew repo `~/honey/openbot-crew`, branch `hive` (not pushed): `install.sh` has one variable at the top (`app=${CREW_APP:-Hive}`), reads `~/Library/Application Support/$app/openbot.db`, falls back to `immutable=1` when `mode=ro` cannot open a closed WAL database; the report folder is `~/$app/Shared/reports`. Agent instructions now write reports to `~/Hive/Shared/reports` (they said `~/OpenBot/Shared/reports`). `SETUP.md` points to the tool.
+
+### Evidence (real upstream, read only)
+- Dry run on the live `~/Library/Application Support/OpenBot`: 5 agents (Badminton Booker, Launch Manager, Coding Manager, Hackathon Hunter, Chief of Staff), all `codex/gpt-6.1-terra` low, account `a0045423e9c05676b`. Routines: Morning brief 07:30 daily, Hackathon sweep Sun+Wed 09:00, Launch check 19:00 daily, Weekly booking Thu 00:05 (already paused upstream). Coding Manager has none. Workspace files: Launch Manager `watchlist.md` 367 B, Hackathon Hunter `seen.md` 4302 B; nothing else (AGENTS.md and `t3-threads` are links). Memories: 0 for every agent upstream.
+- Real run into temp profiles (`$SCRATCH/mac`, `$SCRATCH/mini`): MacBook set 3 agents (Chief of Staff, Coding Manager, Launch Manager); mini set 2 agents (Hackathon Hunter, Badminton Booker, `--paused "Badminton Booker"`). Read back from the target databases with `sqlite3 mode=ro`: names, routines with the same schedules, Europe/London, Weekly booking `active=0`, `projection_routine_runs`=0, `projection_deliveries`=0, files arrived under `<home>/Hive/Agents/<id>/`. `HOME=<temp> ~/honey/openbot-crew/install.sh` linked `AGENTS.md` (and `t3-threads` for Chief and Coding Manager) for each present agent.
+- Memories: upstream has none, so a fixture copy of the snapshot got 3 memories through `AgentService.createMemory`; after the import the target had the same 3 (Chief of Staff 2, Hackathon Hunter 1). `e2e` covers it too.
+- Upstream untouched: `openbot.db` mtime and size identical before and after all runs (1793716139, 1654784); no file under `~/OpenBot` or `~/Library/Application Support/OpenBot` is newer than the start marker; no `-wal` or `-shm` appeared.
+- `typecheck:node` exit 0; `biome check` clean on both scripts.
+
+### Surprises
+- Upstream `openbot.db` is WAL mode, but with the app closed there is no `-wal`/`-shm`, and `sqlite3 "file:...?mode=ro"` fails with "unable to open database file". The tool and `install.sh` fall back to `immutable=1`; the old `install.sh` only worked while OpenBot ran. When a non-empty `-wal` exists the tool refuses `immutable` (it would ignore the `-wal`).
+- The transfer export skips symlinks, so `AGENTS.md` and the `t3-threads` skill (links into `~/honey/openbot-crew`) do not travel. That is why `install.sh` must run after the import. Installed skills would need a real skill library; the tool stops with a message if an agent has any (none do).
+- The exporter strips the path of an MCP address: `T3 Code` arrives as `http://127.0.0.1:3773`, turned off (service rule). Hridya must set the full URL again.
+- `--paused` is redundant for Badminton Booker's routine (already inactive upstream); it is a guard.
+- The packaged Hive opening a database written by this tool is not run here (no GUI on this MacBook). The lead sees it on the first launch.
+- Cross-host: the agent instructions write reports to `~/Hive/Shared/reports` on the host where the agent runs. Hackathon Hunter, Badminton Booker run on the mini; Chief of Staff on the MacBook reads `~/Hive/Shared/reports/hackathon-hunter.md` on the MacBook, which will not exist. Needs a decision (plan Task 6.3, or the Chief reads the mini's reports through a tool).
+
+### Does not move (list for Hridya's setup session)
+1. Provider sign-in: Codex (ChatGPT plan) on the MacBook and on the mini, inside Hive. All five agents use upstream account `a0045423e9c05676b` (provider `codex`, no label): a non-default `providerAccountId` on every agent. Hive imports them with the default account (`providerAccountId` empty). After sign-in, pick the account for each agent if Hive has two Codex accounts. Copilot and the second Codex account (plan Phases 3 and 4) are new sign-ins.
+2. Model: upstream `gpt-6.1-terra`, effort `low`. Hive says "not available here yet" and uses `gpt-6-luna` until Codex is signed in. Choose `gpt-6.1-terra` again for each agent after sign-in.
+3. MCP: `T3 Code` (http, `http://127.0.0.1:3773/mcp`, no env or headers). Arrives off with the short address. Set the URL back, turn it on, approve the T3 sign-in page (pick Read only). MacBook only (Coding Manager and Chief of Staff). Upstream OAuth tokens (`openbot-mcp-oauth-v1.json`) are not copied. Do not carry T3 to the mini: the mini import uses `--skip-settings`.
+4. Secrets: nothing travels (provider keys, MCP values, connector tokens). Channel connections: 0 upstream, nothing to redo. WhatsApp in Hive is new (Phase 9).
+5. Hive account sign-in on each host (the mini is already signed in).
+6. Agent access and Computer Use are not in the archive; Hive's host defaults apply (`full`, Computer Use on, same as upstream today). Re-check per agent if Hridya sets `workspace-only`.
+7. Chat history, threads, usage, routine runs, sidebar sections (none), workflows (none), routine flows (0) do not move.
+8. Badminton: `~/Downloads/BadmintonSkill` on the mini must be copied into the Badminton Booker workspace before the routine is turned on (from the crew `progress.md`).
+9. Links: after the import run `install.sh` (below) on each host.
+
+### Commands for the lead
+Quit Hive first on the host you import into; the tool refuses while a process has its `openbot.db` open. Run from a checkout that has this branch, after `bun install --frozen-lockfile`. All run on the MacBook unless marked mini. Replace `$ARCHIVE` with `~/hive-crew-export.zip`.
+
+MacBook, real Hive profile, three agents:
+```sh
+cd /Users/hridyaagrawal/Honey/openbot
+bun scripts/import-openbot-setup.ts --dry-run
+bun scripts/import-openbot-setup.ts --export-only --archive-out ~/hive-crew-export.zip
+bun scripts/import-openbot-setup.ts --archive-in ~/hive-crew-export.zip \
+  --agents "Chief of Staff,Coding Manager,Launch Manager" \
+  --target-user-data "$HOME/Library/Application Support/Hive"
+cd ~/honey/openbot-crew && git checkout hive && ./install.sh
+```
+Add `--run-once "Hackathon sweep"` only on the mini (plan Task 6.1). Open Hive, check Chief of Staff, Coding Manager, Launch Manager and their routines (Morning brief on, Launch check on).
+
+Carry the archive to the mini (no secrets inside; it holds `seen.md`, `watchlist.md` and the routine texts):
+```sh
+scp ~/hive-crew-export.zip mini:~/hive-crew-export.zip
+```
+If `scp` to `mini` does not work, use `mcp__cua__upload` to the Space `mini`, destination `~/hive-crew-export.zip`. Also carry the crew repo: `git -C ~/honey/openbot-crew bundle create /tmp/crew.bundle hive` then upload and `git clone -b hive /tmp/crew.bundle ~/honey/openbot-crew` on the mini (or `git fetch` into the existing clone).
+
+Mini (`space_bash`), real Hive profile, two agents, Badminton Booker paused. Quit Hive on the mini first (for example `osascript -e 'quit app "Hive"'`); relaunch afterwards:
+```sh
+export PATH="$HOME/.bun/bin:/opt/homebrew/bin:$PATH"
+cd ~/honey/hive-feat-import-openbot
+bun scripts/import-openbot-setup.ts --archive-in ~/hive-crew-export.zip \
+  --agents "Hackathon Hunter,Badminton Booker" \
+  --paused "Badminton Booker" --run-once "Hackathon sweep" --skip-settings \
+  --target-user-data "$HOME/Library/Application Support/Hive"
+cd ~/honey/openbot-crew && git checkout hive && ./install.sh
+```
+(`~/honey/hive-feat-import-openbot` is a clone from a bundle of this branch, as wave-2 rules say; use the final build's checkout if the lead has one.) After launch, in Hive on the mini: Hackathon sweep active with "run once when missed"; Weekly booking paused.
+
+Undo: the tool never changes upstream. To undo an import into Hive, quit Hive, delete the imported agents in the app (their folders under `~/Hive/Agents/` go with them), or restore the Hive data folder from a copy made before the import (`cp -R "$HOME/Library/Application Support/Hive" ~/Hive-data-before-import` and `~/Hive`). Make that copy first: the Hive database has no automatic backup.
