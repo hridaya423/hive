@@ -118,7 +118,10 @@ const Providers = createSimpleContext({
       if (descriptor.installGuideLink === null) {
         return Promise.reject(new Error(currentText().t("app.provider.included", { name: descriptor.displayName })));
       }
-      return appPort().openExternal(descriptor.installGuideLink);
+      const planRefused = agentStatus().providers?.some((row) => row.id === provider && row.planRequired);
+      return appPort().openExternal(
+        planRefused && descriptor.planGuideLink ? descriptor.planGuideLink : descriptor.installGuideLink,
+      );
     }
 
     /**

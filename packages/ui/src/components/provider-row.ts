@@ -46,7 +46,9 @@ export function createProviderRow(option: () => ProviderPickerOption, host: Prov
     const runtime = runtimeStatus();
     return runtime ? providerVersionLabel(runtime, { t }) : null;
   };
-  const visualState = () => providerVisualState(state(), connecting(), runtimeStatus(), updatable());
+  /** Signed in, but the account has no plan that serves the provider: signing in again changes nothing. */
+  const noPlan = () => state() === "error" && Boolean(option().planRequired) && !off();
+  const visualState = () => providerVisualState(state(), connecting(), runtimeStatus(), updatable(), noPlan());
   const connectKind = () => host.connection?.connectKind(option().id) ?? null;
   /** A runtime still being downloaded has no CLI to sign in with yet. */
   const runtimeReady = () => (runtimeStatus()?.phase ?? "ready") === "ready";
@@ -191,6 +193,9 @@ export function createProviderRow(option: () => ProviderPickerOption, host: Prov
       setAccountError(errorMessage(error, t("provider.account.actionFailed", { name: option().name }))),
     );
   };
+  const planOffered = () =>
+    noPlan() && agentProviderDescriptor(option().id).planGuideLink !== undefined && Boolean(host.onInstallProvider);
+  const recheckOffered = () => noPlan() && !connecting() && Boolean(host.onRestartProvider);
   const installOffered = () =>
     !runtimeStatus() &&
     agentProviderDescriptor(option().id).installGuideLink !== null &&
@@ -265,6 +270,9 @@ export function createProviderRow(option: () => ProviderPickerOption, host: Prov
     accountsOffered,
     accountError,
     addAccount,
+    noPlan,
+    planOffered,
+    recheckOffered,
     installOffered,
     signInOffered,
     apiKeyOffered,
@@ -279,7 +287,12 @@ export function servesCustomProvider(openCode: ProviderPickerOption | undefined)
   return openCode?.state === "available" || openCode?.state === "sign-in-required";
 }
 
-export type ProviderVisualState = AgentProviderState | ProviderRuntimePhase | "connecting" | "update-available";
+export type ProviderVisualState =
+  | AgentProviderState
+  | ProviderRuntimePhase
+  | "connecting"
+  | "update-available"
+  | "no-plan";
 
 export function providerStatusVariant(
   state: ProviderVisualState,
@@ -287,7 +300,8 @@ export function providerStatusVariant(
   if (state === "available") return "success-light";
   if (state === "ready") return "success-light";
   if (state === "error" || state === "download-error") return "destructive-light";
-  if (state === "sign-in-required" || state === "outdated" || state === "finishing") return "warning-light";
+  if (state === "sign-in-required" || state === "outdated" || state === "finishing" || state === "no-plan")
+    return "warning-light";
   if (state === "update-available") return "warning-light";
   return "secondary";
 }
@@ -300,6 +314,7 @@ export function providerStatusLabel(
   connecting = false,
   runtimeStatus?: ProviderRuntimeStatus,
   updatable = false,
+  noPlan = false,
 ): string {
   // Downloads outrank connection words; the row reports progress until it ends. An update that waits
   // for the provider's turns to end has a message and no progress yet.
@@ -317,6 +332,7 @@ export function providerStatusLabel(
   if (runtimeStatus?.phase === "download-error")
     return translate(runtimeStatus.version ? "provider.status.updateFailed" : "provider.status.setupFailed");
   if (state === "available") return translate("provider.status.connected");
+  if (noPlan) return translate("provider.status.noPlan");
   if (runtimeStatus?.phase === "not-downloaded") return translate("provider.status.notDownloaded");
   if (state === "sign-in-required") return translate("provider.status.notConnected");
   if (state === "outdated") return translate("provider.status.updateRequired");
@@ -345,6 +361,7 @@ export function providerVisualState(
   connecting: boolean,
   runtimeStatus?: ProviderRuntimeStatus,
   updatable = false,
+  noPlan = false,
 ): ProviderVisualState {
   const phase = runtimeStatus?.phase;
   // Same order as the label above.
@@ -353,6 +370,7 @@ export function providerVisualState(
   if (updatable) return "update-available";
   if (phase === "download-error") return phase;
   if (state === "available") return "available";
+  if (noPlan) return "no-plan";
   if (phase === "not-downloaded") return phase;
   if (state === "sign-in-required" || state === "outdated" || state === "error") return state;
   return phase ?? state;

@@ -91,6 +91,8 @@ export interface ProviderPickerOption {
   /** False while a connecting row is checked again, with no sign-in that waits for the user. */
   signInPending?: boolean | undefined;
   checkError?: string | null | undefined;
+  /** The provider is signed in, but the account has no plan that serves it. */
+  planRequired?: boolean | undefined;
   /** A restart the user asked for waits for the provider's tasks to stop. */
   restartPending?: boolean | undefined;
   runtimeStatus?: ProviderRuntimeStatus | undefined;
@@ -486,6 +488,9 @@ export function ProviderPicker(props: ProviderPickerProps) {
                 accountsOffered,
                 accountError,
                 addAccount,
+                noPlan,
+                planOffered,
+                recheckOffered,
                 installOffered,
                 signInOffered,
                 apiKeyOffered,
@@ -612,7 +617,15 @@ export function ProviderPicker(props: ProviderPickerProps) {
                             class={`provider-picker-status provider-picker-status-${visualState()}`}
                             variant={providerStatusVariant(visualState())}
                           >
-                            {providerStatusLabel(t, format, state(), connecting(), runtimeStatus(), updatable())}
+                            {providerStatusLabel(
+                              t,
+                              format,
+                              state(),
+                              connecting(),
+                              runtimeStatus(),
+                              updatable(),
+                              noPlan(),
+                            )}
                           </Badge>
                         </Show>
                       </Show>
@@ -693,7 +706,33 @@ export function ProviderPicker(props: ProviderPickerProps) {
                           {t("provider.action.install")}
                         </Button>
                       </Show>
-                      <Show when={!runtimeStatus() && (browserConnect() || keyConnect())}>
+                      <Show when={planOffered()}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          class="provider-picker-install"
+                          aria-label={t("provider.aria.openPlan", { name: option().name })}
+                          disabled={props.disabled || props.refreshingProviders}
+                          onClick={() => void props.onInstallProvider?.(option().id)}
+                        >
+                          {t("provider.action.openPlan")}
+                        </Button>
+                      </Show>
+                      <Show when={recheckOffered()}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          class="provider-picker-install"
+                          aria-label={t("provider.aria.tryAgain", { name: option().name })}
+                          disabled={props.disabled || props.refreshingProviders}
+                          onClick={() => void props.onRestartProvider?.(option().id)}
+                        >
+                          {t("provider.action.tryAgain")}
+                        </Button>
+                      </Show>
+                      <Show when={!runtimeStatus() && !noPlan() && (browserConnect() || keyConnect())}>
                         <Button
                           type="button"
                           variant={providerAction(state(), connecting()) === "connect" ? "default" : "outline"}

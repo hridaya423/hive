@@ -17,6 +17,12 @@ export class ProviderSignInError extends Schema.TaggedError<ProviderSignInError>
   message: Schema.String,
 }) {}
 
+/** The provider's CLI is signed in, but the account has no plan that serves it. The message is safe to show. */
+export class ProviderPlanRequiredError extends Schema.TaggedError<ProviderPlanRequiredError>()(
+  "ProviderPlanRequiredError",
+  { message: Schema.String },
+) {}
+
 export function providerFailure(cause: unknown): ProviderClientOperationError {
   return cause instanceof ProviderClientOperationError ? cause : new ProviderClientOperationError({ cause });
 }

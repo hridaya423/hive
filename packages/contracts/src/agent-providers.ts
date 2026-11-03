@@ -95,6 +95,8 @@ export interface AgentProviderDescriptor {
   readonly signInMessage: string;
   /** Where "install it yourself" leads. `null` means OpenBot ships the CLI and there is nowhere to go. */
   readonly installGuideLink: ExternalDestination | null;
+  /** Where a user whose account signed in but has no plan that serves the provider turns one on. */
+  readonly planGuideLink?: ExternalDestination;
   /** The model a new agent starts on. A provider lists its own models, so this id can be missing. */
   readonly defaultModel: AgentModelId;
   /**
@@ -552,6 +554,7 @@ const AGENT_PROVIDER_DESCRIPTOR_TABLE = {
     onboardingDescription: "Your GitHub Copilot plan",
     signInMessage: "Sign in with GitHub to use Copilot.",
     installGuideLink: "copilot-install",
+    planGuideLink: "copilot-plan",
     defaultModel: "",
     legacyModelPrefix: null,
     authKind: "copilot",

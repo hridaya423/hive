@@ -9,6 +9,7 @@ import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/pr
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { ACP_AGENT_PRESETS, isAgentProvider } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { type CustomProviderCipher, CustomProviderStore } from "../src/main/custom-provider-store";
@@ -115,6 +116,8 @@ try {
   await mkdir(agentFolder);
   await writeFile(join(agentFolder, "goose"), `#!/bin/sh\ntouch "${marker}"\n`);
   await chmod(join(agentFolder, "goose"), 0o755);
+  await writeFile(join(agentFolder, "copilot"), `#!/bin/sh\ntouch "${marker}"\n`);
+  await chmod(join(agentFolder, "copilot"), 0o755);
   await runCauseEffect(
     settings.set({
       enabled: true,
@@ -137,6 +140,14 @@ try {
   const goose = agents.find((agent) => agent.command === join(agentFolder, "goose"));
   assert.ok(goose, "The agent in the listed folder is found.");
   await assert.rejects(stat(marker), { code: "ENOENT" }, "The scan does not start the agent.");
+  assert.ok(
+    !agents.some((agent) => agent.command === join(agentFolder, "copilot") || agent.id === "copilot"),
+    "The CLI of a provider that has its own row is not a detected custom agent.",
+  );
+  assert.ok(
+    ACP_AGENT_PRESETS.every((preset) => !isAgentProvider(preset.id)),
+    "No custom agent preset names a provider that has its own row.",
+  );
   report.scan = {
     servers: found.map((server) => ({ id: server.id, baseUrl: server.baseUrl, models: server.models.length })),
     redirectFollowed: false,

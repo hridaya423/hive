@@ -71,6 +71,7 @@ const EXTERNAL_DESTINATIONS: Record<ExternalDestination, string> = {
   "claude-install": "https://code.claude.com/docs",
   "hermes-install": "https://hermes-agent.nousresearch.com/docs/getting-started/installation",
   "copilot-install": "https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli",
+  "copilot-plan": "https://github.com/settings/copilot",
   "grok-bot-export": GROK_BOT_EXPORT_URL,
   "mac-screen-recording": MAC_PERMISSION_URLS["screen-recording"],
 };

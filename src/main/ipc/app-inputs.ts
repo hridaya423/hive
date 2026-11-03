@@ -278,6 +278,7 @@ export function parseExternalDestination(input: unknown): ExternalDestination {
     input !== "claude-install" &&
     input !== "hermes-install" &&
     input !== "copilot-install" &&
+    input !== "copilot-plan" &&
     input !== "opencode-install" &&
     input !== "opencode-auth" &&
     input !== "grok-bot-export" &&

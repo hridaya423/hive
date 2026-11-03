@@ -63,7 +63,7 @@ import {
   decodeRecordResponse,
   getString,
 } from "./../protocol";
-import { ProviderSignInError } from "../provider-client-effects";
+import { ProviderPlanRequiredError, ProviderSignInError } from "../provider-client-effects";
 import {
   antigravityTemp,
   BUILT_IN_PROVIDER_DRIVERS,
@@ -1393,7 +1393,7 @@ export class ProviderRuntime implements ProviderPort {
     if (this.#status.phase === "starting" || this.#status.phase === "restarting") return this.status();
     const completion = Deferred.makeUnsafe<AgentStatus, ProviderOperationFailed>();
     this.#providerRefresh = completion;
-    const exit = yield* Effect.exit(this.#refreshProviders());
+    const exit = yield* Effect.exit(this.#refreshProviders(!options.automatic));
     yield* Deferred.done(completion, exit);
     if (this.#providerRefresh === completion) this.#providerRefresh = null;
     return yield* exit;
@@ -1406,14 +1406,23 @@ export class ProviderRuntime implements ProviderPort {
     if (this.#off.has(provider) || this.#clients.has(provider)) return this.status();
     this.#resetRestarts(provider);
     this.#startFailures.delete(provider);
-    yield* this.#startProvider(provider, { preserveCheckErrors: true, refreshRuntimeInBackground: true });
+    yield* this.#startProvider(provider, {
+      preserveCheckErrors: true,
+      refreshRuntimeInBackground: true,
+      userRequested: true,
+    });
     return this.status();
   }).bind(this);
 
   readonly #startProvider = Effect.fn("ProviderRuntime.startProvider")(function* (
     this: ProviderRuntime,
     provider: AgentProvider,
-    options: { notifyReady?: boolean; preserveCheckErrors?: boolean; refreshRuntimeInBackground?: boolean },
+    options: {
+      notifyReady?: boolean;
+      preserveCheckErrors?: boolean;
+      refreshRuntimeInBackground?: boolean;
+      userRequested?: boolean;
+    },
     phase: "starting" | "restarting" = "starting",
   ) {
     if (this.#off.has(provider) || (provider === "acp" && this.#removingCustomRuntime)) return;
@@ -2701,7 +2710,10 @@ export class ProviderRuntime implements ProviderPort {
     return yield* exit;
   }, Effect.uninterruptible);
 
-  readonly #refreshProviders = Effect.fn("ProviderRuntime.refreshProviders")(function* (this: ProviderRuntime) {
+  readonly #refreshProviders = Effect.fn("ProviderRuntime.refreshProviders")(function* (
+    this: ProviderRuntime,
+    userRequested: boolean,
+  ) {
     yield* Effect.forEach(
       BUILT_IN_PROVIDER_DRIVERS.filter((driver) => !this.#off.has(driver.id)),
       (driver) =>
@@ -2746,7 +2758,11 @@ export class ProviderRuntime implements ProviderPort {
     const completion = Deferred.makeUnsafe<void, ProviderOperationFailed>();
     for (const provider of starting) this.#providerStarts.set(provider, completion);
     const exit = yield* Effect.exit(
-      this.#connect("starting", providers, { preserveCheckErrors: true, refreshRuntimeInBackground: true }),
+      this.#connect("starting", providers, {
+        preserveCheckErrors: true,
+        refreshRuntimeInBackground: true,
+        userRequested,
+      }),
     );
     yield* Deferred.done(completion, exit);
     for (const provider of starting)
@@ -3130,6 +3146,7 @@ export class ProviderRuntime implements ProviderPort {
     const message =
       (timeout && matchingSourceKeys(rawMessage).length > 0) ||
       error instanceof ProviderSignInError ||
+      error instanceof ProviderPlanRequiredError ||
       /^(ChatGPT connection|OpenBot)/u.test(rawMessage)
         ? rawMessage
         : fallbackMessage;
@@ -3140,7 +3157,7 @@ export class ProviderRuntime implements ProviderPort {
           message,
           email: this.#accounts.get(provider)?.email ?? null,
         }
-      : error instanceof CodexCliError || cliFailed
+      : error instanceof CodexCliError || error instanceof ProviderPlanRequiredError || cliFailed
         ? providerFailureStatus(provider, error, version)
         : {
             state: "sign-in-required" as const,
@@ -3313,6 +3330,8 @@ export class ProviderRuntime implements ProviderPort {
       notifyReady?: boolean;
       startTimeoutMs?: number;
       preferInstalled?: boolean;
+      /** The user asked for this check, so a failure shows as a toast even when no agent uses the provider. */
+      userRequested?: boolean;
     } = {},
   ) {
     requestedProviders = requestedProviders.filter((provider) => !this.#off.has(provider));
@@ -3492,8 +3511,19 @@ export class ProviderRuntime implements ProviderPort {
                   message: failure.message === null ? null : this.#redactMcp(failure.message),
                 }),
               });
-              if (!(failed instanceof CodexCliError || failed instanceof ProviderSignInError)) {
-                this.#emitProviderError(provider, "start_failed", failed);
+              if (
+                !(
+                  failed instanceof CodexCliError ||
+                  failed instanceof ProviderSignInError ||
+                  failed instanceof ProviderPlanRequiredError
+                )
+              ) {
+                if (options.userRequested || this.#hooks.isProviderAssigned(provider)) {
+                  this.#emitProviderError(provider, "start_failed", failed);
+                } else {
+                  this.#recordProviderError(provider, failed);
+                  this.#setStatus({});
+                }
                 // No process started, and the row keeps the reason the user can act on.
                 if (!(failed instanceof ProviderTempDiskSpaceError) && this.#countStartFailure(provider))
                   return this.#showStartStopped(provider);

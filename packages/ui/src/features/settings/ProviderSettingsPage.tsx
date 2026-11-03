@@ -237,7 +237,16 @@ function ProviderList(props: ProviderSettingsPageProps & { onOpen: (id: PageId) 
     if (option.off) return t("provider.status.off");
     if (option.runtimeStatus?.phase === "not-downloaded") return t("provider.status.notDownloaded");
     if (option.connectionState === "connecting") return t("provider.status.connecting");
-    if (option.state !== "available") return providerStatusLabel(t, format, option.state);
+    if (option.state !== "available")
+      return providerStatusLabel(
+        t,
+        format,
+        option.state,
+        false,
+        undefined,
+        false,
+        option.state === "error" && option.planRequired === true,
+      );
     const accounts = option.accounts ?? [];
     if (accounts.length > 1) {
       const count = t("provider.account.count", { count: accounts.length });
@@ -540,7 +549,10 @@ function ProviderPage(props: PageProps) {
       };
     }
     if (runtime?.phase === "download-error" || option.state === "error" || option.state === "outdated") {
-      return { status: "attention", label: providerStatusLabel(t, format, option.state, false, runtime) };
+      return {
+        status: "attention",
+        label: providerStatusLabel(t, format, option.state, false, runtime, false, row.noPlan()),
+      };
     }
     if (!row.available())
       return { status: "idle", label: providerStatusLabel(t, format, option.state, false, runtime) };
@@ -1130,7 +1142,8 @@ function SignInSection(props: SectionProps & { keyShown: boolean }) {
   /** The key providers open the key dialog from their API key card. */
   const signInButton = () => row().signInOffered() && !props.keyShown;
   const title = () =>
-    props.option.email ?? providerStatusLabel(t, format, row().state(), row().connecting(), undefined);
+    props.option.email ??
+    providerStatusLabel(t, format, row().state(), row().connecting(), undefined, false, row().noPlan());
   const messages = () =>
     [
       props.option.checkError ? sourceText(props.option.checkError) : null,
@@ -1215,7 +1228,31 @@ function SignInSection(props: SectionProps & { keyShown: boolean }) {
                 {t("provider.action.install")}
               </Button>
             </Show>
-            <Show when={!row().runtimeStatus() && (row().browserConnect() || row().keyConnect())}>
+            <Show when={row().planOffered()}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={t("provider.aria.openPlan", { name: props.option.name })}
+                disabled={props.disabled}
+                onClick={() => void props.onInstallProvider?.(props.option.id)}
+              >
+                {t("provider.action.openPlan")}
+              </Button>
+            </Show>
+            <Show when={row().recheckOffered()}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={t("provider.aria.tryAgain", { name: props.option.name })}
+                disabled={props.disabled}
+                onClick={() => void props.onRestartProvider?.(props.option.id)}
+              >
+                {t("provider.action.tryAgain")}
+              </Button>
+            </Show>
+            <Show when={!row().runtimeStatus() && !row().noPlan() && (row().browserConnect() || row().keyConnect())}>
               <Button
                 type="button"
                 variant={browserAction() === "connect" ? "default" : "outline"}

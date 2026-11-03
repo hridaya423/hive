@@ -266,6 +266,10 @@ export const messages = defineMessages("error.provider", {
   "error.provider.copilotNotStarted": "GitHub Copilot CLI could not start. Run `copilot --version` in a terminal.",
   "error.provider.copilotVersionUnreadable": "Unable to read the GitHub Copilot CLI version.",
   "error.provider.copilotSignIn": "Sign in with GitHub to use Copilot.",
+  "error.provider.copilotNoPlan":
+    "Signed in to GitHub as {login}, but this account has no Copilot plan. Turn on Copilot in your GitHub settings, then try again.",
+  "error.provider.copilotNoPlanUnnamed":
+    "This GitHub account has no Copilot plan. Turn on Copilot in your GitHub settings, then try again.",
   "error.provider.usageLimitReached": "The account reached its usage limit.",
   "error.provider.foreignReasoning":
     "{provider} did not accept the earlier reasoning in this chat, because a different account or API key received it. Hive started a new {provider} session with the chat history. Try again.",

@@ -401,6 +401,7 @@ export type ExternalDestination =
   | "claude-install"
   | "hermes-install"
   | "copilot-install"
+  | "copilot-plan"
   // The x.ai marketplace listing of the Grok Bot agent that exports agents for OpenBot.
   | "grok-bot-export"
   // Not a page: the macOS pane that grants OpenBot screen recording. It is here rather than behind

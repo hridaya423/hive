@@ -892,6 +892,7 @@
 }
 
 .provider-picker-status-sign-in-required,
+.provider-picker-status-no-plan,
 .provider-picker-status-outdated,
 .provider-picker-status-update-available {
   color: var(--openbot-warning);
@@ -928,6 +929,7 @@
 }
 
 .provider-picker-status-sign-in-required i,
+.provider-picker-status-no-plan i,
 .provider-picker-status-outdated i,
 .provider-picker-status-update-available i {
   background: var(--openbot-warning);
@@ -1473,6 +1475,7 @@ body,
 
 .account-login-development-code,
 .provider-picker-status-sign-in-required i,
+.provider-picker-status-no-plan i,
 .provider-picker-status-outdated i {
   color: var(--openbot-warning);
 }
