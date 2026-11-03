@@ -131,6 +131,7 @@ const sockets: FakeSocket[] = [];
 const connectCalls: string[] = [];
 let connectFailures = 0;
 const qrCodes: Array<string | null> = [];
+let autoOpen = false;
 
 class RecordingPairing extends WhatsAppPairing {
   override qr(code: string | null): void {
@@ -151,6 +152,7 @@ const connect = async (dir: string): Promise<WhatsAppClient> => {
   writeFileSync(join(dir, "creds.json"), "{}");
   const socket = new FakeSocket();
   sockets.push(socket);
+  if (autoOpen) setTimeout(() => socket.update({ connection: "open" }), 0);
   return { socket, downloadMedia: async () => MEDIA };
 };
 const liveSocket = (): FakeSocket => {
@@ -246,6 +248,7 @@ async function boot<T>(
         authDir,
         pairing,
         retryDelayMs: () => 0,
+        unlinkTimeoutMs: 300,
         logger: createOpenBotLogger("whatsapp-e2e", (line) => logLines.push(line)),
       }),
     ],
@@ -444,6 +447,17 @@ try {
 
   await boot(
     async ({ messaging }) => {
+      const pauseLinkedAccount = async () => {
+        const before = sockets.length;
+        await runCauseEffect(messaging.connectWhatsApp());
+        await waitFor("a socket for the link", () => sockets.length > before);
+        liveSocket().update({ connection: "open" });
+        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
+        await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", false));
+        await waitFor("the paused state", () => messaging.whatsappOverview().connections[0]?.state === "paused");
+      };
+      const warned = () => logLines.filter((line) => line.includes("may still list")).length;
+
       await step("a restricted number (403) stops the connection instead of retrying without end", async () => {
         const before = sockets.length;
         await runCauseEffect(messaging.connectWhatsApp());
@@ -467,6 +481,52 @@ try {
         await runCauseEffect(messaging.connectWhatsApp());
         await waitFor("a socket for the new link", () => sockets.length > before);
         return { relinked: true };
+      });
+
+      await step(
+        "unlink while paused logs the device out with a short-lived socket, then deletes the login",
+        async () => {
+          await pauseLinkedAccount();
+          assert.ok(existsSync(join(authDir, "creds.json")), "The test login was never written.");
+          const before = sockets.length;
+          const lines = warned();
+          autoOpen = true;
+          try {
+            await runCauseEffect(messaging.disconnectWhatsApp());
+          } finally {
+            autoOpen = false;
+          }
+          assert.equal(sockets.length, before + 1, "Unlink opened no socket for the logout.");
+          assert.equal(liveSocket().loggedOut, true, "The paused account was not logged out of WhatsApp.");
+          assert.equal(liveSocket().ended, true);
+          assert.equal(existsSync(authDir), false, "The login stayed on disk.");
+          assert.equal(warned(), lines, "A complete logout was reported as incomplete.");
+          return { loggedOut: true };
+        },
+      );
+
+      await step("unlink deletes the login when the logout socket never opens, and says so", async () => {
+        await pauseLinkedAccount();
+        const before = sockets.length;
+        const lines = warned();
+        await runCauseEffect(messaging.disconnectWhatsApp());
+        assert.equal(sockets.length, before + 1, "Unlink opened no socket for the logout.");
+        assert.equal(liveSocket().loggedOut, false);
+        assert.equal(liveSocket().ended, true, "The logout socket stayed open.");
+        assert.equal(existsSync(authDir), false, "The login stayed on disk.");
+        assert.equal(warned(), lines + 1, "The incomplete logout was not reported.");
+        return { loggedOut: false };
+      });
+
+      await step("unlink deletes the login when there is no network for the logout", async () => {
+        await pauseLinkedAccount();
+        const lines = warned();
+        connectFailures = 1;
+        await runCauseEffect(messaging.disconnectWhatsApp());
+        assert.equal(connectFailures, 0, "Unlink did not try to open a socket.");
+        assert.equal(existsSync(authDir), false, "The login stayed on disk.");
+        assert.equal(warned(), lines + 1, "The incomplete logout was not reported.");
+        return { loggedOut: false };
       });
     },
     { linked: true, profile: "edges" },

@@ -1,4 +1,4 @@
-import { readFile, rm, stat, writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { createOpenBotLogger, type Logger } from "@openbot/logging";
 import { Effect, Result } from "effect";
 import type { MessagingAnswerFile } from "../messaging-threads";
@@ -17,7 +17,13 @@ import {
 import { whatsappChunks, whatsappText } from "./whatsapp-render";
 import { jidUser, WHATSAPP_WORKSPACE_ID, WhatsAppSession } from "./whatsapp-session";
 import type { WhatsAppConnect, WhatsAppMessage, WhatsAppOutbound } from "./whatsapp-socket";
-import { type WhatsAppPairing, WhatsAppTransport, whatsappRetryDelayMs } from "./whatsapp-transport";
+import {
+  unlinkWhatsApp,
+  WHATSAPP_LOGOUT_TIMEOUT_MS,
+  type WhatsAppPairing,
+  WhatsAppTransport,
+  whatsappRetryDelayMs,
+} from "./whatsapp-transport";
 import { whatsappChatIsGroup } from "./whatsapp-updates";
 
 const WHATSAPP_FILE_BYTES_LIMIT = 64 * 1024 * 1024;
@@ -234,6 +240,8 @@ export interface WhatsAppDriverOptions {
   authDir: string;
   pairing: WhatsAppPairing;
   retryDelayMs?: (attempt: number) => number;
+  /** How long unlink waits for WhatsApp to log the device out before it deletes the login anyway. */
+  unlinkTimeoutMs?: number;
   logger?: Logger;
 }
 
@@ -262,11 +270,24 @@ export function whatsappDriver(options: WhatsAppDriverOptions): MessagingDriver 
         session: session(credentials),
         pairing: options.pairing,
         retryDelayMs: options.retryDelayMs ?? whatsappRetryDelayMs,
+        logoutTimeoutMs: options.unlinkTimeoutMs ?? WHATSAPP_LOGOUT_TIMEOUT_MS,
         logger,
       });
       return transport;
     },
     unlink: () =>
-      transport ? transport.unlink() : Effect.promise(() => rm(options.authDir, { recursive: true, force: true })),
+      transport
+        ? transport.unlink()
+        : Effect.promise(() =>
+            unlinkWhatsApp(
+              {
+                connect: options.connect,
+                authDir: options.authDir,
+                logger,
+                timeoutMs: options.unlinkTimeoutMs ?? WHATSAPP_LOGOUT_TIMEOUT_MS,
+              },
+              null,
+            ),
+          ),
   };
 }
