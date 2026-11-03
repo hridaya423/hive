@@ -967,7 +967,8 @@ Network traffic can also occur when:
 - a user opens an explicitly labeled external support or setup link;
 - a Slack workspace is connected. See [Slack connections](#slack-connections);
 - a Discord server is connected. See [Discord connections](#discord-connections);
-- a Telegram chat is connected. See [Telegram connections](#telegram-connections).
+- a Telegram chat is connected. See [Telegram connections](#telegram-connections);
+- a WhatsApp account is linked. See [WhatsApp connections](#whatsapp-connections).
 
 ## Webhook routines
 
@@ -1194,6 +1195,44 @@ plugin page does not connect your browser to the plugin developer's servers.
 
 Account usage shown in OpenBot is requested through the local Codex App Server. OpenBot does not send
 that usage to its maintainer.
+
+## WhatsApp connections
+
+The user links their own WhatsApp account to this computer as a linked device, the way WhatsApp Web
+works. The computer opens a WebSocket straight to WhatsApp's servers through the unofficial Baileys
+library. No OpenBot or Hive server is in the path: the account service, Signal and Cloudflare see no
+chat, no phone number and no message. A link shows a QR code in the settings page. The phone scans
+it, and WhatsApp then gives this computer the keys of the new device.
+
+- **Stored on the host.** The login of the linked device, as one JSON file per key in the
+  `whatsapp/auth` folder of the application data folder (`creds.json`, session, pre-key and
+  sender-key files). These files are not encrypted by the application: anyone who can read that
+  folder can use the account until the user unlinks the device. The list of allowed chats is kept
+  with the other connection secrets, encrypted by the operating system's secret storage. The database
+  holds the connection record, which agent is the WhatsApp Orchestrator, and one row per
+  conversation that an agent answers. The messages of that conversation are kept as a conversation
+  of that agent, with the WhatsApp name of each author, and files people send are kept with the
+  agent's attachments. The last messages of an allowed chat are also kept in memory for context,
+  until OpenBot quits.
+- **Read from WhatsApp.** WhatsApp delivers every message of the account to a linked device, and the
+  library decrypts each one in memory. The host drops a message from a chat that is not on the
+  allowlist before it reads, stores, logs or passes on its content, and logs only the number of
+  drops. Messages from an allowed chat reach the agent: every message of a direct chat, and a
+  message that mentions the account in a group.
+- **Given to the WhatsApp Orchestrator.** Every new request goes first to the orchestrator agent,
+  which runs on its provider like any other agent and passes the work to a teammate with the facts
+  it needs.
+- **Sent to WhatsApp.** The agents' answers and the files they attach, and reactions, only to a chat
+  on the allowlist. They appear as messages from the user's own account. WhatsApp has no buttons for
+  a linked device, so an approval request does not go to the chat: the user approves in the app.
+- **Unlink.** Unlink logs the device out of WhatsApp, which removes it from the phone's linked
+  devices, deletes the `whatsapp/auth` folder and the allowed chats, and deletes the WhatsApp
+  Orchestrator with its conversations. If the phone removes the device first, the host deletes the
+  login and shows that the account must be linked again.
+
+Using an unofficial client can break WhatsApp's terms of service, and WhatsApp can block the number.
+Anyone in an allowed chat can give the agents work. The agents run on the host with the access the
+user gave them.
 
 ## Agent access
 
