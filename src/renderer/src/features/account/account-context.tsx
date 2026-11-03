@@ -2,6 +2,7 @@ import type { AccountUsage, AccountUsageLimit, AvatarImageInput, CentralAuthStat
 import { currentText } from "@openbot/ui/text";
 import { createMemo, createSignal, createStore, flush, onCleanup, onSettled } from "solid-js";
 import { type DesktopAnalyticsProperties, desktopAnalytics } from "../../analytics";
+import { shareInFlight } from "../../rate-limit";
 import { createSimpleContext } from "../../simple-context";
 import { accountPort } from "./account-port";
 
@@ -231,11 +232,13 @@ const Auth = createSimpleContext({
       });
     }
 
+    const readAccountUsage = shareInFlight(() => accountPort().agent.getUsage());
+
     async function refreshAccountUsage(targetKey: string): Promise<AccountUsage> {
       selectAccountUsageTarget(targetKey);
       const generation = ++accountUsageRequestGeneration;
       accountUsageEventIds = new Set();
-      const usage = await accountPort().agent.getUsage();
+      const usage = await readAccountUsage(targetKey);
       if (generation === accountUsageRequestGeneration && accountUsageState.targetKey === targetKey) {
         // The refresh reads every provider, so a row it omits has stopped reporting, such as a revoked
         // OpenCode Go key. It keeps only the rows an event updated after it started.

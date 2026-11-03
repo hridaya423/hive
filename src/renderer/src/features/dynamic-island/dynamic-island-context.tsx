@@ -8,6 +8,7 @@ import { createSimpleContext } from "../../simple-context";
 import { useServers } from "../servers/servers-context";
 import { useSettings } from "../settings/settings-context";
 import { dynamicIslandPort } from "./dynamic-island-port";
+import { createPresentationPublisher } from "./dynamic-island-publish";
 
 /**
  * The macOS Dynamic Island projection: what the desktop shows about servers the
@@ -63,16 +64,18 @@ const DynamicIsland = createSimpleContext({
       return ordered.filter((serverId) => !muted.has(serverId) && isDynamicIslandServerVisible(choices, serverId));
     }
 
+    const sendPresentation = createPresentationPublisher(
+      () => coordinator.presentation(serverOrder()),
+      (presentation) => dynamicIslandPort().dynamicIsland.publishPresentation(presentation),
+    );
+
     function publishPresentation(): void {
       // The main window owns the island; main rejects a publish from a chat window.
       if (platform.landingPreview || platform.chatWindow || presentationScheduled) return;
       presentationScheduled = true;
       queueMicrotask(() => {
         presentationScheduled = false;
-        const presentation = coordinator.presentation(serverOrder());
-        void dynamicIslandPort()
-          .dynamicIsland.publishPresentation(presentation)
-          .catch(() => undefined);
+        sendPresentation();
       });
     }
 
