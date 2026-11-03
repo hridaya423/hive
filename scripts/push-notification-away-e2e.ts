@@ -27,6 +27,7 @@ import { encodeLiveActivityBytes, LIVE_ACTIVITY_SECRET_BYTES } from "@openbot/te
 import { pushNotificationKeys } from "@openbot/team-client/push-notification-seal";
 import { Effect } from "effect";
 import { openSealedLiveActivity } from "../apps/mobile/src/features/live-activity/model/live-activity-open";
+import { ntfyInstallToken } from "../apps/mobile/src/features/push-notifications/ntfy-install-token";
 import { LiveActivityPushService } from "../src/main/live-activity-push";
 import { createNtfySender } from "../src/main/ntfy-notifier";
 import {
@@ -499,6 +500,62 @@ try {
       return { request };
     },
   );
+
+  await step("two Android installs without Firebase keep their own registrations", async () => {
+    ntfyPhones.remove(ANDROID);
+    const installs = [0, 1].map(() => {
+      let saved: string | null = null;
+      const store = {
+        read: () => saved,
+        write: (token: string) => {
+          saved = token;
+        },
+      };
+      const token = ntfyInstallToken(store, () => randomBytes(16).toString("hex"));
+      assert.equal(
+        ntfyInstallToken(store, () => randomBytes(16).toString("hex")),
+        token,
+        "The token changed.",
+      );
+      return token;
+    });
+    assert.notEqual(installs[0], installs[1], "Two installs share one token.");
+    const before = ntfyRequests.length;
+    for (const [index, token] of installs.entries()) {
+      ntfyPhones.register(
+        `${ANDROID}-${index}`,
+        { memberId: MEMBER, protocol: 7, capabilities: new Set() },
+        {
+          platform: "android",
+          value: {
+            serverId: "fixture-server",
+            token,
+            secret: androidSecret,
+            locale: "en",
+            away: true,
+            level: "all",
+            mutedUntil: null,
+            preview: false,
+            sound: "default",
+          },
+        },
+      );
+    }
+    events.emit("event", reply(AGENT_B, "turn-two-installs"));
+    await new Promise<void>((resolveRequest, reject) => {
+      const deadline = setTimeout(() => reject(new Error("Fewer than two ntfy requests.")), STEP_DEADLINE_MS);
+      const check = () => {
+        if (ntfyRequests.length < before + 2) return;
+        clearTimeout(deadline);
+        waiters.delete(check);
+        resolveRequest();
+      };
+      waiters.add(check);
+      check();
+    });
+    assert.equal(ntfyRequests.length, before + 2);
+    return { installs: installs.length };
+  });
   passed = true;
 } catch {
   passed = false;

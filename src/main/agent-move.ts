@@ -289,7 +289,19 @@ export const moveAgent = Effect.fn("AgentMove.move")(function* ({ source, target
         cause: new Error(sourceText("error.team.agentMoveIncomplete", { name: target.name })),
       });
     yield* source.hideAgent(agentId);
-  }).pipe(Effect.tapError(() => target.deleteAgent(created.agentId).pipe(Effect.ignore)));
+  }).pipe(
+    Effect.tapError(() =>
+      target.deleteAgent(created.agentId).pipe(
+        Effect.mapError(
+          () =>
+            new AgentMoveFailed({
+              step: "rollback",
+              cause: new Error(sourceText("error.team.agentMoveCopyKept", { name: target.name })),
+            }),
+        ),
+      ),
+    ),
+  );
 
   if (backups?.backupModels) {
     yield* target
