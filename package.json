@@ -196,6 +196,7 @@
     "test:muse-instructions-once": "bun scripts/muse-instructions-once-e2e.ts",
     "test:provider-conformance": "bun scripts/provider-conformance-e2e.ts",
     "test:copilot-sign-in": "bun scripts/copilot-sign-in-e2e.ts",
+    "test:copilot-static-context": "bun scripts/copilot-static-context-e2e.ts",
     "test:provider-cli-canary": "bun scripts/provider-cli-canary.ts",
     "test:custom-agents": "bun scripts/custom-acp-agent-e2e.ts",
     "test:custom-agents:login-path": "bun scripts/custom-acp-agent-login-path-e2e.ts",

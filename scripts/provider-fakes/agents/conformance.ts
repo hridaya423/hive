@@ -18,7 +18,10 @@
 //   `FAKE_LOGIN_DELAY_MS`. `FAKE_MODE_FILE` names a file that holds what each new session does now:
 //   `ok`, `signed-out` (`-32000 "Authentication required"`), or `no-plan` (the 403 that GitHub gives an
 //   account with no Copilot plan: `-32603` with `data.category: "permission_denied"`, `data.status: 403`),
-//   or `broken` (`-32603 "Internal error"`, a start that fails for no reason the user can act on).
+//   or `broken` (`-32603 "Internal error"`, a start that fails for no reason the user can act on),
+//   or `static-context`: each prompt gets the two chunks that Copilot sends as the answer when its
+//   instructions and tool definitions leave no room to compact the session, and ends as a success.
+//   As Copilot, it logs its arguments at start.
 // A prompt with the text `wait` runs until the client cancels it. Each other prompt answers at once.
 import { readFileSync, writeFileSync } from "node:fs";
 import {
@@ -127,6 +130,7 @@ function promptText(params: AcpParams): string {
 }
 
 const command = process.argv.slice(2).join(" ");
+if (process.env.FAKE_COPILOT === "1") logEntry({ event: "start", argv: process.argv.slice(2) });
 if (process.env.FAKE_COPILOT === "1" && command === "--version") {
   process.stdout.write("GitHub Copilot CLI 1.0.105.\nRun 'copilot update' to check for updates.\n");
   process.exit(0);
@@ -217,7 +221,13 @@ serveFakeAcpAgent(
         waiting.set(sessionId, () => peer.reply(request, { stopReason: "cancelled" }));
         return;
       }
-      peer.say(sessionId, `ok ${models.get(sessionId) ?? ""}`);
+      if (sessionMode() === "static-context") {
+        peer.say(
+          sessionId,
+          "Warning: Static system messages and tool definitions exceed the model's usable context budget. Reduce static context or switch to a larger-context model.",
+        );
+        peer.say(sessionId, "Error: No response was returned. Send your message again to retry.");
+      } else peer.say(sessionId, `ok ${models.get(sessionId) ?? ""}`);
       peer.reply(request, { stopReason: "end_turn" });
     },
   },

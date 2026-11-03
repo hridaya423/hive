@@ -55,7 +55,7 @@ import {
   resolvePiCli,
 } from "./cli";
 import { clineFreeModels } from "./cline-free-models";
-import { copilotLogin } from "./copilot-login";
+import { copilotLogin, copilotUserMcpServers } from "./copilot-login";
 import { readCursorUsage } from "./cursor-usage";
 import { CustomAcpAgentsClient, type CustomAgentConfig, type CustomAgentSource } from "./custom-acp-agents-client";
 import { GrokAgentClient } from "./grok-client";
@@ -354,7 +354,17 @@ function confineHermesTarget(
   return confineSpawnTarget(target, confinement, hermesStatePaths(env));
 }
 
-const COPILOT_ARGV: readonly string[] = ["--acp"];
+/**
+ * An agent gets only OpenBot's MCP servers. Copilot's built-in GitHub servers and the user's own
+ * servers send their tool definitions with each request and can leave the model no room to compact.
+ */
+function copilotArgv(env: NodeJS.ProcessEnv): string[] {
+  return [
+    "--acp",
+    "--disable-builtin-mcps",
+    ...copilotUserMcpServers(env).flatMap((name) => ["--disable-mcp-server", name]),
+  ];
+}
 
 function copilotPlanRequiredMessage(env: NodeJS.ProcessEnv): string {
   const login = copilotLogin(env);
@@ -1266,7 +1276,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
       new AcpAgentClient(cli, timeout, {
         provider: "copilot",
         flavor: COPILOT_ACP_FLAVOR,
-        argv: COPILOT_ARGV,
+        argv: copilotArgv({ ...process.env, ...context.agentEnvironment?.() }),
         env: {},
         ...(confinement
           ? {
@@ -1288,7 +1298,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
       new AcpAgentClient(cli, timeout, {
         provider: "copilot",
         flavor: COPILOT_ACP_FLAVOR,
-        argv: COPILOT_ARGV,
+        argv: copilotArgv(process.env),
         profileGeneration: true,
         env: {},
         signInMessage: sourceText("error.provider.copilotSignIn"),

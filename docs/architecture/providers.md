@@ -863,6 +863,15 @@ words: "Your Copilot subscription does not include this feature". The CLI has no
 driver has no `signOut`. A token in `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` or `GITHUB_TOKEN` wins over the
 Keychain, and OpenBot never sets them.
 
+An agent on Copilot gets only OpenBot's MCP servers. `copilotArgv` adds `--disable-builtin-mcps` and
+one `--disable-mcp-server` for each server in the user's own `mcp-config.json` (`copilotUserMcpServers`);
+the user's `copilot` in a terminal keeps them. Their tool definitions go with each request: with the
+user's 174-tool `cua` server and the GitHub servers, one request carried 285 tools (61,075 tokens). Copilot
+then cannot compact a long session, sends "Warning: Static system messages and tool definitions exceed
+the model's usable context budget…" and "Error: No response was returned…" as the answer, and ends the
+turn as a success. `COPILOT_ACP_FLAVOR.sdkHarness` fails that turn with `error.provider.copilotStaticContext`.
+`scripts/copilot-static-context-e2e.ts` runs both over the conformance fake.
+
 `copilotStatePaths` lets a confined process write `~/.copilot` (or `$COPILOT_HOME`) and protects its
 settings, MCP servers, skills, agents, hooks, plugins and updated packages. A confined process reads the
 Keychain but cannot write it (tested with `security`, not yet with `copilot`). The project settings

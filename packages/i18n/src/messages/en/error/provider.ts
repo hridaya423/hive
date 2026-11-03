@@ -270,6 +270,8 @@ export const messages = defineMessages("error.provider", {
     "Signed in to GitHub as {login}, but this account has no Copilot plan. Turn on Copilot in your GitHub settings, then try again.",
   "error.provider.copilotNoPlanUnnamed":
     "This GitHub account has no Copilot plan. Turn on Copilot in your GitHub settings, then try again.",
+  "error.provider.copilotStaticContext":
+    "Copilot has no room left in this chat for the agent's instructions and tools. Turn off MCP servers or Computer Use that this agent does not need, start a new chat, or choose another provider.",
   "error.provider.usageLimitReached": "The account reached its usage limit.",
   "error.provider.foreignReasoning":
     "{provider} did not accept the earlier reasoning in this chat, because a different account or API key received it. Hive started a new {provider} session with the chat history. Try again.",

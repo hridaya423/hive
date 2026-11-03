@@ -1,5 +1,6 @@
 import { win32 } from "node:path";
 import type { LoadSessionResponse, NewSessionRequest, RequestError } from "@agentclientprotocol/sdk";
+import { sourceText } from "@openbot/i18n/source";
 import { enableCursorMcpServers } from "./cursor-mcp-disabled";
 import { isRecord } from "./protocol";
 
@@ -162,6 +163,15 @@ export const COPILOT_ACP_FLAVOR: AcpFlavor = {
     isRecord(error.data) &&
     error.data.status === 403 &&
     error.data.category === "permission_denied",
+  // Copilot CLI 1.0.105 sends this warning and "Error: No response was returned." as the answer and
+  // ends the turn as a success when its instructions and tool definitions leave no room to compact.
+  sdkHarness: {
+    failedSession: () => undefined,
+    answerIsFailure: /^Warning: Static system messages and tool definitions exceed/u,
+    turnFailure: () => sourceText("error.provider.copilotStaticContext"),
+    quota: () => null,
+    mcpLoadFailure: () => null,
+  },
 };
 
 /**
