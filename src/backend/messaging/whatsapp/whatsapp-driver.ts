@@ -20,7 +20,7 @@ import type { WhatsAppConnect, WhatsAppMessage, WhatsAppOutbound } from "./whats
 import { type WhatsAppPairing, WhatsAppTransport, whatsappRetryDelayMs } from "./whatsapp-transport";
 import { whatsappChatIsGroup } from "./whatsapp-updates";
 
-export const WHATSAPP_WORKSPACE_ID = "whatsapp";
+const WHATSAPP_WORKSPACE_ID = "whatsapp";
 const WHATSAPP_FILE_BYTES_LIMIT = 64 * 1024 * 1024;
 
 const REACTIONS: Record<StatusReaction, string> = {
@@ -217,7 +217,12 @@ class WhatsAppAdapter implements MessagingAdapter {
         const id = sent?.key.id;
         if (!sent || !id) return Effect.fail(fail("no_message_id"));
         session.rememberSent(id);
-        session.rememberMessage(chat, sent, { id, authorName: "OpenBot", text: "", sentAt: new Date().toISOString() });
+        session.rememberMessage(chat, sent, {
+          id,
+          authorName: "OpenBot",
+          text: "text" in content ? content.text : "",
+          sentAt: new Date().toISOString(),
+        });
         return Effect.succeed(id);
       }),
     );

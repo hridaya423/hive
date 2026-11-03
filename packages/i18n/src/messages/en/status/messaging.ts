@@ -40,6 +40,7 @@ export const messages = defineMessages("status.messaging", {
   // Text that OpenBot posts in a Telegram chat, and the Telegram Orchestrator agent. Telegram users
   // read the posts. The user can rename the agent.
   "status.messaging.telegramNoAgent": "No agent can answer here yet. Add the Telegram Orchestrator in OpenBot.",
+  "status.messaging.whatsappNoAgent": "No agent can answer here yet. Bind an agent to WhatsApp in Hive.",
   "status.messaging.telegramLinked":
     "OpenBot is connected to this chat. Mention {bot} or reply to a message of OpenBot to ask the agents.",
   "status.messaging.telegramOrchestratorName": "Telegram Orchestrator",

@@ -42,6 +42,7 @@ const ME = "447700900001@s.whatsapp.net";
 const ME_LID = "100200300400@lid";
 const ALLOWED = "447700900002@s.whatsapp.net";
 const ALLOWED_GROUP = "120363000000000001@g.us";
+const NEW_CHAT = "447700900004@s.whatsapp.net";
 const STRANGER = "447700900099@s.whatsapp.net";
 const STRANGER_TEXT = "secret stranger text 7731";
 
@@ -375,16 +376,34 @@ try {
 
   await boot(async ({ messaging, threads, connectionId }) => {
     await step("an empty allowlist lets nothing through", async () => {
+      const before = sockets.length;
       await runCauseEffect(credentials.set(connectionId, { account: "whatsapp" }));
       await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", false));
       await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", true));
-      await waitFor("a socket", () => sockets.length > 0);
+      await waitFor("a new socket", () => sockets.length > before);
       liveSocket().update({ connection: "open" });
       const { id, message } = text(ALLOWED, "hello");
       liveSocket().receive(message);
       await new Promise((done) => setTimeout(done, 100));
       assert.equal(threads.received(key(connectionId, ALLOWED, id)), false);
       return { dropped: true };
+    });
+
+    await step("an allowed chat with no bound agent is told how to bind one", async () => {
+      const before = sockets.length;
+      await runCauseEffect(credentials.set(connectionId, { account: "whatsapp", allowedChats: NEW_CHAT }));
+      threads.store.updateConnection(connectionId, { orchestratorAgentId: null });
+      await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", false));
+      await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", true));
+      await waitFor("a new socket", () => sockets.length > before);
+      liveSocket().update({ connection: "open" });
+      const { message } = text(NEW_CHAT, "anyone there?");
+      liveSocket().receive(message);
+      const reply = await waitFor("the no-agent reply", () =>
+        liveSocket().sent.find((sent) => "text" in sent.content && sent.content.text.includes("Bind an agent")),
+      );
+      assert.equal(reply.jid, NEW_CHAT);
+      return { replied: true };
     });
   });
 

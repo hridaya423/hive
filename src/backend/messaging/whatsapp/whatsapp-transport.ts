@@ -11,7 +11,7 @@ import {
 } from "./whatsapp-socket";
 import { whatsappChatOf, whatsappInbound } from "./whatsapp-updates";
 
-export const WHATSAPP_RETRY_CAP_MS = 30_000;
+const WHATSAPP_RETRY_CAP_MS = 30_000;
 
 export function whatsappRetryDelayMs(attempt: number): number {
   return Math.min(WHATSAPP_RETRY_CAP_MS, 1_000 * 2 ** attempt);
@@ -60,9 +60,7 @@ export class WhatsAppTransport implements MessagingTransport {
     void this.#open();
   }
 
-  readonly stop = Effect.fn("WhatsAppTransport.stop")(function* (this: WhatsAppTransport) {
-    yield* Effect.sync(() => this.#close());
-  });
+  readonly stop = Effect.fn("WhatsAppTransport.stop")(() => Effect.sync(() => this.#close()));
 
   #close(): void {
     this.#sink = null;

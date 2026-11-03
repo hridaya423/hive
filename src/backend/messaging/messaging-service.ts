@@ -1259,7 +1259,9 @@ export class MessagingService {
           ? "status.messaging.discordNoAgent"
           : live.record.platform === "telegram"
             ? "status.messaging.telegramNoAgent"
-            : "status.messaging.noAgent";
+            : live.record.platform === "whatsapp"
+              ? "status.messaging.whatsappNoAgent"
+              : "status.messaging.noAgent";
       yield* adapter.post(message.target, { text: sourceText(noAgent) }).pipe(toMessagingOperationFailed);
       return;
     }
