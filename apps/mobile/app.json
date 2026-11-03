@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "OpenBot",
-    "slug": "openbot",
+    "name": "Hive",
+    "slug": "hive",
     "platforms": ["ios", "android"],
     "version": "1.4.5",
     "orientation": "portrait",
     "icon": "./assets/icons/app-icon.png",
-    "scheme": "openbot",
+    "scheme": "dev.hridaya.hive",
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "run.openbot.mobile",
@@ -22,7 +22,7 @@
       "icon": "./assets/icons/app-icon.icon"
     },
     "android": {
-      "package": "run.openbot.mobile",
+      "package": "dev.hridaya.hive",
       "icon": "./assets/icons/app-icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icons/android-adaptive-eyes.png",
@@ -228,17 +228,13 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "eeec730f-c8f4-42c0-a750-64df8af14940"
-      }
+      "router": {}
     },
-    "owner": "openbot",
     "runtimeVersion": {
       "policy": "fingerprint"
     },
     "updates": {
-      "url": "https://u.expo.dev/eeec730f-c8f4-42c0-a750-64df8af14940"
+      "enabled": false
     }
   }
 }
