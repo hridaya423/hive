@@ -44,9 +44,6 @@
     "REMOTE_AUTH_WEBHOOK_URL": "",
     "REMOTE_AUTH_WEBHOOK_URLS": "",
     "SIGNAL_ENTRY_ZONE_ID": "",
-    // The public Client ID of the OpenBotGit GitHub App. Its private key is the optional secret
-    // GITHUB_APP_PRIVATE_KEY (PKCS #8). Without the key, agents act on GitHub as the signed-in user.
-    "GITHUB_APP_CLIENT_ID": "Iv23lik5pzHz70cb0RUL",
     "APNS_TEAM_ID": "8A47NKRZSJ",
     "APNS_TOPIC": "run.openbot.mobile"
   },
@@ -207,7 +204,6 @@
         "REMOTE_AUTH_WEBHOOK_URLS": "",
         // The test Worker never moves the production entry name.
         "SIGNAL_ENTRY_ZONE_ID": "",
-        "GITHUB_APP_CLIENT_ID": "Iv23lik5pzHz70cb0RUL",
         "APNS_TEAM_ID": "8A47NKRZSJ",
         "APNS_TOPIC": "run.openbot.mobile"
       },

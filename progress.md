@@ -594,3 +594,22 @@ Undo: the tool never changes upstream. To undo an import into Hive, quit Hive, d
 - `HERMES_EXPORT_SKILL_ID` (above).
 - The GitHub connection uses the client ID of upstream's GitHub App `openbotgit` (`src/main/github-connector-config.ts`). The manifest in `scripts/github-app/manifest.json` shows that App's webhook pointed at upstream's Signal (now set to inactive in the manifest only). Make your own App with `bun scripts/create-github-app.ts`, or blank the client ID.
 - Not in the grep, still upstream's: `apps/auth-api/.env.production` (encrypted), `wrangler.jsonc` D1 and R2 ids, `GITHUB_APP_CLIENT_ID`, `APNS_TEAM_ID`; iOS ids `run.openbot.mobile`; the mobile store update check in `app-update.ts` (Play package `run.openbot.mobile`); `native-runtime.lock.json` (build-time download from the upstream release).
+
+## Cleanup (branch `cleanup/final`, 2026-11-03)
+
+Hridya's decisions: nothing goes to upstream; Hermes is uninstalled from both machines; all five crew agents run on the MacBook; no mobile store apps (the phone uses Hive's own APK).
+
+### 1. Hermes install command removed (31b9b19f3)
+- `HERMES_EXPORT_SKILL_ID` and `HERMES_SKILL_COMMAND` are gone from `packages/contracts/src/ipc-agent-import.ts`. The desktop guide offers "Read this computer" and "Set it up yourself" only; a joined server offers the skill file only. The mobile Hermes guide shows one note: save the skill from Import agents on the computer.
+- Check: `git grep "HERMES_SKILL_COMMAND\|HERMES_EXPORT_SKILL_ID"` returns 0 lines. `typecheck:contracts`, `typecheck:renderer`, `i18n:check` exit 0; the commit hook ran `typecheck:mobile` and the other projects.
+
+### 2. GitHub connector: own App only
+- `fork.config.json` takes an optional `githubApp` key: `{ "clientId": "...", "slug": "..." }`. `githubAppConfig()` reads it (env `OPENBOT_GITHUB_CLIENT_ID` and `OPENBOT_GITHUB_APP_SLUG` still override). With no key, it returns null, `GitHubConnectorStatus.available` is false and the connector is hidden. The Worker no longer sets `GITHUB_APP_CLIENT_ID` in `wrangler.jsonc`; it answers 503 for installation tokens.
+- Before: `githubAppConfig({})` printed the upstream Client ID and slug. After: `null`; with a `githubApp` key it returns that key; env Client ID without slug returns null.
+- `git grep Iv23lik5pzHz70cb0RUL` (outside `docs/plans`) returns 0 lines.
+- **How Hridya creates their own GitHub App later** (about 5 minutes):
+  1. On the MacBook: `bun scripts/create-github-app.ts` (add `--org <name>` for an organization). It opens a page on 127.0.0.1; confirm the App `HiveGit` on GitHub (the name may need a change if GitHub says it is taken).
+  2. In the App settings on github.com: General > Identifying and authorizing users, select "Enable Device Flow". Optional features: opt out of user-to-server token expiration.
+  3. Add `"githubApp": { "clientId": "<printed Client ID>", "slug": "<printed slug>" }` to `fork.config.json` and rebuild Hive.
+  4. Optional, for bot-authored work: convert the App private key (`openssl pkcs8 -topk8 -nocrypt -in key.pem`), put it in the `GITHUB_APP_PRIVATE_KEY` secret of the account Worker on the mini, and set the Worker variable `GITHUB_APP_CLIENT_ID` to the same Client ID. Without it, agents act as the signed-in user.
+  The script saves the client secret, private key and webhook secret to `~/.config/openbot/github-app-<slug>.json` (mode 0600). Hive does not use them.

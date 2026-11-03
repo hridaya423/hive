@@ -142,7 +142,7 @@ idle hours, the next vault call unlocks again from the stored record. Disconnect
 the CLI data. The phone shows the connector with no action.
 
 The GitHub connector is built in and has no SQLite row. `src/main/github-connector-service.ts` signs
-in to the `openbotgit` GitHub App with the device flow, which needs only the public Client ID, and keeps
+in to the GitHub App that `githubApp` in `fork.config.json` names, with the device flow, which needs only the public Client ID. With no `githubApp`, the connector is hidden. It keeps
 the tokens in `openbot-github-connector-v1.json`, encrypted with `safeStorage`. While it is
 connected, `McpGateway.enabled()` adds the `openbot-github` server (`api.githubcopilot.com/mcp/`),
 and `mcpAuthorization()` gives it a fresh bearer at each hand-off. An enabled server that the user added
@@ -151,7 +151,7 @@ with the name `github` wins. For `gh` and `git`, the service writes the token to
 `GIT_CONFIG_*` credential helper that reads that file. The environment holds only paths, never the
 token. Codex gets these values through `shell_environment_policy.set` in the thread config.
 
-A user token makes GitHub show "user with OpenBotGit". To show `openbotgit[bot]`, the desktop sends
+A user token makes GitHub show "user with" the App name. To show the App bot, the desktop sends
 the user token to `POST /v1/github/installation-tokens` on the account Worker
 (`apps/auth-api/src/server/github-installation-tokens.ts`). The Worker holds the app's private key
 (`GITHUB_APP_PRIVATE_KEY`, PKCS #8) and signs an app JWT. It mints one installation token for each
@@ -167,7 +167,7 @@ administer, and stores nothing. With no key it answers 503, and the desktop keep
   URL and header.
 - `gh` has one token for each host, so it acts as the user.
 
-A pull request that an agent opens with a bot token has `openbotgit[bot]` as its author, so the user
+A pull request that an agent opens with a bot token has the App bot as its author, so the user
 who asked for it can approve it. A branch rule that needs one approval then passes with no second
 person.
 
