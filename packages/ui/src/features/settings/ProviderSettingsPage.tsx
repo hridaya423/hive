@@ -237,7 +237,16 @@ function ProviderList(props: ProviderSettingsPageProps & { onOpen: (id: PageId) 
     if (option.off) return t("provider.status.off");
     if (option.runtimeStatus?.phase === "not-downloaded") return t("provider.status.notDownloaded");
     if (option.connectionState === "connecting") return t("provider.status.connecting");
-    if (option.state !== "available") return providerStatusLabel(t, format, option.state);
+    if (option.state !== "available")
+      return providerStatusLabel(
+        t,
+        format,
+        option.state,
+        false,
+        undefined,
+        false,
+        option.state === "error" && option.planRequired === true,
+      );
     const accounts = option.accounts ?? [];
     if (accounts.length > 1) {
       const count = t("provider.account.count", { count: accounts.length });
