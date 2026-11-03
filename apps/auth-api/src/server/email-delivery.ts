@@ -1,7 +1,5 @@
-import { Cause, Effect, Exit, Option, Schema } from "effect";
-import type { AccountAnalytics, EmailKind, EmailResult } from "./account-analytics";
+import { Effect, Schema } from "effect";
 import {
-  AMBIGUOUS_DELIVERY_ERRORS,
   RATE_LIMITED_DELIVERY_ERROR,
   type SmtpEmailConfig,
   sendPrivateEmailCode,
@@ -25,15 +23,10 @@ export type EmailDeliveryBindings = Pick<
   | "EMAIL_DELIVERY_WEBHOOK_SECRET"
 >;
 
-export function createEmailCodeDelivery(
-  bindings: EmailDeliveryBindings,
-  analytics: AccountAnalytics,
-): EmailCodeDelivery | null {
+export function createEmailCodeDelivery(bindings: EmailDeliveryBindings): EmailCodeDelivery | null {
   const smtp = readSmtpConfig(bindings);
   if (smtp) {
-    return {
-      send: (message) => tracked(analytics, "sign_in_code", sendPrivateEmailCode(smtp, message)),
-    };
+    return { send: (message) => sendPrivateEmailCode(smtp, message) };
   }
 
   const webhookUrl = bindings.EMAIL_DELIVERY_WEBHOOK_URL?.trim();
@@ -60,36 +53,9 @@ export function createEmailCodeDelivery(
   return { send };
 }
 
-export function createTeamInviteEmailDelivery(
-  bindings: EmailDeliveryBindings,
-  analytics: AccountAnalytics,
-): TeamInviteEmailDelivery | null {
+export function createTeamInviteEmailDelivery(bindings: EmailDeliveryBindings): TeamInviteEmailDelivery | null {
   const smtp = readSmtpConfig(bindings);
-  return smtp ? { send: (message) => tracked(analytics, "team_invite", sendPrivateTeamInvite(smtp, message)) } : null;
-}
-
-/**
- * Sends one `email_sent` event with the result of an SMTP send, so a dashboard can show the use of the
- * hourly quota of the mailbox. The webhook path does not use the mailbox, so it sends none.
- */
-function tracked<E extends { message: string }>(
-  analytics: AccountAnalytics,
-  kind: EmailKind,
-  send: Effect.Effect<void, E>,
-): Effect.Effect<void, E> {
-  return Effect.onExit(send, (exit) =>
-    Effect.sync(() => analytics.track(null, { name: "email_sent", kind, result: sendResult(exit) })),
-  );
-}
-
-function sendResult(exit: Exit.Exit<void, { message: string }>): EmailResult {
-  if (Exit.isSuccess(exit)) return "accepted";
-  // A stopped send can stop after the server took the message.
-  if (Cause.hasInterruptsOnly(exit.cause)) return "unknown";
-  const error = Cause.findErrorOption(exit.cause);
-  if (Option.isNone(error)) return "failed";
-  if (error.value.message === RATE_LIMITED_DELIVERY_ERROR) return "rate_limited";
-  return AMBIGUOUS_DELIVERY_ERRORS.has(error.value.message) ? "unknown" : "failed";
+  return smtp ? { send: (message) => sendPrivateTeamInvite(smtp, message) } : null;
 }
 
 function readSmtpConfig(bindings: EmailDeliveryBindings): SmtpEmailConfig | null {

@@ -161,7 +161,6 @@ const handleBrowserOperation = Effect.fn("BrowserApi.handleOperation")(function*
       challengeId: yield* requiredString(body, "challengeId"),
       code: yield* requiredString(body, "code"),
       sourceIp: services.sourceIp(request),
-      surface: "web",
       firstTouch: requestFirstTouch(body.firstTouch),
     });
     const previous = browserSessionToken(request);

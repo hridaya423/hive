@@ -270,8 +270,6 @@ export type { ResolvedSharedFile } from "./workspace-paths";
 
 interface AgentServiceEvents {
   event: [event: AgentEvent];
-  /** Finished tool steps for the local host's product analytics. Never forwarded to a client. */
-  /** A workflow run ended, for the local host's product analytics. Never forwarded to a client. */
 }
 
 export interface AgentServiceOptions {
