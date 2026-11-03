@@ -45,23 +45,20 @@ const PINNED_COLUMNS = 4;
 const PINNED_PADDING_X = 12;
 
 /**
- * The pinned agents, then `children`: the pinned channels. `animateLayout` false stops the grid from
- * animating to a new place, while something above it changes height on every frame.
+ * The pinned agents, then `children`: the pinned channels.
  */
 export function PinnedAgentsGrid({
   agents,
-  animateLayout = true,
   dropZone = false,
   children,
 }: PropsWithChildren<{
   agents: MobileAgent[];
-  animateLayout?: boolean;
   /** Shows an empty place for a new pin, while the user drags a chat and nothing is pinned. */
   dropZone?: boolean;
 }>) {
   const dropTarget = useChatDropTarget(PIN_AREA_KEY);
   return (
-    <Animated.View layout={animateLayout ? PINNED_LAYOUT : undefined}>
+    <Animated.View layout={PINNED_LAYOUT}>
       {agents.length > 0 || children ? (
         <Animated.View exiting={PINNED_EXIT} style={{ width: "100%" }}>
           <View

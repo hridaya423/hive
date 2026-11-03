@@ -393,7 +393,7 @@ state on each of them.
 
 | Connector | Service | Sign-in | Contract |
 | --- | --- | --- | --- |
-| GitHub | [`github-connector-service.ts`](../../src/main/github-connector-service.ts), `github-device-flow.ts` | Device flow of a GitHub App with only the public client ID | `ipc-github-connector.ts`; joined server: `connectors-v1` GitHub routes |
+| GitHub | [`github-connector-service.ts`](../../src/main/github-connector-service.ts), `github-device-flow.ts` | Device flow of the GitHub App in `fork.config.json` `githubApp`, with only the public client ID | `ipc-github-connector.ts`; joined server: `connectors-v1` GitHub routes |
 | Slack | `src/backend/messaging/slack/` | Hosted OAuth in the account Worker, which ends in `openbot://slack-workspace` with a sealed grant | `slack-workspace-grant.ts`, `ipc-messaging.ts` |
 | Discord | `src/backend/messaging/discord/` | The same, with `openbot://discord-guild` | `discord-guild-grant.ts`, `ipc-messaging.ts` |
 | Telegram | `src/backend/messaging/telegram/` | A one-use link code in a `t.me` link. No OAuth | `telegram-app.ts`, `ipc-messaging.ts` |
@@ -472,6 +472,12 @@ the phone links on its own. The `overview` route is passive for the hosted-serve
 (`client-use.ts`). The desktop client reuses the `host*` messaging endpoints with the platform
 `whatsapp` (main sends them to these routes) and adds `hostGetWhatsAppOverview` and
 `hostSetWhatsAppAllowedChats`. The mobile app and the browser client do not use it yet.
+
+A close with status 403 stops the WhatsApp connection and shows the connection state `restricted`:
+"This number is restricted by WhatsApp." The state is text on the wire, so an older client reads it as
+`error`. `disconnectWhatsApp` answers `{ deviceRemoved }` to the local desktop only; it is `false` when
+WhatsApp did not confirm the logout, and the page then says that the phone may still list the device.
+A joined server's unlink route answers an empty body, so that page shows no such notice.
 
 The optional capability `onepassword-connector-v1`
 ([`onepassword-connector-v1.ts`](../../packages/contracts/src/team-protocol/onepassword-connector-v1.ts),

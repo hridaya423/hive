@@ -42,10 +42,10 @@ delete it.
   audio to `api.elevenlabs.io` with your own key.
 - **Other services that you connect.** Bitwarden, 1Password and Link connect to their own servers
   only after you connect them. Hive sends them no conversations and no files.
-- **GitHub.** The GitHub connection signs in through device flow to the GitHub App `openbotgit`.
-  The upstream project registered this App. The App owner sets its webhook, so do not install the
-  App on a repository. To use your own App, set `OPENBOT_GITHUB_CLIENT_ID` and
-  `OPENBOT_GITHUB_APP_SLUG`.
+- **GitHub.** The GitHub connection is off until `fork.config.json` names a GitHub App in
+  `githubApp` (`clientId` and `slug`), or you set `OPENBOT_GITHUB_CLIENT_ID` and
+  `OPENBOT_GITHUB_APP_SLUG`. It then signs in to that App through device flow. You own the App,
+  so you set its webhook.
 - **Slack, Discord and Telegram.** These connectors need an app that you register yourself. A message
   that mentions Hive goes from that service to Signal on your Mac mini, then to your computer.
 - **WhatsApp.** WhatsApp connects straight to WhatsApp, as a linked device. See

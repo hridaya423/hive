@@ -6,7 +6,9 @@ import { createSignal, createStore } from "solid-js";
 import { settingsPort } from "./settings-port";
 
 /** The order of every agent with none of its own, as the host last said. Undefined until it answered. */
-export const [hostBackupModels, setHostBackupModels] = createSignal<AgentBackupModels>();
+const [hostBackupModels, setHostBackupModels] = createSignal<AgentBackupModels>();
+
+export { hostBackupModels };
 
 export async function loadHostBackupModels(): Promise<void> {
   setHostBackupModels(await settingsPort().getHostBackupModels());

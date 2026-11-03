@@ -85,9 +85,11 @@ For a deployed Worker, `bun run api:deploy` decrypts `.env.production`. It sends
 `wrangler secret put` through standard input, and `GITHUB_APP_PRIVATE_KEY` when it is set. It then
 builds and deploys the Worker.
 
-`GITHUB_APP_PRIVATE_KEY` is the OpenBot GitHub App's private key as a PKCS #8 PEM. GitHub gives a
+`GITHUB_APP_PRIVATE_KEY` is the private key of your GitHub App as a PKCS #8 PEM. Set the Worker
+variable `GITHUB_APP_CLIENT_ID` to the Client ID of the same App; with no variable, the Worker
+answers 503 for installation tokens. GitHub gives a
 PKCS #1 key; convert it with `openssl pkcs8 -topk8 -nocrypt -in <key>.pem`. With the key, the
-Worker gives the desktop installation tokens, so GitHub shows `openbotgit[bot]` as the author of an
+Worker gives the desktop installation tokens, so GitHub shows the App bot as the author of an
 agent's work. With no key, the desktop acts as the signed-in user. In GitHub Actions the secret is
 `OPENBOT_GITHUB_APP_PRIVATE_KEY`, because GitHub refuses secret names that start with `GITHUB_`.
 Secrets are never passed as process arguments. The other values are Worker
@@ -208,8 +210,8 @@ alert has "OpenBot" as its only text and `mutable-content`; the app opens the se
 
 The relay is off until `APNS_PRIVATE_KEY` (the `.p8` key text) and `APNS_KEY_ID` are set. Create
 the key in Apple Developer > Keys with the Apple Push Notifications service, then add both to the
-encrypted environment and to the `cloudflare-production` GitHub environment. `APNS_TEAM_ID` and
-`APNS_TOPIC` are in `wrangler.jsonc`.
+encrypted environment and to the `cloudflare-production` GitHub environment, with the Worker
+variables `APNS_TEAM_ID` and `APNS_TOPIC`.
 
 For local development, run `bun run dev:apns-key -- ~/Downloads/AuthKey_<KEY_ID>.p8`. It saves the
 key in ignored development state. The local Worker runtime cannot open HTTP/2, which APNs requires, so `vite dev`

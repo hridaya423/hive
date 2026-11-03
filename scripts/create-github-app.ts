@@ -178,7 +178,7 @@ async function main(): Promise<void> {
 
   // The public settings first: they stay on the terminal if the secrets cannot be written.
   logger.info(`GitHub created the app ${conversion.slug}: ${conversion.html_url}`);
-  logger.info("Put the Client ID in GITHUB_APP_CLIENT_ID in src/main/github-connector-config.ts:");
+  logger.info(`Put the Client ID and the slug in "githubApp" in fork.config.json: ${conversion.slug}`);
   process.stdout.write(`${conversion.client_id}\n`);
   let secretsPath: string;
   try {
@@ -195,9 +195,6 @@ async function main(): Promise<void> {
   logger.info("Do these steps in the app settings. A manifest cannot do them:");
   logger.info("  1. General > Identifying and authorizing users: select Enable Device Flow.");
   logger.info("  2. Optional features: opt out of User-to-server token expiration.");
-  if (conversion.slug !== "openbotgit") {
-    logger.info(`GitHub gave the slug ${conversion.slug}. Put it in GITHUB_APP_SLUG too.`);
-  }
 }
 
 if (import.meta.main) {

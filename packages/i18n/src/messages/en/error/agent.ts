@@ -115,8 +115,6 @@ export const messages = defineMessages("error.agent", {
     "Local scripts ran this agent's routines {limit} times in the last hour. Try again later.",
   "error.agent.workspaceOnlyMacOnly":
     "Workspace only is available for this provider on macOS only. Choose Full access in the agent settings.",
-  "error.agent.lowMemory":
-    "This server is low on memory. Your message waits in the queue and starts when memory is free. A larger plan gives the server more memory.",
   "error.agent.lowMemoryServer":
     "This server is low on memory. Your message waits in the queue and starts when memory is free.",
   "error.agent.workspaceOnlyToolMissing":

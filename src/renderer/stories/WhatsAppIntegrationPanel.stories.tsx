@@ -84,6 +84,12 @@ export const NoOrchestrator: Story = { args: args([account({ orchestratorAgentId
 
 export const Paused: Story = { args: args([account({ enabled: false, state: "paused" })], CHATS) };
 
+/** WhatsApp restricted the number, so Hive stopped trying to connect. */
+export const Restricted: Story = { args: args([account({ state: "restricted" })], CHATS) };
+
+/** The unlink could not log the device out, so the phone may still list it. */
+export const UnlinkedButListed: Story = { args: { ...args([]), phoneMayKeepDevice: true } };
+
 /** The phone removed the device. */
 export const LoggedOut: Story = { args: args([account({ state: "invalid_token" })], CHATS) };
 

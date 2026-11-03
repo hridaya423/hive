@@ -157,6 +157,8 @@ export function ChannelPage(
     busy: boolean;
     loadError?: string | null | undefined;
     onRetry?: (() => void) | undefined;
+    /** A notice that shows with the attention alert, such as the result of an unlink. */
+    notice?: JSX.Element;
     onConnect: () => void;
     /** A step that no section holds, in the header after the page is set up. */
     headerAction?: JSX.Element;
@@ -190,17 +192,20 @@ export function ChannelPage(
       readError={props.loadError}
       onRetry={props.onRetry}
       alert={
-        <Show when={props.state.attention > 0}>
-          <Alert tone="warning" role="alert">
-            <AlertIcon>
-              <TriangleAlert />
-            </AlertIcon>
-            <AlertContent>
-              <AlertTitle>{t(props.text.attentionTitle, { count: props.state.attention })}</AlertTitle>
-              <AlertDescription>{t(props.text.attentionDescription)}</AlertDescription>
-            </AlertContent>
-          </Alert>
-        </Show>
+        <>
+          <Show when={props.state.attention > 0}>
+            <Alert tone="warning" role="alert">
+              <AlertIcon>
+                <TriangleAlert />
+              </AlertIcon>
+              <AlertContent>
+                <AlertTitle>{t(props.text.attentionTitle, { count: props.state.attention })}</AlertTitle>
+                <AlertDescription>{t(props.text.attentionDescription)}</AlertDescription>
+              </AlertContent>
+            </Alert>
+          </Show>
+          {props.notice}
+        </>
       }
       tagline={props.tagline}
       intro={props.intro}

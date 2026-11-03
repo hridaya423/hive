@@ -240,7 +240,12 @@ import {
   sendComputerUseHighlightPlacement,
   showMainWindow,
 } from "./main-window";
-import { DATA_SKILL_SLUG, ManagedSkillService, SKILL_CREATOR_SKILL_SLUG } from "./managed-skill-service";
+import {
+  DATA_SKILL_SLUG,
+  ManagedSkillService,
+  retireManagedSkills,
+  SKILL_CREATOR_SKILL_SLUG,
+} from "./managed-skill-service";
 import { McpHostSignIns } from "./mcp-host-sign-ins";
 import { McpOAuthProxySettingsFile } from "./mcp-oauth-proxy-store";
 import {
@@ -1063,6 +1068,7 @@ export async function createApplicationServices({
   );
   await Effect.runPromise(skillCreator.syncAll(store.list()));
   await Effect.runPromise(dataSkill.syncAll(store.list()));
+  await Effect.runPromise(retireManagedSkills(store.list()));
   performance.mark("openbot:services.skills");
   const sidebarLayout = new SidebarLayoutStore(join(app.getPath("userData"), SIDEBAR_LAYOUT_FILE));
   await runCauseEffect(sidebarLayout.initialize());
@@ -1082,7 +1088,6 @@ export async function createApplicationServices({
   // agent process. The desktop app does not hold turns for memory.
   const hostMemory = serverModeEnvironment
     ? new ServerMemory({
-        hostedPlan: false,
         onError: (message, error) => logger.warn(message, toLogValue(error)),
         onAgentProcessStopped: (stopped) =>
           logger.warn("Stopped a leftover agent process to free memory.", { ...stopped }),
@@ -1732,6 +1737,7 @@ export async function createApplicationServices({
       Effect.gen(function* () {
         yield* skillCreator.syncAgent(agent);
         yield* dataSkill.syncAgent(agent);
+        yield* retireManagedSkills([agent]);
       }),
     sidebarLayout,
     preferredModel: setupState.preferredModel,

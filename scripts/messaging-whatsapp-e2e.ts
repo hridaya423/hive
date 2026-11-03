@@ -488,14 +488,17 @@ try {
         await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
         const opened = sockets.length;
         liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(403) } });
-        await waitFor("the error state", () => messaging.whatsappOverview().connections[0]?.state === "error");
+        await waitFor(
+          "the restricted state",
+          () => messaging.whatsappOverview().connections[0]?.state === "restricted",
+        );
         await new Promise((done) => setTimeout(done, 100));
         assert.equal(sockets.length, opened, "It reconnected a restricted number.");
-        assert.equal(messaging.whatsappOverview().connections[0]?.state, "error");
+        assert.equal(messaging.whatsappOverview().connections[0]?.state, "restricted");
         messaging.resume();
         await new Promise((done) => setTimeout(done, 50));
         assert.equal(sockets.length, opened, "A wake from sleep opened a socket for a restricted number.");
-        return { state: "error" };
+        return { state: "restricted" };
       });
 
       await step("a new link after a restriction opens a socket again", async () => {
@@ -513,11 +516,13 @@ try {
           const before = sockets.length;
           const lines = warned();
           autoOpen = true;
+          let result: { deviceRemoved: boolean };
           try {
-            await runCauseEffect(messaging.disconnectWhatsApp());
+            result = await runCauseEffect(messaging.disconnectWhatsApp());
           } finally {
             autoOpen = false;
           }
+          assert.equal(result.deviceRemoved, true, "A complete logout was reported as incomplete to the page.");
           assert.equal(sockets.length, before + 1, "Unlink opened no socket for the logout.");
           assert.equal(liveSocket().loggedOut, true, "The paused account was not logged out of WhatsApp.");
           assert.equal(liveSocket().ended, true);
@@ -531,7 +536,8 @@ try {
         await pauseLinkedAccount();
         const before = sockets.length;
         const lines = warned();
-        await runCauseEffect(messaging.disconnectWhatsApp());
+        const result = await runCauseEffect(messaging.disconnectWhatsApp());
+        assert.equal(result.deviceRemoved, false, "The page was not told that the phone may keep the device.");
         assert.equal(sockets.length, before + 1, "Unlink opened no socket for the logout.");
         assert.equal(liveSocket().loggedOut, false);
         assert.equal(liveSocket().ended, true, "The logout socket stayed open.");
@@ -544,7 +550,8 @@ try {
         await pauseLinkedAccount();
         const lines = warned();
         connectFailures = 1;
-        await runCauseEffect(messaging.disconnectWhatsApp());
+        const result = await runCauseEffect(messaging.disconnectWhatsApp());
+        assert.equal(result.deviceRemoved, false, "The page was not told that the phone may keep the device.");
         assert.equal(connectFailures, 0, "Unlink did not try to open a socket.");
         assert.equal(existsSync(authDir), false, "The login stayed on disk.");
         assert.equal(warned(), lines + 1, "The incomplete logout was not reported.");

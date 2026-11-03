@@ -27,6 +27,7 @@ export const MESSAGING_CONNECTION_STATES = [
   "rate_limited",
   "secret_storage_unavailable",
   "error",
+  "restricted",
   // Slack, Discord and Telegram send their events through Signal, and this host cannot reach it: it
   // is signed out, has no name yet, or Signal is down.
   "relay_unavailable",
@@ -146,6 +147,11 @@ export type AddSlackOrchestratorResult = AddMessagingOrchestratorResult;
 export interface WhatsAppOverview extends MessagingOverview {
   qr: string | null;
   allowedChats: string[];
+}
+
+/** What an unlink did. `deviceRemoved` is false when WhatsApp did not log the device out, so the phone may still list it. */
+export interface WhatsAppUnlinkResult {
+  deviceRemoved: boolean;
 }
 
 export interface SetWhatsAppEnabledInput {
@@ -299,6 +305,10 @@ export function isWhatsAppOverview(value: unknown): value is WhatsAppOverview {
     (value.qr === null || isBoundedString(value.qr, MESSAGING_LIMITS.whatsappQr)) &&
     isWhatsAppChatList(value.allowedChats)
   );
+}
+
+export function isWhatsAppUnlinkResult(value: unknown): value is WhatsAppUnlinkResult {
+  return isDynamicRecord(value) && isBoolean(value.deviceRemoved);
 }
 
 export function isWhatsAppChatList(value: unknown): value is string[] {

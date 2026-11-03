@@ -21,15 +21,6 @@ export const AGENT_IMPORT_SKILL_SOURCES = ["grok-bot", "hermes-agent"] as const;
 export type AgentImportSkillSource = (typeof AGENT_IMPORT_SKILL_SOURCES)[number];
 
 /**
- * The export skill in OpenBot's own repository, as Hermes installs it from GitHub with
- * `/skills install`. The path is the skill folder on the default branch.
- */
-export const HERMES_EXPORT_SKILL_ID = "nightly-labs/openbot/resources/agent-import/hermes-agent";
-
-/** What the user types in a Hermes chat to install the export skill. */
-export const HERMES_SKILL_COMMAND = `/skills install ${HERMES_EXPORT_SKILL_ID}`;
-
-/**
  * What the user says to the Grok Bot export agent, and what runs the Hermes export skill. The export
  * agent and skill answer these exact words, so each app copies the same text.
  */

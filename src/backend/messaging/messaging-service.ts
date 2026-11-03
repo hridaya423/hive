@@ -24,6 +24,7 @@ import type {
   SidebarLayoutSnapshot,
   SidebarSection,
   WhatsAppOverview,
+  WhatsAppUnlinkResult,
 } from "@openbot/contracts/ipc";
 import { MESSAGING_CONNECTION_STATES, MESSAGING_LIMITS } from "@openbot/contracts/ipc";
 import { isDynamicRecord, isOneOf, isString } from "@openbot/contracts/runtime-values";
@@ -992,16 +993,17 @@ export class MessagingService {
    */
   readonly disconnectWhatsApp = Effect.fn("MessagingService.disconnectWhatsApp")(function* (
     this: MessagingService,
-  ): Effect.fn.Return<void, MessagingOperationFailed> {
+  ): Effect.fn.Return<WhatsAppUnlinkResult, MessagingOperationFailed> {
     const record = yield* messagingStep(() => this.#requireConnection("whatsapp", WHATSAPP_WORKSPACE_ID));
     const orphan = yield* this.#orphanedOrchestrator(record);
-    yield* this.#drivers.get("whatsapp")?.unlink?.() ?? Effect.void;
+    const deviceRemoved = yield* this.#drivers.get("whatsapp")?.unlink?.() ?? Effect.succeed(true);
     yield* this.#stopConnection(record.connectionId);
     yield* this.#credentials.clear(record.connectionId);
     yield* messagingStep(() =>
       this.#threads.store.updateConnection(record.connectionId, { enabled: false, lastErrorCode: null }),
     );
     if (orphan) yield* this.#deleteOrchestrator(orphan);
+    return { deviceRemoved };
   }, Effect.uninterruptible).bind(this);
 
   /**

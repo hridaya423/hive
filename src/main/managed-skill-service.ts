@@ -1,4 +1,4 @@
-import { lstat, mkdir, readdir, readFile, realpath, rename, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, readFile, realpath, rename, rm, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { agentProviderDescriptor } from "@openbot/contracts/agent-providers";
 import type { AgentSummary, InstalledSkill } from "@openbot/contracts/ipc";
@@ -10,15 +10,11 @@ import { causeHelpers } from "../backend/effect-boundary";
 import { isMissingFileError } from "../backend/file-errors";
 import { isPathInside } from "../backend/path-containment";
 
-const SITE_HOSTING_SKILL_SLUG = "openbot-site-hosting";
+const RETIRED_MANAGED_SKILL_SLUGS = ["openbot-site-hosting"] as const;
 export const SKILL_CREATOR_SKILL_SLUG = "openbot-skill-creator";
 export const DATA_SKILL_SLUG = "openbot-data";
 /** The skills OpenBot writes into every agent workspace. Add a new managed skill here too. */
-export const MANAGED_SKILL_SLUGS: ReadonlySet<string> = new Set([
-  SITE_HOSTING_SKILL_SLUG,
-  SKILL_CREATOR_SKILL_SLUG,
-  DATA_SKILL_SLUG,
-]);
+export const MANAGED_SKILL_SLUGS: ReadonlySet<string> = new Set([SKILL_CREATOR_SKILL_SLUG, DATA_SKILL_SLUG]);
 export const OWNERSHIP_MARKER = ".openbot-managed.json";
 /** The workspace skill folders OpenBot writes. Each provider reads at least one of them. */
 export const MANAGED_SKILL_FOLDERS = [".agents/skills", ".claude/skills"] as const;
@@ -90,6 +86,42 @@ export class ManagedSkillService {
   }
 }
 
+function ownershipMarkerContent(slug: string): string {
+  return `${JSON.stringify({ managedBy: "openbot", slug, version: 1 })}\n`;
+}
+
+/** Removes the folders of the managed skills that OpenBot no longer ships, where OpenBot wrote them. */
+export function retireManagedSkills(agents: readonly Pick<AgentSummary, "workspacePath">[]): Effect.Effect<void> {
+  return Effect.forEach(
+    agents,
+    (agent) =>
+      retireWorkspaceSkills(agent.workspacePath).pipe(
+        Effect.catch((failure) =>
+          Effect.sync(() =>
+            logger.error(
+              `OpenBot could not remove a retired managed skill at ${agent.workspacePath}.`,
+              toLogValue(failure.cause),
+            ),
+          ),
+        ),
+      ),
+    { concurrency: "unbounded", discard: true },
+  );
+}
+
+const retireWorkspaceSkills = Effect.fn("ManagedSkill.retireWorkspace")(function* (workspacePath: string) {
+  const workspaceRoot = yield* managedIO(() => realpath(resolve(workspacePath)));
+  for (const folder of MANAGED_SKILL_FOLDERS) {
+    for (const slug of RETIRED_MANAGED_SKILL_SLUGS) {
+      const directory = join(workspaceRoot, folder, slug);
+      if (!(yield* fileExists(directory))) continue;
+      yield* verifySafeDirectory(workspaceRoot, directory);
+      if ((yield* optionalText(join(directory, OWNERSHIP_MARKER))) !== ownershipMarkerContent(slug)) continue;
+      yield* managedIO(() => rm(directory, { recursive: true }));
+    }
+  }
+});
+
 const syncTargets = Effect.fn("ManagedSkill.syncTargets")(function* (
   workspacePath: string,
   content: string,
@@ -121,7 +153,7 @@ const syncTarget = Effect.fn("ManagedSkill.syncTarget")(function* (
   content: string,
   slug: string,
 ): Effect.fn.Return<"synced" | "collision", ManagedSkillFailure> {
-  const ownershipContent = `${JSON.stringify({ managedBy: "openbot", slug, version: 1 })}\n`;
+  const ownershipContent = ownershipMarkerContent(slug);
   const parent = dirname(target);
   yield* ensureSafeDirectory(workspaceRoot, parent);
   const marker = join(parent, OWNERSHIP_MARKER);
@@ -254,11 +286,7 @@ export const listManagedSkillsForChat = Effect.fn("ManagedSkill.listForChat")(fu
         const file = join(folder, "SKILL.md");
         yield* rejectSymlink(marker);
         yield* rejectSymlink(file);
-        if (
-          (yield* optionalText(marker)) !==
-          `${JSON.stringify({ managedBy: "openbot", slug: entry.name, version: 1 })}\n`
-        )
-          return;
+        if ((yield* optionalText(marker)) !== ownershipMarkerContent(entry.name)) return;
         const content = yield* managedIO(() => readFile(file, "utf8"));
         const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u.exec(content)?.[1];
         if (!frontmatter) return;

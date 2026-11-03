@@ -247,6 +247,7 @@ import {
   decodeMessagingOverviewReply,
   decodeTelegramOverviewReply,
   decodeWhatsAppOverviewReply,
+  decodeWhatsAppUnlinkReply,
 } from "./messaging-decoding";
 import { decodeProviderRuntimeSnapshot } from "./provider-runtime";
 import { decodeRoutineFlowCanvas, decodeRoutineFlowLink } from "./routine-flow-decoding";
@@ -1067,7 +1068,7 @@ const openbotApi: OpenBotDesktopApi = {
     addTelegramOrchestrator: decodeAddOrchestratorReply,
     getWhatsAppOverview: decodeWhatsAppOverviewReply,
     connectWhatsApp: decodeVoid,
-    disconnectWhatsApp: decodeVoid,
+    disconnectWhatsApp: decodeWhatsAppUnlinkReply,
     reconnectWhatsApp: decodeVoid,
     setWhatsAppEnabled: decodeVoid,
     addWhatsAppOrchestrator: decodeAddOrchestratorReply,

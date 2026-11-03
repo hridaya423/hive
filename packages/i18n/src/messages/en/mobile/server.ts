@@ -1291,12 +1291,11 @@ export const messages = defineMessages("mobile.server", {
   "mobile.server.import.hermesLede":
     "Each Hermes profile becomes an agent. The export skill in Hermes packs them into one .zip file.",
   "mobile.server.import.grokStep1": "1. Add the export agent to Grok Bot",
-  "mobile.server.import.hermesStep1": "1. Add the export skill to Hermes",
+  "mobile.server.import.hermesSetupNote":
+    "1. On your computer, open Import agents in Hive, choose Hermes Agent, and save the export skill file in Hermes.",
   "mobile.server.import.agentMeta": "Grok Bot agent · has the export skill",
   "mobile.server.import.agentNote": "Install the ready agent from its Grok Bot page. The export leaves it out.",
   "mobile.server.import.openAgentFailed": "Could not open the Grok Bot page.",
-  "mobile.server.import.commandNote":
-    "Type it in a Hermes chat. In a terminal, run hermes skills install with the same name. Hermes scans the skill before it installs it.",
   "mobile.server.import.step2": "2. Send it this message",
   "mobile.server.import.copy": "Copy",
   "mobile.server.import.copied": "Copied",

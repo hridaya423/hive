@@ -1,6 +1,6 @@
 import { HeaderHeightContext } from "expo-router/react-navigation";
 import { Typography } from "heroui-native";
-import { type PropsWithChildren, type ReactNode, useContext, useState } from "react";
+import { type PropsWithChildren, useContext, useState } from "react";
 import { Pressable, View } from "react-native";
 import Animated, {
   cubicBezier,
@@ -92,15 +92,12 @@ export function LargeTitle({
   scroll,
   title,
   caption,
-  above,
   accessibilityLabel,
   onPress,
 }: {
   scroll: LargeTitleScroll;
   title: string;
   caption?: string;
-  /** Room above the title, such as for a header block. It counts as part of the title's height. */
-  above?: ReactNode;
   /** Names what a press does, for a title that is a button. */
   accessibilityLabel?: string;
   onPress?: () => void;
@@ -147,7 +144,6 @@ export function LargeTitle({
       style={{ paddingBottom: TITLE_BOTTOM_PADDING }}
       onLayout={(event) => titleHeight.set(event.nativeEvent.layout.height)}
     >
-      {above}
       {caption ? (
         <Typography.Paragraph className="text-muted" numberOfLines={1} style={typeScale.caption}>
           {caption}

@@ -4,6 +4,7 @@ import { lstat, mkdir, mkdtemp, readFile, readlink, rename, rm, writeFile } from
 import { homedir } from "node:os";
 import { dirname, join, parse, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { APP_FOLDER_NAME } from "@openbot/contracts/app-url-scheme";
 import { serializeAttachmentReference } from "@openbot/contracts/attachment-references";
 import { serializeChatTagReference } from "@openbot/contracts/chat-tag-references";
 import { sortConversationMessages } from "@openbot/contracts/conversation-order";
@@ -122,7 +123,7 @@ const GENERATED_DIRECTORY_PATTERN =
 const SHOWCASE_IMAGE_PATH = resolve(process.cwd(), "src", "renderer", "src", "assets", "openbot-logo-dev.png");
 
 function previewPdf(): string {
-  const stream = "BT /F1 18 Tf 24 150 Td (OpenBot file preview) Tj ET";
+  const stream = "BT /F1 18 Tf 24 150 Td (Hive file preview) Tj ET";
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -427,7 +428,7 @@ function seedMemories(agentStore: AgentStore): void {
     },
     {
       agentId: "chief",
-      text: "The current priority is a traceable OpenBot launch plan.",
+      text: "The current priority is a traceable Hive launch plan.",
       origin: "automatic" as const,
       sourceTurnId: "dev-seed-turn-chief-plan",
     },
@@ -801,7 +802,7 @@ async function seedAttachments(
       bytes: bytes(`${JSON.stringify({ sources: 8, verified: 7, needsReview: 1 }, null, 2)}\n`),
     }),
     image: await store(launch, {
-      name: "openbot-launch-concept.png",
+      name: "hive-launch-concept.png",
       mimeType: "image/png",
       sourcePath: SHOWCASE_IMAGE_PATH,
     }),
@@ -908,7 +909,7 @@ async function seedConversations(
             `| Evidence | ${mention("research")} | In review |`,
             `| Release | ${mention("launch")} | Ready |`,
             "",
-            "Next: review the [OpenBot documentation](https://example.com/docs), then run:",
+            "Next: review the [Hive documentation](https://example.com/docs), then run:",
             "",
             "```bash",
             "bun run check",
@@ -935,7 +936,7 @@ async function seedConversations(
         itemType: "image_generation",
         attachments: [attachments.image],
         imageGeneration: {
-          prompt: "A calm OpenBot launch command center at blue hour",
+          prompt: "A calm Hive launch command center at blue hour",
           resolution: "1024 × 1024",
           aspectRatio: "square",
         },
@@ -1213,7 +1214,7 @@ async function seedLaunchRoom(
     {
       ...store.create(channelId, {
         name: "Launch room",
-        title: "Ship OpenBot 1.0",
+        title: "Ship Hive 1.0",
         instructions:
           "Keep every decision traceable. Name the owner and the evidence in each result, and leave an unverified claim out.",
         members: [{ agentId: "chief" }, { agentId: "research" }, { agentId: "builder" }, { agentId: "launch" }],
@@ -1234,7 +1235,7 @@ async function seedLaunchRoom(
       mimeType: "text/markdown",
       bytes: bytes(
         [
-          "# OpenBot 1.0 release note (draft)",
+          "# Hive 1.0 release note (draft)",
           "",
           "## What is new",
           "- Channels: several agents share one chat and one task list.",
@@ -1290,7 +1291,7 @@ async function seedLaunchRoom(
   const taskStandup = "channel-launch-task-standup";
   const taskRollback = "channel-launch-task-rollback";
   const releaseNoteText =
-    "Draft the release note for OpenBot 1.0. Keep the evidence with every claim and name an owner for each section.";
+    "Draft the release note for Hive 1.0. Keep the evidence with every claim and name an owner for each section.";
   const evidenceText = "Verify the two performance claims in the draft and name a primary source for each.";
   const rollbackText = `Add the rollback owner to the release note. ${mentionAgent(agents, "builder")} should confirm the steps.`;
   const message = (input: SeedChannelMessage): ChannelMessage => channelMessage(channelId, clock, input);
@@ -1587,7 +1588,7 @@ async function seedTeam(profilePath: string, agentStore: AgentStore, clock: Seed
     name: "Dev Owner",
     avatarUrl: null,
   };
-  const teamIdentity = await runCauseEffect(team.configureWithAccount("OpenBot Dev Team", owner));
+  const teamIdentity = await runCauseEffect(team.configureWithAccount("Hive Dev Team", owner));
   const joined = [];
   for (const member of [
     { id: "openbot-dev-alice", email: "alice@example.com", name: "Alice Chen", role: "admin" as const },
@@ -1676,7 +1677,7 @@ async function readSeedTransferDirectories(profilePath: string): Promise<string[
 }
 
 async function removeTransferDirectories(homeDirectory: string, directories: string[]): Promise<string[]> {
-  const root = resolve(homeDirectory, "OpenBot", "Shared", "Transfers");
+  const root = resolve(homeDirectory, APP_FOLDER_NAME, "Shared", "Transfers");
   const generatedRoot = resolve(root, "generated");
   const removed: string[] = [];
   for (const relativePath of directories) {
