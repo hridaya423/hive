@@ -240,13 +240,6 @@
   gap: var(--openbot-space-4);
 }
 
-.settings-modal-row-title {
-  color: var(--openbot-text-primary);
-  font-size: var(--openbot-text-lg);
-  font-weight: var(--openbot-weight-medium);
-  line-height: var(--openbot-leading-lg);
-}
-
 .settings-modal :where(.ui-item-title, .ui-switch-label) {
   font-size: var(--openbot-text-lg);
   line-height: var(--openbot-leading-lg);

@@ -10,12 +10,12 @@ import { causeHelpers } from "../backend/effect-boundary";
 import { isMissingFileError } from "../backend/file-errors";
 import { isPathInside } from "../backend/path-containment";
 
-const MANAGED_SKILL_SLUG = "openbot-site-hosting";
+const SITE_HOSTING_SKILL_SLUG = "openbot-site-hosting";
 export const SKILL_CREATOR_SKILL_SLUG = "openbot-skill-creator";
 export const DATA_SKILL_SLUG = "openbot-data";
 /** The skills OpenBot writes into every agent workspace. Add a new managed skill here too. */
 export const MANAGED_SKILL_SLUGS: ReadonlySet<string> = new Set([
-  MANAGED_SKILL_SLUG,
+  SITE_HOSTING_SKILL_SLUG,
   SKILL_CREATOR_SKILL_SLUG,
   DATA_SKILL_SLUG,
 ]);
@@ -41,7 +41,7 @@ export class ManagedSkillService {
     private readonly reportFailure: (target: string, error: unknown) => void = (target, error) => {
       logger.error(`OpenBot could not synchronize the managed skill at ${target}.`, toLogValue(error));
     },
-    private readonly slug = MANAGED_SKILL_SLUG,
+    private readonly slug: string,
   ) {}
 
   syncAll(agents: AgentSummary[]): Effect.Effect<void> {
@@ -78,7 +78,7 @@ export class ManagedSkillService {
       if (this.#content !== null) return this.#content;
       const content = yield* managedIO(() => readFile(this.sourcePath, "utf8"));
       if (!content.startsWith(`---\nname: ${this.slug}\n`))
-        return yield* new ManagedSkillFailure({ cause: new Error("The managed site hosting skill is invalid.") });
+        return yield* new ManagedSkillFailure({ cause: new Error("The managed skill is invalid.") });
       this.#content = content;
       return content;
     });

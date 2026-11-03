@@ -77,7 +77,6 @@ import { eventsIpcHandlers } from "./ipc/events-handlers";
 import { githubConnectorIpcHandlers } from "./ipc/github-connector-handlers";
 import { hostAdminIpcHandlers } from "./ipc/host-admin-handlers";
 import { hostedServerIpcHandlers } from "./ipc/hosted-server-handlers";
-import { hostedSiteIpcHandlers } from "./ipc/hosted-site-handlers";
 import { instanceTransferIpcHandlers } from "./ipc/instance-transfer-handlers";
 import { licenseIpcHandlers } from "./ipc/license-handlers";
 import { linkAccountIpcHandlers } from "./ipc/link-account-handlers";
@@ -635,7 +634,6 @@ function registerIpcHandlers({
   remoteServers,
   centralAuth,
   skills,
-  hostedSites,
   githubConnector,
   linkAccount,
   onePasswordConnector,
@@ -735,12 +733,6 @@ function registerIpcHandlers({
       translate: language.translate,
     }),
     ...agentInstructionsIpcHandlers({ files: agentInstructions, remoteServers }),
-    ...hostedSiteIpcHandlers({
-      hostedSites,
-      remoteServers,
-      getMainWindow: getDialogParent,
-      translate: language.translate,
-    }),
     ...githubConnectorIpcHandlers({ githubConnector, remoteServers, openExternal: openLink }),
     ...linkAccountIpcHandlers({ linkAccount }),
     ...onePasswordConnectorIpcHandlers({ onePasswordConnector, remoteServers }),

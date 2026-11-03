@@ -49,7 +49,6 @@ export default function ServerSettingsLayout() {
       <Stack.Screen name="updates" options={{ title: t("mobile.server.route.updates") }} />
       <Stack.Screen name="storage" options={{ title: t("mobile.server.route.storage") }} />
       <Stack.Screen name="storage-files" options={{ title: t("mobile.server.route.storageFiles") }} />
-      <Stack.Screen name="sites" options={{ title: t("mobile.server.route.sites") }} />
       <Stack.Screen name="providers" options={{ title: t("mobile.server.route.providers") }} />
       <Stack.Screen name="provider" options={{ title: t("mobile.server.route.provider") }} />
       {/* The page names its provider, or says Add account. */}

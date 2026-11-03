@@ -37,7 +37,6 @@ import { HOST_MEMBER_UPDATE_CAPABILITY } from "@openbot/contracts/team-protocol/
 import { HOST_RELEASE_CAPABILITY } from "@openbot/contracts/team-protocol/host-release-v1";
 import { HOST_TIMEZONE_CAPABILITY } from "@openbot/contracts/team-protocol/host-timezone-v1";
 import { HOST_UPDATE_CAPABILITY } from "@openbot/contracts/team-protocol/host-update-v1";
-import { HOSTED_SITES_CAPABILITY } from "@openbot/contracts/team-protocol/hosted-sites-v1";
 import { INSTANCE_TRANSFER_CAPABILITY } from "@openbot/contracts/team-protocol/instance-transfer-v1";
 import { LIVE_ACTIVITY_PUSH_CAPABILITY } from "@openbot/contracts/team-protocol/live-activity-push-v1";
 import { LOCAL_SERVERS_CAPABILITY } from "@openbot/contracts/team-protocol/local-servers-v1";
@@ -2205,10 +2204,6 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
           : null;
       },
       canReadServerRelease: (serverId) => hasCapability(serverCapabilities.current, serverId, HOST_RELEASE_CAPABILITY),
-      canViewHostedSites: (serverId) =>
-        servers.some((server) => server.id === serverId && showsOnline(server)) &&
-        hasCapability(serverCapabilities.current, serverId, HOSTED_SITES_CAPABILITY),
-      canDeleteHostedSites: (serverId) => administers(serverId, HOSTED_SITES_CAPABILITY),
       canManageProviders: (serverId) => administers(serverId, PROVIDERS_ADMIN_CAPABILITY),
       canManageMcpServers: (serverId) => administers(serverId, MCP_SERVERS_CAPABILITY),
       canRelayMcpSignIn: (serverId) =>

@@ -8,8 +8,7 @@ import type { AgentApproval } from "@openbot/contracts/ipc";
  * so holding that class back left one card for each agent that the user could not turn off.
  * Codex's consent to run an MCP tool is in the grant too. It is accepted once and never saved.
  *
- * The grant also covers built-in tool approvals and hosted-site publishing, replacement and
- * deletion. Validated mutations still run through the hosted-site coordinator.
+ * The grant also covers built-in tool approvals.
  * Browser takeover is a separate flow with its own gate and is never asked about here.
  */
 export interface ApprovalAutomationPolicy {

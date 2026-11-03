@@ -9,7 +9,6 @@ import type {
   BrowserDockPresentation,
   BusyMessageModePreference,
   ChatWindowTarget,
-  DeleteHostedSiteInput,
   DynamicIslandAction,
   DynamicIslandPreference,
   DynamicIslandPresentation,
@@ -26,10 +25,8 @@ import type {
   MarketplaceSkillSort,
   MemoryReviewPreference,
   NotificationPreference,
-  PublishHostedSiteInput,
   RemoteNetworkRoutePreference,
   RemoteSessionReusePreference,
-  ReplaceHostedSiteInput,
   SaveSetupInput,
   SetAnalyticsPreferenceInput,
   SetAppAppearancePreferenceInput,
@@ -408,34 +405,6 @@ export function parseSetEnabledSkill(input: unknown): SetEnabledSkillInput {
     skillId: requireString(input.skillId, "skillId"),
     enabled,
   };
-}
-
-export function parsePublishHostedSite(input: unknown): PublishHostedSiteInput {
-  if (!isObject(input)) throw new Error("Invalid site publication.");
-  const spaFallback = optionalBoolean(input.spaFallback, "spaFallback");
-  return {
-    sourcePath: requireString(input.sourcePath, "sourcePath", INPUT_LIMITS.path),
-    title: requireString(input.title, "title", 120),
-    description: requireString(input.description, "description", 500),
-    ...(spaFallback !== undefined ? { spaFallback } : {}),
-  };
-}
-
-export function parseReplaceHostedSite(input: unknown): ReplaceHostedSiteInput {
-  if (!isObject(input)) throw new Error("Invalid site replacement.");
-  const spaFallback = optionalBoolean(input.spaFallback, "spaFallback");
-  return {
-    siteId: requireString(input.siteId, "siteId", INPUT_LIMITS.identifier),
-    sourcePath: requireString(input.sourcePath, "sourcePath", INPUT_LIMITS.path),
-    title: requireString(input.title, "title", 120),
-    description: requireString(input.description, "description", 500),
-    ...(spaFallback !== undefined ? { spaFallback } : {}),
-  };
-}
-
-export function parseDeleteHostedSite(input: unknown): DeleteHostedSiteInput {
-  if (!isObject(input)) throw new Error("Invalid site deletion.");
-  return { siteId: requireString(input.siteId, "siteId", INPUT_LIMITS.identifier) };
 }
 
 export function parseSubmitMarketplaceAgent(input: unknown): SubmitMarketplaceAgentInput {

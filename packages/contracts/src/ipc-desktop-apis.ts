@@ -58,7 +58,6 @@ export interface ServersDesktopApi extends GroupApi<IpcEndpoints["servers"]> {
  */
 export type PluginsDesktopApi = GroupApi<IpcEndpoints["plugins"]>;
 
-export type HostedSitesDesktopApi = GroupApi<IpcEndpoints["hostedSites"]>;
 export type GitHubConnectorDesktopApi = GroupApi<IpcEndpoints["githubConnector"]>;
 export type LinkAccountDesktopApi = GroupApi<IpcEndpoints["linkAccount"]>;
 export type OnePasswordConnectorDesktopApi = GroupApi<IpcEndpoints["onePasswordConnector"]>;

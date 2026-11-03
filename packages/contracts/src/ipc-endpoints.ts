@@ -317,13 +317,6 @@ import type { HostAnalytics, HostAnalyticsInput } from "./ipc-host-analytics";
 import type { HostReleaseStatus } from "./ipc-host-release";
 import type { HostTimezoneSettings } from "./ipc-host-timezone";
 import type {
-  DeleteHostedSiteInput,
-  HostedSiteList,
-  HostedSiteSummary,
-  PublishHostedSiteInput,
-  ReplaceHostedSiteInput,
-} from "./ipc-hosted-sites";
-import type {
   ApplyInstanceTransferInput,
   ExportInstanceInput,
   InstanceExportResult,
@@ -1273,14 +1266,6 @@ export const IPC_ENDPOINTS = {
     ),
     hostDisconnect: scopedQuery<OnePasswordConnectorStatus, "required">()("onepassword-connector:host-disconnect"),
   },
-  hostedSites: {
-    // The sites of one server. A joined server answers through `hosted-sites-v1`.
-    list: scopedQuery<HostedSiteList, "required">()("hosted-sites:list"),
-    chooseDirectory: request<undefined, string | null>()("hosted-sites:choose-directory"),
-    publish: request<PublishHostedSiteInput, HostedSiteSummary>()("hosted-sites:publish"),
-    replace: request<ReplaceHostedSiteInput, HostedSiteSummary>()("hosted-sites:replace"),
-    delete: scopedRequest<DeleteHostedSiteInput, void, "required">()("hosted-sites:delete"),
-  },
   // The account's Stripe subscription. The main process gets the Checkout or Portal URL from the
   // account server and opens it in the browser, so the renderer never sends a URL.
   // The iCalendar feed of this computer's routines. `create` also replaces the URL of a feed that is on.
@@ -1994,7 +1979,6 @@ export const IPC_GROUP_PATHS = {
   bitwardenConnector: "bitwardenConnector",
   linkAccount: "linkAccount",
   vault: "vault",
-  hostedSites: "hostedSites",
   routineFeed: "routineFeed",
   routineFlows: "routineFlows",
   workflows: "workflows",

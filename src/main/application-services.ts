@@ -3,7 +3,6 @@ import { ANALYTICS_GENERATIONS, openPanelTransport, ReportQueue } from "@openbot
 import { fileReportStorage } from "@openbot/telemetry/node";
 import { Effect, Fiber } from "effect";
 import { toAgentRemovalFailed } from "../backend/agent/agent-removal";
-import { toHostedSiteOperationFailed } from "../backend/agent/hosted-site-coordinator";
 import { AgentApiKeys } from "../backend/agent-api-keys";
 import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-supervisor";
 import { AgentTables } from "../backend/agent-data/agent-tables";
@@ -211,7 +210,6 @@ import { CLIENT_USE_WINDOW_MS, HostedServerActivity } from "./hosted-server-acti
 import { applyHostedServerAccount, type HostedServerEnvironment } from "./hosted-server-bootstrap";
 import { HostedServerDesktopService, withHostingDeveloperKey } from "./hosted-server-service";
 import { HostedServerStartRetry } from "./hosted-server-start-retry";
-import { HostedSiteDesktopService } from "./hosted-site-service";
 import { IdleRestart } from "./idle-restart";
 import { loadIngressQueueKey } from "./ingress-queue-key";
 import { InstanceTransferService } from "./instance-transfer-service";
@@ -625,7 +623,6 @@ export interface ApplicationServices {
   localServers: LocalServers | null;
   centralAuth: CentralAuthManager;
   skills: SkillMarketplaceService;
-  hostedSites: HostedSiteDesktopService;
   billing: BillingDesktopService;
   license: LicenseDesktopService;
   hostedServers: HostedServerDesktopService;
@@ -1060,11 +1057,6 @@ export async function createApplicationServices({
   // Closing copies the write-ahead log into the database file and removes it. A step that passed its
   // limit, such as a slow agent stop, still writes, so the close waits a short time for it.
   teardown.push(TEARDOWN_ORDER.database, "the database", () => store.database.close(), { afterAbandonedSteps: true });
-  const managedSkills = new ManagedSkillService(
-    app.isPackaged
-      ? join(process.resourcesPath, "managed-skills", "openbot-site-hosting", "SKILL.md")
-      : resolve(__dirname, "../../resources/managed-skills/openbot-site-hosting/SKILL.md"),
-  );
   const skillCreator = new ManagedSkillService(
     app.isPackaged
       ? join(process.resourcesPath, "managed-skills", "openbot-skill-creator", "SKILL.md")
@@ -1081,15 +1073,9 @@ export async function createApplicationServices({
     undefined,
     DATA_SKILL_SLUG,
   );
-  await Effect.runPromise(managedSkills.syncAll(store.list()));
   await Effect.runPromise(skillCreator.syncAll(store.list()));
   await Effect.runPromise(dataSkill.syncAll(store.list()));
   performance.mark("openbot:services.skills");
-  const hostedSites = new HostedSiteDesktopService(centralAuth, () => {
-    // Read at request time: the team store is created later, and the server can register after launch.
-    const hostId = teamStore.getIdentity()?.serverId;
-    return hostId ? centralAuth.hostSiteCredential(hostId) : null;
-  });
   const billing = new BillingDesktopService(centralAuth, openLink);
   const license = new LicenseDesktopService(centralAuth, openLink);
   const hostedServers = new HostedServerDesktopService(
@@ -1775,16 +1761,9 @@ export async function createApplicationServices({
     bundledExecutables: providerRuntimes.bundledExecutables(),
     prepareAgentWorkspace: (agent) =>
       Effect.gen(function* () {
-        yield* managedSkills.syncAgent(agent);
         yield* skillCreator.syncAgent(agent);
         yield* dataSkill.syncAgent(agent);
       }),
-    hostedSites: {
-      list: () => hostedSites.list().pipe(toHostedSiteOperationFailed),
-      publish: (input, roots) => hostedSites.publish(input, roots).pipe(toHostedSiteOperationFailed),
-      replace: (input, roots) => hostedSites.replace(input, roots).pipe(toHostedSiteOperationFailed),
-      delete: (siteId) => hostedSites.delete(siteId).pipe(toHostedSiteOperationFailed),
-    },
     sidebarLayout,
     preferredModel: setupState.preferredModel,
     // Only a dev build leads with the OpenCode development model; a packaged app keeps the
@@ -2505,8 +2484,6 @@ export async function createApplicationServices({
     storage: storageUsage,
     // Present, so the host advertises `machine-resources-v1`. The routes are admin-only.
     machine: machineAlerts,
-    // Present, so the host advertises `hosted-sites-v1`. Members list; only admins delete.
-    hostedSites,
     // Present, so the host advertises `agent-import-v1`. Any member can import.
     agentImport,
     // Present, so the host advertises `instance-transfer-v1`. Only owners and admins.
@@ -3509,7 +3486,6 @@ export async function createApplicationServices({
     localServers,
     centralAuth,
     skills,
-    hostedSites,
     billing,
     license,
     hostedServers,

@@ -38,7 +38,6 @@ import { AGENT_HIDDEN_CAPABILITY, TEAM_AGENT_CREATE_MODEL_CAPABILITY } from "@op
 import { DISCORD_ACCESS_CAPABILITY } from "@openbot/contracts/team-protocol/discord-access-v1";
 import { EVENTS_CAPABILITY } from "@openbot/contracts/team-protocol/events-v1";
 import { HOST_RELEASE_CAPABILITY } from "@openbot/contracts/team-protocol/host-release-v1";
-import { HOSTED_SITES_CAPABILITY } from "@openbot/contracts/team-protocol/hosted-sites-v1";
 import { MCP_SIGN_IN_CAPABILITY } from "@openbot/contracts/team-protocol/mcp-sign-in-v1";
 import { ROUTINE_FLOWS_CAPABILITY } from "@openbot/contracts/team-protocol/routine-flows-v1";
 import { ROUTINE_RECOVERY_CAPABILITY } from "@openbot/contracts/team-protocol/routine-recovery-v1";
@@ -54,7 +53,6 @@ import {
   checkHostForUpdate,
   checkHostRelease,
   clearStorage,
-  deleteHostedSite,
   deleteStoredFile,
   getAgentAdminSettings,
   getHostAgentAccess,
@@ -66,7 +64,6 @@ import {
   getHostTimezone,
   getHostUpdateStatus,
   getStorageUsage,
-  listHostedSites,
   setHostAgentAccess,
   setHostAgentMemoryLimit,
   setHostMemoryReview,
@@ -187,7 +184,7 @@ import type { HostServerAuditCalls } from "../servers/ServerAuditSection";
 import type { HostMemoryLimitCalls } from "../servers/ServerMemoryLimitSetting";
 import type { HostMemoryReviewCalls } from "../servers/ServerMemoryReviewSetting";
 import type { HostAgentAccessCalls } from "../servers/ServerRolesSection";
-import type { ServerHostedSitesOptions, ServerSettingsSection } from "../servers/ServerSettingsModal";
+import type { ServerSettingsSection } from "../servers/ServerSettingsModal";
 import type { HostTimezoneCalls } from "../servers/ServerTimezoneSetting";
 import type { HostUpdateCalls } from "../servers/ServerUpdatePanel";
 import {
@@ -563,16 +560,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   const [marketplaceOpen, setMarketplaceOpen] = createSignal(false);
   /** The Usage, Schedule or Tasks page of the connected host. As on desktop, it follows a host switch. */
   const [hostPage, setHostPage] = createSignal<{ view: HostPageView; trigger: HTMLElement | null } | null>(null);
-  /** A server at its site limit offers the server plans, which have more sites, to its owner. */
-  function canOfferServerPlans(): boolean {
-    return (
-      hostedServers.available() && hostedServers.loaded() && server()?.role === "owner" && server()?.hosted !== true
-    );
-  }
-  function openServerPlans(): void {
-    serverSettings.setOpen(false);
-    hostedServers.openAddServer("upsell");
-  }
   /** Only the connected host answers, so another host is connected first, as for its settings. */
   async function openHostPage(serverId: string, view: HostPageView, trigger: HTMLElement | null) {
     if (server()?.id !== serverId) {
@@ -1108,12 +1095,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
         saveFile(await workspace.runtime.download(input.fileId));
       },
     },
-  };
-  const hostedSiteCalls: ServerHostedSitesOptions["api"] = {
-    list: async (serverId) =>
-      runTeamEffect(listHostedSites(hostRequest(serverId)).pipe(Effect.mapError((error) => error.cause))),
-    delete: async ({ siteId }, serverId) =>
-      runTeamEffect(deleteHostedSite(hostRequest(serverId), siteId).pipe(Effect.mapError((error) => error.cause))),
   };
   const agentImportCalls = createWebAgentImportCalls({
     request: hostRequest,
@@ -2325,16 +2306,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                             void openMessage(agentId, messageId);
                           },
                         }}
-                        // Every member lists; the host deletes only for an owner or admin.
-                        hostedSites={
-                          workspace.state.capabilities.includes(HOSTED_SITES_CAPABILITY)
-                            ? {
-                                api: hostedSiteCalls,
-                                onOpenSite: (url) => void openWebLink(url),
-                                onSeePlans: canOfferServerPlans() ? openServerPlans : undefined,
-                              }
-                            : undefined
-                        }
                         providers={providerSettings()}
                         hostUpdate={{ calls: hostUpdateCalls }}
                         hostTimezone={{ calls: hostTimezoneCalls }}

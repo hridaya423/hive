@@ -305,40 +305,6 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   ...ROUTINE_FLOW_TOOL_DEFINITIONS,
   ...MCP_SERVER_TOOL_DEFINITIONS,
   {
-    name: "list_sites",
-    description:
-      "List the static sites of this OpenBot server, with its site limit and the slots in use. Use this before retrying a hosting mutation.",
-    shape: {},
-  },
-  {
-    name: "publish_site",
-    description:
-      "Publish a new static site after the user explicitly asks to publish it. The source must be inside this agent's workspace or OpenBot Shared.",
-    shape: {
-      sourcePath: z.string().min(1).max(INPUT_LIMITS.path),
-      title: z.string().min(1).max(120),
-      description: z.string().min(1).max(500),
-      spaFallback: z.boolean().optional(),
-    },
-  },
-  {
-    name: "replace_site",
-    description:
-      "Replace an owned static site after the user explicitly asks to replace it. This keeps the URL and resets expiry to 30 days.",
-    shape: {
-      siteId: z.string().min(1).max(INPUT_LIMITS.identifier),
-      sourcePath: z.string().min(1).max(INPUT_LIMITS.path),
-      title: z.string().min(1).max(120),
-      description: z.string().min(1).max(500),
-      spaFallback: z.boolean().optional(),
-    },
-  },
-  {
-    name: "delete_site",
-    description: "Delete an owned static site after the user explicitly asks to delete it.",
-    shape: { siteId: z.string().min(1).max(INPUT_LIMITS.identifier) },
-  },
-  {
     name: "attach_files_to_response",
     description:
       "Attach existing local files to the current response for the user. Use this after creating screenshots, charts, diagrams, reports, ZIP archives, or other files that the user should receive. OpenBot copies each file and shows image previews in the conversation.",

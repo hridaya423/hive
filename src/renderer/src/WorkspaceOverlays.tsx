@@ -15,7 +15,6 @@ import type { CustomAgentSettingsApi } from "@openbot/ui/features/custom-provide
 import { providerDiagnosticsText } from "@openbot/ui/features/provider-diagnostics/provider-diagnostics";
 import { LeaveServerDialog } from "@openbot/ui/features/servers/LeaveServerDialog";
 import { RestartServerDialog } from "@openbot/ui/features/servers/RestartServerDialog";
-import type { HostedSiteDeleteResult } from "@openbot/ui/features/settings/stores/hosted-sites-store";
 import { sidebarAgentOrder } from "@openbot/ui/features/sidebar/sidebar-agent-order";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createMemo, Loading, Show, untrack } from "solid-js";
@@ -382,7 +381,7 @@ function ServerSettings() {
   const windowPage = useWindowPage();
   const usageRows = usePlanLimitRows();
   const platform = usePlatform();
-  const { hostStatus, hostedServerIds, hostedServersAvailable, hostedServersLoaded, setAddServerOpen } = useServers();
+  const { hostStatus, hostedServerIds, hostedServersLoaded } = useServers();
   const { selectAgent, selectGlobalSearchMessage } = useNavigation();
   const { selectServer } = useServerSelection();
   const { setPendingAgentSelection } = useServerSwitch();
@@ -682,21 +681,6 @@ function ServerSettings() {
     );
   };
 
-  /** A server at its site limit offers the server plans, which have more sites, to its owner. */
-  function canOfferServerPlans(server: ServerSummary): boolean {
-    return (
-      !platform.landingPreview &&
-      hostedServersAvailable() &&
-      hostedServersLoaded() &&
-      (server.kind === "local" || server.role === "owner") &&
-      server.hosted !== true
-    );
-  }
-  function openServerPlans(): void {
-    setServerSettingsOpen(false);
-    setAddServerOpen(true, "upsell");
-  }
-
   const storageOptions = (server: ServerSummary): Omit<ServerStorageOptions, "canManage"> => ({
     hostName:
       server.kind === "local"
@@ -792,18 +776,6 @@ function ServerSettings() {
               ? () => switchToManageProviders(server())
               : undefined
           }
-          // This computer, or a remote host with `hosted-sites-v1`. Every member lists; the host deletes
-          // only for an owner or admin.
-          hostedSites={
-            serverSupportsCapability(server(), "hosted-sites-v1")
-              ? {
-                  api: appPort().hostedSites,
-                  onOpenSite: (url) => void appPort().openUrl(url),
-                  trackDelete: trackHostedSiteDelete,
-                  onSeePlans: canOfferServerPlans(server()) ? openServerPlans : undefined,
-                }
-              : undefined
-          }
           hostUpdate={{}}
           hostTimezone={{}}
           hostMemoryLimit={{}}
@@ -845,18 +817,6 @@ function ServerSettings() {
       )}
     </Show>
   );
-}
-
-/** The account that starts a deletion gets its result event, as the scope is taken at the start. */
-function trackHostedSiteDelete(): (result: HostedSiteDeleteResult) => void {
-  const analytics = desktopAnalytics.scope();
-  return (result) =>
-    analytics.track("hosted_site_action", {
-      action: "delete",
-      entry_point: "settings",
-      result,
-      ...(result === "failed" ? { failure_code: "delete_failed" } : {}),
-    });
 }
 
 /**

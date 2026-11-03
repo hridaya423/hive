@@ -72,8 +72,6 @@ import { handleDataTool } from "./data-tools";
 import { responseAttachmentMessageId, visualReplyFileName, visualReplyMessageId } from "./delivery-content";
 import type { DrainScheduler } from "./drain-scheduler";
 import { HistoryTools } from "./history-tools";
-import type { HostedSiteCoordinator } from "./hosted-site-coordinator";
-import { isHostedSiteMutationTool } from "./hosted-site-events";
 import type { MailboxSync } from "./mailbox-sync";
 import {
   type AgentMcpServers,
@@ -197,7 +195,6 @@ export interface OpenBotToolRouterOptions {
   attachments: AttachmentGateway;
   channels: ChannelService;
   messaging: MessagingThreads;
-  hostedSites: HostedSiteCoordinator;
   routines: RoutineScheduler;
   memories: AgentMemories;
   waits: AgentWaits;
@@ -240,7 +237,6 @@ export class OpenBotToolRouter {
   readonly #attachments: AttachmentGateway;
   readonly #channels: ChannelService;
   readonly #messaging: MessagingThreads;
-  readonly #hostedSites: HostedSiteCoordinator;
   readonly #routines: RoutineScheduler;
   readonly #memories: AgentMemories;
   readonly #waits: AgentWaits;
@@ -275,7 +271,6 @@ export class OpenBotToolRouter {
     this.#attachments = options.attachments;
     this.#channels = options.channels;
     this.#messaging = options.messaging;
-    this.#hostedSites = options.hostedSites;
     this.#routines = options.routines;
     this.#memories = options.memories;
     this.#waits = options.waits;
@@ -491,15 +486,6 @@ export class OpenBotToolRouter {
             }
             if (toolRequest.params.tool === "acknowledge_request") {
               this.#acknowledgeRequest(client, toolRequest, toolRequest.params);
-              return;
-            }
-            if (isHostedSiteMutationTool(toolRequest.params.tool)) {
-              yield* this.#attention.surfaceHostedSiteApproval(
-                client,
-                toolRequest,
-                toolRequest.params,
-                toolRequest.params.tool,
-              );
               return;
             }
             if (toolRequest.params.tool === "capture_screen" || toolRequest.params.tool === "list_capture_sources") {
@@ -887,12 +873,6 @@ export class OpenBotToolRouter {
     if (params.tool === "html_render") {
       return yield* this.#renderVisual(params, senderAgentId, executionThreadId);
     }
-
-    if (params.tool === "list_sites") {
-      return openBotToolResult(yield* this.#hostedSites.listSites());
-    }
-
-    if (isHostedSiteMutationTool(params.tool)) throw new Error("Hosted site changes require user approval.");
 
     if (params.tool === "attach_files_to_response") {
       const args = params.arguments;

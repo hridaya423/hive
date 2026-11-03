@@ -30,7 +30,6 @@ export interface AppPort {
   >;
   agentTemplates: Pick<OpenBotDesktopApi["agentTemplates"], "onOpenLink" | "takePendingLink">;
   acpRegistry: OpenBotDesktopApi["acpRegistry"];
-  hostedSites: OpenBotDesktopApi["hostedSites"];
   billing: OpenBotDesktopApi["billing"];
   license: OpenBotDesktopApi["license"];
   hostedServers: OpenBotDesktopApi["hostedServers"];

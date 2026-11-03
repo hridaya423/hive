@@ -13,7 +13,6 @@ import type {
   DirectConversationSnapshot,
   DirectThreadSummary,
   ForeignProviderId,
-  HostedSiteSummary,
   HostStatus,
   InstalledSkill,
   MarketplaceAgentDetail,
@@ -2035,37 +2034,5 @@ export const STORY_AGENT_SUBMISSIONS: AgentSubmission[] = [
     routineCount: 3,
     activeRoutineCount: 3,
     createdAt: "2026-08-02T06:00:00.000Z",
-  },
-];
-
-export const STORY_HOSTED_SITES: HostedSiteSummary[] = [
-  {
-    id: "site-launch-notes",
-    hostname: "launch-notes.openbot.site",
-    url: "https://launch-notes.openbot.site",
-    title: "Launch notes",
-    description: "The public changelog for the 0.2 release.",
-    framework: "astro",
-    status: "active",
-    fileCount: 42,
-    size: 3_145_728,
-    expiresAt: null,
-    updatedAt: "2026-08-18T18:30:00.000Z",
-    serverId: "host-preview",
-  },
-  {
-    id: "site-design-review",
-    hostname: "design-review.openbot.site",
-    url: "https://design-review.openbot.site",
-    title: "Design review",
-    description: "A one-page mockup shared with the design studio.",
-    framework: "vanilla",
-    status: "active",
-    fileCount: 8,
-    size: 512_000,
-    expiresAt: "2026-09-18T18:30:00.000Z",
-    updatedAt: "2026-08-14T12:00:00.000Z",
-    // Published before this computer was a registered server.
-    serverId: null,
   },
 ];

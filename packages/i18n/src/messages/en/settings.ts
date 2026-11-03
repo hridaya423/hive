@@ -428,25 +428,6 @@ export const messages = defineMessages("settings", {
   "settings.updates.allowRemote.title": "Allow updates from server members",
   "settings.updates.allowRemote.description":
     "All signed-in server members can request an update when this computer is idle. Owners and admins can also force a restart.",
-  // The Hosted sites tab.
-  "settings.hostedSites.title": "Published sites",
-  "settings.hostedSites.unavailable": "Site hosting is unavailable.",
-  "settings.hostedSites.usage": { one: "{used} of {count} site", other: "{used} of {count} sites" },
-  "settings.hostedSites.expiryNote":
-    "Sites expire 30 days after publication. Ask an agent to publish or update a site.",
-  "settings.hostedSites.empty": "This server does not have a hosted site yet. Ask an agent to publish one.",
-  "settings.hostedSites.expires": "Expires {date}",
-  "settings.hostedSites.expiryUnavailable": "Expiry unavailable",
-  "settings.hostedSites.blocked": "Blocked",
-  "settings.hostedSites.unlinked": "Not linked to a server",
-  "settings.hostedSites.openLabel": "Open {hostname}",
-  "settings.hostedSites.deleteLabel": "Delete {hostname}",
-  "settings.hostedSites.deleteTitle": "Delete {hostname}?",
-  "settings.hostedSites.deleteDescription": "This address will immediately return 410 Gone.",
-  "settings.hostedSites.deleting": "Deleting…",
-  "settings.hostedSites.loadFailed": "Could not load hosted sites.",
-  "settings.hostedSites.deleteFailed": "Could not delete the site.",
-  "settings.hostedSites.reloadFailed": "Could not reload hosted sites.",
   // The Hosted servers tab. {vcpu}, {memory} and {disk} are numbers, such as 2, 4 and 12.
   "settings.hostedServers.title": "Your servers",
   "settings.hostedServers.description": "Each server has its own agents, files and routines.",

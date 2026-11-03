@@ -75,7 +75,6 @@ import {
   HOST_RELEASE_CAPABILITY,
   HOST_TIMEZONE_CAPABILITY,
   HOST_UPDATE_CAPABILITY,
-  HOSTED_SITES_CAPABILITY,
   INSTANCE_TRANSFER_CAPABILITY,
   isTeamCurrentCapability,
   LIVE_ACTIVITY_PUSH_CAPABILITY,
@@ -266,7 +265,6 @@ import { routeHostAdmin } from "./team-api/route-host-admin";
 import { routeHostKeyRotation } from "./team-api/route-host-key-rotation";
 import { routeHostTimezone } from "./team-api/route-host-timezone";
 import { routeHostUpdate } from "./team-api/route-host-update";
-import { routeHostedSites } from "./team-api/route-hosted-sites";
 import { routeInstanceTransfer } from "./team-api/route-instance-transfer";
 import { routeLiveActivityPush } from "./team-api/route-live-activity-push";
 import { routeLocalServers } from "./team-api/route-local-servers";
@@ -1012,7 +1010,6 @@ export class TeamApiServer {
       if ((await routeProviderSignOut(context, this.#options.providerSignOut)) === "handled") return;
       if ((await routeStorage(context, this.#options.storage)) === "handled") return;
       if ((await routeMachineResources(context, this.#options.machine)) === "handled") return;
-      if ((await routeHostedSites(context, this.#options.hostedSites)) === "handled") return;
       if ((await routeAgentAdmin(context, this.#options.admin, hidden)) === "handled") return;
       if ((await routeAgentHostSettings(context, this.#options.admin, hidden)) === "handled") return;
       if ((await routeAgentBackupModels(context, this.#options.admin, hidden)) === "handled") return;
@@ -2162,7 +2159,6 @@ export class TeamApiServer {
           if (capability === STORAGE_CAPABILITY) return this.#options.storage !== undefined;
           if (capability === STORAGE_DISK_CAPABILITY) return this.#options.storage !== undefined;
           if (capability === MACHINE_RESOURCES_CAPABILITY) return this.#options.machine !== undefined;
-          if (capability === HOSTED_SITES_CAPABILITY) return this.#options.hostedSites !== undefined;
           if (capability === AGENT_ADMIN_CAPABILITY) return this.#options.admin?.agents !== undefined;
           if (capability === ACP_REGISTRY_CAPABILITY) return this.#options.admin?.acpRegistry !== undefined;
           if (capability === CUSTOM_AGENTS_CAPABILITY) return this.#options.admin?.customAgents !== undefined;
