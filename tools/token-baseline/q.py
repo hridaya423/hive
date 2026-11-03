@@ -1,8 +1,13 @@
-import sqlite3,sys
-p="/Users/hridyaagrawal/Library/Application%20Support/OpenBot/openbot.db"
-c=sqlite3.connect("file:"+p+"?mode=ro&immutable=1",uri=True)
-for q in sys.argv[1:]:
-    print(">>",q)
-    cur=c.execute(q)
-    print([d[0] for d in cur.description])
-    for r in cur.fetchall(): print(r)
+import sqlite3
+import sys
+from pathlib import Path
+from urllib.parse import quote
+
+database, *queries = sys.argv[1:]
+connection = sqlite3.connect(f"file:{quote(str(Path(database).expanduser().resolve()))}?mode=ro", uri=True)
+for query in queries:
+    print(">>", query)
+    cursor = connection.execute(query)
+    print([column[0] for column in cursor.description])
+    for row in cursor.fetchall():
+        print(row)
