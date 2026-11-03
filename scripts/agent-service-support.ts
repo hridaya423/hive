@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { Effect } from "effect";
 import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 
@@ -33,4 +34,22 @@ export async function waitFor<T>(
     if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}.`);
     await new Promise((done) => setTimeout(done, 25));
   }
+}
+
+/** A value that `JSON.parse` gives: the wire body of a response, a frame or a fixture. */
+export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
+export type JsonObject = { [key: string]: Json };
+
+export function isRecord(value: unknown): value is JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function record(value: unknown, label: string): JsonObject {
+  assert.ok(isRecord(value), `${label} is not an object.`);
+  return value;
+}
+
+export function text(value: unknown, label: string): string {
+  assert.equal(typeof value, "string", `${label} is not text.`);
+  return String(value);
 }

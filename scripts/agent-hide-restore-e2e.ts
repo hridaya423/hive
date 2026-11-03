@@ -39,7 +39,7 @@ import { MailboxStore } from "../src/backend/mailbox-store";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import type { TeamApiBrowser } from "../src/main/team-api/dependencies";
-import { inertBrowserHost, unused } from "./agent-service-support";
+import { inertBrowserHost, isRecord, record, text, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/agent-hide-restore-e2e");
 const HOST_VERSION = "0.0.0-e2e";
@@ -123,23 +123,6 @@ async function step<T>(
   }
 }
 
-/** A value that `JSON.parse` gives: the wire body of a response, a frame or a fixture. */
-type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
-type JsonObject = { [key: string]: Json };
-
-function isRecord(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function record(value: unknown, label: string): JsonObject {
-  assert.ok(isRecord(value), `${label} is not an object.`);
-  return value;
-}
-
-function text(value: unknown, label: string): string {
-  assert.equal(typeof value, "string", `${label} is not text.`);
-  return String(value);
-}
 const teamBrowser: TeamApiBrowser = {
   listTabs: () => [],
   getControlState: () => ({ sessions: [] }),

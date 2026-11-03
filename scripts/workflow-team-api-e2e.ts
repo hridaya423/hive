@@ -56,7 +56,7 @@ import { WorkflowStore } from "../src/backend/workflows/workflow-store";
 import { workflowScheduleDueAt } from "../src/backend/workflows/workflow-triggers";
 import { createWorkflows, type WorkflowsHandle } from "../src/backend/workflows/workflows";
 import type { TeamApiBrowser } from "../src/main/team-api/dependencies";
-import { inertBrowserHost, unused } from "./agent-service-support";
+import { inertBrowserHost, isRecord, type JsonObject, record, text, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/workflow-team-api-e2e");
 const HOST_VERSION = "0.0.0-e2e";
@@ -141,24 +141,6 @@ async function step<T>(
   } finally {
     clearTimeout(deadline);
   }
-}
-
-/** A value that `JSON.parse` gives: the wire body of a response, a frame or a fixture. */
-type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
-type JsonObject = { [key: string]: Json };
-
-function isRecord(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function record(value: unknown, label: string): JsonObject {
-  assert.ok(isRecord(value), `${label} is not an object.`);
-  return value;
-}
-
-function text(value: unknown, label: string): string {
-  assert.equal(typeof value, "string", `${label} is not text.`);
-  return String(value);
 }
 
 function list(value: unknown, label: string): unknown[] {

@@ -85,7 +85,7 @@ import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import type { TeamApiBrowser } from "../src/main/team-api/dependencies";
 import type { TeamWebRtcChannel } from "../src/main/team-webrtc-bridge";
-import { inertBrowserHost, unused } from "./agent-service-support";
+import { inertBrowserHost, isRecord, type Json, type JsonObject, record, text, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/team-api-legacy-clients-e2e");
 const FIXTURES = resolve(import.meta.dirname, "../packages/contracts/src/team-protocol/fixtures");
@@ -169,24 +169,6 @@ async function step<T>(name: string, run: () => Promise<T>, summarize: (value: T
 
 function fixture(path: string): Json {
   return JSON.parse(readFileSync(join(FIXTURES, path), "utf8"));
-}
-
-/** A value that `JSON.parse` gives: the wire body of a response, a frame or a fixture. */
-type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
-type JsonObject = { [key: string]: Json };
-
-function isRecord(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function record(value: unknown, label: string): JsonObject {
-  assert.ok(isRecord(value), `${label} is not an object.`);
-  return value;
-}
-
-function text(value: unknown, label: string): string {
-  assert.equal(typeof value, "string", `${label} is not text.`);
-  return String(value);
 }
 
 /** No check needs the browser: a call to it is a failure. */
