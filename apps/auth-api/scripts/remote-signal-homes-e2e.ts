@@ -7,18 +7,17 @@
 // Run: bun apps/auth-api/scripts/remote-signal-homes-e2e.ts
 // It writes .openbot-build/remote-signal-homes-e2e/report.json and exits non-zero on a failure.
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { REMOTE_TICKET_AUDIENCE } from "@openbot/contracts/signal-protocol/ticket";
 import { Effect } from "effect";
 import { jwtVerify } from "jose";
 import { RemoteControlPlane } from "../src/server/remote-control-plane";
-import { sqliteD1 } from "./sqlite-d1";
+import { migratedDatabase, sqliteD1 } from "./sqlite-d1";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 const OUT = join(ROOT, ".openbot-build", "remote-signal-homes-e2e");
-const MIGRATIONS = join(ROOT, "apps", "auth-api", "migrations");
 const ENTRY_URL = "wss://signal.test/v1/signal";
 const HOME_URLS = { a: "wss://signal-a.test/v1/signal", b: "wss://signal-b.test/v1/signal" } as const;
 const HOMES = `a=${HOME_URLS.a}, b=${HOME_URLS.b}`;
@@ -27,13 +26,6 @@ const WAIT_LIMIT_MS = 10_000;
 const checks: { name: string; passed: boolean; detail?: unknown }[] = [];
 function check(name: string, passed: boolean, detail?: unknown) {
   checks.push({ name, passed, ...(detail === undefined ? {} : { detail }) });
-}
-
-async function migratedDatabase() {
-  const database = new DatabaseSync(":memory:");
-  database.exec("PRAGMA foreign_keys = ON");
-  for (const name of (await readdir(MIGRATIONS)).sort()) database.exec(await readFile(join(MIGRATIONS, name), "utf8"));
-  return database;
 }
 
 const ticketKeyPair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
