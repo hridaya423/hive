@@ -169,7 +169,7 @@ export function BackupModelsPage(props: BackupModelsPageProps) {
   // The value can come from a store, and IPC cannot clone a store proxy, so each choice is copied.
   const save = (next: AgentBackupModels) =>
     props.onChange(
-      next.automatic || next.order.length > 0
+      (props.host ? next.order.length > 0 : next.automatic || next.order.length > 0)
         ? { automatic: next.automatic, order: next.order.map((choice) => ({ ...choice })) }
         : null,
     );

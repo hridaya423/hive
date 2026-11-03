@@ -5,7 +5,6 @@ import { useText } from "@openbot/ui/text";
 import { createStore } from "solid-js";
 import { settingsPort } from "./settings-port";
 
-/** The order of this computer that agents with none of their own follow. Call it once, in a component. */
 export function createHostFallbackOrder(source: () => BackupModelSource): ProviderFallbackOrder {
   const { t, errorMessage } = useText();
   const [state, setState] = createStore<{ value: AgentBackupModels | null; error: string | null }>({

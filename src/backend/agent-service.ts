@@ -3112,7 +3112,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     return next ? { input: { ...move(next), leaveUsageLimit: true }, move: failed ? "provider-error" : null } : null;
   }
 
-  /** The agent's own chain, or the host's when it has none. */
   #backupModelsOf(agent: { backupModels?: AgentBackupModels | undefined }): AgentBackupModels {
     return agent.backupModels ?? this.#hostBackupModels();
   }
