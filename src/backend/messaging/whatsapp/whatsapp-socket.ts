@@ -2,8 +2,6 @@ import type { WAMessage, WAMessageKey } from "baileys";
 
 /** The part of a Baileys socket that Hive uses, so the e2e test can stand in a fake socket. */
 
-export type WhatsAppMessageKey = WAMessageKey;
-
 export interface WhatsAppContextInfo {
   stanzaId?: string | null;
   participant?: string | null;
@@ -33,8 +31,8 @@ export interface WhatsAppContent {
 export type WhatsAppMessage = WAMessage;
 
 export type WhatsAppOutbound =
-  | { text: string; edit?: WhatsAppMessageKey }
-  | { react: { text: string; key: WhatsAppMessageKey } }
+  | { text: string; edit?: WAMessageKey }
+  | { react: { text: string; key: WAMessageKey } }
   | { image: Buffer; caption?: string; mimetype?: string }
   | { document: Buffer; mimetype: string; fileName: string };
 
