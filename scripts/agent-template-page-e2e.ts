@@ -10,12 +10,12 @@
 import assert from "node:assert/strict";
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:net";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { isAgentTemplateSnapshot } from "@openbot/contracts/ipc";
 import { createOpenBotLogger } from "@openbot/logging";
 import { chromium } from "playwright-core";
+import { freePort } from "./net-support";
 import { resolvePackageBin } from "./package-bin";
 
 const logger = createOpenBotLogger("agent-template-page-e2e");
@@ -58,17 +58,6 @@ const wrangler = resolvePackageBin(ROOT, "wrangler");
 const d1 = (...args: string[]) =>
   run(wrangler, ["d1", ...args, "openbot-auth", "--local"], { cwd: SITE, env: { ...process.env, CI: "1" } });
 const removeRows = `DELETE FROM agent_templates WHERE id = ${sql(TEMPLATE_ID)}; DELETE FROM users WHERE id = ${sql(USER_ID)};`;
-
-const freePort = () =>
-  new Promise<number>((done, fail) => {
-    const server = createServer();
-    server.once("error", fail);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      assert.ok(address && typeof address === "object");
-      server.close(() => done(address.port));
-    });
-  });
 
 /** Resolves once Vite prints the address it listens on, or rejects when the server exits first. */
 function waitForSite(child: ChildProcess, address: string): Promise<void> {

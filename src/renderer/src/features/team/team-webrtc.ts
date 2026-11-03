@@ -8,7 +8,7 @@ import {
 } from "@openbot/contracts/signal-protocol/messages";
 import { TEAM_PROTOCOL_V2_CHANNELS } from "@openbot/contracts/team-protocol/v2";
 import { sourceText } from "@openbot/i18n/source";
-import { encodeTeamWebRtcPayload, TeamWebRtcPayloadDecoder } from "./team-webrtc-framing";
+import { encodeTeamWebRtcPayload, TeamWebRtcPayloadDecoder } from "@openbot/team-client";
 import { isPrivateNetworkCandidate, privateNetworkSdp } from "./team-webrtc-private-network";
 
 export interface BridgeCommand {

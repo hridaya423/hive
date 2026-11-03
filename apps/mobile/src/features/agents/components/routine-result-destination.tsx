@@ -6,6 +6,7 @@ import ChevronsUpDown from "lucide-react-native/icons/chevrons-up-down";
 import { useState } from "react";
 import { View } from "react-native";
 import { useCSSVariable } from "uniwind";
+import { Divider, GroupLabel } from "@/features/agents/components/routine-trigger-picker";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { SettingsNote, SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
 import { useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
@@ -30,20 +31,6 @@ interface PlaceGroup {
 
 const samePlace = (left: RoutineResultChoice | null, right: RoutineResultChoice | null) =>
   left?.connectionId === right?.connectionId && left?.placeId === right?.placeId;
-
-function Divider() {
-  return <View className="ml-4 h-px bg-grouped-border" />;
-}
-
-function GroupLabel({ children }: { children: string }) {
-  return (
-    <View className="px-4 pb-1 pt-3">
-      <Typography type="body-xs" className="text-grouped-secondary">
-        {children}
-      </Typography>
-    </View>
-  );
-}
 
 /**
  * Where an agent routine sends each answer, as well as to its chat, as on desktop. For a saved

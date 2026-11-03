@@ -15,10 +15,10 @@
 import assert from "node:assert/strict";
 import { type ChildProcess, spawn } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:net";
 import { resolve } from "node:path";
 import { createOpenBotLogger } from "@openbot/logging";
 import { type Browser, chromium, type FrameLocator, type Page } from "playwright-core";
+import { freePort } from "./net-support";
 
 const logger = createOpenBotLogger("landing-demo-e2e");
 
@@ -57,17 +57,6 @@ const SCENE_TIMEOUT_MS = 40_000;
 
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
-
-const freePort = () =>
-  new Promise<number>((done, fail) => {
-    const server = createServer();
-    server.once("error", fail);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      assert.ok(address && typeof address === "object");
-      server.close(() => done(address.port));
-    });
-  });
 
 /** Resolves once Vite prints the address it listens on, or rejects when the server exits first. */
 function waitForSite(child: ChildProcess, address: string): Promise<void> {

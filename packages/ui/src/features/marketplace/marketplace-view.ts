@@ -135,10 +135,6 @@ export function createMarketplaceNavigation(): MarketplaceNavigation {
   };
 }
 
-export function isMarketplaceTab(value: string): value is MarketplaceTab {
-  return value === "apps" || value === "agents" || value === "skills";
-}
-
 /**
  * Where the server answers, with no secret: the command without its arguments, or the address
  * without its query. Arguments, headers, query and environment can hold keys.

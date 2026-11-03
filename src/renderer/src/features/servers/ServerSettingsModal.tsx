@@ -3,6 +3,8 @@ import type {
   HostedSitesDesktopApi,
   HostStatus,
   InviteSummary,
+  McpServerConfig,
+  McpTestResult,
   ServerSummary,
   TeamInviteSummary,
   TeamPresenceMember,
@@ -57,7 +59,6 @@ import { type ServerStorageOptions, ServerStoragePanel } from "../files/ServerSt
 import { type HostProviderSettings, HostProviderSettingsPanel } from "../settings/ProviderSettingsSection";
 import type { HostPromptCacheTtlOptions, ProviderPromptCacheSource } from "../settings/provider-prompt-cache";
 import { type ServerVaultOptions, ServerVaultPanel } from "../vault/ServerVaultPanel";
-import type { McpServerConfig, McpTestResult } from "./mcp-servers";
 import { createServerAuditSection, type ServerAuditOptions } from "./ServerAuditSection";
 import { ServerDesktopPanel } from "./ServerDesktopPanel";
 import { createServerGeneralSection } from "./ServerGeneralSection";

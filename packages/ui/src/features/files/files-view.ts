@@ -5,6 +5,7 @@
 
 import type { AttachmentSummary, StorageBreakdown, StorageCategory, StoredFileRow } from "@openbot/contracts/ipc";
 import type { AppFormat, AppTextKey, AppTranslate } from "@openbot/i18n";
+import { startOfDay } from "@openbot/ui/utils";
 
 export type {
   AgentStorageRow,
@@ -190,10 +191,6 @@ export function fileTypeCounts(files: readonly StoredFileRow[]): Record<FileType
   };
   for (const file of files) counts[fileTypeOf(file)] += 1;
   return counts;
-}
-
-function startOfDay(value: Date): number {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
 }
 
 /** "Today", "Yesterday", or a short date. `now` is a parameter so a story does not depend on the day it runs. */

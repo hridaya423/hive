@@ -123,7 +123,8 @@ function note(target: ServerUpdateTarget, status: HostUpdateStatus): void {
   });
 }
 
-async function readStatus(target: ServerUpdateTarget): Promise<HostUpdateStatus | null> {
+/** Reads the update status of a joined server for the header, with no dialog. */
+export async function readServerUpdateStatus(target: ServerUpdateTarget): Promise<HostUpdateStatus | null> {
   try {
     const status = await target.calls.getUpdateStatus(target.serverId);
     note(target, status);
@@ -142,11 +143,6 @@ export function serverUpdateBadge(serverId: string): { version: string; running:
   return version ? { version, running: false } : null;
 }
 
-/** Reads the update status of a joined server for the header, with no dialog. */
-export async function checkServerUpdate(target: ServerUpdateTarget): Promise<void> {
-  await readStatus(target);
-}
-
 /**
  * The user entered a server: its update dialog opens each time while the host has a new version.
  * Null is a server with no update access; it drops the offer of the server entered before.
@@ -157,7 +153,7 @@ export async function offerServerUpdate(target: ServerUpdateTarget | null): Prom
   const id = target.serverId;
   // A running update keeps its notice and the header button.
   if (runtimes.has(id)) return;
-  const status = await readStatus(target);
+  const status = await readServerUpdateStatus(target);
   if (!status || entered !== id || runtimes.has(id) || !offerable(status)) return;
   begin(target, status);
 }
@@ -181,7 +177,7 @@ export async function showServerUpdate(serverId: string): Promise<void> {
   }
   const entry = known.get(serverId);
   if (!entry) return;
-  const status = await readStatus(entry.target);
+  const status = await readServerUpdateStatus(entry.target);
   if (status && updatable(status) && !runtimes.has(serverId)) begin(entry.target, status);
 }
 

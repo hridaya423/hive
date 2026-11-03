@@ -255,12 +255,6 @@ export function composedCustomModelId(providerId: string, modelId: string): stri
   return `${providerId}/${modelId}`;
 }
 
-/** Whether a model id came from a custom provider rather than from OpenCode's own catalogue. */
-export function isCustomProviderModelId(modelId: string, providerIds: ReadonlySet<string>): boolean {
-  const separator = modelId.indexOf("/");
-  return separator > 0 && providerIds.has(modelId.slice(0, separator));
-}
-
 /** The custom provider that a model id names before its first `/`, as `composedCustomModelId` makes it. */
 export function customProviderOfModel<T extends { readonly id: string }>(
   modelId: string | null | undefined,

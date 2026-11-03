@@ -15,7 +15,7 @@ import {
   serverRoleCanAdminister,
   serverSupportsCapability,
 } from "./server-capabilities";
-import { checkServerUpdate, offerServerUpdate, type ServerUpdateTarget } from "./server-update-flow";
+import { offerServerUpdate, readServerUpdateStatus, type ServerUpdateTarget } from "./server-update-flow";
 import { serversPort } from "./servers-port";
 
 /** "true" while the user hides the server on this computer from the server list. */
@@ -230,7 +230,7 @@ const Servers = createSimpleContext({
           updateChecks.set(server.id, sequence);
           // The entry offer reads the status of the server that the user enters.
           if (!server.active || (entry?.id === server.id && entry.offered))
-            void checkServerUpdate(updateTarget(server));
+            void readServerUpdateStatus(updateTarget(server));
         }
       }
       setServers(value);

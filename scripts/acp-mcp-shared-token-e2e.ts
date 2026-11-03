@@ -9,11 +9,11 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { Effect } from "effect";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { type DynamicToolNamespace, LocalMcpBridge, type LocalMcpSession } from "../src/backend/local-mcp-bridge";
 import { isRecord } from "../src/backend/protocol";
+import { asTransport } from "./mcp-transport-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/acp-mcp-shared-token-e2e");
 
@@ -50,33 +50,6 @@ function authorization(session: LocalMcpSession): string {
   const header = session.servers[0]?.headers.find((candidate) => candidate.name === "Authorization");
   assert.ok(header, "The session's server carries a token.");
   return header.value;
-}
-
-/**
- * The SDK transport classes declare their handlers and `sessionId` as `T | undefined`, which
- * `exactOptionalPropertyTypes` does not accept as a `Transport`. This one forwards to such a class.
- */
-function asTransport(inner: {
-  start(): Promise<void>;
-  send: Transport["send"];
-  close(): Promise<void>;
-  onclose?: (() => void) | undefined;
-  onerror?: ((error: Error) => void) | undefined;
-  onmessage?: Transport["onmessage"] | undefined;
-  setProtocolVersion?: ((version: string) => void) | undefined;
-}): Transport {
-  const transport: Transport = {
-    start: () => {
-      inner.onclose = () => transport.onclose?.();
-      inner.onerror = (error) => transport.onerror?.(error);
-      inner.onmessage = (message, extra) => transport.onmessage?.(message, extra);
-      return inner.start();
-    },
-    send: (message, options) => inner.send(message, options),
-    close: () => inner.close(),
-    setProtocolVersion: (version) => inner.setProtocolVersion?.(version),
-  };
-  return transport;
 }
 
 /**

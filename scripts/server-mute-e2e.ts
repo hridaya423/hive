@@ -17,7 +17,6 @@ import { IPC_ENDPOINTS, LOCAL_SERVER_ID, SERVER_MUTE_DURATIONS_MS, type ServerSu
 import { createFormat, translateFor } from "@openbot/i18n";
 import { plugin } from "bun";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
@@ -25,6 +24,7 @@ import { MailboxStore } from "../src/backend/mailbox-store";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import type { TeamApiBrowser } from "../src/main/team-api/dependencies";
+import { inertBrowserHost, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/server-mute-e2e");
 const APP_VERSION = "0.0.0-e2e";
@@ -157,23 +157,6 @@ async function step<T>(name: string, run: () => Promise<T>): Promise<T> {
 const root = await mkdtemp(join(tmpdir(), "openbot-server-mute-"));
 const userData = join(root, "user-data");
 const serversPath = join(userData, "remote-servers.json");
-const unused = () => Effect.die(new Error("Not used by this check."));
-const agentBrowser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
 const teamBrowser: TeamApiBrowser = {
   listTabs: () => [],
   getControlState: () => ({ sessions: [] }),
@@ -262,7 +245,7 @@ try {
         avatarHue: null,
       }),
     );
-    agents = new AgentService({ store: agentStore, mailbox, browser: agentBrowser, sidebarLayout: sidebar });
+    agents = new AgentService({ store: agentStore, mailbox, browser: inertBrowserHost, sidebarLayout: sidebar });
     await runCauseEffect(manager.initialize());
     return { agentId: agent.id, agentName: agent.name, local: localServer(manager.list()).notificationsMuted };
   });

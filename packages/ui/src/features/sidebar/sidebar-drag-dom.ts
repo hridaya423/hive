@@ -18,7 +18,7 @@ import type {
  * emitter leaves an empty slot map behind: the drag starts, tracks nothing and drops nowhere, and
  * no test fails loudly on it.
  */
-export const SIDEBAR_DRAG_SELECTORS = {
+const SIDEBAR_DRAG_SELECTORS = {
   chatRow: "[data-chat-id]",
   closedBody: ".sidebar-section-collapse[data-collapsed]",
   personRow: "[data-person-id]",

@@ -22,6 +22,12 @@ import {
 } from "@openbot/contracts/team-protocol/current";
 import { toWireAgentKeysObjectForPath } from "@openbot/contracts/team-protocol/current-agent-keys";
 import { optionalTeamEvent } from "@openbot/contracts/team-protocol/optional-events";
+import {
+  decodeRemoteDesktopSignalBinary,
+  decodeRemoteDesktopSignalControl,
+  encodeRemoteDesktopSignalBinary,
+  encodeRemoteDesktopSignalControl,
+} from "@openbot/contracts/team-protocol/remote-stream-v1";
 import { teamSideRouteCodec } from "@openbot/contracts/team-protocol/side-routes";
 import {
   addUiBlockAutoAnswers,
@@ -89,12 +95,6 @@ import { Context, Deferred, Effect, Exit, Fiber, Layer, ManagedRuntime } from "e
 import type * as Ws from "ws";
 import type { VerifiedRemoteSessionTicket } from "./central-auth-manager";
 import { contentDispositionFileName } from "./content-disposition";
-import {
-  decodeRemoteDesktopSignalBinary,
-  decodeRemoteDesktopSignalControl,
-  encodeRemoteDesktopSignalBinary,
-  encodeRemoteDesktopSignalControl,
-} from "./remote-desktop-signal";
 import { RemoteWorkflowError, remoteCall, remoteDecode } from "./remote-service-effects";
 import type { TeamStore } from "./team-store";
 import type { TeamWebRtcBridge } from "./team-webrtc-bridge";

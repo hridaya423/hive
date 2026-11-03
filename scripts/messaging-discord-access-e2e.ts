@@ -19,13 +19,12 @@ import {
 import { Effect } from "effect";
 import { type DiscordRestRequest, DiscordTransportError, makeDiscordApi } from "../remote/api/src/discord-api";
 import { DiscordState } from "../remote/api/src/discord-events";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
 import { discordDriver } from "../src/backend/messaging/discord/discord-driver";
-import { type MessagingCredentials, MessagingService } from "../src/backend/messaging/messaging-service";
+import { MessagingService } from "../src/backend/messaging/messaging-service";
 import { MessagingThreads } from "../src/backend/messaging/messaging-threads";
 import {
   DiscordApiError,
@@ -36,6 +35,7 @@ import {
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import { parseSetDiscordAccessInput } from "../src/main/ipc/messaging-inputs";
+import { inertBrowserHost, memoryCredentials, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/messaging-discord-access-e2e");
 const REPORT = join(OUT, "report.json");
@@ -93,24 +93,6 @@ async function step(name: string, run: () => Promise<unknown>): Promise<void> {
     throw error;
   }
 }
-
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
 
 /** A Gateway event as Discord sends it. JSON, as on the wire. */
 function gateway(t: string, d: unknown): Parameters<DiscordState["handle"]>[0] {
@@ -250,20 +232,6 @@ const ingress: MessagingIngress = {
   },
 };
 
-function memoryCredentials(): MessagingCredentials {
-  const values = new Map<string, Record<string, string>>();
-  return {
-    keys: () => [...values.keys()],
-    status: (connectionId) => (values.has(connectionId) ? "saved" : "missing"),
-    get: (connectionId) => values.get(connectionId) ?? null,
-    set: (connectionId, value) => Effect.sync(() => void values.set(connectionId, value)),
-    clear: (connectionId) => Effect.sync(() => void values.delete(connectionId)),
-    retain: (connectionIds) =>
-      Effect.sync(() => {
-        for (const key of values.keys()) if (!connectionIds.has(key)) values.delete(key);
-      }),
-  };
-}
 const credentials = memoryCredentials();
 
 interface Booted {
@@ -280,7 +248,7 @@ async function boot<T>(use: (services: Booted) => Promise<T>): Promise<T> {
   await runCauseEffect(sidebar.initialize());
   await runCauseEffect(store.initialize());
   await runCauseEffect(mailbox.initialize());
-  const agents = new AgentService({ store, mailbox, browser, sidebarLayout: sidebar });
+  const agents = new AgentService({ store, mailbox, browser: inertBrowserHost, sidebarLayout: sidebar });
   // Its own threads, which start no turn: no provider runs in this check.
   const threads = new MessagingThreads(store.database, mailbox, {
     schedule: () => {},

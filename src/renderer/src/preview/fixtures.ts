@@ -22,6 +22,7 @@ import type {
   MarketplaceAgentSummary,
   MarketplaceSkillDetail,
   MarketplaceSkillSummary,
+  McpServerConfig,
   QueueDelivery,
   RemoteDesktopSession,
   ServerAuditEntry,
@@ -45,7 +46,6 @@ import {
 import type { AgentProfile } from "@openbot/ui/data";
 import type { AgentRuntimeSettings } from "@openbot/ui/features/conversation/AgentSettingsPanel";
 import type { MarketplacePluginDetail } from "@openbot/ui/features/settings/marketplace-plugins";
-import type { McpServerConfig } from "../features/servers/mcp-servers";
 
 const STORY_NOW = "2026-08-19T10:00:00.000Z";
 

@@ -147,8 +147,6 @@ declare global {
   }
 }
 
-// ---------------------------------------------------------------- shared
-
 const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const bytes = (record: RemoteRequestRecord) => record.requestBytes + record.responseBytes;
 const routeKey = (record: RemoteRequestRecord) => `${record.method} ${record.route}`;
@@ -304,8 +302,6 @@ function isRequestRecord(value: unknown): value is RemoteRequestRecord {
     isNumber(value.responseBytes)
   );
 }
-
-// ---------------------------------------------------------------- web
 
 /** Signs in to the web client with the code that the development account service shows. */
 async function signIn(page: Page): Promise<void> {
@@ -624,8 +620,6 @@ async function webRuns(): Promise<Run[]> {
   }
 }
 
-// ---------------------------------------------------------------- desktop
-
 interface TraceLine {
   at: number;
   kind: string;
@@ -859,8 +853,6 @@ async function desktopRuns(): Promise<Run[]> {
     await session.close();
   }
 }
-
-// ---------------------------------------------------------------- report
 
 function summarize(sample: readonly Run[]): Record<string, Spread> {
   const values = new Map<string, number[]>();

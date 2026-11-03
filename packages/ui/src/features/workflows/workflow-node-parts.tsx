@@ -654,7 +654,7 @@ function resultName(t: AppTranslate, result: WfnResult): string {
 }
 
 /** When a result was made: the time for a result of today, else the day and the time. */
-export function resultTime(format: AppFormat, at: string): string {
+function resultTime(format: AppFormat, at: string): string {
   const date = new Date(at);
   const today = date.toDateString() === new Date().toDateString();
   return format.date(
@@ -753,7 +753,7 @@ export function useStepRun(id: string) {
 }
 
 /** How to stop a step that runs alone. A workflow run stops from the bar, so its steps have no Stop. */
-export function stopOf(board: WfnBoard, id: string) {
+function stopOf(board: WfnBoard, id: string) {
   return board.status(id) === "running" && !board.running() ? board.stopStep : undefined;
 }
 

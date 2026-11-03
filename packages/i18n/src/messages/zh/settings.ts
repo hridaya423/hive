@@ -193,9 +193,6 @@ export const messages = {
   "settings.preferences.loadFailed": "无法加载你的设置。",
   "settings.preferences.saveFailed": "无法保存该设置，请重试。",
   // The agent picker on the skill and plugin install pages.
-  "settings.agentSelect.placeholder": "选择助手",
-  "settings.agentSelect.empty": "没有本地助手",
-  "settings.agentSelect.label": "安装到",
   // A device or an account session that the user disconnects.
   "settings.disconnect.action": "断开连接",
   "settings.disconnect.pending": "正在断开…",

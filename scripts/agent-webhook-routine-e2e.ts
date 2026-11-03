@@ -22,7 +22,7 @@ import {
   WEBHOOK_TIMESTAMP_HEADER,
 } from "@openbot/contracts/signal-protocol/webhook-route";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
+import { inertBrowserHost, waitFor } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/agent-webhook-routine-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-webhook-tool-"));
@@ -187,35 +187,6 @@ const report: {
   error?: string;
 } = { calls: [], routines: [], checks: [], passed: false };
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
-/** Waits for a state of the service or the fake's log. */
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = read();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}.`);
-    await new Promise((done) => setTimeout(done, 25));
-  }
-}
-
 function toolLogs(): ToolLog[] {
   let text = "";
   try {
@@ -242,7 +213,7 @@ let relayUp = true;
 const agents = new AgentService({
   store,
   mailbox,
-  browser,
+  browser: inertBrowserHost,
   preferredProvider: "codex",
   offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "codex"),
   // As in the app: the events service is built after the agent service.

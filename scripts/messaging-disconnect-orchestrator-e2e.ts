@@ -12,7 +12,6 @@ import { join, resolve } from "node:path";
 import type { MessagingPlatform, SidebarLayoutSnapshot } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentLifecycleFailed, AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
@@ -21,6 +20,7 @@ import { type MessagingCredentials, MessagingService } from "../src/backend/mess
 import type { MessagingIngress } from "../src/backend/messaging/messaging-types";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
+import { inertBrowserHost, memoryCredentials, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/messaging-disconnect-orchestrator-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-messaging-disconnect-"));
@@ -38,23 +38,6 @@ interface Step {
 const report: { steps: Step[]; passed: boolean } = { steps: [], passed: false };
 
 /** No test needs the browser, Signal or a platform: a call to one of them is a failure. */
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-};
 const ingress: MessagingIngress = {
   acquire: () => () => {},
   state: () => "unavailable",
@@ -65,22 +48,6 @@ const ingress: MessagingIngress = {
   discord: unused,
   onDiscordRoutes: () => () => {},
 };
-
-/** The tokens of each connection, in memory. */
-function memoryCredentials(): MessagingCredentials {
-  const values = new Map<string, Record<string, string>>();
-  return {
-    keys: () => [...values.keys()],
-    status: (connectionId) => (values.has(connectionId) ? "saved" : "missing"),
-    get: (connectionId) => values.get(connectionId) ?? null,
-    set: (connectionId, value) => Effect.sync(() => void values.set(connectionId, value)),
-    clear: (connectionId) => Effect.sync(() => void values.delete(connectionId)),
-    retain: (connectionIds) =>
-      Effect.sync(() => {
-        for (const key of values.keys()) if (!connectionIds.has(key)) values.delete(key);
-      }),
-  };
-}
 
 async function boot<T>(
   use: (services: {
@@ -99,7 +66,7 @@ async function boot<T>(
   // The stores only: `AgentService.initialize` would start the provider CLIs, which no step needs.
   await runCauseEffect(store.initialize());
   await runCauseEffect(mailbox.initialize());
-  const agents = new AgentService({ store, mailbox, browser, sidebarLayout: sidebar });
+  const agents = new AgentService({ store, mailbox, browser: inertBrowserHost, sidebarLayout: sidebar });
   const credentials = memoryCredentials();
   // An agent named here is busy. A turn needs a provider, so the check gives the error of a busy agent.
   const busy = new Set<string>();

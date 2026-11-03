@@ -200,9 +200,6 @@ export const messages = defineMessages("settings", {
   "settings.preferences.loadFailed": "Could not load your settings.",
   "settings.preferences.saveFailed": "Could not save this setting. Try again.",
   // The agent picker on the skill and plugin install pages.
-  "settings.agentSelect.placeholder": "Choose an agent",
-  "settings.agentSelect.empty": "No local agents",
-  "settings.agentSelect.label": "Install to",
   // A device or an account session that the user disconnects.
   "settings.disconnect.action": "Disconnect",
   "settings.disconnect.pending": "Disconnecting…",

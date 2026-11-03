@@ -1,4 +1,5 @@
 import { Button, ChevronDown } from "@openbot/ui";
+import { isDigit } from "@openbot/ui/utils";
 import { createMemo, createSignal, createUniqueId, For, onSettled, Show, untrack } from "solid-js";
 import { createDigitRoll } from "../../digit-roll";
 import { useText } from "../../text";
@@ -208,10 +209,6 @@ function TaskProgress(props: { value: number }) {
       <span class="sr-only">{format.percent(props.value, { maximumFractionDigits: 0 })}</span>
     </span>
   );
-}
-
-function isDigit(character: string) {
-  return /\d/u.test(character);
 }
 
 /**

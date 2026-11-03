@@ -1,4 +1,15 @@
-import type { DatabaseSync, SQLInputValue } from "node:sqlite";
+import { readdir, readFile } from "node:fs/promises";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+
+const MIGRATIONS = new URL("../migrations/", import.meta.url);
+
+export async function migratedDatabase() {
+  const database = new DatabaseSync(":memory:");
+  database.exec("PRAGMA foreign_keys = ON");
+  for (const name of (await readdir(MIGRATIONS)).sort())
+    database.exec(await readFile(new URL(name, MIGRATIONS), "utf8"));
+  return database;
+}
 
 /** A D1 binding over node:sqlite, with the calls that the service makes. */
 export function sqliteD1(database: DatabaseSync): D1Database {

@@ -20,7 +20,7 @@ const ZOOM_LABEL = {
 } satisfies Record<ZoomAction, AppTextKey>;
 
 /** The shortcut of each zoom action. */
-export const ZOOM_KEYS: Record<ZoomAction, readonly string[]> = {
+const ZOOM_KEYS: Record<ZoomAction, readonly string[]> = {
   in: [MOD_KEY, "+"],
   out: [MOD_KEY, "−"],
   reset: [MOD_KEY, "0"],

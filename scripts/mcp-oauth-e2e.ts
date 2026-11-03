@@ -16,7 +16,6 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -43,6 +42,7 @@ import { McpServerStore } from "../src/backend/mcp-server-store";
 import { AddressLookupError, isPublicAddress } from "../src/backend/network-address";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { NO_PROVIDER_CREDENTIALS } from "../src/backend/provider-drivers";
+import { asTransport } from "./mcp-transport-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/mcp-oauth-e2e");
 const REDIRECT_URL = "http://127.0.0.1:28417/mcp-auth";
@@ -557,33 +557,6 @@ function rawPost(url: string, headers: Record<string, string>): Promise<number> 
 function textOf(result: Awaited<ReturnType<Client["callTool"]>>): string {
   const [first] = Array.isArray(result.content) ? result.content : [];
   return first && typeof first === "object" && "text" in first ? String(first.text) : "";
-}
-
-/**
- * The SDK transport classes declare their handlers and `sessionId` as `T | undefined`, which
- * `exactOptionalPropertyTypes` does not accept as a `Transport`. This one forwards to such a class.
- */
-function asTransport(inner: {
-  start(): Promise<void>;
-  send: Transport["send"];
-  close(): Promise<void>;
-  onclose?: (() => void) | undefined;
-  onerror?: ((error: Error) => void) | undefined;
-  onmessage?: Transport["onmessage"] | undefined;
-  setProtocolVersion?: ((version: string) => void) | undefined;
-}): Transport {
-  const transport: Transport = {
-    start: () => {
-      inner.onclose = () => transport.onclose?.();
-      inner.onerror = (error) => transport.onerror?.(error);
-      inner.onmessage = (message, extra) => transport.onmessage?.(message, extra);
-      return inner.start();
-    },
-    send: (message, options) => inner.send(message, options),
-    close: () => inner.close(),
-    setProtocolVersion: (version) => inner.setProtocolVersion?.(version),
-  };
-  return transport;
 }
 
 /**

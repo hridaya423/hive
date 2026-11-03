@@ -11,6 +11,7 @@ import { AGENT_PROVIDERS } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
 import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { getString, isRecord } from "../src/backend/protocol";
+import { unused, waitFor } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/provider-loss-scope-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-provider-loss-"));
@@ -152,7 +153,6 @@ function check(name: string, passed: boolean, detail?: unknown) {
 const report: { passed: boolean; checks: typeof checks; error?: string } = { passed: false, checks };
 
 const calls = { clearControls: 0 };
-const unused = () => Effect.die(new Error("Not used by this check."));
 const browser: AgentBrowserHost = {
   listTabs: () => [],
   beginTakeover: unused,
@@ -188,17 +188,6 @@ function protocolEntry(value: unknown) {
   const entry = isRecord(value) ? value : {};
   const params = isRecord(entry.params) ? entry.params : {};
   return { method: getString(entry, "method"), threadId: getString(params, "threadId") };
-}
-
-/** Waits for a state of the service or of the fake Codex. */
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = read();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}.`);
-    await new Promise((done) => setTimeout(done, 25));
-  }
 }
 
 /** Waits for a state, and records a failed check instead of a stop when it does not come. */

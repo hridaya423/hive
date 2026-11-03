@@ -5,7 +5,7 @@ import { createSignal, onSettled } from "solid-js";
 const TOOLTIP_GAP = 8;
 const TOOLTIP_VIEWPORT_MARGIN = 8;
 
-export interface TooltipRect {
+interface TooltipRect {
   top: number;
   right: number;
   bottom: number;
@@ -20,7 +20,7 @@ export interface TooltipPosition {
   placement: "top" | "bottom";
 }
 
-export function anchoredTooltipPosition(
+function anchoredTooltipPosition(
   anchor: TooltipRect,
   tooltip: Pick<TooltipRect, "width" | "height">,
   viewport: { width: number; height: number },

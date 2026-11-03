@@ -7,17 +7,16 @@
 //
 // Run: bun run test:remote-auth-events
 // It writes .openbot-build/remote-auth-events-e2e/report.json and exits non-zero on a failure.
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
 import { Effect, Fiber } from "effect";
 import { deliverPendingRemoteAuthEvents, verifyRemoteServiceSignature } from "../src/server/remote-control-plane";
 import { createWorkerHandler } from "../src/server/worker-handler";
-import { sqliteD1 } from "./sqlite-d1";
+import { migratedDatabase, sqliteD1 } from "./sqlite-d1";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 const OUT = join(ROOT, ".openbot-build", "remote-auth-events-e2e");
-const MIGRATIONS = join(ROOT, "apps", "auth-api", "migrations");
 const SIGNAL_URL = "https://signal.test/internal/auth-events";
 const SECOND_SIGNAL_URL = "https://signal-b.test/internal/auth-events";
 const SECRET = "webhook-secret";
@@ -26,13 +25,6 @@ const WAIT_LIMIT_MS = 10_000;
 const checks: { name: string; passed: boolean; detail?: unknown }[] = [];
 function check(name: string, passed: boolean, detail?: unknown) {
   checks.push({ name, passed, ...(detail === undefined ? {} : { detail }) });
-}
-
-async function migratedDatabase() {
-  const database = new DatabaseSync(":memory:");
-  database.exec("PRAGMA foreign_keys = ON");
-  for (const name of (await readdir(MIGRATIONS)).sort()) database.exec(await readFile(join(MIGRATIONS, name), "utf8"));
-  return database;
 }
 
 function seedProfileEvents(database: DatabaseSync, count: number, now: number) {

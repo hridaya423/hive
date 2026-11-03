@@ -3,9 +3,6 @@
 // and a closed discriminated union that a client-side decoder has no reason to carry. The other
 // direction is `@openbot/contracts/signal-protocol/decode`, which is what a peer runs over this
 // service's output. One validator per trust direction, on purpose.
-//
-// The re-exports below are what the rest of this workspace imports, so moving the types out did not
-// churn `signal-service.ts` or `tokens.ts`.
 
 import {
   type SignalClientMessage,

@@ -41,8 +41,6 @@ export type ServerAuditChange =
       to: AgentAccessLevel;
     };
 
-export type ServerAuditChangeKind = ServerAuditChange["kind"];
-
 /** One change, who made it, and when. `actor` is null when the host does not know who made it. */
 export interface ServerAuditEntry {
   id: string;

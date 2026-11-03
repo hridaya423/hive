@@ -10,7 +10,8 @@
 import { INPUT_LIMITS } from "./input-limits";
 import { type ClientAgentSummary, isClientAgentSummary } from "./ipc-agents";
 import { isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
-import { isBoolean, isDynamicRecord, isNumber, isString } from "./runtime-values";
+import { decodeRecord, nonNegativeInteger } from "./ipc-decoding";
+import { isBoolean, isString } from "./runtime-values";
 
 /** The Grok Bot page of the ready export agent. */
 export const GROK_BOT_EXPORT_URL = "https://x.ai/bot/gI0XdhhDYPJeyQaqQBC0O";
@@ -117,11 +118,6 @@ function invalid(label: string): never {
   throw new Error(`Invalid ${label}.`);
 }
 
-function record(value: unknown, label: string) {
-  if (!isDynamicRecord(value)) invalid(label);
-  return value;
-}
-
 export function parseAgentImportSkillSource(value: unknown): AgentImportSkillSource {
   const source = AGENT_IMPORT_SKILL_SOURCES.find((entry) => entry === value);
   if (!source) invalid("export skill");
@@ -132,12 +128,7 @@ export function isAgentImportKey(value: unknown): value is string {
   return isBoundedString(value, AGENT_IMPORT_LIMITS.key) && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u.test(value);
 }
 
-function count(value: unknown, label: string): number {
-  if (!isNumber(value) || !Number.isSafeInteger(value) || value < 0) invalid(label);
-  return value;
-}
-
-function messages(value: unknown, label: string): string[] {
+export function decodeImportMessages(value: unknown, label: string): string[] {
   if (
     !Array.isArray(value) ||
     value.length > AGENT_IMPORT_LIMITS.warnings ||
@@ -148,7 +139,7 @@ function messages(value: unknown, label: string): string[] {
 }
 
 export function parseApplyAgentImportInput(value: unknown): ApplyAgentImportInput {
-  const input = record(value, "import request");
+  const input = decodeRecord(value, "import request");
   if (!isIdentifier(input.token)) invalid("import token");
   if (
     !Array.isArray(input.keys) ||
@@ -172,7 +163,7 @@ function isKeyList(value: unknown, maximum: number): value is string[] {
 }
 
 function decodePreviewChannel(value: unknown): AgentImportPreviewChannel {
-  const channel = record(value, "imported channel");
+  const channel = decodeRecord(value, "imported channel");
   if (
     !isAgentImportKey(channel.key) ||
     !isBoundedString(channel.name, INPUT_LIMITS.agentName) ||
@@ -187,15 +178,15 @@ function decodePreviewChannel(value: unknown): AgentImportPreviewChannel {
     title: channel.title,
     memberKeys: channel.memberKeys,
     leadKey: channel.leadKey,
-    memoryCount: count(channel.memoryCount, "imported channel"),
-    routineCount: count(channel.routineCount, "imported channel"),
+    memoryCount: nonNegativeInteger(channel.memoryCount, "imported channel"),
+    routineCount: nonNegativeInteger(channel.routineCount, "imported channel"),
   };
 }
 
 export function decodeAgentImportSkipped(value: unknown, label: string): AgentImportSkipped[] {
   if (!Array.isArray(value)) invalid("import result");
   return value.map((item): AgentImportSkipped => {
-    const entry = record(item, label);
+    const entry = decodeRecord(item, label);
     if (
       !isAgentImportKey(entry.key) ||
       !isBoundedString(entry.name, INPUT_LIMITS.agentName) ||
@@ -207,7 +198,7 @@ export function decodeAgentImportSkipped(value: unknown, label: string): AgentIm
 }
 
 export function decodeAgentImportPreviewAgent(value: unknown): AgentImportPreviewAgent {
-  const agent = record(value, "imported agent");
+  const agent = decodeRecord(value, "imported agent");
   if (
     !isAgentImportKey(agent.key) ||
     !isBoundedString(agent.name, INPUT_LIMITS.agentName) ||
@@ -223,18 +214,18 @@ export function decodeAgentImportPreviewAgent(value: unknown): AgentImportPrevie
     title: agent.title,
     description: agent.description,
     avatarUrl: agent.avatarUrl,
-    skillCount: count(agent.skillCount, "imported agent"),
-    routineCount: count(agent.routineCount, "imported agent"),
-    memoryCount: count(agent.memoryCount, "imported agent"),
-    fileCount: count(agent.fileCount, "imported agent"),
-    fileBytes: count(agent.fileBytes, "imported agent"),
+    skillCount: nonNegativeInteger(agent.skillCount, "imported agent"),
+    routineCount: nonNegativeInteger(agent.routineCount, "imported agent"),
+    memoryCount: nonNegativeInteger(agent.memoryCount, "imported agent"),
+    fileCount: nonNegativeInteger(agent.fileCount, "imported agent"),
+    fileBytes: nonNegativeInteger(agent.fileBytes, "imported agent"),
     nameExists: agent.nameExists,
   };
 }
 
 export function decodeAgentImportPreview(value: unknown): AgentImportPreview | null {
   if (value === null) return null;
-  const preview = record(value, "import preview");
+  const preview = decodeRecord(value, "import preview");
   if (
     !isIdentifier(preview.token) ||
     !isBoundedString(preview.sourceApp, AGENT_IMPORT_LIMITS.sourceApp) ||
@@ -251,16 +242,16 @@ export function decodeAgentImportPreview(value: unknown): AgentImportPreview | n
     exportedAt: preview.exportedAt,
     agents: preview.agents.map(decodeAgentImportPreviewAgent),
     channels: preview.channels.map(decodePreviewChannel),
-    warnings: messages(preview.warnings, "import warnings"),
+    warnings: decodeImportMessages(preview.warnings, "import warnings"),
   };
 }
 
 export function decodeAgentImportResult(value: unknown): AgentImportResult {
-  const result = record(value, "import result");
+  const result = decodeRecord(value, "import result");
   if (!Array.isArray(result.agents) || !result.agents.every(isClientAgentSummary)) invalid("import result");
   if (!Array.isArray(result.channels)) invalid("import result");
   const channels = result.channels.map((item): AgentImportChannel => {
-    const entry = record(item, "imported channel");
+    const entry = decodeRecord(item, "imported channel");
     if (!isIdentifier(entry.id) || !isBoundedString(entry.name, INPUT_LIMITS.agentName)) invalid("imported channel");
     return { id: entry.id, name: entry.name };
   });
@@ -269,15 +260,15 @@ export function decodeAgentImportResult(value: unknown): AgentImportResult {
     skipped: decodeAgentImportSkipped(result.skipped, "skipped agent"),
     channels,
     skippedChannels: decodeAgentImportSkipped(result.skippedChannels, "skipped channel"),
-    warnings: messages(result.warnings, "import warnings"),
+    warnings: decodeImportMessages(result.warnings, "import warnings"),
   };
 }
 
 /** A remote host's preview: `agent-import-v1` carries no avatars. */
 export function decodeRemoteAgentImportPreview(value: unknown): AgentImportPreview {
-  const preview = record(value, "import preview");
+  const preview = decodeRecord(value, "import preview");
   if (!Array.isArray(preview.agents)) invalid("import preview");
-  const agents = preview.agents.map((agent) => ({ ...record(agent, "imported agent"), avatarUrl: null }));
+  const agents = preview.agents.map((agent) => ({ ...decodeRecord(agent, "imported agent"), avatarUrl: null }));
   const decoded = decodeAgentImportPreview({ ...preview, agents });
   if (!decoded) invalid("import preview");
   return decoded;
@@ -289,10 +280,10 @@ export interface RemoteAgentImportResult extends Omit<AgentImportResult, "agents
 }
 
 export function decodeRemoteAgentImportResult(value: unknown): RemoteAgentImportResult {
-  const result = record(value, "import result");
+  const result = decodeRecord(value, "import result");
   if (!Array.isArray(result.agents)) invalid("import result");
   const agents = result.agents.map((item) => {
-    const entry = record(item, "imported agent");
+    const entry = decodeRecord(item, "imported agent");
     if (!isIdentifier(entry.agentId) || !isBoundedString(entry.name, INPUT_LIMITS.agentName)) invalid("imported agent");
     return { agentId: entry.agentId, name: entry.name };
   });

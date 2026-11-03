@@ -15,8 +15,9 @@ import { createEffect, createSignal, onCleanup, onSettled, Show } from "solid-js
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { clipboardFiles } from "../../preload/clipboard-files";
-import { Conversation, createConversationController } from "../src/features/conversation/Conversation";
+import { Conversation } from "../src/features/conversation/Conversation";
 import { ConversationView } from "../src/features/conversation/ConversationView";
+import { createConversationController } from "../src/features/conversation/conversation-controller";
 import { ConversationControllerProvider } from "../src/features/conversation/conversation-controller-context";
 import { composerDraftKey } from "../src/features/conversation/conversation-keys";
 import browserTakeoverPreviewUrl from "./assets/browser-takeover-preview.svg";

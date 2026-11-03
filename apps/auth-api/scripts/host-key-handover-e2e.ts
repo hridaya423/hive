@@ -7,9 +7,8 @@
 //
 // Run: bun run test:host-key-handover
 // It writes .openbot-build/host-key-handover-e2e/report.json and exits non-zero on a failure.
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import {
   HOST_KEY_HANDOVER_LIMIT,
   type HostKeyHandover,
@@ -19,11 +18,10 @@ import { Effect } from "effect";
 import { encodeBase64Url } from "../src/server/crypto";
 import { RemoteControlPlane } from "../src/server/remote-control-plane";
 import type { AuthUser } from "../src/server/types";
-import { sqliteD1 } from "./sqlite-d1";
+import { migratedDatabase, sqliteD1 } from "./sqlite-d1";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 const OUT = join(ROOT, ".openbot-build", "host-key-handover-e2e");
-const MIGRATIONS = join(ROOT, "apps", "auth-api", "migrations");
 const HOST_ID = "host-1";
 const OWNER: AuthUser = {
   id: "user-owner",
@@ -43,13 +41,6 @@ const OTHER: AuthUser = {
 const checks: { name: string; passed: boolean; detail?: unknown }[] = [];
 function check(name: string, passed: boolean, detail?: unknown) {
   checks.push({ name, passed, ...(detail === undefined ? {} : { detail }) });
-}
-
-async function migratedDatabase() {
-  const database = new DatabaseSync(":memory:");
-  database.exec("PRAGMA foreign_keys = ON");
-  for (const name of (await readdir(MIGRATIONS)).sort()) database.exec(await readFile(join(MIGRATIONS, name), "utf8"));
-  return database;
 }
 
 const ticketKeys = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);

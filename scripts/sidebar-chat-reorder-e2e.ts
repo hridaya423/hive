@@ -12,14 +12,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { SidebarLayoutAction } from "@openbot/contracts/ipc";
-import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
+import { inertBrowserHost } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/sidebar-chat-reorder-e2e");
 
@@ -51,24 +50,6 @@ async function step<T>(name: string, run: () => Promise<T>): Promise<T> {
   }
 }
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const agentBrowser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
 const root = await mkdtemp(join(tmpdir(), "openbot-sidebar-chat-reorder-"));
 const userData = join(root, "user-data");
 const home = join(root, "home");
@@ -80,7 +61,7 @@ const sidebar = new SidebarLayoutStore(join(userData, "sidebar-layout.json"));
 await runCauseEffect(sidebar.initialize());
 await runCauseEffect(agentStore.initialize());
 await runCauseEffect(mailbox.initialize());
-const agents = new AgentService({ store: agentStore, mailbox, browser: agentBrowser, sidebarLayout: sidebar });
+const agents = new AgentService({ store: agentStore, mailbox, browser: inertBrowserHost, sidebarLayout: sidebar });
 const actor = { id: "sidebar-chat-reorder-e2e", name: "Reorder check" };
 
 const mutateLayout = (action: SidebarLayoutAction) => runCauseEffect(sidebar.mutate(action, agents.sidebarChatIds()));

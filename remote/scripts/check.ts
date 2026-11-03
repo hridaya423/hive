@@ -37,9 +37,12 @@ console.log(
 );
 
 async function composeCheck(file: string): Promise<void> {
-  const args = ["compose"];
-  args.push("-f", file, "config", "--quiet");
-  const process = Bun.spawn(["docker", ...args], { cwd: root, env: environment, stdout: "inherit", stderr: "inherit" });
+  const process = Bun.spawn(["docker", "compose", "-f", file, "config", "--quiet"], {
+    cwd: root,
+    env: environment,
+    stdout: "inherit",
+    stderr: "inherit",
+  });
   if ((await process.exited) !== 0) throw new Error(`Docker Compose validation failed for ${file}.`);
 }
 

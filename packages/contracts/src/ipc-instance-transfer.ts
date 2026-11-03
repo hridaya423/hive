@@ -11,16 +11,17 @@ import { type AgentProviderId, isAgentProvider, isAgentProviderRef } from "./age
 import { INPUT_LIMITS } from "./input-limits";
 import { type AvatarHue, isAvatarHue } from "./ipc-agent-identity";
 import {
-  AGENT_IMPORT_LIMITS,
   type AgentImportPreviewAgent,
   type AgentImportSkipped,
   decodeAgentImportPreviewAgent,
   decodeAgentImportSkipped,
+  decodeImportMessages,
   isAgentImportKey,
 } from "./ipc-agent-import";
 import { type ClientAgentSummary, isClientAgentSummary } from "./ipc-agents";
 import { isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
-import { isBoolean, isDynamicRecord, isNumber, isString } from "./runtime-values";
+import { decodeRecord, nonNegativeInteger } from "./ipc-decoding";
+import { isBoolean, isString } from "./runtime-values";
 
 export const INSTANCE_TRANSFER_LIMITS = {
   /** The file is read into memory on import, so it stays below 2 GiB. */
@@ -93,26 +94,6 @@ function invalid(label: string): never {
   throw new Error(`Invalid ${label}.`);
 }
 
-function record(value: unknown, label: string) {
-  if (!isDynamicRecord(value)) invalid(label);
-  return value;
-}
-
-function count(value: unknown, label: string): number {
-  if (!isNumber(value) || !Number.isSafeInteger(value) || value < 0) invalid(label);
-  return value;
-}
-
-function messages(value: unknown, label: string): string[] {
-  if (
-    !Array.isArray(value) ||
-    value.length > AGENT_IMPORT_LIMITS.warnings ||
-    !value.every((item) => isBoundedString(item, AGENT_IMPORT_LIMITS.message))
-  )
-    invalid(label);
-  return value;
-}
-
 function isUniqueList<T extends string>(
   value: unknown,
   maximum: number,
@@ -122,7 +103,7 @@ function isUniqueList<T extends string>(
 }
 
 export function parseExportInstanceInput(value: unknown): ExportInstanceInput {
-  const input = record(value, "export request");
+  const input = decodeRecord(value, "export request");
   if (!isUniqueList(input.agentIds, INPUT_LIMITS.agents, isIdentifier) || input.agentIds.length === 0)
     invalid("agent selection");
   if (!isBoolean(input.includeFiles) || !isBoolean(input.includeSettings)) invalid("export request");
@@ -130,7 +111,7 @@ export function parseExportInstanceInput(value: unknown): ExportInstanceInput {
 }
 
 export function parseApplyInstanceTransferInput(value: unknown): ApplyInstanceTransferInput {
-  const input = record(value, "import request");
+  const input = decodeRecord(value, "import request");
   if (!isIdentifier(input.token)) invalid("import token");
   if (!isUniqueList(input.keys, INPUT_LIMITS.agents, isAgentImportKey)) invalid("agent selection");
   if (!isBoolean(input.includeSettings)) invalid("import request");
@@ -139,7 +120,7 @@ export function parseApplyInstanceTransferInput(value: unknown): ApplyInstanceTr
 }
 
 function decodeTransferAgent(value: unknown): InstanceTransferAgent {
-  const agent = record(value, "transfer agent");
+  const agent = decodeRecord(value, "transfer agent");
   if (
     !isIdentifier(agent.id) ||
     !isBoundedString(agent.name, INPUT_LIMITS.agentName) ||
@@ -156,29 +137,33 @@ function decodeTransferAgent(value: unknown): InstanceTransferAgent {
     avatarSeed: agent.avatarSeed,
     avatarHue: agent.avatarHue,
     avatarUrl: agent.avatarUrl,
-    skillCount: count(agent.skillCount, "transfer agent"),
-    routineCount: count(agent.routineCount, "transfer agent"),
-    memoryCount: count(agent.memoryCount, "transfer agent"),
-    fileCount: count(agent.fileCount, "transfer agent"),
-    fileBytes: count(agent.fileBytes, "transfer agent"),
+    skillCount: nonNegativeInteger(agent.skillCount, "transfer agent"),
+    routineCount: nonNegativeInteger(agent.routineCount, "transfer agent"),
+    memoryCount: nonNegativeInteger(agent.memoryCount, "transfer agent"),
+    fileCount: nonNegativeInteger(agent.fileCount, "transfer agent"),
+    fileBytes: nonNegativeInteger(agent.fileBytes, "transfer agent"),
   };
 }
 
 export function decodeInstanceTransferSummary(value: unknown): InstanceTransferSummary {
-  const summary = record(value, "transfer summary");
+  const summary = decodeRecord(value, "transfer summary");
   if (!Array.isArray(summary.agents) || summary.agents.length > INPUT_LIMITS.agents) invalid("transfer summary");
   return { agents: summary.agents.map(decodeTransferAgent) };
 }
 
 export function decodeInstanceExportResult(value: unknown): InstanceExportResult {
-  const result = record(value, "export result");
+  const result = decodeRecord(value, "export result");
   if (!isBoolean(result.saved) || !isNullableBoundedString(result.fileName, 255)) invalid("export result");
-  return { saved: result.saved, fileName: result.fileName, warnings: messages(result.warnings, "export warnings") };
+  return {
+    saved: result.saved,
+    fileName: result.fileName,
+    warnings: decodeImportMessages(result.warnings, "export warnings"),
+  };
 }
 
 export function decodeInstanceTransferPreview(value: unknown): InstanceTransferPreview | null {
   if (value === null) return null;
-  const preview = record(value, "transfer preview");
+  const preview = decodeRecord(value, "transfer preview");
   if (
     !isIdentifier(preview.token) ||
     !isBoundedString(preview.appVersion, INSTANCE_TRANSFER_LIMITS.appVersion) ||
@@ -194,38 +179,38 @@ export function decodeInstanceTransferPreview(value: unknown): InstanceTransferP
     exportedAt: preview.exportedAt,
     agents: preview.agents.map(decodeAgentImportPreviewAgent),
     hasSettings: preview.hasSettings,
-    warnings: messages(preview.warnings, "transfer warnings"),
+    warnings: decodeImportMessages(preview.warnings, "transfer warnings"),
   };
 }
 
 export function decodeInstanceTransferResult(value: unknown): InstanceTransferResult {
-  const result = record(value, "transfer result");
+  const result = decodeRecord(value, "transfer result");
   if (!Array.isArray(result.agents) || !result.agents.every(isClientAgentSummary)) invalid("transfer result");
   if (!isUniqueList(result.signIn, 32, isAgentProvider)) invalid("transfer result");
   return {
     agents: result.agents,
     skipped: decodeAgentImportSkipped(result.skipped, "skipped agent"),
     signIn: result.signIn,
-    warnings: messages(result.warnings, "transfer warnings"),
+    warnings: decodeImportMessages(result.warnings, "transfer warnings"),
   };
 }
 
 /** A remote host's summary: `instance-transfer-v1` carries no avatar addresses. */
 export function decodeRemoteInstanceTransferSummary(value: unknown): InstanceTransferSummary {
-  const summary = record(value, "transfer summary");
+  const summary = decodeRecord(value, "transfer summary");
   if (!Array.isArray(summary.agents)) invalid("transfer summary");
   return decodeInstanceTransferSummary({
-    agents: summary.agents.map((agent) => ({ ...record(agent, "transfer agent"), avatarUrl: null })),
+    agents: summary.agents.map((agent) => ({ ...decodeRecord(agent, "transfer agent"), avatarUrl: null })),
   });
 }
 
 /** A remote host's preview: `instance-transfer-v1` carries no avatars. */
 export function decodeRemoteInstanceTransferPreview(value: unknown): InstanceTransferPreview {
-  const preview = record(value, "transfer preview");
+  const preview = decodeRecord(value, "transfer preview");
   if (!Array.isArray(preview.agents)) invalid("transfer preview");
   const decoded = decodeInstanceTransferPreview({
     ...preview,
-    agents: preview.agents.map((agent) => ({ ...record(agent, "transfer agent"), avatarUrl: null })),
+    agents: preview.agents.map((agent) => ({ ...decodeRecord(agent, "transfer agent"), avatarUrl: null })),
   });
   if (!decoded) invalid("transfer preview");
   return decoded;
@@ -237,10 +222,10 @@ export interface RemoteInstanceTransferResult extends Omit<InstanceTransferResul
 }
 
 export function decodeRemoteInstanceTransferResult(value: unknown): RemoteInstanceTransferResult {
-  const result = record(value, "transfer result");
+  const result = decodeRecord(value, "transfer result");
   if (!Array.isArray(result.agents)) invalid("transfer result");
   const agents = result.agents.map((item) => {
-    const entry = record(item, "transferred agent");
+    const entry = decodeRecord(item, "transferred agent");
     if (!isIdentifier(entry.agentId) || !isBoundedString(entry.name, INPUT_LIMITS.agentName))
       invalid("transferred agent");
     return { agentId: entry.agentId, name: entry.name };

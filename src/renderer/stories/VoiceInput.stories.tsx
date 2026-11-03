@@ -3,8 +3,8 @@ import type { VoicePhase } from "@openbot/ui/features/conversation/VoiceRecordin
 import { currentText } from "@openbot/ui/text";
 import { createSignal, For, onCleanup, onSettled } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
-import { createConversationController } from "../src/features/conversation/Conversation";
 import { ConversationComposer } from "../src/features/conversation/ConversationComposer";
+import { createConversationController } from "../src/features/conversation/conversation-controller";
 import {
   ConversationControllerProvider,
   useConversationController,

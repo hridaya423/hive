@@ -8,17 +8,6 @@ import { PanelResizer } from "./PanelResizer";
 /** The default is also the minimum: a narrower panel breaks the avatar editor and the setting rows. */
 export const SETTINGS_PANEL_DEFAULT = 360;
 export const SETTINGS_PANEL_MAX = 1600;
-/** What the chat under the panel keeps for itself, however far the panel is dragged. */
-const CONVERSATION_PANEL_MIN = 96;
-
-/** Shared right-panel shell; caller owns per-owner sections. */
-
-/** How wide the panel may be drawn before the chat beside it is squeezed out of readability. */
-export function settingsPanelMaxWidth(host: HTMLElement | undefined): number {
-  const available = (host?.clientWidth || window.innerWidth) - CONVERSATION_PANEL_MIN;
-  return Math.min(SETTINGS_PANEL_MAX, Math.max(SETTINGS_PANEL_DEFAULT, available));
-}
-
 export interface SettingsPanelProps {
   id: string;
   label: string;

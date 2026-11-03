@@ -11,12 +11,11 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { MessagingConnection, MessagingPlatform, SetMessagingEnabledInput } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { type MessagingCredentials, MessagingService } from "../src/backend/messaging/messaging-service";
+import { MessagingService } from "../src/backend/messaging/messaging-service";
 import type {
   IngressAnswer,
   IngressDelivery,
@@ -27,6 +26,7 @@ import type {
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import { parseSetMessagingEnabledInput } from "../src/main/ipc/messaging-inputs";
+import { inertBrowserHost, memoryCredentials, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/messaging-pause-resume-e2e");
 const REPORT = join(OUT, "report.json");
@@ -67,23 +67,6 @@ async function step(name: string, run: () => Promise<unknown>): Promise<void> {
 }
 
 /** No step needs the browser or a platform API call: a call to one of them is a failure. */
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
 
 /** The relay as Signal drives it: the service sets one handler, and each event goes through it. */
 function fakeIngress(): { ingress: MessagingIngress; handler: () => IngressHandler | null } {
@@ -174,22 +157,6 @@ function fakeDriver(platform: MessagingPlatform, log: DriverLog): MessagingDrive
   };
 }
 
-/** The tokens of each connection, in memory. */
-function memoryCredentials(): MessagingCredentials {
-  const values = new Map<string, Record<string, string>>();
-  return {
-    keys: () => [...values.keys()],
-    status: (connectionId) => (values.has(connectionId) ? "saved" : "missing"),
-    get: (connectionId) => values.get(connectionId) ?? null,
-    set: (connectionId, value) => Effect.sync(() => void values.set(connectionId, value)),
-    clear: (connectionId) => Effect.sync(() => void values.delete(connectionId)),
-    retain: (connectionIds) =>
-      Effect.sync(() => {
-        for (const key of values.keys()) if (!connectionIds.has(key)) values.delete(key);
-      }),
-  };
-}
-
 // The credential store outlives one boot, as the keychain does.
 const credentials = memoryCredentials();
 
@@ -209,7 +176,7 @@ async function boot<T>(use: (services: Booted) => Promise<T>): Promise<T> {
   // The stores only: `AgentService.initialize` would start the provider CLIs, which no step needs.
   await runCauseEffect(store.initialize());
   await runCauseEffect(mailbox.initialize());
-  const agents = new AgentService({ store, mailbox, browser, sidebarLayout: sidebar });
+  const agents = new AgentService({ store, mailbox, browser: inertBrowserHost, sidebarLayout: sidebar });
   const logs = {
     slack: { identified: 0, started: 0, stopped: 0, delivered: 0, live: 0 },
     discord: { identified: 0, started: 0, stopped: 0, delivered: 0, live: 0 },

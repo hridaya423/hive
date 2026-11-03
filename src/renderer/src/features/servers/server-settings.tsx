@@ -113,6 +113,11 @@ const ServerSettings = createSimpleContext({
     let serverSettingsRestoreTarget: HTMLElement | null = null;
 
     const serverSettingsTarget = createMemo(() => servers().find((server) => server.id === serverSettingsTargetId()));
+    const requireServerSettingsTarget = () => {
+      const server = serverSettingsTarget();
+      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      return server;
+    };
     /** The server that the leave confirmation from the server menu asks about, and the element that asked. */
     const [leaveRequest, setLeaveRequest] = createSignal<{ serverId: string; trigger: HTMLElement | null } | null>(
       null,
@@ -340,8 +345,7 @@ const ServerSettings = createSimpleContext({
       email?: string;
       permanent?: boolean;
     }): Promise<InviteSummary> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       const analytics = desktopAnalytics.scope();
       let operationSucceeded = false;
       try {
@@ -372,8 +376,7 @@ const ServerSettings = createSimpleContext({
     }
 
     async function updateServerMember(input: UpdateTeamMemberInput): Promise<void> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       const analytics = desktopAnalytics.scope();
       let operationSucceeded = false;
       try {
@@ -395,8 +398,7 @@ const ServerSettings = createSimpleContext({
     }
 
     async function removeServerMember(memberId: string): Promise<void> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       const analytics = desktopAnalytics.scope();
       let operationSucceeded = false;
       try {
@@ -418,8 +420,7 @@ const ServerSettings = createSimpleContext({
     }
 
     async function revokeServerInvite(inviteId: string): Promise<void> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       const analytics = desktopAnalytics.scope();
       let operationSucceeded = false;
       try {
@@ -446,8 +447,7 @@ const ServerSettings = createSimpleContext({
      * the dialog's target, so the dialog closes here first.
      */
     async function leaveServer(): Promise<void> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       await removeMembership(server);
       setServerSettingsOpen(false);
     }
@@ -524,8 +524,7 @@ const ServerSettings = createSimpleContext({
      * stored: the panel holds it while it is open, and it says nothing about any later moment.
      */
     async function testMcpServer(config: McpServerConfig): Promise<McpTestResult> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       const analytics = desktopAnalytics.scope();
       const result = await serversPort().agent.testMcpServer({ config }, server.id);
       analytics.track("team_action", {
@@ -551,8 +550,7 @@ const ServerSettings = createSimpleContext({
      * host opens the page in its own browser, and the panel shows that tab while the sign-in waits.
      */
     async function signInMcpServer(config: McpServerConfig): Promise<McpTestResult> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       let waiting = true;
       const signIn = serversPort().agent.signInMcpServer({ config }, server.id);
       if (server.kind === "remote") {
@@ -608,35 +606,30 @@ const ServerSettings = createSimpleContext({
 
     /** Opens a relayed sign-in page in this computer's browser, after the user checked its host name. */
     async function openMcpSignInRelay(url: string): Promise<void> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       await serversPort().agent.openMcpSignInRelay({ url }, server.id);
     }
 
     /** The address the browser shows at the end of a relayed sign-in. Main sends only its query to the host. */
     async function pasteMcpSignInRelay(url: string, address: string): Promise<void> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       await serversPort().agent.completeMcpSignInRelay({ url, address }, server.id);
     }
 
     async function cancelMcpSignIn(url: string): Promise<void> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       await serversPort().agent.cancelMcpSignIn({ url }, server.id);
     }
 
     async function signOutMcpServer(mcpServerId: string): Promise<void> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       const states = await serversPort().agent.signOutMcpServer({ mcpServerId }, server.id);
       if (serverSettingsTargetId() === server.id) setServerSettingsMcpSignIns(mcpSignInRecord(states));
     }
 
     /** The OAuth app of a saved http row. The answer says only whether a secret is saved. */
     async function mcpSignInApp(mcpServerId: string): Promise<McpSignInAppState> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       return serversPort().agent.mcpSignInApp({ mcpServerId }, server.id);
     }
 
@@ -652,8 +645,7 @@ const ServerSettings = createSimpleContext({
     async function changeMcpSignInApp(
       change: (serverId: string) => Promise<McpSignInAppState>,
     ): Promise<McpSignInAppState> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       const state = await change(server.id);
       const signIns = await listMcpSignIns(server);
       if (serverSettingsTargetId() === server.id) setServerSettingsMcpSignIns(signIns);
@@ -688,8 +680,7 @@ const ServerSettings = createSimpleContext({
       failureCode: string,
       mutate: (serverId: string) => Promise<McpServerConfig[]>,
     ): Promise<void> {
-      const server = serverSettingsTarget();
-      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      const server = requireServerSettingsTarget();
       const analytics = desktopAnalytics.scope();
       let operationSucceeded = false;
       try {

@@ -6,9 +6,9 @@
  * is an unrelated thing, so every name here carries `mcp` and nothing here touches `ServerSummary`.
  *
  * The presentation-only helpers - a blank draft, the badge text, the badge variant - stay in
- * `src/renderer/src/features/servers/mcp-servers.ts`, which re-exports these types. What lives here
- * is what the main process must not re-implement: a second copy of `normalizeMcpConfig` would let
- * the row hold something the form never previewed.
+ * `src/renderer/src/features/servers/mcp-servers.ts`. What lives here is what the main process
+ * must not re-implement: a second copy of `normalizeMcpConfig` would let the row hold something the
+ * form never previewed.
  */
 
 import { INPUT_LIMITS } from "./input-limits";

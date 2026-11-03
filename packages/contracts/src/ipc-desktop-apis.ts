@@ -21,10 +21,6 @@ export interface AgentDesktopApi extends PathApi<"agent"> {
   onEvent: (listener: (event: AgentEvent) => void) => () => void;
 }
 
-export type AgentTemplatesDesktopApi = GroupApi<IpcEndpoints["agentTemplates"]>;
-
-export type MarketplaceAgentsDesktopApi = GroupApi<IpcEndpoints["marketplaceAgents"]>;
-
 /**
  * `startLiveView` starts a live view of a tab on the active remote server; a local tab is already on
  * screen. `sendLiveViewInput` is the untyped `browserInput` endpoint, so it is written here.
@@ -41,15 +37,7 @@ export interface BrowserDesktopApi extends GroupApi<IpcEndpoints["browser"]> {
  */
 export type ComputerUseDesktopApi = GroupApi<IpcEndpoints["computerUse"]>;
 
-export type CentralAuthDesktopApi = GroupApi<IpcEndpoints["auth"]>;
-
-export type UpdateDesktopApi = GroupApi<IpcEndpoints["update"]>;
-
-export type NotificationsDesktopApi = GroupApi<IpcEndpoints["notifications"]>;
-
 export type ProviderRuntimesDesktopApi = GroupApi<IpcEndpoints["providerRuntimes"]>;
-
-export type MaintenanceDesktopApi = GroupApi<IpcEndpoints["maintenance"]>;
 
 export type DynamicIslandDesktopApi = GroupApi<IpcEndpoints["dynamicIsland"]>;
 
@@ -69,14 +57,6 @@ export interface ServersDesktopApi extends GroupApi<IpcEndpoints["servers"]> {
  * and a link that carried the listing itself would let the address bar describe what gets installed.
  */
 export type PluginsDesktopApi = GroupApi<IpcEndpoints["plugins"]>;
-
-export type HostDesktopApi = GroupApi<IpcEndpoints["host"]>;
-
-export type RemoteDesktopDesktopApi = GroupApi<IpcEndpoints["remoteDesktop"]>;
-
-export type VoiceDesktopApi = GroupApi<IpcEndpoints["voice"]>;
-
-export type SkillsDesktopApi = GroupApi<IpcEndpoints["skills"]>;
 
 export type HostedSitesDesktopApi = GroupApi<IpcEndpoints["hostedSites"]>;
 export type GitHubConnectorDesktopApi = GroupApi<IpcEndpoints["githubConnector"]>;

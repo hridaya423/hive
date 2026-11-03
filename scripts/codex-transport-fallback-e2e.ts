@@ -10,9 +10,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AGENT_PROVIDERS } from "@openbot/contracts/ipc";
 import { teeLogLines } from "@openbot/logging";
-import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { getString, isRecord } from "../src/backend/protocol";
+import { inertBrowserHost, waitFor } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/codex-transport-fallback-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-transport-fallback-"));
@@ -135,24 +134,6 @@ interface CaseReport {
 
 const report: { cases: CaseReport[]; passed: boolean; error?: string } = { cases: [], passed: false };
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
 /** The `turn/start` requests that OpenBot sent on a thread. */
 function turnStarts(threadId: string): number {
   return readFileSync(logPath, "utf8")
@@ -168,17 +149,6 @@ function turnStarts(threadId: string): number {
     ).length;
 }
 
-/** Waits for a state of the service or of the fake Codex. */
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = read();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}.`);
-    await new Promise((done) => setTimeout(done, 25));
-  }
-}
-
 await writeFile(fakeCodex, FAKE_CODEX, { mode: 0o755 });
 const database = new OpenBotDatabase(userData);
 const store = new AgentStore(userData, home, database);
@@ -186,7 +156,7 @@ const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 const agents = new AgentService({
   store,
   mailbox,
-  browser,
+  browser: inertBrowserHost,
   preferredProvider: "codex",
   offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "codex"),
 });

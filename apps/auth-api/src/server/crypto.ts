@@ -27,7 +27,6 @@ export const hmacSha256 = Effect.fn("Crypto.hmacSha256")(function* (secret: stri
  * Derives a key for one use from a secret that has another use. A different label gives an unrelated
  * key, so the derived key tells nothing about the secret or about a key with another label.
  */
-
 export const deriveSecret = Effect.fn("Crypto.deriveSecret")(function* (secret: string, label: string) {
   const encoder = new TextEncoder();
   const key = yield* cryptoCall(() =>

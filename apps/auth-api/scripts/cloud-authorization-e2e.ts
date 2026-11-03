@@ -12,7 +12,7 @@ import { BillingSales } from "../src/server/billing-sales";
 import { enforceMarketplaceIngress } from "../src/server/marketplace-request-policy";
 import { RemoteControlPlane } from "../src/server/remote-control-plane";
 import type { AuthUser } from "../src/server/types";
-import { sqliteD1 } from "./sqlite-d1";
+import { migratedDatabase, sqliteD1 } from "./sqlite-d1";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 const OUT = join(ROOT, ".openbot-build", "cloud-authorization-e2e");
@@ -22,13 +22,6 @@ const HOST_ID = "host-1";
 const checks: { name: string; passed: boolean; detail?: unknown }[] = [];
 function check(name: string, passed: boolean, detail?: unknown) {
   checks.push({ name, passed, ...(detail === undefined ? {} : { detail }) });
-}
-
-async function migratedDatabase() {
-  const database = new DatabaseSync(":memory:");
-  database.exec("PRAGMA foreign_keys = ON");
-  for (const name of (await readdir(MIGRATIONS)).sort()) database.exec(await readFile(join(MIGRATIONS, name), "utf8"));
-  return database;
 }
 
 function addUser(database: DatabaseSync, id: string): AuthUser {

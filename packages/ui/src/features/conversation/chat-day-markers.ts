@@ -6,6 +6,7 @@
 
 import type { AppFormat, AppTranslate } from "@openbot/i18n";
 import { currentText } from "@openbot/ui/text";
+import { startOfDay } from "@openbot/ui/utils";
 
 /** The clock a caller can replace, so a test does not depend on the day the test runs. */
 export interface DayMarkerOptions {
@@ -16,10 +17,6 @@ export interface DayMarkerOptions {
   t?: AppTranslate;
   /** The interface formats. Without it, the date and time use `locale`. */
   format?: AppFormat;
-}
-
-function startOfDay(value: Date): number {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
 }
 
 function dayDifference(from: Date, to: Date): number {

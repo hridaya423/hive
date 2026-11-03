@@ -6,7 +6,7 @@
 //
 // The hexes below are copies of brand tokens. A WebGL uniform needs a real colour,
 // not a var(), and this module is read by the build-time generator where no
-// document exists to resolve one. The same test pins them to tokens.css.
+// document exists to resolve one.
 
 /** `--openbot-logo-production` */
 const LOGO_PRODUCTION = "#d6adf2";
@@ -32,21 +32,6 @@ const MAGENTA = "#ff1e5e";
 const DIM = "#6a6a6a";
 /** `--openbot-bg-canvas`, the page behind the card */
 const CANVAS = "#1a1a1a";
-
-export const ARTICLE_GRADIENT_BRAND_HEXES = {
-  "--openbot-logo-production": LOGO_PRODUCTION,
-  "--openbot-warning": LOGO_DEV,
-  "--openbot-success": LOGO_PREVIEW,
-  "--openbot-accent": ACCENT,
-  "--openbot-unread-surface": UNREAD,
-  "--openbot-onboarding-desktop-indigo": INDIGO,
-  "--openbot-chart-series-grok": CYAN,
-  "--openbot-provider-claude": TERRACOTTA,
-  "--openbot-danger-text": CORAL,
-  "--openbot-badge-new": MAGENTA,
-  "--openbot-text-dim": DIM,
-  "--openbot-bg-canvas": CANVAS,
-} as const;
 
 // Four deep anchors that are not brand tokens. Nothing in the product is this
 // dark and this saturated, and the mesh needs somewhere for a hue to go before it

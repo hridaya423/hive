@@ -2,7 +2,7 @@ import { markdownPreviewText } from "@openbot/contracts/markdown-preview-text";
 import { Button } from "@openbot/ui";
 import { createDigitRoll } from "@openbot/ui/digit-roll";
 import { useText } from "@openbot/ui/text";
-import { prefersReducedMotion } from "@openbot/ui/utils";
+import { clamp, prefersReducedMotion } from "@openbot/ui/utils";
 import { createEffect, createMemo, createSignal, createStore, For, onSettled, Show, untrack } from "solid-js";
 import type { DayMarkerOptions } from "./chat-day-markers";
 import type { ChatVirtualizer } from "./createChatVirtualizer";
@@ -339,7 +339,9 @@ export function ChatScrollRail(props: ChatScrollRailProps) {
           // Only the segments the place moves through change, so a scroll frame restyles one or two.
           assign(
             state.fills,
-            starts.map((start, index) => round(clamp((position - start) / Math.max(1, (ends[index] ?? 0) - start)))),
+            starts.map((start, index) =>
+              round(clamp((position - start) / Math.max(1, (ends[index] ?? 0) - start), 0, 1)),
+            ),
           );
           state.active =
             openedIndex >= 0 && position === target
@@ -551,10 +553,6 @@ function assign(target: number[], values: readonly number[]): void {
 
 function round(value: number): number {
   return Math.round(value * 1_000) / 1_000;
-}
-
-function clamp(value: number): number {
-  return Math.min(1, Math.max(0, value));
 }
 
 function pad(value: number): string {

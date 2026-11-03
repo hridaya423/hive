@@ -1,8 +1,7 @@
 import { referenceFrom } from "@openbot/user-errors";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Linking } from "react-native";
+import { AppState } from "react-native";
 import { type SharedValue, useSharedValue, withTiming } from "react-native-reanimated";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { AUTOMATIC_DICTATION_LANGUAGE, useDictationLanguage } from "@/features/settings/model/dictation-language";
 import { parakeetSupported, useParakeetModel } from "@/features/voice/model/parakeet-model";
@@ -12,11 +11,9 @@ import { haptics } from "@/shared/lib/haptics";
 import { phoneLanguages } from "@/shared/lib/phone-languages";
 import { isIOS } from "@/shared/lib/platform";
 import { speechRecognition } from "@/shared/lib/speech-recognition";
-import { currentText } from "@/shared/lib/text";
 import { useAppForeground } from "@/shared/lib/use-app-foreground";
 import {
   applyDictationResult,
-  type DictationNotice,
   type DictationPhase,
   type DictationTranscript,
   dictationDraft,
@@ -29,6 +26,7 @@ import {
   retriesWithSystemService,
   spokenText,
 } from "../model/voice-dictation";
+import { showDictationNotice } from "./dictation-notice";
 import { type ModelRecognition, modelCaptureAvailable, useModelDictation } from "./use-model-dictation";
 
 type Recognizer = NonNullable<typeof speechRecognition>;
@@ -146,23 +144,6 @@ async function recognitionOptions(module: Recognizer, supported: Promise<Support
   return { lang, requiresOnDeviceRecognition };
 }
 
-function showNotice(notice: DictationNotice, error?: unknown): void {
-  void haptics.notification("error");
-  const { t } = currentText();
-  showFailureAlert(
-    error,
-    "voice",
-    t(notice.title),
-    t(notice.message),
-    notice.openSettings
-      ? [
-          { text: t("common.cancel"), style: "cancel" },
-          { text: t("mobile.chat.dictation.openSettings"), onPress: () => void Linking.openSettings() },
-        ]
-      : undefined,
-  );
-}
-
 export interface VoiceDictation {
   available: boolean;
   phase: DictationPhase;
@@ -272,7 +253,7 @@ function useSystemDictation({
         const notice = dictationNotice(event.error);
         if (notice) current.ending = event.error === "not-allowed" ? "permission_denied" : "operation_failed";
         // The recognizer's error name is a fixed identifier, so it can be the code of the failure.
-        if (notice) showNotice(notice, { reference: referenceFrom("speech", event.error) });
+        if (notice) showDictationNotice(notice, { reference: referenceFrom("speech", event.error) });
       }),
       speechRecognition.addListener("end", () => {
         const current = session.current;
@@ -324,7 +305,7 @@ function useSystemDictation({
           if (!permission.granted) {
             current.ending = "permission_denied";
             settle();
-            showNotice(microphoneOffNotice);
+            showDictationNotice(microphoneOffNotice);
             return;
           }
           locales.current ??= supportedLocales(module);
@@ -344,7 +325,7 @@ function useSystemDictation({
           if (session.current !== current) return;
           current.ending = "operation_failed";
           settle();
-          showNotice(dictationFailedNotice, error);
+          showDictationNotice(dictationFailedNotice, error);
         }
       })();
       return true;
