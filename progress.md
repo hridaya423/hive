@@ -19,7 +19,7 @@ Plan: `docs/plans/2026-11-03-personal-openbot.md`. Research: `docs/plans/researc
 - 2026-11-03: Added Task 1.9 (minimal tool descriptions with a tool-choice eval), Task 6.5 (one agent list across hosts, move agents), Phase 8 (performance hill-climb with a scoreboard and budgets), Phase 9 (WhatsApp through Baileys on the mini). ntfy may run on the mini or the Windows PC.
 
 ## Blocked on Hridya
-- Mac mini screen: macOS permission prompts are stacked on screen and the mini's desktop is shared with another agent's Chrome window. Agents must not answer permission prompts. Pending: "Hive would like to access files in your Downloads folder", "Hive ... local network", and "cua-spacesd wants to control System Events" (caused by an `osascript` probe of mine). Answer them, or tell me which to allow.
+- Mac mini permission prompts (Hive Downloads, Hive local network, `cua-spacesd` controlling System Events): Hridya approved all three on 2026-11-03. Resolved.
 - Task 0.4 (steps 1 to 3): the packaged Hive needs an account sign-in (`AppView.tsx:77`), Codex connected on the mini, and an agent `Probe`. Nothing can drive the Hive window on the mini today (see Phase 0 evidence). Need Hridya for the sign-in. Not started: no baseline numbers yet.
 - Copilot browser sign-in (Task 3.1), and a second GitHub login if Task 3.3 runs.
 - Second Codex account sign-in (Task 4.1).
