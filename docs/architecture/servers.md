@@ -67,25 +67,11 @@ the metric furthest above its level in place of the storage card, which then doe
 above the level (95%, or 10 points above a higher level) it is red and cannot be closed. A closed card
 stays closed for that metric and level until the use goes below every level.
 
-### Hosted sites per server
+### Hosted sites
 
-A hosted site belongs to the server that published it (`hosted_sites.server_id`, D1 `0024`). The user
-stays the accountable owner, for abuse reports, blocks and account deletion. The desktop sends
-`OpenBot-Host-Id` and `OpenBot-Host-Token` (the machine token of `/v2/remote/hosts/register`) on each
-`/v1/sites` request when it is a registered server. The Worker checks the hash and that the host owner
-is the request user; a wrong token is refused with 401, never counted as unlinked. The active-site
-limit comes from the server's plan (`siteLimitForPlan`: none 1, Starter 3, Standard 10, Pro 50). A
-request with no server headers creates only into the account's unlinked bucket (limit 1,
-`server_id IS NULL`); with no `?scope=unlinked`, it still lists and deletes every site of the account,
-the released meaning of `/v1/sites`. Replace and delete in a server scope refuse a site of another
-bucket with 409 `site_other_server`. A downgrade deletes nothing: a server above its limit cannot
-create a site, but it can replace one, and the extra sites end at their expiry. Removing a server moves its sites to the owner's unlinked bucket, so the owner's desktop can still delete them. A registered server updates a site that it published before registration in the unlinked scope.
-
-`hostedSites.list` and `hostedSites.delete` IPC are server-scoped; publish and replace stay local. The
-optional `hosted-sites-v1` capability exposes `POST /v1/hosted-sites/list` for every member and
-`POST /v1/hosted-sites/delete` for an owner or admin, with the frozen codec in
-`team-protocol/hosted-sites-v1.ts`. The host answers with its own account and credential, and only with the server's own sites: the owner's unlinked sites never reach a member, and the Team API has no fallback to delete one. Sites are
-managed in Server settings > Sites, on the desktop and in the browser.
+Hive has no hosted sites. The account Worker has no `/v1/sites` route, and no host serves the
+optional `hosted-sites-v1` capability. The frozen codec stays in `team-protocol/hosted-sites-v1.ts`
+and the D1 tables stay, because released Team API adapters and migrations are permanent.
 
 ### Leaving a server
 
