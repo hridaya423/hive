@@ -2,10 +2,56 @@
 
 Hive is a personal fork of [OpenBot](https://github.com/nightly-labs/openbot), a local-first desktop
 workspace for persistent AI agents. Each agent has its own workspace and conversation. Agents run
-on the local CLIs of Codex, Claude Code, Grok, OpenCode, Gemini, Cursor, Cline, Kimi and Hermes.
+on the local CLIs of Codex, Claude Code, GitHub Copilot, Grok, OpenCode, Gemini, Cursor, Cline, Kimi
+and Hermes.
 
-The fork removes the paid hosted servers, the licence purchase flow and the telemetry. It keeps the
-app id `dev.hridaya.hive` and the data folder `Hive`, so it does not touch an installed OpenBot.
+Hive uses the app id `dev.hridaya.hive` and the data folder `Hive`, so it does not touch an installed
+OpenBot. It can import an OpenBot setup.
+
+## What Hive changes
+
+**Nothing goes to upstream**
+
+- Hive sends nothing to OpenBot's servers: no telemetry, no update checks, no store checks.
+- Accounts, sign-in and phone pairing run on a control plane that you host yourself (the account
+  Worker and Signal), here on a Mac mini behind Tailscale. The owner signs in through Tailscale, with
+  no email code.
+- Hive starts and works offline. The control plane URLs come from `fork.config.json` at build time.
+- The paid hosted servers, hosted sites, licence purchase, seats, billing, the shop and the marketing
+  site are removed. The interface is English only.
+
+**Providers**
+
+- GitHub Copilot is a first-class provider. It signs in with GitHub. An account with no Copilot plan
+  gets its own message and a link to turn the plan on.
+- A Copilot agent gets only the MCP servers that you give it in Hive, not the servers of your own
+  Copilot settings. When Copilot has no room left, the turn fails with a clear message.
+- Fallback chains: when a provider fails or reaches its limit, the agent moves to the next model in
+  the chain. Routine runs fail over too. Hive supports a second Codex account.
+
+**Agents and routines**
+
+- When an agent sends requests to several teammates in one turn, it reads all their answers in one
+  turn and gives one combined reply.
+- A routine that came due while the computer was off runs once when Hive starts again.
+- Agents can move between hosts, and the app shows all hosts in one place.
+- `scripts/import-openbot-setup.ts` copies the agents, routines and workspaces of an OpenBot install
+  into Hive. It reads the OpenBot database from a snapshot and never writes to it.
+
+**Phone and messages**
+
+- An Android build of the phone app.
+- Notifications go through your own ntfy server, not Firebase.
+- WhatsApp is a channel, through Baileys, with a list of the chats an agent can use.
+
+**Cost and speed**
+
+- Fewer tokens per request: the first request of a turn dropped from about 53,900 to 27,200 tokens.
+  Computer Use is off by default, tool descriptions are shorter, and skill changes go as deltas.
+- Fewer background messages while you type or while an agent works.
+
+The plan and the measurements are in [docs/plans/2026-11-03-personal-openbot.md](docs/plans/2026-11-03-personal-openbot.md)
+and [progress.md](progress.md).
 
 > [!WARNING]
 > Agents run with `danger-full-access` and `approvalPolicy: never`. They can read and change
