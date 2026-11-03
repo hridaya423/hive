@@ -418,11 +418,6 @@ export const messages = defineMessages("settings", {
   "settings.updates.allowRemote.title": "Allow updates from server members",
   "settings.updates.allowRemote.description":
     "All signed-in server members can request an update when this computer is idle. Owners and admins can also force a restart.",
-  // The Voice tab: dictation models and the dictation language.
-  "settings.hostedServers.plan.soldOut": "Sold out",
-  "settings.hostedServers.plan.starter.name": "Starter",
-  "settings.hostedServers.plan.standard.name": "Standard",
-  "settings.hostedServers.plan.pro.name": "Pro",
   "settings.voice.models.title": "Dictation model",
   "settings.voice.model.parakeet.description": "Fast. Finds the spoken language itself, in 25 European languages.",
   "settings.voice.model.bark.description": "Fast. English only. Writes mostly lowercase, with little punctuation.",
