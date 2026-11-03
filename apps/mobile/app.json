@@ -41,6 +41,7 @@
     "plugins": [
       "./plugins/with-rocketsim",
       "./plugins/with-workspace-bundle-inputs",
+      "./plugins/with-release-signing",
       "expo-router",
       "expo-video",
       [
