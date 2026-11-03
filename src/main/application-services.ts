@@ -791,7 +791,7 @@ async function createMessagingServices({
       discordDriver({ ingress: signalIngress }),
       telegramDriver({ ingress: signalIngress }),
       whatsappDriver({
-        connect: baileysConnect(join(app.getPath("userData"), "whatsapp", "runtime")),
+        connect: baileysConnect,
         authDir: join(app.getPath("userData"), "whatsapp", "auth"),
       }),
     ],

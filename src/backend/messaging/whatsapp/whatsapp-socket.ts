@@ -1,16 +1,8 @@
-/**
- * The part of a Baileys socket that Hive uses, written as plain types. Baileys depends on a GPL-3.0
- * library, so it is never a dependency of this repository: `whatsapp-baileys.ts` loads it at run time
- * from a separate install, and a fake that has these types stands in for it in tests.
- */
+import type { WAMessage, WAMessageKey } from "baileys";
 
-export interface WhatsAppMessageKey {
-  remoteJid?: string | null;
-  remoteJidAlt?: string | null;
-  fromMe?: boolean | null;
-  id?: string | null;
-  participant?: string | null;
-}
+/** The part of a Baileys socket that Hive uses, so the e2e test can stand in a fake socket. */
+
+export type WhatsAppMessageKey = WAMessageKey;
 
 export interface WhatsAppContextInfo {
   stanzaId?: string | null;
@@ -38,23 +30,18 @@ export interface WhatsAppContent {
   stickerMessage?: WhatsAppMedia | null;
 }
 
-export interface WhatsAppMessage {
-  key: WhatsAppMessageKey;
-  message?: WhatsAppContent | null;
-  messageTimestamp?: number | { toNumber(): number } | null;
-  pushName?: string | null;
-}
+export type WhatsAppMessage = WAMessage;
 
 export type WhatsAppOutbound =
   | { text: string; edit?: WhatsAppMessageKey }
   | { react: { text: string; key: WhatsAppMessageKey } }
-  | { image: Uint8Array; caption?: string; mimetype?: string }
-  | { document: Uint8Array; mimetype: string; fileName: string };
+  | { image: Buffer; caption?: string; mimetype?: string }
+  | { document: Buffer; mimetype: string; fileName: string };
 
 export interface WhatsAppConnectionUpdate {
   connection?: "connecting" | "open" | "close";
   qr?: string;
-  lastDisconnect?: { error?: { output?: { statusCode?: number } } };
+  lastDisconnect?: { error?: Error };
 }
 
 export interface WhatsAppEvents {

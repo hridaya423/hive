@@ -62,6 +62,8 @@ const report: { steps: Step[]; passed: boolean; unverified: string[] } = {
   ],
 };
 
+const closeError = (statusCode: number): Error => Object.assign(new Error("closed"), { output: { statusCode } });
+
 async function step(name: string, run: () => Promise<unknown>): Promise<void> {
   const entry: Step = { name, passed: false };
   report.steps.push(entry);
@@ -344,7 +346,7 @@ try {
     await step("a lost connection reconnects with backoff and keeps the same auth folder", async () => {
       const first = sockets.length;
       connectFailures = 2;
-      liveSocket().update({ connection: "close", lastDisconnect: { error: { output: { statusCode: 408 } } } });
+      liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(408) } });
       await waitFor("a new socket after two failed attempts", () => sockets.length > first);
       liveSocket().update({ connection: "open" });
       await waitFor("connected again", () => messaging.whatsappOverview().connections[0]?.state === "connected");
@@ -355,7 +357,7 @@ try {
 
     await step("a restart request after pairing reconnects at once", async () => {
       const before = sockets.length;
-      liveSocket().update({ connection: "close", lastDisconnect: { error: { output: { statusCode: 515 } } } });
+      liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(515) } });
       await waitFor("the restart socket", () => sockets.length > before);
       liveSocket().update({ connection: "open" });
       return { restarted: true };
@@ -365,7 +367,7 @@ try {
       mkdirSync(authDir, { recursive: true });
       writeFileSync(join(authDir, "creds.json"), "{}");
       const before = sockets.length;
-      liveSocket().update({ connection: "close", lastDisconnect: { error: { output: { statusCode: 401 } } } });
+      liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(401) } });
       await waitFor("the stopped state", () => messaging.whatsappOverview().connections[0]?.state === "invalid_token");
       await new Promise((done) => setTimeout(done, 50));
       assert.equal(sockets.length, before, "It reconnected after the unlink.");

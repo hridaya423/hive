@@ -1,4 +1,5 @@
 import { rm } from "node:fs/promises";
+import { isDynamicRecord, isNumber } from "@openbot/contracts/runtime-values";
 import type { Logger } from "@openbot/logging";
 import { Effect } from "effect";
 import type { MessagingTransport, TransportSink } from "../messaging-types";
@@ -15,6 +16,12 @@ const WHATSAPP_RETRY_CAP_MS = 30_000;
 
 export function whatsappRetryDelayMs(attempt: number): number {
   return Math.min(WHATSAPP_RETRY_CAP_MS, 1_000 * 2 ** attempt);
+}
+
+function closeStatus(error: Error | undefined): number | undefined {
+  const output = isDynamicRecord(error) ? error.output : undefined;
+  const status = isDynamicRecord(output) ? output.statusCode : undefined;
+  return isNumber(status) ? status : undefined;
 }
 
 /** Shows the pairing QR code to the user. `null` removes it, after the account is linked. */
@@ -119,7 +126,7 @@ export class WhatsAppTransport implements MessagingTransport {
       sink.state("connected");
     }
     if (update.connection !== "close") return;
-    const status = update.lastDisconnect?.error?.output?.statusCode;
+    const status = closeStatus(update.lastDisconnect?.error);
     this.#dropClient();
     if (status === WHATSAPP_CLOSE.loggedOut) {
       this.#generation += 1;
