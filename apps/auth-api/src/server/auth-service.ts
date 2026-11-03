@@ -310,6 +310,35 @@ export class AuthService {
     (operation) => operation.pipe(Effect.mapError(authFailure), Effect.provide(this.#layer)),
   ).bind(this);
 
+  readonly signInOwner = Effect.fn("AuthService.signInOwner")(
+    function* (
+      this: AuthService,
+      emailInput: string,
+      sourceIp: string,
+    ): Effect.fn.Return<{ sessionToken: string; user: AuthUser }, AuthWorkflowFailure, AuthDependencies> {
+      const dependencies = yield* AuthDependencies;
+      const email = yield* authValidate(() => normalizeEmail(emailInput));
+      const now = dependencies.now();
+      yield* this.#enforceRateLimit(`owner:ip:${normalizeSourceIp(sourceIp)}`, 20, now);
+      const challengeId = randomToken();
+      const code = generateOneTimeCode();
+      const idHash = yield* sha256(challengeId);
+      const created = yield* dependencies.repository.createEmailChallenge({
+        idHash,
+        email,
+        codeHash: yield* sha256(normalizeOneTimeCode(code)),
+        sourceIpHash: yield* sha256(normalizeSourceIp(sourceIp)),
+        createdAt: now,
+        expiresAt: now + CHALLENGE_TTL_MS,
+        maxAttempts: 5,
+      });
+      if (!created) return yield* new AuthOperationError({ message: "Account operation failed." });
+      yield* dependencies.repository.completeEmailChallengeDelivery(idHash, "sent", now);
+      return yield* this.#verifyEmailChallenge({ challengeId, code, sourceIp, surface: "desktop" });
+    },
+    (operation) => operation.pipe(Effect.mapError(authFailure), Effect.provide(this.#layer)),
+  ).bind(this);
+
   readonly #verifyEmailChallenge = Effect.fn("AuthService.verifyEmailChallenge")(function* (
     this: AuthService,
     input: {

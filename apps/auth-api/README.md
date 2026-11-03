@@ -226,3 +226,24 @@ from Firebase console > Project settings > Service accounts > Generate new priva
 the encrypted environment as one line (`jq -c . <file>.json`) and into the `cloudflare-production`
 GitHub environment. A deployment stops before remote changes when the value is not a service account
 key file. The local Worker sends to Firebase directly.
+
+## Private control plane and owner sign-in
+
+A Worker that runs for one owner on a private network signs the owner in with no email.
+`POST /v1/auth/owner` creates a session for `OWNER_EMAIL` when the request header
+`Tailscale-User-Login` equals `OWNER_TAILNET_LOGIN` (compared without regard to letter case).
+Without both variables, or with another login or no header, the route answers 403. The email
+sign-in routes stay, but with `AUTH_EXPOSE_DEVELOPMENT_CODE=false` and no SMTP they answer 503, so
+the owner is the only account.
+
+The header is only as strong as the way the request arrives. Keep three rules:
+
+- The Worker listens on `127.0.0.1` only. The source address of every request is then loopback and
+  proves nothing, so the route trusts the header instead.
+- `tailscale serve` is the only way in. It adds `Tailscale-User-Login` after it has identified the
+  caller. Never use `tailscale funnel`, and never put another proxy in front: a public route would
+  let any caller send the header.
+- Run it only where every process on the machine is trusted, since a local process can send the
+  header to loopback itself.
+
+`ops/mini/README.md` has the install steps for the Mac mini.

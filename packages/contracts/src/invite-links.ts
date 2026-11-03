@@ -1,9 +1,10 @@
 import { APP_URL_PROTOCOL, APP_URL_SCHEME } from "./app-url-scheme";
+import { FORK_CONFIG } from "./fork-config";
 import { isOpenBotTeamApiHostname } from "./validation";
 
 export const OPENBOT_INVITE_ORIGIN = "https://openbot.run";
 export const OPENBOT_INVITE_PATH = "/join";
-export const OPENBOT_CONTROL_PLANE_ORIGIN = "https://api.openbot.run";
+export const OPENBOT_CONTROL_PLANE_ORIGIN = new URL(FORK_CONFIG.controlPlane.accountApiUrl).origin;
 
 /**
  * The finite deadline a permanent invitation carries. Invitation expiry travels the

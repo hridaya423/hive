@@ -25,6 +25,7 @@ import { Route as V1AgentTemplatesIndexRouteImport } from './routes/v1/agent-tem
 import { Route as V1AgentTemplatesTemplateIdRouteImport } from './routes/v1/agent-templates/$templateId'
 import { Route as V1AgentTemplatesMineRouteImport } from './routes/v1/agent-templates/mine'
 import { Route as V1AuthLogoutRouteImport } from './routes/v1/auth/logout'
+import { Route as V1AuthOwnerRouteImport } from './routes/v1/auth/owner'
 import { Route as V1AvatarsUserIdRouteImport } from './routes/v1/avatars/$userId'
 import { Route as V1GithubInstallationTokensRouteImport } from './routes/v1/github/installation-tokens'
 import { Route as V1MeAnalyticsRouteImport } from './routes/v1/me/analytics'
@@ -197,6 +198,11 @@ const V1AgentTemplatesMineRoute = V1AgentTemplatesMineRouteImport.update({
 const V1AuthLogoutRoute = V1AuthLogoutRouteImport.update({
   id: '/v1/auth/logout',
   path: '/v1/auth/logout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const V1AuthOwnerRoute = V1AuthOwnerRouteImport.update({
+  id: '/v1/auth/owner',
+  path: '/v1/auth/owner',
   getParentRoute: () => rootRouteImport,
 } as any)
 const V1AvatarsUserIdRoute = V1AvatarsUserIdRouteImport.update({
@@ -721,6 +727,7 @@ export interface FileRoutesByFullPath {
   '/v1/agent-templates/$templateId': typeof V1AgentTemplatesTemplateIdRouteWithChildren
   '/v1/agent-templates/mine': typeof V1AgentTemplatesMineRoute
   '/v1/auth/logout': typeof V1AuthLogoutRoute
+  '/v1/auth/owner': typeof V1AuthOwnerRoute
   '/v1/avatars/$userId': typeof V1AvatarsUserIdRoute
   '/v1/github/installation-tokens': typeof V1GithubInstallationTokensRoute
   '/v1/me/analytics': typeof V1MeAnalyticsRoute
@@ -830,6 +837,7 @@ export interface FileRoutesByTo {
   '/v1/agent-templates/$templateId': typeof V1AgentTemplatesTemplateIdRouteWithChildren
   '/v1/agent-templates/mine': typeof V1AgentTemplatesMineRoute
   '/v1/auth/logout': typeof V1AuthLogoutRoute
+  '/v1/auth/owner': typeof V1AuthOwnerRoute
   '/v1/avatars/$userId': typeof V1AvatarsUserIdRoute
   '/v1/github/installation-tokens': typeof V1GithubInstallationTokensRoute
   '/v1/me/analytics': typeof V1MeAnalyticsRoute
@@ -940,6 +948,7 @@ export interface FileRoutesById {
   '/v1/agent-templates/$templateId': typeof V1AgentTemplatesTemplateIdRouteWithChildren
   '/v1/agent-templates/mine': typeof V1AgentTemplatesMineRoute
   '/v1/auth/logout': typeof V1AuthLogoutRoute
+  '/v1/auth/owner': typeof V1AuthOwnerRoute
   '/v1/avatars/$userId': typeof V1AvatarsUserIdRoute
   '/v1/github/installation-tokens': typeof V1GithubInstallationTokensRoute
   '/v1/me/analytics': typeof V1MeAnalyticsRoute
@@ -1051,6 +1060,7 @@ export interface FileRouteTypes {
     | '/v1/agent-templates/$templateId'
     | '/v1/agent-templates/mine'
     | '/v1/auth/logout'
+    | '/v1/auth/owner'
     | '/v1/avatars/$userId'
     | '/v1/github/installation-tokens'
     | '/v1/me/analytics'
@@ -1160,6 +1170,7 @@ export interface FileRouteTypes {
     | '/v1/agent-templates/$templateId'
     | '/v1/agent-templates/mine'
     | '/v1/auth/logout'
+    | '/v1/auth/owner'
     | '/v1/avatars/$userId'
     | '/v1/github/installation-tokens'
     | '/v1/me/analytics'
@@ -1269,6 +1280,7 @@ export interface FileRouteTypes {
     | '/v1/agent-templates/$templateId'
     | '/v1/agent-templates/mine'
     | '/v1/auth/logout'
+    | '/v1/auth/owner'
     | '/v1/avatars/$userId'
     | '/v1/github/installation-tokens'
     | '/v1/me/analytics'
@@ -1379,6 +1391,7 @@ export interface RootRouteChildren {
   V1AgentTemplatesTemplateIdRoute: typeof V1AgentTemplatesTemplateIdRouteWithChildren
   V1AgentTemplatesMineRoute: typeof V1AgentTemplatesMineRoute
   V1AuthLogoutRoute: typeof V1AuthLogoutRoute
+  V1AuthOwnerRoute: typeof V1AuthOwnerRoute
   V1AvatarsUserIdRoute: typeof V1AvatarsUserIdRoute
   V1GithubInstallationTokensRoute: typeof V1GithubInstallationTokensRoute
   V1MobileAuthDevicesRoute: typeof V1MobileAuthDevicesRouteWithChildren
@@ -1567,6 +1580,13 @@ declare module '@tanstack/solid-router' {
       path: '/v1/auth/logout'
       fullPath: '/v1/auth/logout'
       preLoaderRoute: typeof V1AuthLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/v1/auth/owner': {
+      id: '/v1/auth/owner'
+      path: '/v1/auth/owner'
+      fullPath: '/v1/auth/owner'
+      preLoaderRoute: typeof V1AuthOwnerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/v1/avatars/$userId': {
@@ -2357,6 +2377,7 @@ const rootRouteChildren: RootRouteChildren = {
   V1AgentTemplatesTemplateIdRoute: V1AgentTemplatesTemplateIdRouteWithChildren,
   V1AgentTemplatesMineRoute: V1AgentTemplatesMineRoute,
   V1AuthLogoutRoute: V1AuthLogoutRoute,
+  V1AuthOwnerRoute: V1AuthOwnerRoute,
   V1AvatarsUserIdRoute: V1AvatarsUserIdRoute,
   V1GithubInstallationTokensRoute: V1GithubInstallationTokensRoute,
   V1MobileAuthDevicesRoute: V1MobileAuthDevicesRouteWithChildren,

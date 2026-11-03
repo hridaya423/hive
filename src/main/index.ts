@@ -35,6 +35,7 @@ import { readAppVariant, resolveAppIconPath, resolveLogoColorIconPath, resolveMe
 import { type ApplicationServices, createApplicationServices } from "./application-services";
 import { type BackgroundTray, createBackgroundTray } from "./background-tray";
 import { removeClaudeCodeSessionEnvironment } from "./claude-session-environment";
+import { controlPlaneUrls } from "./control-plane-urls";
 import { type DeepLink, findDeepLink, parseDeepLink } from "./deep-link-router";
 import { requestNotificationPermission, showRetainedNotification } from "./desktop-notifications";
 import { guardDevelopmentOutput } from "./development-output";
@@ -219,7 +220,7 @@ if (serverMode) keepWindowsHidden();
 if (localServerChild && process.platform === "darwin") app.dock?.hide();
 const inviteLinkOptions = {
   allowLocalDevelopmentApiUrl: developmentRemoteRole !== null,
-  selfHostedApiOrigin: selfHostedApiOrigin(process.env.OPENBOT_AUTH_API_URL),
+  selfHostedApiOrigin: selfHostedApiOrigin(controlPlaneUrls(process.env, app.isPackaged).authApiUrl),
 };
 const developmentRemoteDebuggingPort = !app.isPackaged
   ? readDevelopmentRemoteDebuggingPort(process.env.OPENBOT_DEV_REMOTE_DEBUGGING_PORT)
