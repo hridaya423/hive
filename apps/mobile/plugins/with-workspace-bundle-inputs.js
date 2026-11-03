@@ -45,7 +45,7 @@ module.exports = (config) =>
     if (config.modResults.contents.includes(MARKER)) return config;
     const { projectRoot, platformProjectRoot } = config.modRequest;
     const dirs = workspaceSources(projectRoot)
-      .map((dir) => `    "${relative(platformProjectRoot, dir)}",`)
+      .map((dir) => `    "${relative(platformProjectRoot, dir).replaceAll("\\", "/")}",`)
       .join("\n");
     config.modResults.contents += `
 ${MARKER}

@@ -1,3 +1,4 @@
+import { APP_URL_PROTOCOL } from "@openbot/contracts/app-url-scheme";
 import {
   isMobileConnectDevelopmentHost,
   type MobileConnectHostBinding,
@@ -16,7 +17,12 @@ let pendingLink: string | null = null;
 const listeners = new Set<Listener>();
 
 function isMobileConnectLink(value: string): boolean {
-  return /^openbot:\/\/mobile-connect(?:[/?#]|$)/iu.test(value.trim());
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === APP_URL_PROTOCOL && url.host === "mobile-connect";
+  } catch {
+    return false;
+  }
 }
 
 function readDevelopmentConnectLink(value: string, development: boolean): string | null {
