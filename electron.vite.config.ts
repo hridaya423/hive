@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import solidPlugin from "@solidjs/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import { normalizePath, type Plugin } from "vite";
 
 const rendererPort = readRendererPort(process.env.OPENBOT_DEV_RENDERER_PORT);
 
@@ -52,7 +53,7 @@ export default defineConfig({
     },
   },
   renderer: {
-    plugins: [solidPlugin(), tailwindcss({ optimize: false })],
+    plugins: [lazyLanguageCatalogs(), solidPlugin(), tailwindcss({ optimize: false })],
     optimizeDeps: {
       // bloub finds its plush images with `new URL(..., import.meta.url)`. A pre-bundle moves the
       // code away from the images, so Vite serves the package as it is.
@@ -75,6 +76,21 @@ export default defineConfig({
     },
   },
 });
+
+const I18N_SOURCE = `${normalizePath(resolve("packages/i18n/src"))}/`;
+const EAGER_CATALOG_MODULES = new Set(["./app-catalogs", "./source-catalogs", "./format-catalogs", "./locale-loading"]);
+
+function lazyLanguageCatalogs(): Plugin {
+  return {
+    name: "openbot-lazy-language-catalogs",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (!importer || !EAGER_CATALOG_MODULES.has(source)) return null;
+      if (!normalizePath(importer).startsWith(I18N_SOURCE)) return null;
+      return `${I18N_SOURCE}lazy-catalogs.ts`;
+    },
+  };
+}
 
 function readRendererPort(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
