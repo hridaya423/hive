@@ -190,136 +190,114 @@ export function parseBrowserStep(value: unknown): BrowserStep {
 const BROWSER_TOOL_DEFINITIONS = [
   browserTool({
     name: "open",
-    description: "Open an HTTP(S) URL in a new persistent private-browser tab.",
+    description: "Open an HTTP(S) URL in a new tab.",
     shape: { url: requiredString(INPUT_LIMITS.browserUrl) },
   }),
   browserTool({
     name: "list_tabs",
-    description:
-      "List browser tabs owned by this agent, including popup openerTabId and blocked-popup feedback. After a sign-in click, check for a new tab, take a fresh snapshot there, and continue the sign-in. When it closes, return to the opener and verify sign-in succeeded.",
+    description: "List the browser tabs of this agent, with popup openerTabId and blocked-popup feedback.",
     shape: {},
   }),
   browserTool({
     name: "status",
-    description: "Get tabs, active control state, environments, recordings, and diagnostic error counts.",
+    description: "Get tabs, control state, environments, recordings and error counts.",
     shape: {},
   }),
   browserTool({
     name: "snapshot",
     description:
-      'Read the current semantic page and obtain element refs. Refs stay valid until a navigation or the next snapshot. An adaptive image is returned separately when useful. The output is bounded: text in the viewport comes first, and truncated is true when text or elements were left out. Scroll, or wait for text, to read more. Each element is a line: ref, role, "name", then <tag>, value=, description= and states when present. diagnostics and actions list only new entries, without successful requests and plain successful actions.',
+      "Read the page as one line per element (ref, role, name, tag, value, states) and get refs, valid until a navigation or the next snapshot. Viewport text comes first; truncated is true when content was left out: scroll or wait_for text to read more. An image may come separately. diagnostics and actions list only new entries.",
     shape: { tabId, image },
   }),
   browserTool({
     name: "submit_secret",
     description:
-      "Request the secret card for the active authentication step discovered in a fresh page snapshot. Identify password, email/SMS code, or authenticator-app code from the page instructions before calling. Select any login-method option first. The user authorizes one fill-and-submit action to the shown HTTPS origin. Never pass a secret as an argument. Use takeover if the method or code length is unclear, for nonnumeric/recovery codes, CAPTCHA, passkeys, or payment confirmation. Fill saved cards with fill_card.",
+      "Ask the user for the secret of the active sign-in step, found in a fresh snapshot: a password, an email or SMS code, or an authenticator code. The user authorizes one fill-and-submit to the shown HTTPS origin. Never pass a secret as an argument. Use request_takeover when the method or code length is unclear.",
     shape: {
       tabId,
       method: z
         .enum(["password", "otp", "authenticator"])
-        .describe(
-          "Selects the card: password for an account password; otp for a numeric email/SMS code; authenticator for a numeric authenticator-app code. Generic 2FA labels or masked inputs do not establish the method.",
-        ),
+        .describe("password; otp for a numeric email or SMS code; authenticator for an app code."),
       targets: z
         .array(browserTargetSchema)
         .min(1)
         .max(12)
-        .describe(
-          "Only the active step: one password/whole-code field, or all single-digit fields in entry order. Use fresh snapshot refs; exclude username fields.",
-        ),
+        .describe("The active step only: one field, or all digit fields in order. Fresh refs; no username fields."),
       digits: z
         .number()
         .int()
         .min(0)
         .max(12)
         .default(6)
-        .describe(
-          "For codes, explicitly supply the required length from page instructions or the count of single-digit fields. Codes require 4–12 digits; do not infer six from the default. For passwords, omit digits or use 0; no digit limit applies to the password.",
-        ),
+        .describe("Code length, 4–12, from the page. Omit for a password."),
       submission: z
         .enum(["click", "enter", "on_input"])
         .describe(
-          "Use click with submitTarget when the page has a Continue, Verify, Next, or Sign in button, even if disabled before entry. OpenBot fills the fields then clicks that button. Use enter only for a form submitted by Enter. on_input ONLY fills fields; use it only when the site explicitly submits on the final digit without a button. It does not find or click a button.",
+          "click with submitTarget for a Continue, Verify, Next or Sign in button; enter for Enter; on_input only fills, for a site that submits on the last digit.",
         ),
-      submitTarget: browserTargetSchema
-        .optional()
-        .describe(
-          "Required with click: the active step’s Continue, Verify, Next, or Sign in button from the same fresh snapshot. A currently disabled button can become enabled after entry.",
-        ),
-      loginId: identifier
-        .optional()
-        .describe(
-          "For password or authenticator: the id of a saved login from list_logins. OpenBot fills its password or current code without asking the user.",
-        ),
+      submitTarget: browserTargetSchema.optional().describe("Required with click: the button, from the same snapshot."),
+      loginId: identifier.optional().describe("A saved login from list_logins: OpenBot fills its password or code."),
       username: z
         .string()
         .max(VAULT_TEXT_LIMIT)
         .optional()
-        .describe(
-          "For password without loginId: the username or email of this sign-in, as typed on the page. When the user saves the password in the OpenBot Vault from the card, the login gets this username.",
-        ),
+        .describe("For a password without loginId: the username typed on the page. A saved password keeps it."),
     },
   }),
   browserTool({
     name: "list_logins",
     description:
-      "List 1Password, Bitwarden and OpenBot Vault logins for the tab's HTTPS site: id, title, username and hasOneTimePassword. Use it to log in with a password manager. No passwords or codes. Type the username, then call submit_secret with loginId.",
+      "List 1Password, Bitwarden and OpenBot Vault logins for the tab's HTTPS site: id, title, username, hasOneTimePassword. No secrets. Type the username, then call submit_secret with loginId.",
     shape: { tabId },
   }),
   browserTool({
     name: "list_vault_items",
     description:
-      "List what the user saved in the OpenBot Vault, not 1Password or Bitwarden. A login shows id, website and username; its password and notes are never returned, so sign in with list_logins and submit_secret. A card shows id, label, nameOnCard, brand, last4, expiry and hasSecurityCode; its number and security code are never returned, so fill card fields with fill_card. A contact shows every field: type them with fill_fields, type, or select_option. addedBy, when present, names the agent that added the item.",
+      "List what the user saved in the OpenBot Vault (not 1Password or Bitwarden): logins (id, website, username), cards (id, label, nameOnCard, brand, last4, expiry, hasSecurityCode) and contacts (every field). Passwords, card numbers and security codes are never returned. addedBy names the agent that added an item.",
     shape: {},
   }),
   browserTool({
     name: "save_vault_item",
     description:
-      "Add contact info to the OpenBot Vault, or change a saved item. A contact without id is new; with id, it changes. A login or a card needs its id from list_vault_items (not from list_logins). A login changes only its username; a card changes only fields that are not secret. You cannot set a password, a website, a card number or a security code. An omitted field keeps its value. Returns the id, kind and name, never a secret.",
+      "Add contact info to the Vault, or change an item: a contact without id is new. A login or card needs its id from list_vault_items. A login changes only its username, a card only non-secret fields; you cannot set passwords, websites, card numbers or security codes. Omitted fields keep their value. Returns id, kind and name.",
     shape: {
       kind: z.enum(["contact", "login", "card"]),
       id: identifier.optional().describe("The item to change. Omit it to add a contact."),
-      label: vaultText.describe("Contact or card: a short name, such as Home or Work card."),
+      label: vaultText.describe("Contact or card: a short name."),
       ...vaultContactShape,
       username: vaultText.describe("Login: the username or email."),
-      nameOnCard: vaultText.describe("Card: the name on the card."),
-      expMonth: z.number().int().min(1).max(12).optional().describe("Card: the expiry month."),
-      expYear: z.number().int().min(2000).max(2099).optional().describe("Card: the four-digit expiry year."),
-      billingContactId: identifier
-        .nullable()
-        .optional()
-        .describe("Card: the id of the contact for the billing address, or null for none."),
+      nameOnCard: vaultText,
+      expMonth: z.number().int().min(1).max(12).optional(),
+      expYear: z.number().int().min(2000).max(2099).optional(),
+      billingContactId: identifier.nullable().optional().describe("Card: the id of its billing contact, or null."),
     },
   }),
   browserTool({
     name: "request_vault_item",
     description:
-      'Ask the user to add a login, card or contact info to the Vault, and wait. The chat shows a card that opens the Vault form with the fields that you give. The user types the password, card number and security code; you never see them. Use it when a task needs an item that list_vault_items does not have. Result JSON: {"status":"saved","id","kind","name"}, {"status":"skipped"}, or {"status":"expired"}. Only the owner or an admin can save. Not in a Slack, Discord or Telegram chat.',
+      'Ask the user to add a login, card or contact to the Vault, and wait. A chat card opens the Vault form with the fields you give; the user types the secrets. Use it when list_vault_items lacks an item the task needs. Returns {"status":"saved","id","kind","name"}, skipped or expired.',
     shape: {
       kind: z.enum(UI_VAULT_REQUEST_KINDS),
-      title: requiredString(UI_BLOCK_LIMITS.title).describe(
-        "What the item is for, in the user's language, such as Card for the flight to Lisbon.",
-      ),
-      label: vaultText.describe("Contact or card: a short name, such as Home or Work card."),
+      title: requiredString(UI_BLOCK_LIMITS.title).describe("What the item is for."),
+      label: vaultText.describe("Contact or card: a short name."),
       ...vaultContactShape,
-      website: vaultText.describe("Login: the HTTPS website, such as example.com."),
+      website: vaultText.describe("Login: the HTTPS website."),
       username: vaultText.describe("Login: the username or email."),
-      nameOnCard: vaultText.describe("Card: the name on the card."),
-      expMonth: z.number().int().min(1).max(12).optional().describe("Card: the expiry month."),
-      expYear: z.number().int().min(2000).max(2099).optional().describe("Card: the four-digit expiry year."),
+      nameOnCard: vaultText,
+      expMonth: z.number().int().min(1).max(12).optional(),
+      expYear: z.number().int().min(2000).max(2099).optional(),
     },
   }),
   browserTool({
     name: "delete_vault_item",
     description:
-      "Delete a login, card or contact from the OpenBot Vault by its id from list_vault_items (not from list_logins). A card that uses a deleted contact for billing keeps no billing address. This cannot be undone: ask first unless you added the item or the user asked for the delete.",
+      "Delete a Vault item by its id from list_vault_items. This cannot be undone: ask first unless you added it or the user asked.",
     shape: { id: identifier },
   }),
   browserTool({
     name: "fill_card",
     description:
-      "Type a saved card from list_vault_items into card fields from one fresh snapshot: the number, and any of the security code, a single expiry field or month and year fields (inputs or native selects), and the name on the card. Fields can be on the HTTPS page or in an HTTPS payment frame. You never see the number or the security code: snapshots hide them. Does not submit. The first fill of a card on a site waits for the server owner's approval. Returns the filled field names and a fresh snapshot. Screenshots, evaluate and recording are unavailable until the page navigates.",
+      "Type a saved card from list_vault_items into card fields from one fresh snapshot: the number, and optionally the security code, expiry (one field, or month and year) and name on the card, on the page or in an HTTPS payment frame. You never see the number or code. Does not submit. The first fill of a card on a site waits for the owner's approval. Returns the filled field names and a fresh snapshot.",
     shape: {
       tabId,
       cardId: identifier,
@@ -341,7 +319,7 @@ const BROWSER_TOOL_DEFINITIONS = [
   browserTool({
     name: "request_link_payment",
     description:
-      "Pay with the user's Link account (link.com). The user approves this one payment in Link; the call waits up to 5 minutes. On approval it returns a cardId of a one-time card for fill_card. Call it once per purchase, with the final total.",
+      "Pay with the user's Link account. The user approves one payment in Link; the call waits up to 5 minutes and returns the cardId of a one-time card for fill_card. Call it once per purchase, with the final total.",
     shape: {
       amount: z
         .number()
@@ -369,7 +347,7 @@ const BROWSER_TOOL_DEFINITIONS = [
   browserTool({
     name: "request_takeover",
     description:
-      "Ask the user to take over a tab for unclear OAuth account selection, CAPTCHA, passkeys, payment confirmation such as 3-D Secure, or when secure password/code handoff or card fill is unavailable.",
+      "Ask the user to take over a tab for an unclear account choice, CAPTCHA, passkeys, payment confirmation such as 3-D Secure, or when secure handoff or card fill is unavailable.",
     shape: {
       tabId,
       reason: z
@@ -386,18 +364,18 @@ const BROWSER_TOOL_DEFINITIONS = [
   }),
   browserTool({
     name: "click",
-    description: `Click a unique semantic, CSS, ref, or coordinate target using trusted CDP input. ${ACTION_RESULT}`,
+    description: `Click a unique semantic, CSS, ref or coordinate target. ${ACTION_RESULT}`,
     shape: { tabId, ...clickFields, snapshot: actionSnapshot },
   }),
   browserTool({
     name: "type",
-    description: `Enter text in a unique target using trusted CDP input. ${ACTION_RESULT} Omit the target to send the text as keystrokes to whatever the page has focused, which is how an application that draws its own surface, such as a spreadsheet grid on a canvas, takes input: click or navigate to the cell first, then type. In that mode a tab character moves to the next column and a newline commits the row, so one call can fill a row or a column, and the focus field says where those keystrokes will land. Mode applies only to an element target.`,
+    description: `Enter text in a unique target. ${ACTION_RESULT} With no target the text goes as keystrokes to the focused element, for apps that draw their own surface, such as a canvas spreadsheet: click the cell first; a tab moves to the next column and a newline commits the row. mode applies only to an element target.`,
     shape: { tabId, ...typeFields, snapshot: actionSnapshot },
   }),
   browserTool({
     name: "fill_fields",
     description:
-      "Replace 1 to 16 already inspected ordinary main-frame text fields from one fresh snapshot, with at most 16 KiB combined UTF-8 text. Performs one queued operation and returns one final snapshot. Does not submit. Refuses known password, code, and payment fields: use fill_card for card fields. Partial results report confirmed and uncertain zero-based indices. Read the page before continuing; never automatically retry or undo a partial fill.",
+      "Replace 1–16 main-frame text fields from one fresh snapshot, 16 KiB in total. Does not submit; refuses password, code and payment fields. Returns one final snapshot. A partial result lists confirmed and uncertain indices: do not retry.",
     shape: {
       tabId,
       revision,
@@ -417,32 +395,32 @@ const BROWSER_TOOL_DEFINITIONS = [
   }),
   browserTool({
     name: "press",
-    description: `Press a key or shortcut such as Enter, Control+A, or Meta+Shift+P. ${ACTION_RESULT}`,
+    description: `Press a key or shortcut, such as Enter or Control+A. ${ACTION_RESULT}`,
     shape: { tabId, ...pressFields, snapshot: actionSnapshot },
   }),
   browserTool({
     name: "hover",
-    description: `Hover a unique target with trusted CDP pointer input. ${ACTION_RESULT}`,
+    description: `Hover a unique target. ${ACTION_RESULT}`,
     shape: { tabId, ...hoverFields, snapshot: actionSnapshot },
   }),
   browserTool({
     name: "scroll",
-    description: `Scroll the page or a target container by X/Y pixels. ${ACTION_RESULT}`,
+    description: `Scroll the page or a container by pixels. ${ACTION_RESULT}`,
     shape: { tabId, ...scrollFields, snapshot: actionSnapshot },
   }),
   browserTool({
     name: "select_option",
-    description: `Select one or more native select options by value or label. ${ACTION_RESULT}`,
+    description: `Select native select options by value or label. ${ACTION_RESULT}`,
     shape: { tabId, ...selectOptionFields, snapshot: actionSnapshot },
   }),
   browserTool({
     name: "set_checked",
-    description: `Set a checkbox or radio target to the requested checked state. ${ACTION_RESULT}`,
+    description: `Set a checkbox or radio. ${ACTION_RESULT}`,
     shape: { tabId, ...setCheckedFields, snapshot: actionSnapshot },
   }),
   browserTool({
     name: "drag",
-    description: `Drag from one unique target to another with trusted CDP pointer input. ${ACTION_RESULT}`,
+    description: `Drag from one unique target to another. ${ACTION_RESULT}`,
     shape: {
       tabId,
       source: browserTargetSchema,
@@ -453,7 +431,7 @@ const BROWSER_TOOL_DEFINITIONS = [
   }),
   browserTool({
     name: "upload_files",
-    description: `Set local files on a file input or the file chooser a clicked target opens. ${ACTION_RESULT}`,
+    description: `Set local files on a file input or the chooser a click opens. ${ACTION_RESULT}`,
     shape: {
       ...targetAction,
       paths: z.array(z.string().min(1).max(INPUT_LIMITS.path)).min(1).max(INPUT_LIMITS.attachments),
@@ -461,20 +439,18 @@ const BROWSER_TOOL_DEFINITIONS = [
   }),
   browserTool({
     name: "wait_for",
-    description:
-      "Wait for a URL, text, semantic target, load state, or DOM quiet condition, then return a fresh snapshot.",
+    description: "Wait for a URL, text, target, load state or DOM quiet, then return a fresh snapshot.",
     shape: { tabId, ...waitForFields },
   }),
   browserTool({
     name: "evaluate",
     description:
-      "Evaluate JavaScript in the main frame's own page context, with the same access to page scripts, DOM and cookies as the page itself. Prefer snapshots and semantic actions; use this for inspection or unsupported interactions. Returns only a JSON-serializable value up to 64 KB.",
+      "Evaluate JavaScript in the main frame's page context, with the page's own access. Prefer snapshots and actions; use it for inspection or unsupported interactions. Returns a JSON value up to 64 KB.",
     shape: { tabId, ...evaluateFields },
   }),
   browserTool({
     name: "set_environment",
-    description:
-      "Set a memory-bounded viewport, color scheme, and reduced-motion emulation without changing browser identity or user agent.",
+    description: "Set the viewport, color scheme and reduced-motion emulation.",
     shape: {
       tabId,
       preset: z.enum(["fill", "desktop", "tablet", "mobile", "custom"]).optional(),
@@ -487,19 +463,17 @@ const BROWSER_TOOL_DEFINITIONS = [
   }),
   browserTool({
     name: "recording_start",
-    description:
-      "Start a sandboxed video-only WebM recording of a tab. It stops automatically after 5 minutes or 100 MB.",
+    description: "Start a video-only WebM recording of a tab. It stops after 5 minutes or 100 MB.",
     shape: { tabId },
   }),
   browserTool({
     name: "recording_stop",
-    description: "Stop a tab recording and return the saved Downloads path and artifact metadata.",
+    description: "Stop a tab recording and return its saved path.",
     shape: { tabId },
   }),
   browserTool({
     name: "act",
-    description:
-      "Legacy compatibility tool. Prefer the specialized tools. Click, type, press, scroll, navigate history, or reload.",
+    description: "Legacy: click, type, press, scroll, history or reload. Prefer the specific tools.",
     shape: {
       tabId,
       revision,
@@ -509,13 +483,13 @@ const BROWSER_TOOL_DEFINITIONS = [
   browserTool({
     name: "screenshot",
     description:
-      "Capture the visible page as a separate image content item. With a ref, capture only that element: a smaller image costs less context.",
+      "Capture the visible page as an image. With a ref, capture only that element: a smaller image costs less context.",
     shape: { tabId, ref: identifier.optional() },
   }),
   browserTool({
     name: "run_script",
     description:
-      "Run a short JavaScript program that drives one tab in one call and returns one final snapshot. Use it for a known sequence, such as typing a search, pressing Enter, and waiting for results, and for loops, such as paging until a condition holds. It runs in an isolated sandbox, not in the page, with no network, files, require, or process. It can await these helpers: navigate(url), click(target, options?), type(target, text, options?), press(key, target?), hover(target), scroll(deltaY, target?), selectOption(target, values), setChecked(target, checked), waitFor(condition, text, or page function), evaluate(expression or function) (runs in the page; returns JSON), snapshot(), and step({ action, ...fields }), where action names one of these tools. A target is a CSS selector string, role(role, name?), text(text), or a target object. A failed helper throws; try/catch works. Steps before a failure stay done. log(...values) adds to a short log. Return a JSON value. At most 200 steps and timeoutMs (default 60 s) per call.",
+      "Run a short JavaScript program that drives one tab in one call and returns one final snapshot. Use it for a known sequence or a loop, such as paging until a condition holds. It runs in an isolated sandbox with no network, files, require or process, and awaits these helpers: navigate(url), click(target, options?), type(target, text, options?), press(key, target?), hover(target), scroll(deltaY, target?), selectOption(target, values), setChecked(target, checked), waitFor(condition, text or function), evaluate(expression or function), snapshot(), step({ action, ...fields }). A target is a CSS selector, role(role, name?), text(text) or a target object. A failed helper throws; steps before it stay done. log(...values) adds to the log. Return a JSON value. At most 200 steps; timeoutMs defaults to 60 s.",
     shape: {
       tabId,
       script: requiredString(BROWSER_SCRIPT_MAX_CHARS),
@@ -526,12 +500,12 @@ const BROWSER_TOOL_DEFINITIONS = [
   browserTool({
     name: "handle_dialog",
     description:
-      "Answer the dialog that your action opened. accept: true is OK, false is Cancel. Returns the next dialog or the page status.",
+      "Answer the dialog that your action opened: accept true is OK, false is Cancel. Returns the next dialog or the page status.",
     shape: { tabId, dialogId: identifier, accept: z.boolean() },
   }),
   browserTool({
     name: "close_tab",
-    description: "Close a browser tab and clean up its CDP leases and recorder.",
+    description: "Close a browser tab.",
     shape: { tabId },
   }),
 ] as const;
