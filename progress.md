@@ -64,3 +64,104 @@ Done before this session. Bun 1.4.2 at `~/.bun/bin/bun`. `bun install --frozen-l
 
 ### Task 0.5
 `bun run package` runs `prepare:remote-desktop-runtime`. It downloads the remote desktop runtime from the GitHub release of `nightly-labs/openbot` (tag `remote-desktop-runtime-ec62decaa9803abc6e1bd5fd9fddebae0aa5cac4540348d0d62229d1a37b3bb0`, `native-runtime.lock.json:387-393`; fetch at `scripts/install-remote-desktop-runtime.ts:45-56`). A hash pins the artifact, so a changed file is refused. The risk: if upstream deletes that release, a clean build fails. The mini's clean checkout built with it on 2026-11-03 ("Installed the pinned darwin-arm64 remote desktop runtime" in the package log). The build also fetches `sherpa-onnx-darwin-arm64@1.13.8` (`prepare-voice`). I did not check where that comes from. Mitigation if upstream removes the release: keep `build/remote-desktop-runtime` from a good build and copy it to the new checkout. Do not rebuild the runtime now.
+
+## Mini checks (2026-11-03, branch `checks/mini`)
+
+Machine: Mac mini. Build under test: signed-in packaged Hive (tag `hive-phase0`, 0.59.0). No code changed. No regression from the slop cut found.
+
+### Task 0.4: GUI baseline (done)
+
+Hive was signed in with Codex connected (ChatGPT account, GPT-6-Luna, Medium). Onboarding did not show. "Help make OpenBot better" was not touched. Agent `Probe` created with default settings.
+
+The mini's input tools do not reach the Hive window (`mcp__cua__computer_*` and the Space driver have no Accessibility). The `cua-driver` CLI in `space_bash` does. Recipe: `cua-driver call run_script` with `cua.getApp({pid, windowId})`, `app.setValue`, `app.click`, `app.pressKey`. `set_value` fills a plain field. The composer needs real key presses (`pressKey("h")`), or the Send button stays disabled.
+
+Create agent also sends a first message, "Greet me briefly.", so Probe has two measured sessions:
+
+| Session | First message | Uncached input | Cached input | Output |
+| --- | --- | --- | --- | --- |
+| `9cda8e3e` (rollout `rollout-2026-11-03T16-24-43-01a1a23a-...jsonl`) | `Greet me briefly.` (auto) | 49022 | 0 | 7 |
+| `02123b09` (rollout `rollout-2026-11-03T16-26-25-01a1a23b-...jsonl`) | `hi` (new thread) | 26750 | 0 | 14 |
+
+Both read from `agent_usage_records` in `~/Library/Application Support/Hive/openbot.db` with `tools/token-baseline/q.py` (read-only). Both answered ("Hi there!" and "Hi! What would you like to work on?").
+
+Surprise: the two first requests differ by 22272 tokens. The only difference in `breakdown.py` is `tools ns:mcp__computer_use (58 fns)`, 26443 tok (tiktoken), present in session 1 and absent in session 2 (`grep -c computer_use` on the rollouts: 3 and 0). The Codex app-server restarted between them (pid 50531 to 55443). Cause not found. Use session 1 as the cold-start number, 26750 as the number without computer-use tools.
+
+Component table, session 1 (tiktoken count of each part of the first request):
+
+| Tokens | Part |
+| --- | --- |
+| 3635 | Codex `base_instructions` (session meta) |
+| 7068 | tools `functions` (4) |
+| 112 | tools `clock` (1) |
+| 1199 | tools `collaboration` (6) |
+| 26443 | tools `mcp__computer_use` (58) |
+| 650 | tools `image_gen` (1) |
+| 2959 | tools `openbot` (15) |
+| 3168 | `dynamic_tools` in session meta (duplicate of `openbot` tools) |
+| 3456 | developer message: "You are Codex..." |
+| 11262 | developer message: "You are a persistent local OpenBot teammate..." |
+| 530 | developer message: `multi_agent_role` |
+| 52 | developer message: `multi_agent_mode` |
+| 1217 | user message: `# AGENTS.md instructions` |
+| 5 | user message: `Greet me briefly.` |
+
+Session 2 has the same rows except `mcp__computer_use` is absent, the OpenBot teammate message is 11190 tok, and the user message is 1 tok.
+
+Surprise: the `# AGENTS.md instructions` block (1217 tok) is in the request of a new agent. Not checked where Codex reads it from.
+
+Surprise: the Hive process runs `codex app-server` from `~/Library/Application Support/OpenBot/provider-runtimes/codex/darwin-arm64/0.166.0/bin/codex`. That is the live OpenBot folder, not `Hive`. I did not read or write that folder. Phase 0 identity work may leave this path as it was.
+
+Task 1.1 Step 1 (Probe idle, both sessions finished, 5 s after the last answer). Command: `ps -axo pid,ppid,rss,command | grep -i -E "codex|cua-driver" | grep -v grep`. It matched 9 processes, 359328 KB RSS in all. Of these, 5 belong to Hive (child of pid 50434), 245264 KB (about 239 MiB):
+
+| pid | RSS KB | Process |
+| --- | --- | --- |
+| 50455 | 10096 | `cua-driver serve` (Hive's bundled) |
+| 55443 | 134064 | `codex app-server --listen stdio://` |
+| 55593 | 37520 | `node codex-security/.../mcp/server.mjs --stdio` |
+| 58072 | 55552 | `node codex-security/.../mcp/server.mjs --stdio` (second copy) |
+| 55594 | 8032 | `cua-driver mcp` (Hive's bundled, child of codex) |
+
+The other 4 matches are not Hive's: `/Applications/CuaDriver.app ... serve` (89296 KB) and three `~/.local/bin/cua-driver mcp` (8256 KB each) from other sessions. Two copies of the `codex-security` MCP server run under one app-server.
+
+### Browser e2e drivers (7 of 7 PASS)
+
+Clone: `~/honey/hive-checks` on the mini, bundle of `personal` at `5ad6405ee`. `bun install --frozen-lockfile` ran clean. Each driver ran alone with `bun scripts/browser-<name>-e2e.ts` (`package.json` has scripts for 5; `fill-fields` and `user-control` have none). Each prints `{"status":"passed",...}` and the report records `sourceSha` `5ad6405ee`. Reports are at `~/honey/hive-checks/.openbot-build/browser-<name>-e2e/report.json`; copies and logs are in `~/honey/hive-checks-shots/e2e-personal/` on the mini.
+
+| Driver | Result | Cases | Time |
+| --- | --- | --- | --- |
+| agent-session | PASS | 16 | 4 s |
+| ambiguous-targets | PASS | 7 | 2 s |
+| dialogs | PASS | 24 | 8 s |
+| fill-fields | PASS | 41 | 75 s |
+| sign-in | PASS | 23 | 5 s |
+| steps | PASS | 25 | 60 s |
+| user-control | PASS | 27 | 2 s |
+
+No failure, so no run at `hive-phase0`. `browser-menu-cover-e2e.ts` and `browser-profile-agents-e2e.ts` do not use the shared runner and were not run.
+
+### Chat timeline look (no regression seen; compaction row not exercised)
+
+`bun run dev` from `~/honey/hive-checks` seeded its own profile (4 agents) and started the services, but the Electron window never opened: the main process was idle, `list_windows` showed only the hidden "OpenBot Local Host" window, and CDP on :9333 did not answer. A second try with `ELECTRON_EXTRA_LAUNCH_ARGS=--use-mock-keychain` did the same. I stopped it with `bun run dev:stop`. Cause not found. A keychain prompt and a "cua-spacesd ... Downloads" prompt were on the mini's screen; they are not in the set Hridya approved, so I did not answer them and cannot say if they were the cause.
+
+Fallback: Storybook at `personal` (:6006) and at `hive-phase0` (:6007, worktree `~/honey/hive-checks-p0`), driven by `playwright-core` with Google Chrome headless.
+
+- Surprise, existing failure: every `Conversation/Conversation` story fails to render at both `personal` and `hive-phase0` with `TypeError: Cannot read properties of undefined (reading 'filter')` from `createScrollStore.shownMessages` (`deps.props.messages` is undefined at first read). Same message at both commits, so it is not from the slop cut. Checked: `rich-conversation` at both; `unread-messages`, `long-history`, `several-people` at `personal` only. CI does not run stories.
+- Used instead: the `App/Playground` story (the full renderer with the mock host) plus a scratch story with `conversationReads` (not committed, deleted).
+
+| Check | Result |
+| --- | --- |
+| Day marker `Wed 19 Aug 10:42` on the first row | Correct at both commits |
+| Grouped row `Messaged 2 agents`, Tasks row, file chips, reaction | Correct at both commits |
+| Chief, Research and Sales chats: text of the timeline | Identical before and after (6 views) |
+| Pixel diff before vs after (threshold 12): Chief, Research, Sales | 239, 0, 12 px; all in spinner areas |
+| Unread divider `NEW` above the last message | Correct; 40 px diff, in a spinner area |
+| Compaction row | Not exercised. A runtime snapshot with a compaction state showed no marker at either commit. Verified by reading the diff only: `CompactionMarker` moved unchanged into `VirtualRow` |
+| Virtual scroll with long history | Not exercised: the mock chats fit the viewport (scrollHeight equals clientHeight) |
+
+Screenshots on the mini, `~/honey/hive-checks-shots/tl/`: `after-playground.png`, `before-playground.png`, `after-unread.png`, `before-unread.png`, `{after,before}-{chief,research,sales}-{bottom,top}.png`, and the story error `after-rich-conversation.png` / `before-rich-conversation.png`. Copies of `after-playground.png`, `after-unread.png`, `before-unread.png` and both error screenshots are in the session scratchpad `.../scratchpad/shots/`.
+
+### Left running or changed on the mini
+
+- Hive (pid 50434) still runs. It now holds the agent `Probe` with two threads in `~/Library/Application Support/Hive`. Rename or delete it if you do not want it.
+- Both Storybook servers and my dev stack are stopped. The scratch story files are deleted. The worktree `~/honey/hive-checks-p0` is kept.
+- Helper scripts: `~/honey/hive-checks-shots/` (`hv.sh`, `js/`, `pw/`, `run-e2e.sh`).
