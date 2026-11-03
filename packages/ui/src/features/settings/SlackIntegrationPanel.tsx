@@ -96,7 +96,7 @@ export interface SlackIntegrationPanelProps extends IntegrationPageSlots {
 }
 
 /** The platforms that this page serves. Telegram has its own page (`TelegramIntegrationPanel`). */
-export type WorkspacePlatform = Exclude<MessagingPlatform, "telegram">;
+export type WorkspacePlatform = Exclude<MessagingPlatform, "telegram" | "whatsapp">;
 
 const STATE_HELP: Record<WorkspacePlatform, Partial<Record<MessagingConnection["state"], AppTextKey>>> = {
   slack: {

@@ -124,6 +124,8 @@ import { discordDriver, downloadDiscordAttachment } from "../backend/messaging/d
 import { MessagingOperationFailed, MessagingService } from "../backend/messaging/messaging-service";
 import { slackDriver } from "../backend/messaging/slack/slack-driver";
 import { telegramDriver } from "../backend/messaging/telegram/telegram-driver";
+import { baileysConnect } from "../backend/messaging/whatsapp/whatsapp-baileys";
+import { whatsappDriver } from "../backend/messaging/whatsapp/whatsapp-driver";
 import { OpenBotDatabase } from "../backend/openbot-database";
 import { passwordVaultRouter } from "../backend/password-vault-router";
 import { sweepProviderTemp } from "../backend/provider-temp";
@@ -788,6 +790,10 @@ async function createMessagingServices({
       slackDriver({ ingress: signalIngress }),
       discordDriver({ ingress: signalIngress }),
       telegramDriver({ ingress: signalIngress }),
+      whatsappDriver({
+        connect: baileysConnect(join(app.getPath("userData"), "whatsapp", "runtime")),
+        authDir: join(app.getPath("userData"), "whatsapp", "auth"),
+      }),
     ],
     downloadsRoot: join(app.getPath("userData"), "messaging-downloads"),
     statusPath: join(app.getPath("userData"), "openbot-messaging-status-v1.json"),

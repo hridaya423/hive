@@ -1,5 +1,5 @@
 import { APP_URL_SCHEME } from "@openbot/contracts/app-url-scheme";
-import type { MessagingConnection, MessagingPlatform } from "@openbot/contracts/ipc";
+import type { ConnectorPlatform, MessagingConnection } from "@openbot/contracts/ipc";
 import type { AppMobileMessages, MobileTextKey } from "@openbot/i18n/mobile";
 
 /**
@@ -16,7 +16,7 @@ export function isMobileConnectorId(value: string | undefined): value is MobileC
 }
 
 /** Slack and Discord install the OpenBot app in a workspace; Telegram links chats to one bot. */
-export type WorkspacePlatform = Exclude<MessagingPlatform, "telegram">;
+export type WorkspacePlatform = Exclude<ConnectorPlatform, "telegram">;
 
 export const CONNECTOR_TITLE_KEYS = {
   slack: "mobile.server.connectors.slack.title",
@@ -79,7 +79,7 @@ export function telegramOrchestrator<Agent extends { id: string }>(
 
 /** The connections that need the user: a stopped connection, or one that no agent answers. */
 export function attentionCount(
-  platform: MessagingPlatform,
+  platform: ConnectorPlatform,
   connections: readonly MessagingConnection[],
   agents: readonly { id: string }[],
 ): number {
@@ -92,7 +92,7 @@ export function attentionCount(
 }
 
 export function messagingStatus(
-  platform: MessagingPlatform,
+  platform: ConnectorPlatform,
   connections: readonly MessagingConnection[],
   agents: readonly { id: string }[],
 ): ConnectorStatus {

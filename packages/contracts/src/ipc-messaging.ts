@@ -12,8 +12,10 @@ import { isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bo
 import { isBoolean, isDynamicRecord, isOneOf } from "./runtime-values";
 import { TELEGRAM_ROUTE_CHATS_LIMIT } from "./signal-protocol/telegram-route";
 
-export const MESSAGING_PLATFORMS = ["slack", "discord", "telegram"] as const;
+export const MESSAGING_PLATFORMS = ["slack", "discord", "telegram", "whatsapp"] as const;
 export type MessagingPlatform = (typeof MESSAGING_PLATFORMS)[number];
+/** The platforms that have a connector page. WhatsApp is linked with a QR code on its own page. */
+export type ConnectorPlatform = Exclude<MessagingPlatform, "whatsapp">;
 
 export const MESSAGING_CONNECTION_STATES = [
   "connecting",
@@ -179,6 +181,7 @@ const MESSAGING_PAGE_HOSTS: Record<MessagingPlatform, string> = {
   slack: "slack.com",
   discord: "discord.com",
   telegram: "t.me",
+  whatsapp: "web.whatsapp.com",
 };
 
 /** The connect page that a joined server named, when it is the platform's own https page. */

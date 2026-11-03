@@ -1,10 +1,10 @@
 import type {
   AddMessagingOrchestratorResult,
+  ConnectorPlatform,
   DiscordAccess,
   DiscordRoleList,
   MessagingDesktopApi,
   MessagingOverview,
-  MessagingPlatform,
   MessagingRole,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
@@ -32,11 +32,11 @@ type MessagingOrchestratorTarget = { platform: WorkspacePlatform; workspaceId: s
 
 /** The Slack, Discord and Telegram connections of one place: this computer or a joined server. */
 export interface MessagingApi {
-  overview: (platform: MessagingPlatform) => Promise<MessagingOverview>;
+  overview: (platform: ConnectorPlatform) => Promise<MessagingOverview>;
   connect: (target: MessagingConnectTarget) => Promise<void>;
-  disconnect: (platform: MessagingPlatform, workspaceId: string) => Promise<void>;
-  reconnect: (platform: MessagingPlatform, workspaceId: string) => Promise<void>;
-  setEnabled: (platform: MessagingPlatform, workspaceId: string, enabled: boolean) => Promise<void>;
+  disconnect: (platform: ConnectorPlatform, workspaceId: string) => Promise<void>;
+  reconnect: (platform: ConnectorPlatform, workspaceId: string) => Promise<void>;
+  setEnabled: (platform: ConnectorPlatform, workspaceId: string, enabled: boolean) => Promise<void>;
   addOrchestrator: (
     target: MessagingOrchestratorTarget,
     choice: SlackOrchestratorChoice | null,
@@ -100,7 +100,7 @@ const ACTION_FAILED = {
   slack: "connector.slack.actionFailed",
   discord: "connector.discord.actionFailed",
   telegram: "connector.telegram.actionFailed",
-} as const satisfies Record<MessagingPlatform, string>;
+} as const satisfies Record<ConnectorPlatform, string>;
 
 /**
  * A joined server without `discord-access-v1` cannot choose roles. Its Discord servers let everyone.
@@ -129,7 +129,7 @@ export interface MessagingConnectorOptions {
  * state calls `watch`. Each action reads the connections again when it ends.
  */
 export function createMessagingConnector(
-  platform: MessagingPlatform,
+  platform: ConnectorPlatform,
   api: MessagingApi,
   options: MessagingConnectorOptions,
 ): ConnectorController {

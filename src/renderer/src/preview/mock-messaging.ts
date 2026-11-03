@@ -8,7 +8,7 @@ import { sourceText } from "@openbot/i18n/source";
 import { clone } from "./mock-support";
 
 /** The platforms whose preview adds a workspace for each connect. Telegram has a chat for each link. */
-type WorkspacePlatform = Exclude<MessagingPlatform, "telegram">;
+type WorkspacePlatform = Exclude<MessagingPlatform, "telegram" | "whatsapp">;
 
 /** The preview workspace of the `count`th connect. The first keeps the names that stories show. */
 const PREVIEW_WORKSPACE = {
@@ -161,7 +161,12 @@ export function createMockMessaging(orchestrator: () => string): MessagingDeskto
     },
   };
   // The preview has one host, so a joined server's connections are the same ones.
-  const overview = { slack: api.getSlackOverview, discord: api.getDiscordOverview, telegram: api.getTelegramOverview };
+  const overview = {
+    slack: api.getSlackOverview,
+    discord: api.getDiscordOverview,
+    telegram: api.getTelegramOverview,
+    whatsapp: async () => ({ connections: [] }),
+  };
   return {
     ...api,
     hostOverview: ({ platform }) => overview[platform](),

@@ -55,6 +55,7 @@ interface MessagingIpcDependencies {
     | "setEnabled"
     | "addOrchestrator"
     | "telegramOverview"
+    | "whatsappOverview"
     | "connectTelegramChat"
     | "disconnectTelegramChat"
     | "addTelegramOrchestrator"
@@ -128,7 +129,8 @@ export function messagingIpcHandlers({
     if (page.url === null) return;
     const address = messagingPage(platform, page.url);
     if (!address) throw new Error(sourceText("error.team.connectorPageRefused"));
-    if (platform !== "telegram" && page.nonce !== null) relayedInstalls.remember(platform, page.nonce, serverId);
+    if ((platform === "slack" || platform === "discord") && page.nonce !== null)
+      relayedInstalls.remember(platform, page.nonce, serverId);
     await openExternal(address);
   }
   const overview = (platform: MessagingPlatform) =>
@@ -136,7 +138,9 @@ export function messagingIpcHandlers({
       ? messaging.slackOverview()
       : platform === "discord"
         ? messaging.discordOverview()
-        : messaging.telegramOverview();
+        : platform === "telegram"
+          ? messaging.telegramOverview()
+          : messaging.whatsappOverview();
 
   return {
     messaging: {

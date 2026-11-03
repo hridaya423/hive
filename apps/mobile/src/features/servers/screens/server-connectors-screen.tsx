@@ -1,4 +1,4 @@
-import type { MessagingConnection, MessagingPlatform } from "@openbot/contracts/ipc";
+import type { ConnectorPlatform, MessagingConnection } from "@openbot/contracts/ipc";
 import { router, useLocalSearchParams } from "expo-router";
 import { Typography } from "heroui-native";
 import { ConnectorLogo } from "@/features/servers/components/connector-logo";
@@ -35,7 +35,7 @@ interface ConnectorRow {
 
 function messagingSummary(
   { t }: MobileText,
-  platform: MessagingPlatform,
+  platform: ConnectorPlatform,
   connections: readonly MessagingConnection[],
   agents: readonly MobileAgent[],
 ): string {

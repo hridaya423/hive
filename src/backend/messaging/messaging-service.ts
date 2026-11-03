@@ -349,6 +349,11 @@ export class MessagingService {
     return this.#overview("telegram");
   }
 
+  /** The linked WhatsApp account of this computer. */
+  whatsappOverview(): MessagingOverview {
+    return this.#overview("whatsapp");
+  }
+
   #overview(platform: MessagingPlatform): MessagingOverview {
     return {
       connections: this.#threads.store
@@ -1112,7 +1117,9 @@ export class MessagingService {
           ? this.#telegramApp?.unlink(live.record.workspaceId)
           : live.record.platform === "discord"
             ? this.#discordConnect?.unlink(live.record.workspaceId)
-            : this.#connect?.unlink(live.record.workspaceId);
+            : live.record.platform === "slack"
+              ? this.#connect?.unlink(live.record.workspaceId)
+              : undefined;
       if (unlink) yield* unlink.pipe(Effect.catch((error) => Effect.sync(() => this.#warn(error.cause))));
       // The summary then shows the stored state, which a reconnect of the socket cannot change.
       if (state === "removed" && this.#live.get(live.record.connectionId) === live)
