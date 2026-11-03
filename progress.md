@@ -28,6 +28,7 @@ Hridya does all sign-ins and phone steps at the end, after all code is finished,
 - WhatsApp QR scan, and which number (Task 9.1).
 
 ## Answered
+- 2026-11-03: WhatsApp uses `baileys` as a normal dependency. Hridya accepts its GPL-3.0 `libsignal` for private personal use ("this is just for personal use pls ignore that and setup baileys properly"). AGENTS.md's PolyForm-compatibility rule is set aside for these two packages only.
 - Phone is Android; iOS out of scope. Copilot plan: Pro via GitHub Education. Name: Hive.
 
 ## Lead notes (2026-11-03)
