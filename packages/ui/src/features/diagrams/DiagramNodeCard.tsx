@@ -20,7 +20,7 @@ import { DIAGRAM_STEP_STATUS_KEY, diagramRoutineTrigger, diagramStepSeconds } fr
 export type DiagramPortTarget = "none" | "valid" | "invalid";
 
 /** A routine whose run reaches an agent, and how the agent's step went in that run. */
-export interface DiagramRoutineChip {
+interface DiagramRoutineChip {
   id: string;
   name: string;
   color: number;

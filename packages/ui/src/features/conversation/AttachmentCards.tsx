@@ -1,3 +1,4 @@
+import { fileReferenceTone } from "@openbot/brand/file-reference";
 import { attachmentMimeTypeForName, playableMediaKind } from "@openbot/contracts/attachment-files";
 import { type AttachmentSummary, canPreviewAttachment } from "@openbot/contracts/ipc";
 import {
@@ -15,7 +16,6 @@ import {
 } from "@openbot/ui";
 import { createSignal, For, Match, Show, Switch } from "solid-js";
 import { useText } from "../../text";
-import { attachmentReferenceTone } from "./AttachmentReference";
 import { MediaFilePreview } from "./MediaFilePreview";
 
 /**
@@ -139,7 +139,7 @@ export function AttachmentCards(props: {
                   fallback={
                     <span
                       class="attachment-file-visual"
-                      data-file-tone={attachmentReferenceTone(attachment.name)}
+                      data-file-tone={fileReferenceTone(attachment.name)}
                       aria-hidden="true"
                     >
                       <Show when={mediaKind(attachment)} fallback={<AttachmentFileIcon />}>
@@ -152,7 +152,7 @@ export function AttachmentCards(props: {
                 >
                   <span
                     class="attachment-file-visual attachment-file-image"
-                    data-file-tone={attachmentReferenceTone(attachment.name)}
+                    data-file-tone={fileReferenceTone(attachment.name)}
                   >
                     <img
                       src={imageUrl(attachment) ?? ""}

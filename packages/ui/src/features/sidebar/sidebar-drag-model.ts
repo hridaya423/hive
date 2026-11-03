@@ -224,7 +224,7 @@ export function pointInRect(point: SidebarDragPoint, rect: DOMRect | null, scrol
   );
 }
 
-export function closestVerticalSlot<T extends { bottom: number; top: number }>(
+function closestVerticalSlot<T extends { bottom: number; top: number }>(
   slots: Iterable<T>,
   clientY: number,
   scrollDelta: number,

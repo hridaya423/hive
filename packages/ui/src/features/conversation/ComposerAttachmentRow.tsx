@@ -1,9 +1,9 @@
+import { fileReferenceTone } from "@openbot/brand/file-reference";
 import type { DraftAttachment } from "@openbot/contracts/ipc";
 import { Button, CircleAlert, ImageRemoveButton, RadialProgress, RotateCcw, Spinner } from "@openbot/ui";
 import { For, Show } from "solid-js";
 import { useText } from "../../text";
 import { fileBadge } from "./AttachmentCards";
-import { attachmentReferenceTone } from "./AttachmentReference";
 
 /** A pasted image that is still importing, with its local preview. */
 export interface ComposerPendingImage {
@@ -51,7 +51,7 @@ export function ComposerAttachmentRow(props: {
               <div class="composer-attachment ui-removable-image" data-kind={chip()}>
                 <span
                   class="composer-attachment-preview"
-                  data-file-tone={chip() === "file" ? attachmentReferenceTone(attachment.name) : undefined}
+                  data-file-tone={chip() === "file" ? fileReferenceTone(attachment.name) : undefined}
                 >
                   <Show when={chip() === "image"} fallback={fileBadge(attachment)}>
                     <img src={attachment.previewUrl ?? ""} alt="" />
@@ -120,7 +120,7 @@ function ComposerUploadChip(props: {
     >
       <span
         class="composer-attachment-preview"
-        data-file-tone={failed() ? undefined : attachmentReferenceTone(props.upload.name)}
+        data-file-tone={failed() ? undefined : fileReferenceTone(props.upload.name)}
       >
         <Show when={!failed()} fallback={<CircleAlert class="composer-upload-failed-icon" aria-hidden="true" />}>
           <Show when={percent() !== null} fallback={<Spinner size="sm" label={uploadingLabel()} />}>

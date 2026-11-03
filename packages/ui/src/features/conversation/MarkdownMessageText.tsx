@@ -1,4 +1,4 @@
-import { fileReferenceName, isFileReference } from "@openbot/brand/file-reference";
+import { fileReferenceName, fileReferenceTone, isFileReference } from "@openbot/brand/file-reference";
 import { blockChatMath, chatMathBlockStart, chatMathStart, inlineChatMath } from "@openbot/contracts/chat-math";
 import { chatPreviewKind } from "@openbot/contracts/chat-preview";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
@@ -7,7 +7,7 @@ import { Dynamic } from "@solidjs/web";
 import { Marked, type Token, type Tokens, type TokensList } from "marked";
 import { createMemo, For, Show } from "solid-js";
 import { useText } from "../../text";
-import { AttachmentReferenceVisual, attachmentReferenceTone } from "./AttachmentReference";
+import { AttachmentReferenceVisual } from "./AttachmentReference";
 import { CodeBlock } from "./CodeBlock";
 import { CodePreview } from "./CodePreview";
 import type { MessageCodeBlock } from "./DataTable";
@@ -1012,7 +1012,7 @@ function LocalFileLink(props: {
       variant="ghost"
       type="button"
       class="message-file-reference"
-      data-file-tone={attachmentReferenceTone(name)}
+      data-file-tone={fileReferenceTone(name)}
       aria-label={label()}
       title={props.path}
       data-cuelume-tap="open"
