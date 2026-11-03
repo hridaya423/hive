@@ -41,6 +41,42 @@ export const COMPUTER_USE_MCP_SERVER_NAME = "computer_use";
 export const COMPUTER_USE_MCP_SERVER_ID = "openbot-computer-use";
 
 /**
+ * The driver tools a Codex agent is given, out of about 60. The schemas of the others (browser,
+ * recording, cursor styling, sessions) are 10 to 15 thousand tokens in every request. OpenBot has its
+ * own browser, and `run_steps` batches the action tools.
+ */
+export const COMPUTER_USE_CORE_TOOLS = [
+  "list_apps",
+  "list_windows",
+  "get_window_state",
+  "verify_state",
+  "launch_app",
+  "bring_to_front",
+  "set_window_frame",
+  "invoke_menu",
+  "click",
+  "double_click",
+  "right_click",
+  "drag",
+  "type_text",
+  "press_key",
+  "hotkey",
+  "set_value",
+  "scroll",
+  "clipboard_read",
+  "clipboard_write",
+  "get_screen_size",
+  "get_desktop_state",
+  "zoom",
+  "check_permissions",
+  "start_session",
+  "end_session",
+  "run_steps",
+  "run_script",
+  "get_guide",
+] as const;
+
+/**
  * The id and address of the GitHub MCP server that the built-in GitHub connection hands to agents.
  * The name is the one the retired GitHub plugin gave its row, so a row the user added keeps its
  * place: when an enabled row has this name, the built-in entry is not added.

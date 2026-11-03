@@ -41,9 +41,9 @@ export function isAgentAccess(value: unknown): value is AgentAccess {
   return isOneOf(AGENT_ACCESS_MODES, value);
 }
 
-/** Whether the agent may use Computer Use. Absent means on, as for every agent before the setting existed. */
+/** Whether the agent may use Computer Use. Absent means off: its tool schemas are a third of a first request. */
 export function agentComputerUseEnabled(agent: { computerUse?: boolean | undefined }): boolean {
-  return agent.computerUse !== false;
+  return agent.computerUse === true;
 }
 
 /** The agent settings that have an account default. An agent with no value of its own follows it. */

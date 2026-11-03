@@ -1017,7 +1017,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       model: input.model ?? defaultProviderModel("codex"),
       reasoningEffort: input.reasoningEffort ?? "low",
       access: input.access ?? "full",
-      computerUse: input.computerUse ?? true,
+      computerUse: input.computerUse ?? false,
       ...(input.allowAutomation ? { allowAutomation: true } : {}),
       threadId: input.threadId ?? `thread-${id}`,
       workspacePath: input.workspacePath ?? `/mock/OpenBot/Agents/${id}`,

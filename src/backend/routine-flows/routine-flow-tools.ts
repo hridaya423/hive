@@ -30,19 +30,18 @@ export const ROUTINE_FLOW_TOOL_DEFINITIONS = [
   {
     name: "list_routine_flows",
     description:
-      "List the routines on an agent's routine canvas, yours when you omit agentId, and the links of each routine. A link hands one agent's answer in a routine run to the next agent.",
+      "List the routines on an agent's canvas, yours without agentId, and their links. A link hands one agent's answer in a run to the next agent.",
     shape: listSchema.shape,
   },
   {
     name: "connect_routine_agents",
     description:
-      "Add a link to a routine flow: after fromAgentId answers in a run of routineId, its answer goes to toAgentId with the optional instruction. fromAgentId must be the routine's own agent or an agent the flow already reaches. The link applies to runs that start after it is made.",
+      "Add a link: after fromAgentId answers in a run of routineId, its answer goes to toAgentId. fromAgentId must be the routine's agent or one the flow already reaches.",
     shape: connectSchema.shape,
   },
   {
     name: "disconnect_routine_agents",
-    description:
-      "Remove one link from a routine flow by its linkId from list_routine_flows. Links that only this link kept in the flow are removed too.",
+    description: "Remove one link by its linkId from list_routine_flows.",
     shape: disconnectSchema.shape,
   },
 ] as const;
