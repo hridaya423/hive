@@ -41,7 +41,6 @@ export interface ServerMenuProps extends ServerActionCallbacks {
   onViewChange: (view: ServerView) => void;
   onSelect: (serverId: string) => void;
   onAdd?: () => void;
-  /** True when `onAdd` opens the hosted server plans, where the user can also join with an invite. */
   /** Opens the dialog that creates a server on this computer. Without it, the menu does not show the item. */
   onCreateLocal?: (() => void) | undefined;
   /** The server on this computer while the user hides it. Without it, the menu does not show the item. */
