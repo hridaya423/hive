@@ -76,11 +76,7 @@ export function axValue(value: unknown): string {
 }
 
 export function recordValue(value: unknown): CdpResult | undefined {
-  return isRecord(value) ? value : undefined;
-}
-
-export function isRecord(value: unknown): value is CdpResult {
-  return isDynamicRecord(value);
+  return isDynamicRecord(value) ? value : undefined;
 }
 
 export function stringValue(value: unknown): string {
