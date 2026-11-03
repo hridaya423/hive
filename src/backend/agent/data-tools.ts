@@ -29,7 +29,7 @@ export const DATA_TOOL_DEFINITIONS = [
   {
     name: "execute_data",
     description:
-      "Run one INSERT, UPDATE, DELETE, CREATE TABLE or other write on the shared database. One statement per call, values in params; write many rows with one multi-row statement. Use a primary key and a UNIQUE natural key, and INSERT ... ON CONFLICT DO UPDATE, so a rerun does not duplicate rows. You can change the rows of any table but drop or alter only your own. Transactions, ATTACH, PRAGMA and VACUUM are unavailable.",
+      "Run one INSERT, UPDATE, DELETE, CREATE TABLE or other write on the shared database. One statement per call, values in params; write many rows with one multi-row statement. Use a primary key and INSERT ... ON CONFLICT DO UPDATE, so a rerun does not duplicate rows. You can change the rows of any table but drop or alter only your own. No transactions, ATTACH, PRAGMA or VACUUM.",
     shape: dataStatementSchema.shape,
   },
   {

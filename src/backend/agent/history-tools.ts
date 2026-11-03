@@ -45,13 +45,13 @@ export const HISTORY_TOOL_DEFINITIONS = [
   {
     name: "history_search",
     description:
-      "Search messages in this conversation after its latest context reset. Returns bounded excerpts and a cursor; use history_read for omitted text. Does not search other chats or channels.",
+      "Search messages in this conversation after its latest context reset. Returns excerpts and a cursor; history_read has the rest. Does not search other chats or channels.",
     shape: searchShape,
   },
   {
     name: "history_read",
     description:
-      "Read current-conversation history after its latest reset. Read a messageId with offset for large text, or use before from an earlier response for older messages. Optional captured work steps contain no raw reasoning; continue them with workStepsOffset from nextWorkStepsOffset. Channels use channel_history.",
+      "Read this conversation's history after its latest reset: a messageId with offset for large text, or before from an earlier response for older messages. Work steps continue with workStepsOffset from nextWorkStepsOffset. Channels use channel_history.",
     shape: readShape,
   },
 ];

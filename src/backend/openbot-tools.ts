@@ -62,10 +62,9 @@ interface OpenBotToolDefinition {
 
 /** The page rules for `html_render`. The names match the variables that `ChatVisual` sends. */
 const VISUAL_PAGE_RULES = [
-  "Write one self-contained HTML document with inline <style> and <script>. Remote https libraries load; local files do not. The sandbox has no cookies, storage or pop-ups.",
-  "The frame sits on the chat background at the width of the reply column (about 360px on phones): leave html and body with no background, use a fluid width, and add no outer card or title.",
-  "Give charts fixed pixel heights. Do not use 100vh or height:100% on html or body. Highlight a box with its border, not an outline or an outer shadow.",
-  "App theme variables on :root: --background (transparent), --foreground, --muted-foreground, --muted, --card, --card-foreground, --border, --accent, --destructive, --success, --chart-1 to --chart-6, --radius, --font-sans, --font-mono.",
+  "One self-contained HTML document with inline <style> and <script>; remote https libraries load, local files do not. The sandbox has no cookies, storage or pop-ups.",
+  "The frame sits on the chat background at reply-column width (about 360px on phones): no body background, a fluid width, no outer card or title. Give charts fixed pixel heights; no 100vh or height:100% on html or body.",
+  "Theme variables on :root: --background (transparent), --foreground, --muted-foreground, --muted, --card, --border, --accent, --destructive, --success, --chart-1 to --chart-6, --radius, --font-sans, --font-mono.",
 ].join(" ");
 
 /** What an `html_render` page can ask of the app. The names match `window.openbotPage` in the frame bootstrap. */
@@ -325,7 +324,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "attach_files_to_response",
     description:
-      "Attach existing local files to the current response for the user. Use this after creating screenshots, charts, diagrams, reports, ZIP archives, or other files that the user should receive. OpenBot copies each file and shows image previews in the conversation.",
+      "Attach existing local files to the current response, such as screenshots, charts, reports or ZIP archives that the user should receive. OpenBot copies each file and previews images.",
     shape: { paths: z.array(z.string().min(1).max(INPUT_LIMITS.path)).min(1).max(INPUT_LIMITS.attachments) },
   },
   {
@@ -342,13 +341,13 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "list_capture_sources",
     description:
-      "List the displays and windows of this computer that capture_screen can capture: display ids, desktop bounds in points, scale factors, and window ids and titles.",
+      "List the displays and windows that capture_screen can capture: ids, desktop bounds in points, scale factors, titles.",
     shape: {},
   },
   {
     name: "capture_screen",
     description:
-      "Capture one display, one window, or a region of one display of this computer, and get the image. The user approves each capture first, and sees the image in this conversation. In a channel, each member who reads the channel sees it. Call list_capture_sources first to get ids and bounds. A region uses desktop points.",
+      "Capture a display, a window or a region of this computer and get the image. The user approves each capture and sees the image in this chat. Call list_capture_sources first for ids and bounds; a region uses desktop points.",
     shape: captureScreenToolShape,
   },
   {
@@ -403,7 +402,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "interrupt_agent",
     description:
-      "Stop another agent's current turn when it works on your message, and cancel your queued requests for it. The agent gets a notice with your reason. You cannot stop work that the user, a routine, a channel or another agent started.",
+      "Stop another agent's current turn when it works on your message, and cancel your queued requests for it. The agent gets your reason. You cannot stop work that the user, a routine, a channel or another agent started.",
     shape: interruptAgentToolSchema.shape,
   },
   {
@@ -433,7 +432,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "start_new_chat",
     description:
-      "Start a new chat for yourself when this chat is long and its earlier messages no longer matter, or when a routine asks. Keep what you need first, with remember or a file in your workspace. The new chat starts when this turn ends and your queue is empty. Works only in your own chat, and only when the user allows it in your settings.",
+      "Start a new chat for yourself when this chat is long and its earlier messages no longer matter, or when a routine asks. Keep what you need first, with remember or a file. The new chat starts when this turn ends and your queue is empty. Works only in your own chat, when the user allows it.",
     shape: {},
   },
   {
@@ -561,7 +560,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "remember",
     description:
-      "Stage one short, durable memory for this agent. Use memoryId to correct or consolidate an existing memory. New entries are searchable unless inclusion is essential. Essential requests that do not fit stay searchable. The change commits only if the current turn completes.",
+      "Stage one short, durable memory for this agent. Use memoryId to correct or merge an existing one. Entries are searchable unless inclusion is essential. The change commits only if the turn completes.",
     shape: {
       text: z.string().min(1).max(INPUT_LIMITS.agentMemoryText),
       memoryId: z.string().optional(),
@@ -571,7 +570,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "forget_memory",
     description:
-      "Stage deletion of one saved memory when the user asks you to forget it, or when it is stale or merged into another memory and you need room under the memory limit. The change commits only if the current turn completes.",
+      "Stage deletion of one saved memory when the user asks you to forget it, or when it is stale or merged and you need room. The change commits only if the turn completes.",
     shape: { memoryId: z.string().min(1) },
   },
   {
@@ -607,10 +606,8 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "acknowledge_request",
     description: [
-      "Before a long task, show the user a short acknowledgement and your plan in one card, and wait. Call it first when the work takes more than about a minute. Skip it for quick answers, small changes, routine runs and work already approved.",
-      "OpenBot presses start after 10 s without an answer.",
-      'Returns {"status":"answered","actionId"}: start, alternative or cancel; "_text" carries the user\'s own words; skipped or expired means do not start.',
-      "Works only when the user turned it on in your settings.",
+      "Before a long task (over about a minute), show your plan in one card and wait. Skip it for quick answers, small changes, routine runs and approved work. OpenBot presses start after 10 s.",
+      'Returns {"status":"answered","actionId"}: start, alternative or cancel; "_text" carries the user\'s own words; skipped or expired means do not start. Works only when the user turned it on.',
     ].join(" "),
     shape: acknowledgeRequestToolSchema.shape,
   },
@@ -644,7 +641,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   },
   {
     name: "suggest_marketplace_app",
-    description: `Call this when the user needs a service in this list and you have no working tools for it: ${MARKETPLACE_APP_IDS.join(", ")}. It shows a card in the chat to connect the app; nothing connects without the user. For an installed app, it tests the app and returns the fix, such as a Sign in card or setup steps.`,
+    description: `Call it when the user needs one of these services and you have no working tools for it: ${MARKETPLACE_APP_IDS.join(", ")}. It shows a card to connect the app; nothing connects without the user. For an installed app it tests the app and returns the fix.`,
     shape: {
       app: z.string().min(1).max(63).describe("An app from the list, such as notion. Use github for GitHub."),
     },
@@ -652,7 +649,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "react_to_user_message",
     description:
-      "Add one emoji reaction to the current user message for an obvious positive or negative emotional moment, including wins, affection, gratitude, humor, sadness, disappointment, frustration, empathy, or strong approval. An emoji in the written answer does not count as a reaction. Skip neutral messages and never use the reaction instead of the normal answer.",
+      "Add one emoji reaction to the user's message for a clear emotional moment, positive or negative. An emoji in your answer is not a reaction. Skip neutral messages; never replace the answer with a reaction.",
     shape: { emoji: z.string().min(1).max(64).describe("Exactly one complete Unicode emoji.") },
   },
   {

@@ -29,19 +29,19 @@ export const MEMORY_RECALL_TOOL_DEFINITIONS = [
   {
     name: "search_memories",
     description:
-      "Search your saved memories when a past preference, decision, or fact can help with the current task. Returns committed entries and their selection revisions. Search terms are words, not query operators. No match means the fact was not found; do not invent it.",
+      "Search your saved memories when a past preference, decision or fact can help. Returns committed entries and their revisions. Terms are words, not operators. No match: do not invent the fact.",
     shape: searchMemoriesInput.shape,
   },
   {
     name: "list_memories",
     description:
-      "Read a bounded page of your saved memories for review or maintenance. Pass nextCursor as after to continue. Search is usually better for a specific fact.",
+      "Read a page of your saved memories for review or maintenance; pass nextCursor as after to continue. For a specific fact, search.",
     shape: listMemoriesInput.shape,
   },
   {
     name: "set_memory_inclusion",
     description:
-      "Stage selection of memories to include in every prompt. Use essential only for facts needed across tasks, and searchable for other facts. Read current revisions with search_memories or list_memories. Changes commit together only after a successful turn, within the prompt budget. User-controlled choices cannot be changed. This never deletes memory text.",
+      "Stage which memories go into every prompt: essential only for facts needed across tasks, else searchable. Get current revisions from search_memories or list_memories. Changes commit after a successful turn, within the prompt budget. User-controlled choices cannot change.",
     shape: setMemoryInclusionInput.shape,
   },
 ];
