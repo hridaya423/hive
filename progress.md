@@ -30,6 +30,9 @@ Hridya does all sign-ins and phone steps at the end, after all code is finished,
   The script opens the PNG on the mini's screen and writes a new one at every code rotation (about every 20 s, after a first code of about 60 s). On the phone: WhatsApp > Settings > Linked devices > Link a device. Scan it, wait for "linked as ...", and the script exits. Static spike images, which are expired and only prove the QR step works: `~/honey/hive-phase-9-spike/qr/pairing-qr-bun.png` and `pairing-qr-node.png` on the mini. The script `link.mjs` writes the login to the auth folder of Hive; Hive's WhatsApp adapter then reuses that folder.
 
 ## Answered
+- 2026-11-03, Hridya: install Hive on the MacBook and the mini and move the crew: Chief of Staff, Coding Manager and Launch Manager on the MacBook; Hackathon Hunter and Badminton Booker on the mini; Badminton Booker paused. "grab all of my openbot setup set it up there". Reading the upstream OpenBot data is allowed for this; writing it is not.
+- 2026-11-03, Hridya: after Hive is fully set up, "remove openbot fully ... delete openbot from here & mini and also remove openmausbot from the mini & hermes from this laptop & mini". Lead plan: move to Trash (recoverable), only after Hive runs the crew and is verified.
+- 2026-11-03, Hridya: a routine due while the machine was off runs once when the machine is on again (feature `feat/missed-runs`).
 - 2026-11-03: Phase 8 (performance hill-climb) is deferred by Hridya ("performance can be done later on as well, so phase 8 can be temporarily skipped"). Phase 1's measured token work stays.
 - 2026-11-03: WhatsApp uses `baileys` as a normal dependency. Hridya accepts its GPL-3.0 `libsignal` for private personal use ("this is just for personal use pls ignore that and setup baileys properly"). AGENTS.md's PolyForm-compatibility rule is set aside for these two packages only.
 - Phone is Android; iOS out of scope. Copilot plan: Pro via GitHub Education. Name: Hive.
