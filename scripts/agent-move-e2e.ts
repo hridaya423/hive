@@ -26,6 +26,7 @@ import {
   TEAM_CAPABILITIES_HEADER,
   TEAM_PROTOCOL_VERSION_HEADER,
 } from "@openbot/contracts/team-protocol";
+import { AGENT_HIDDEN_ROUTES } from "@openbot/contracts/team-protocol/agent-hidden-v1";
 import { teamCapabilitiesForProtocol } from "@openbot/contracts/team-protocol/current";
 import { decodeTeamProtocolV1CurrentHttpResponse } from "@openbot/contracts/team-protocol/v1-adapter";
 import { TEAM_PROTOCOL_V7 } from "@openbot/contracts/team-protocol/v7";
@@ -287,6 +288,7 @@ async function call(
 
 const hosts = new Map<string, Host>();
 const failures = new Set<string>();
+const blockedDeletes = new Set<string>();
 
 function hostFor(serverId: string): Host {
   const host = hosts.get(serverId);
@@ -309,6 +311,8 @@ const transport = {
     Effect.tryPromise({
       try: async () => {
         if (failures.has(`${serverId}:${path}`)) throw new Error(`The ${serverId} host refused ${path}.`);
+        if (init.method === "DELETE" && blockedDeletes.has(serverId))
+          throw new Error(`The ${serverId} host refused ${path}.`);
         const response = await call(hostFor(serverId), init.method ?? "GET", path, { body: init.body });
         if (response.status >= 400) fail(path, response.status, response.body);
         const [route] = path.split("?");
@@ -493,7 +497,7 @@ try {
     assert.equal(visibleAgentsOf(mini).length, 1);
   });
 
-  await step("Move B back to A: a joined server to this computer's server", async () => {
+  const back = await step("Move B back to A: a joined server to this computer's server", async () => {
     const back = await runCauseEffect(
       moveAgent({ source: remoteHost("macbook"), target: localHost(mini), agentId: first.agentId }),
     );
@@ -507,6 +511,34 @@ try {
     const archived = agentsOf(macbook).find((agent) => agent.id === first.agentId);
     assert.notEqual(archived?.hiddenAt, undefined);
     return { agentId: back.agentId };
+  });
+
+  await step("A source that cannot hide the agent leaves no copy on the target", async () => {
+    failures.add(`mini:${AGENT_HIDDEN_ROUTES.set}`);
+    await assert.rejects(
+      runCauseEffect(moveAgent({ source: remoteHost("mini"), target: remoteHost("macbook"), agentId: back.agentId })),
+    );
+    failures.delete(`mini:${AGENT_HIDDEN_ROUTES.set}`);
+    assert.deepEqual(visibleAgentsOf(macbook), []);
+    const source = agentsOf(mini).find((agent) => agent.id === back.agentId);
+    assert.ok(source && source.hiddenAt === undefined, "The source agent was hidden.");
+    assert.equal(routinesOf(mini, back.agentId).length, 1);
+  });
+
+  await step("A copy that cannot be removed from the target is reported", async () => {
+    failures.add(`mini:${AGENT_HIDDEN_ROUTES.set}`);
+    blockedDeletes.add("macbook");
+    const refused = await runCauseEffect(
+      moveAgent({ source: remoteHost("mini"), target: remoteHost("macbook"), agentId: back.agentId }),
+    ).then(
+      () => null,
+      (error: unknown) => (error instanceof Error ? error.message : String(error)),
+    );
+    failures.delete(`mini:${AGENT_HIDDEN_ROUTES.set}`);
+    blockedDeletes.delete("macbook");
+    assert.ok(refused?.includes("kept a copy of the agent"), `The failure did not name the copy: ${refused}`);
+    assert.equal(visibleAgentsOf(macbook).length, 1, "The leftover copy is not on the target.");
+    return { refused };
   });
 
   report.passed = true;
