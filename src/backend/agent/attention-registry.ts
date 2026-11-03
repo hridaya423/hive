@@ -61,13 +61,6 @@ import {
 import type { VaultAgentChange, VaultAgentResult, VaultEnteredItem, VaultItems } from "../vault-items";
 import { type ApprovalAutomationPolicy, NO_APPROVAL_AUTOMATION, shouldAutoApprove } from "./approval-automation";
 import type { ConversationRuntime } from "./conversation-runtime";
-import type { HostedSiteOperationFailed } from "./hosted-site-coordinator";
-import {
-  HOSTED_SITE_APPROVAL_METHOD,
-  type HostedSiteApprovalTarget,
-  type HostedSiteMutationContext,
-} from "./hosted-site-coordinator";
-import type { HostedSiteMutationTool } from "./hosted-site-events";
 import { ForbiddenAttentionAnswer, InactiveAttentionRequest } from "./inactive-attention-request";
 import {
   API_KEY_FIELD_ID,
@@ -155,7 +148,6 @@ interface PendingApproval {
   method: string;
   params: unknown;
   approval: AgentApproval;
-  hostedSiteMutation?: HostedSiteMutationContext;
   /** A built-in tool waits for this answer and does the work itself. "cancel" means nobody answered. */
   decide?: (decision: ToolApprovalDecision) => void;
   /** The tool asks even when the agent has Full access, so a later grant does not answer it. */
@@ -336,24 +328,6 @@ interface PendingBrowserTakeover {
 }
 
 /**
- * The hosted-site half of an approval, narrow enough that the registry never learns what a site is.
- * `HostedSiteCoordinator` satisfies it.
- */
-export interface HostedSiteApprovals {
-  prepareApproval(
-    client: AgentClient,
-    request: AppServerRequest,
-    params: DynamicToolCallParams,
-    tool: HostedSiteMutationTool,
-  ): Effect.Effect<{ approval: AgentApproval; mutation: HostedSiteMutationContext } | null, HostedSiteOperationFailed>;
-  resolveApproval(
-    mutation: HostedSiteMutationContext,
-    target: HostedSiteApprovalTarget,
-    decision: "accept" | "decline",
-  ): Effect.Effect<void, HostedSiteOperationFailed>;
-}
-
-/**
  * How an outstanding question feeds back into a routine run's status. Implemented by the facade in
  * this PR and handed to `RoutineScheduler` in the next.
  */
@@ -382,7 +356,6 @@ type AttentionConversation = Pick<
 export interface AttentionRegistryOptions {
   conversation: AttentionConversation;
   browser: AttentionBrowserHost;
-  hostedSites: HostedSiteApprovals;
   routines: RoutineAttention;
   /** Read at each approval, so a grant the user gives now applies to the next request. */
   approvalAutomation?: ApprovalAutomationPolicy | undefined;
@@ -441,7 +414,6 @@ export class AttentionRegistry {
   readonly #localHandles = new WeakMap<PendingPrompt | PendingApproval | PendingBrowserTakeover, string>();
   readonly #conversation: AttentionConversation;
   readonly #browser: AttentionBrowserHost;
-  readonly #hostedSites: HostedSiteApprovals;
   readonly #routines: RoutineAttention;
   readonly #approvalAutomation: ApprovalAutomationPolicy;
   readonly #workspaceSandboxed: (agentId: string) => boolean;
@@ -462,7 +434,6 @@ export class AttentionRegistry {
   constructor(options: AttentionRegistryOptions) {
     this.#conversation = options.conversation;
     this.#browser = options.browser;
-    this.#hostedSites = options.hostedSites;
     this.#routines = options.routines;
     this.#approvalAutomation = options.approvalAutomation ?? NO_APPROVAL_AUTOMATION;
     this.#workspaceSandboxed = options.workspaceSandboxed ?? (() => false);
@@ -747,18 +718,8 @@ export class AttentionRegistry {
     });
     this.#routines.markRunningForTurn(getString(pending.params, "turnId"));
 
-    const mutation = pending.hostedSiteMutation;
     if (pending.decide) {
       pending.decide(input.decision);
-    } else if (mutation) {
-      this.#approvals.delete(input.requestId);
-      yield* this.#hostedSites
-        .resolveApproval(
-          mutation,
-          { client: pending.client, id: pending.id, agentId: pending.approval.agentId },
-          input.decision,
-        )
-        .pipe(toAttentionOperationFailed);
     } else {
       pending.client.respond(
         pending.id,
@@ -935,7 +896,7 @@ export class AttentionRegistry {
 
   /**
    * Asks the user to approve a built-in tool call, and gives the answer to the tool. The tool does
-   * nothing before "accept". An agent with Full access is answered for, as for a hosted-site change,
+   * nothing before "accept". An agent with Full access is answered for,
    * unless `alwaysAsk` is set. A turn that ends or a request that the provider abandons gives "cancel".
    */
   readonly awaitToolApproval = Effect.fn("AttentionRegistry.awaitToolApproval")(function* (
@@ -963,36 +924,6 @@ export class AttentionRegistry {
     this.#emit({ type: "approval", approval });
     return yield* Deferred.await(decision);
   }).bind(this);
-
-  readonly surfaceHostedSiteApproval = Effect.fn("AttentionRegistry.surfaceHostedSiteApproval")(function* (
-    this: AttentionRegistry,
-    client: AgentClient,
-    request: AppServerRequest,
-    params: DynamicToolCallParams,
-    tool: HostedSiteMutationTool,
-  ) {
-    const prepared = yield* this.#hostedSites
-      .prepareApproval(client, request, params, tool)
-      .pipe(toAttentionOperationFailed);
-    // A request the provider abandoned during the preparation has nobody to report the decision to.
-    if (!prepared || request.signal?.aborted) return;
-    if (this.#answersForAgent(prepared.approval.agentId)) {
-      yield* this.#hostedSites
-        .resolveApproval(prepared.mutation, { client, id: request.id, agentId: prepared.approval.agentId }, "accept")
-        .pipe(toAttentionOperationFailed);
-      return;
-    }
-    this.#approvals.set(request.id, {
-      client,
-      id: request.id,
-      method: HOSTED_SITE_APPROVAL_METHOD,
-      params,
-      approval: prepared.approval,
-      hostedSiteMutation: prepared.mutation,
-    });
-    this.#routines.markNeedsAttention(prepared.approval.turnId);
-    this.#emit({ type: "approval", approval: prepared.approval });
-  }, Effect.uninterruptible).bind(this);
 
   surfaceLegacyApproval(client: AgentClient, request: AppServerRequest): void {
     const threadId = getString(request.params, "conversationId");
@@ -1805,31 +1736,14 @@ export class AttentionRegistry {
    * Cancels one pending approval the way each waiter needs it, and every cancelled entry still emits
    * its resolved event: the UI removes its card on that event alone, and a compaction turn sends no
    * other notice. A built-in tool hears "cancel" through `decide` and answers the provider itself,
-   * so answering its request here too would answer it twice. A hosted site goes through its own
-   * resolver, which declines the provider and records the terminal event; the resolver reports its
-   * own failures, so this only keeps one from interrupting the remaining removals. A native approval
+   * so answering its request here too would answer it twice. A native approval
    * that the provider still waits on gets the refusal a `respondToApproval` answer would send, so
    * its request does not wait forever; a client that forgot the request ignores the answer (#4165).
-   * A client that no longer runs has nobody to answer, for a hosted site too: its write fails.
    */
   #cancelApproval(pending: PendingApproval): void {
     this.#emitInputResolved("approval", pending.id, pending.approval.agentId);
     pending.decide?.("cancel");
     if (pending.decide || !pending.client.running) return;
-    if (pending.hostedSiteMutation) {
-      const report = (error: unknown) =>
-        Effect.sync(() => this.#emitError("approval_cleanup_failed", error, pending.approval.agentId));
-      Effect.runFork(
-        this.#hostedSites
-          .resolveApproval(
-            pending.hostedSiteMutation,
-            { client: pending.client, id: pending.id, agentId: pending.approval.agentId },
-            "decline",
-          )
-          .pipe(Effect.catch(report), Effect.catchDefect(report)),
-      );
-      return;
-    }
     try {
       pending.client.respond(
         pending.id,

@@ -68,7 +68,6 @@ import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, createStore, For, onCleanup, Show, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
 import { writeClipboardText } from "../../clipboard";
-import { HostedUpsellRoutinesNotice, hostedUpsellRoutineCreated } from "../servers/hosted-server-upsell-controller";
 import { isEventRoutine, routineListSummary, routineScheduleOf } from "./routine-summary";
 import type { RoutineEditorRecord, RoutinesPort } from "./routines-port";
 
@@ -529,9 +528,6 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
         setWebhook((state) => {
           state.secret = secret;
         });
-      }
-      if (!current.id && saved.active) {
-        hostedUpsellRoutineCreated({ id: saved.id, name: saved.name, agentId: null });
       }
     } catch (caught) {
       setError(errorMessage(caught, t("routine.settings.saveFailed")));
@@ -1108,11 +1104,6 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
         </Show>
       </div>
       {/* Out of the scroll area, so the offer stays at the bottom of the panel. */}
-      <Show when={!draft() && !loading()}>
-        <div class="agent-routines-footer">
-          <HostedUpsellRoutinesNotice count={routines().filter((routine) => routine.active).length} />
-        </div>
-      </Show>
       <ConfirmDialog
         open={pendingExit() !== null}
         onCancel={() => setPendingExit(null)}

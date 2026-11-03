@@ -24,9 +24,7 @@ import { StaticI18nProvider } from "../../i18n-context";
 import { deleteRemoteWorkspaceFrames } from "../servers/remote-workspace-frame";
 import type { WebWorkspace } from "./WebWorkspace";
 import { createWebAppearancePreference } from "./web-appearance-preference";
-import { takeWebAppStart, WEB_APP_BILLING_PARAM, type WebAppStart } from "./web-billing";
 import type { WebRuntimeFactory } from "./web-client-context";
-import { takeHostingReturn } from "./web-hosted-servers";
 
 // The site loads this before it mounts `WebApp` (`apps/auth-api/src/routes/app.lazy.tsx`).
 
@@ -100,27 +98,6 @@ function takeMarketplaceLink(): MarketplaceListingLink | null {
   return link;
 }
 
-/**
- * A return from Stripe to Billing: `/app?billing=portal` from the Customer Portal, or
- * `/app?billing=license` from license Checkout, with `&cancelled=1` when the user went back. The
- * query is removed after it is read.
- */
-function takeBillingReturn(): boolean {
-  const url = new URL(window.location.href);
-  if (url.searchParams.get(WEB_APP_BILLING_PARAM) === null) return false;
-  for (const name of [WEB_APP_BILLING_PARAM, "cancelled"]) url.searchParams.delete(name);
-  window.history.replaceState(window.history.state, "", url);
-  return true;
-}
-
-/** What a `/app?start=<server|license>` link from the pricing page opens. The query is removed after it is read. */
-function takeStartLink(): WebAppStart | null {
-  const url = new URL(window.location.href);
-  const start = takeWebAppStart(url);
-  if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url);
-  return start;
-}
-
 export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
   // This component renders the text provider, so it reads the text of the last provider that rendered.
   const text = currentText();
@@ -140,9 +117,6 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
   const [inviteUrl, setInviteUrl] = createSignal(takeInviteLink());
   const [pluginSlug, setPluginSlug] = createSignal(takePluginLink());
   const [marketplaceListing, setMarketplaceListing] = createSignal(takeMarketplaceLink());
-  const [startLink, setStartLink] = createSignal(takeStartLink());
-  const [billingReturn, setBillingReturn] = createSignal(takeBillingReturn());
-  const [hostingReturn, setHostingReturn] = createSignal(takeHostingReturn());
   const [workspace, setWorkspace] = createSignal<typeof WebWorkspace>();
   /** Sets the account when the workspace code is ready to show it. */
   async function showAccount(account: CentralAuthUser) {
@@ -406,12 +380,6 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
                 onPluginSlugConsumed={() => setPluginSlug(null)}
                 marketplaceListing={marketplaceListing()}
                 onMarketplaceListingConsumed={() => setMarketplaceListing(null)}
-                start={startLink()}
-                onStartConsumed={() => setStartLink(null)}
-                billingReturn={billingReturn()}
-                onBillingReturnConsumed={() => setBillingReturn(false)}
-                hostingReturn={hostingReturn()}
-                onHostingReturnConsumed={() => setHostingReturn(null)}
                 appearance={appearancePreference.appearance()}
                 onChangeAppearance={appearancePreference.setAppearance}
               />

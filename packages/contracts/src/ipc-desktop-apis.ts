@@ -58,15 +58,10 @@ export interface ServersDesktopApi extends GroupApi<IpcEndpoints["servers"]> {
  */
 export type PluginsDesktopApi = GroupApi<IpcEndpoints["plugins"]>;
 
-export type HostedSitesDesktopApi = GroupApi<IpcEndpoints["hostedSites"]>;
 export type GitHubConnectorDesktopApi = GroupApi<IpcEndpoints["githubConnector"]>;
 export type LinkAccountDesktopApi = GroupApi<IpcEndpoints["linkAccount"]>;
 export type OnePasswordConnectorDesktopApi = GroupApi<IpcEndpoints["onePasswordConnector"]>;
-export type BillingDesktopApi = GroupApi<IpcEndpoints["billing"]>;
-export type LicenseDesktopApi = GroupApi<IpcEndpoints["license"]>;
 export type RoutineFeedDesktopApi = GroupApi<IpcEndpoints["routineFeed"]>;
-
-export type HostedServersDesktopApi = GroupApi<IpcEndpoints["hostedServers"]>;
 
 /**
  * The user's own model endpoints. `save` and `delete` both answer with the whole list plus how the

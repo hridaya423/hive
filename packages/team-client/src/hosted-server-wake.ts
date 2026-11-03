@@ -4,9 +4,10 @@ import {
   parseHostedServerStatus,
   parseHostedServerSummary,
 } from "@openbot/contracts/hosted-servers";
-import type { HostedServerStartStep } from "@openbot/contracts/ipc";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { Deferred, Effect, Schema } from "effect";
+
+type HostedServerStartStep = "machine" | "openbot" | "provider_limit";
 
 class HostedServerWakeError extends Schema.TaggedError<HostedServerWakeError>()("HostedServerWakeError", {}) {}
 

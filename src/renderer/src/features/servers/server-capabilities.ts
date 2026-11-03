@@ -49,7 +49,6 @@ export function serverSupportsCapability(
       capability === "storage-v1" ||
       capability === "storage-disk-v1" ||
       capability === "machine-resources-v1" ||
-      capability === "hosted-sites-v1" ||
       capability === "agent-admin-v1" ||
       capability === "agent-host-settings-v1" ||
       capability === "agent-backup-models-v1" ||

@@ -1,20 +1,10 @@
 // What main answers for the app shell, the account, the updater, notifications, voice, exports,
-// hosted sites, hosted servers, custom providers and remote desktop.
+// hosted servers, custom providers and remote desktop.
 //
 // Each decoder checks every field the contract type requires and keeps each optional field it
 // carries, so a value the renderer reads always has the shape its type says.
 
 import { isAgentTemplateId } from "@openbot/contracts/agent-template-links";
-import { type BillingState, parseBillingState } from "@openbot/contracts/billing";
-import {
-  type HostedServerCatalog,
-  type HostedServerList,
-  type HostedServerSummary,
-  parseHostedServerCatalog,
-  parseHostedServerList,
-  parseHostedServerSummary,
-} from "@openbot/contracts/hosted-servers";
-import { parseHostedSiteList, parseHostedSiteSummary } from "@openbot/contracts/hosted-sites";
 import {
   type AccountSession,
   AGENT_DEFAULT_KEYS,
@@ -55,8 +45,6 @@ import {
   type ExternalLinkPreference,
   type GitHubConnectorRepositories,
   type GitHubConnectorStatus,
-  type HostedSiteList,
-  type HostedSiteSummary,
   IDLE_RESTART_TARGETS,
   type IdleRestart,
   isAgentMemoryLimit,
@@ -131,7 +119,6 @@ import {
   requiredNumber,
   requiredString,
 } from "@openbot/contracts/ipc-decoding";
-import { type LicenseState, parseLicenseState } from "@openbot/contracts/license";
 import {
   isMarketplaceAgentId,
   isMarketplaceSkillSlug,
@@ -557,18 +544,6 @@ export function decodeQuitShortcutHint(value: unknown): boolean {
   throw new Error("Invalid quit shortcut hint.");
 }
 
-export function decodeHostedSite(value: unknown): HostedSiteSummary {
-  const site = parseHostedSiteSummary(value);
-  if (!site) throw new Error("Invalid hosted site response.");
-  return site;
-}
-
-export function decodeHostedSiteList(value: unknown): HostedSiteList {
-  const list = parseHostedSiteList(value);
-  if (!list) throw new Error("Invalid hosted site list response.");
-  return list;
-}
-
 export function decodeGitHubConnectorStatus(value: unknown): GitHubConnectorStatus {
   const status = parseGitHubConnectorStatus(value);
   if (!status) throw new Error("Invalid GitHub connector response.");
@@ -591,36 +566,6 @@ export function decodeOnePasswordConnectorStatus(value: unknown): OnePasswordCon
   const status = parseOnePasswordConnectorStatus(value);
   if (!status) throw new Error("Invalid 1Password connector response.");
   return status;
-}
-
-export function decodeBillingState(value: unknown): BillingState {
-  const state = parseBillingState(value);
-  if (!state) throw new Error("Invalid billing state response.");
-  return state;
-}
-
-export function decodeLicenseState(value: unknown): LicenseState {
-  const state = parseLicenseState(value);
-  if (!state) throw new Error("Invalid license state response.");
-  return state;
-}
-
-export function decodeHostedServer(value: unknown): HostedServerSummary {
-  const server = parseHostedServerSummary(value);
-  if (!server) throw new Error("Invalid hosted server response.");
-  return server;
-}
-
-export function decodeHostedServerCatalog(value: unknown): HostedServerCatalog {
-  const catalog = parseHostedServerCatalog(value);
-  if (!catalog) throw new Error("Invalid hosted server plans response.");
-  return catalog;
-}
-
-export function decodeHostedServerList(value: unknown): HostedServerList {
-  const list = parseHostedServerList(value);
-  if (!list) throw new Error("Invalid hosted server list response.");
-  return list;
 }
 
 /**
@@ -694,15 +639,11 @@ export function decodeProviderDetectionSettings(value: unknown): ProviderDetecti
   return value;
 }
 
-export function decodeNullablePath(value: unknown): string | null {
-  if (value !== null && !isString(value)) throw new Error("Invalid directory response.");
-  return value;
-}
-
 export function decodeRemoteDesktopSetupFromMain(value: unknown): RemoteDesktopSetupStatus {
   if (!isRemoteDesktopSetupStatus(value)) throw new Error("Invalid remote desktop setup response.");
   return { ...value };
 }
+
 export function decodeRemoteDesktopTestFromMain(value: unknown): RemoteDesktopTestStatus {
   if (!isRemoteDesktopTestStatus(value)) throw new Error("Invalid remote desktop test response.");
   return { ...value };

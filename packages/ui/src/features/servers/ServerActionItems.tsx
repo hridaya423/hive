@@ -90,13 +90,10 @@ export function ServerActionItems(
     props.server.kind === "remote" &&
     props.server.role === "owner" &&
     Boolean(props.canRemove?.(props.server.id));
-  // A restart while the machine starts would stop it and begin the start again. A running machine whose
-  // OpenBot does not answer can restart.
   const canRestart = () =>
     Boolean(props.onRestart) &&
     props.server.kind === "remote" &&
     canAdministerServer(props.server.role) &&
-    !(props.server.hostedSleep === "waking" && props.server.hostedStart?.step !== "openbot") &&
     (props.server.hosted === true || Boolean(props.canRestart?.(props.server.id)));
   const canHide = () =>
     Boolean(props.onHide) && props.server.kind === "local" && Boolean(props.canHide?.(props.server.id));

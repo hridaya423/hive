@@ -37,7 +37,6 @@ import { HOST_MEMBER_UPDATE_CAPABILITY } from "@openbot/contracts/team-protocol/
 import { HOST_RELEASE_CAPABILITY } from "@openbot/contracts/team-protocol/host-release-v1";
 import { HOST_TIMEZONE_CAPABILITY } from "@openbot/contracts/team-protocol/host-timezone-v1";
 import { HOST_UPDATE_CAPABILITY } from "@openbot/contracts/team-protocol/host-update-v1";
-import { HOSTED_SITES_CAPABILITY } from "@openbot/contracts/team-protocol/hosted-sites-v1";
 import { INSTANCE_TRANSFER_CAPABILITY } from "@openbot/contracts/team-protocol/instance-transfer-v1";
 import { LIVE_ACTIVITY_PUSH_CAPABILITY } from "@openbot/contracts/team-protocol/live-activity-push-v1";
 import { LOCAL_SERVERS_CAPABILITY } from "@openbot/contracts/team-protocol/local-servers-v1";
@@ -80,7 +79,6 @@ import {
 } from "@openbot/team-client";
 import { verifyEd25519Base64Url } from "@openbot/team-client/ed25519";
 import { createFocusUsePing } from "@openbot/team-client/focus-use";
-import { createHostedServerWake, WAKE_RECONNECT_DELAY_MS } from "@openbot/team-client/hosted-server-wake";
 import type { RemoteFileUpload } from "@openbot/team-client/remote-peer";
 import {
   createHostLocalServer,
@@ -1168,21 +1166,6 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
     else connections.current.delete(hostId);
     if (handle && quietStarts.current.delete(hostId)) handle.quietStart();
   }, []);
-  const wakeHostedServer = useMemo(
-    () =>
-      createHostedServerWake((hostId) =>
-        Effect.tryPromise((signal) =>
-          fetch(new URL(`/v2/hosting/servers/${encodeURIComponent(hostId)}/wake`, session.apiUrl).toString(), {
-            method: "POST",
-            headers: { Authorization: `Bearer ${session.sessionToken}` },
-            signal,
-          }),
-        ),
-      ),
-    [session.apiUrl, session.sessionToken],
-  );
-  const foregroundRef = useRef(foreground);
-  foregroundRef.current = foreground;
   /** Sends an answer to a request that the host waits on. */
   const sendApproval = useCallback(
     async (serverId: string, input: RespondToApprovalInput) => {
@@ -1210,27 +1193,6 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
   const handleServerUnavailable = useCallback((hostId: string) => {
     if (hostId === activeServerIdRef.current) setHold(null);
   }, []);
-  const wakeReconnect = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(wakeReconnect.current), []);
-  /** The account server says that the hosted server starts, so the app connects to it again soon. */
-  const hostedServerStarting = useCallback((hostId: string) => {
-    clearTimeout(wakeReconnect.current);
-    wakeReconnect.current = setTimeout(() => connections.current.get(hostId)?.refresh(), WAKE_RECONNECT_DELAY_MS);
-  }, []);
-  // A hosted server that stopped for no use starts again only for use: the selected server, with the
-  // app in the foreground. It connects again when the account server says that it starts.
-  const wakeSelectedServer = useCallback(
-    (hostId: string) => {
-      if (!foregroundRef.current || hostId !== activeServerIdRef.current) return;
-      void runTeamEffect(wakeHostedServer(hostId)).then((waking) => {
-        if (!waking || hostId !== activeServerIdRef.current) return;
-        hostedServerStarting(hostId);
-      });
-    },
-    [wakeHostedServer, hostedServerStarting],
-  );
-  /** The last failed attempt of each server that asked for a wake. */
-  const wakeAttempts = useRef(new Map<string, number>());
   const [recoveryCountdowns] = useState(createRecoveryCountdowns);
   const handleConnectionStatus = useCallback(
     (hostId: string, status: RemoteRecoveryStatus, failure: RemoteConnectionFailure | null, resuming: boolean) => {
@@ -1249,22 +1211,9 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       else if (!resuming && status.phase !== "connecting")
         connectionWaits.settle(hostId, new Error(sourceText("error.remote.selectedServerOffline")));
       if (status.phase === "online" && hostId === activeServerIdRef.current) setHold(null);
-      // The status repeats each second while it waits, so each failed attempt asks once.
-      if (status.phase === "online") wakeAttempts.current.delete(hostId);
-      if (status.phase !== "waiting" && status.phase !== "cooldown") return;
-      if (wakeAttempts.current.get(hostId) === status.attempt) return;
-      wakeAttempts.current.set(hostId, status.attempt);
-      wakeSelectedServer(hostId);
     },
-    [recoveryCountdowns, wakeSelectedServer, connectionWaits],
+    [recoveryCountdowns, connectionWaits],
   );
-  // The next retry of an offline server can be 30 seconds away, so a server starts when it is selected.
-  useEffect(() => {
-    if (!foreground || !activeServerId) return;
-    if (serversRef.current.find((server) => server.id === activeServerId)?.state === "offline") {
-      wakeSelectedServer(activeServerId);
-    }
-  }, [foreground, activeServerId, wakeSelectedServer]);
   // A hosted server keeps running while this app is in the foreground (`focus-use-v1`).
   const focusUse = useMemo(
     () =>
@@ -1692,7 +1641,6 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
         connections.current.get(serverId)?.refresh();
         await refreshHosts();
       },
-      hostedServerStarting,
       updateServerIdentity: async (serverId, input) => {
         const server = serversRef.current.find((candidate) => candidate.id === serverId);
         if (!server || !canAdministerServer(server.role))
@@ -2079,7 +2027,6 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
     conversationStore,
     liveState,
     sendApproval,
-    hostedServerStarting,
     forgetServer,
     loadConversation,
     loadConversationAround,
@@ -2191,10 +2138,6 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
           : null;
       },
       canReadServerRelease: (serverId) => hasCapability(serverCapabilities.current, serverId, HOST_RELEASE_CAPABILITY),
-      canViewHostedSites: (serverId) =>
-        servers.some((server) => server.id === serverId && showsOnline(server)) &&
-        hasCapability(serverCapabilities.current, serverId, HOSTED_SITES_CAPABILITY),
-      canDeleteHostedSites: (serverId) => administers(serverId, HOSTED_SITES_CAPABILITY),
       canManageProviders: (serverId) => administers(serverId, PROVIDERS_ADMIN_CAPABILITY),
       canManageMcpServers: (serverId) => administers(serverId, MCP_SERVERS_CAPABILITY),
       canRelayMcpSignIn: (serverId) =>

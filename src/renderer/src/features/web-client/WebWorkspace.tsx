@@ -1,6 +1,5 @@
 import { isKnownAgentProvider } from "@openbot/contracts/agent-providers";
 import type { AppAppearance } from "@openbot/contracts/app-appearance";
-import { HOSTED_SERVER_CONTACT_URL } from "@openbot/contracts/hosted-servers";
 import {
   type AddedAgent,
   type AgentProviderId,
@@ -20,7 +19,6 @@ import {
   type ServerConnectionState,
   type ServerSummary,
 } from "@openbot/contracts/ipc";
-import type { PricingOrder } from "@openbot/contracts/license";
 import type { MarketplaceListingLink } from "@openbot/contracts/marketplace-links";
 import { AGENT_BACKUP_MODELS_ROUTES } from "@openbot/contracts/team-protocol/agent-backup-models-v1";
 import { AGENT_FAST_MODE_ROUTES } from "@openbot/contracts/team-protocol/agent-fast-mode-v1";
@@ -38,7 +36,6 @@ import { AGENT_HIDDEN_CAPABILITY, TEAM_AGENT_CREATE_MODEL_CAPABILITY } from "@op
 import { DISCORD_ACCESS_CAPABILITY } from "@openbot/contracts/team-protocol/discord-access-v1";
 import { EVENTS_CAPABILITY } from "@openbot/contracts/team-protocol/events-v1";
 import { HOST_RELEASE_CAPABILITY } from "@openbot/contracts/team-protocol/host-release-v1";
-import { HOSTED_SITES_CAPABILITY } from "@openbot/contracts/team-protocol/hosted-sites-v1";
 import { MCP_SIGN_IN_CAPABILITY } from "@openbot/contracts/team-protocol/mcp-sign-in-v1";
 import { ROUTINE_FLOWS_CAPABILITY } from "@openbot/contracts/team-protocol/routine-flows-v1";
 import { ROUTINE_RECOVERY_CAPABILITY } from "@openbot/contracts/team-protocol/routine-recovery-v1";
@@ -54,7 +51,6 @@ import {
   checkHostForUpdate,
   checkHostRelease,
   clearStorage,
-  deleteHostedSite,
   deleteStoredFile,
   getAgentAdminSettings,
   getHostAgentAccess,
@@ -66,7 +62,6 @@ import {
   getHostTimezone,
   getHostUpdateStatus,
   getStorageUsage,
-  listHostedSites,
   setHostAgentAccess,
   setHostAgentMemoryLimit,
   setHostMemoryReview,
@@ -81,14 +76,9 @@ import { hasVisibleToasts, toast } from "@openbot/ui";
 import { accountUsageProviderRows } from "@openbot/ui/features/account/account-usage-view";
 import { computeAgentAvatarMoods } from "@openbot/ui/features/agents/agent-avatar-mood";
 import { createFirstAgentDraft, type FirstAgentDraft } from "@openbot/ui/features/agents/FirstAgentSetup";
-import { BillingDialog } from "@openbot/ui/features/billing/BillingDialog";
-import { createBillingStore } from "@openbot/ui/features/billing/billing-store";
-import { LicenseSection } from "@openbot/ui/features/billing/LicenseSection";
-import { createLicenseStore } from "@openbot/ui/features/billing/license-store";
 import { unloadedHistory } from "@openbot/ui/features/conversation/ChatScrollRail";
 import type { DiagramModelChoice } from "@openbot/ui/features/diagrams/DiagramNewAgentCard";
 import { LeaveServerDialog } from "@openbot/ui/features/servers/LeaveServerDialog";
-import { RestartServerDialog } from "@openbot/ui/features/servers/RestartServerDialog";
 import type { ServerActionCallbacks } from "@openbot/ui/features/servers/ServerActionItems";
 import {
   ConversationLoadNotice,
@@ -98,7 +88,6 @@ import {
 } from "@openbot/ui/features/servers/ServerConnectionNotice";
 import { ServerRail } from "@openbot/ui/features/servers/ServerRail";
 import type { SettingsPagePlacement } from "@openbot/ui/features/settings/SettingsDialogShell";
-import { createSettingsHostedServersStore } from "@openbot/ui/features/settings/stores/hosted-servers-store";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
 import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
 import { sidebarAgentOrder } from "@openbot/ui/features/sidebar/sidebar-agent-order";
@@ -178,14 +167,12 @@ import type { FilesPort } from "../files/files-port";
 import { hostSetupProviderProps } from "../onboarding/host-setup-provider-props";
 import { createRoutineTimezonePrompt } from "../schedule/routine-timezone-prompt";
 import type { ScheduleRoutine } from "../schedule/SchedulePanel";
-import { AddServerOverlay, type AddServerResume } from "../servers/AddServerOverlay";
-import { createHostedUpsellOffline, HostedServerUpsell } from "../servers/hosted-server-upsell-controller";
 import { saveRemoteFrameChannels } from "../servers/remote-workspace-frame";
 import type { HostServerAuditCalls } from "../servers/ServerAuditSection";
 import type { HostMemoryLimitCalls } from "../servers/ServerMemoryLimitSetting";
 import type { HostMemoryReviewCalls } from "../servers/ServerMemoryReviewSetting";
 import type { HostAgentAccessCalls } from "../servers/ServerRolesSection";
-import type { ServerHostedSitesOptions, ServerSettingsSection } from "../servers/ServerSettingsModal";
+import type { ServerSettingsSection } from "../servers/ServerSettingsModal";
 import type { HostTimezoneCalls } from "../servers/ServerTimezoneSetting";
 import type { HostUpdateCalls } from "../servers/ServerUpdatePanel";
 import {
@@ -218,7 +205,6 @@ import { createWebAccountUsage } from "./web-account-usage";
 import { createWebAgentImportCalls } from "./web-agent-import";
 import { createWebAgentThreads } from "./web-agent-threads";
 import { openWebLink } from "./web-attachments";
-import { createWebBillingCalls, createWebLicenseCalls, type WebAppStart } from "./web-billing";
 import { webBitwardenConnectorPort } from "./web-bitwarden-connector";
 import { createWebChannelsPort } from "./web-channels-runtime";
 import { createWebChatHistory, type WebChatHistoryEntry } from "./web-chat-history";
@@ -227,7 +213,6 @@ import { createWebConversationRuntime } from "./web-conversation-runtime";
 import { createWebConversationView } from "./web-conversation-view";
 import { createWebFileSaver } from "./web-file-download";
 import { webGitHubConnectorPort } from "./web-github-connector";
-import { createWebHostedServers } from "./web-hosted-server-state";
 import { createWebAgentTemplateCalls, createWebMarketplaceCalls } from "./web-marketplace";
 import { webHostMessaging } from "./web-messaging-connector";
 import { createWebServerNotifications } from "./web-notification-preferences";
@@ -307,15 +292,6 @@ type WebWorkspaceProps = {
   /** An agent or skill that a `/app?marketplaceAgent=` or `?marketplaceSkill=` link named. */
   marketplaceListing?: MarketplaceListingLink | null;
   onMarketplaceListingConsumed?: () => void;
-  /** What a pricing page button asked for: the add server dialog or Billing. */
-  start?: WebAppStart | null;
-  onStartConsumed?: () => void;
-  /** True on a return from the Stripe Customer Portal. The Billing dialog opens on it. */
-  billingReturn?: boolean;
-  onBillingReturnConsumed?: () => void;
-  /** The server of a return from Stripe Checkout. The add server dialog opens on its progress. */
-  hostingReturn?: AddServerResume | null;
-  onHostingReturnConsumed?: () => void;
   /** The theme this browser keeps. Account settings change it. */
   appearance: AppAppearance;
   onChangeAppearance: (appearance: AppAppearance) => void;
@@ -408,12 +384,11 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   const hostOffline = () => !noHost() && !workspace.state.workspaceLoaded;
   /** The composer says "Connecting…" while the frame shows and while the open conversation loads. */
   const conversationConnecting = () =>
-    !workspace.state.hostedSleep &&
-    (workspace.state.status === "connecting" ||
-      (workspace.state.status === "online" &&
-        Boolean(workspace.conversation()) &&
-        !workspace.conversation()?.page &&
-        !workspace.conversation()?.error));
+    workspace.state.status === "connecting" ||
+    (workspace.state.status === "online" &&
+      Boolean(workspace.conversation()) &&
+      !workspace.conversation()?.page &&
+      !workspace.conversation()?.error);
   // A host that restarts into an update drops the connection on purpose. That error is not news.
   const hostUpdating = () => workspace.state.hostRestart?.state === "restarting";
   createServerConnectionToast(() => {
@@ -426,7 +401,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
           quiet: Boolean(
             !workspace.state.workspaceLoaded ||
               workspace.state.otherTab ||
-              workspace.state.hostedSleep ||
               workspace.state.hostRestart?.state === "restarting" ||
               workspace.state.incompatibility,
           ),
@@ -464,13 +438,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
     },
   );
   const [joinOpen, setJoinOpen] = createSignal(false);
-  const hostedServers = createWebHostedServers({
-    accountFetch: props.accountFetch,
-    hosts: () => workspace.state.hosts,
-    hostingReturn: () => props.hostingReturn,
-    onHostingReturnConsumed: () => props.onHostingReturnConsumed?.(),
-    onJoin: () => setJoinOpen(true),
-  });
   const [creating, setCreating] = createSignal(false);
   /** The new agent form's avatar. The first-agent row in an empty sidebar shows it. */
   const [agentAvatar, setAgentAvatar] = createSignal(newAgentAvatar());
@@ -518,10 +485,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
           : null,
         active,
         state: incompatibility ? "incompatible" : hostState(host.hostId),
-        // Only the opened host has a known sleep state.
-        hostedSleep: active ? workspace.state.hostedSleep : null,
-        hostedIssue: active ? workspace.state.hostedIssue : null,
-        hostedStart: active ? workspace.state.hostedStart : null,
         notificationsMuted: notice.muted,
         notificationsMutedUntil: notice.mutedUntil,
         notificationLevel: notice.level,
@@ -560,16 +523,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   const [marketplaceOpen, setMarketplaceOpen] = createSignal(false);
   /** The Usage, Schedule or Tasks page of the connected host. As on desktop, it follows a host switch. */
   const [hostPage, setHostPage] = createSignal<{ view: HostPageView; trigger: HTMLElement | null } | null>(null);
-  /** A server at its site limit offers the server plans, which have more sites, to its owner. */
-  function canOfferServerPlans(): boolean {
-    return (
-      hostedServers.available() && hostedServers.loaded() && server()?.role === "owner" && server()?.hosted !== true
-    );
-  }
-  function openServerPlans(): void {
-    serverSettings.setOpen(false);
-    hostedServers.openAddServer("upsell");
-  }
   /** Only the connected host answers, so another host is connected first, as for its settings. */
   async function openHostPage(serverId: string, view: HostPageView, trigger: HTMLElement | null) {
     if (server()?.id !== serverId) {
@@ -1005,28 +958,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
       if (link) openMarketplace();
     },
   );
-  const [billingOpen, setBillingOpen] = createSignal(false);
-  /** `/app?start=license` opens Billing with the license dialog open, and with the order of the pricing page. */
-  const [licenseStart, setLicenseStart] = createSignal<{ order: PricingOrder | null } | null>(null);
-  const billingCalls = createWebBillingCalls(props.accountFetch);
-  const billing = createBillingStore(() => billingCalls, billingOpen);
-  const licenseCalls = createWebLicenseCalls(props.accountFetch);
-  const license = createLicenseStore(() => licenseCalls, billingOpen);
-  // The web client has no Hosted servers settings, so a server whose plan ended is renewed or deleted in Billing.
-  const billingHostedServers = createSettingsHostedServersStore(
-    {
-      get open() {
-        return billingOpen();
-      },
-      hostedServersApi: hostedServers.calls,
-    },
-    billingOpen,
-  );
-  /** Billing holds the hosted servers on the web, so the server menu deletes a server there. */
-  function deleteHostedServer(serverId: string): void {
-    setBillingOpen(true);
-    billingHostedServers.requestDeleteById(serverId);
-  }
   /** The joined server that the leave confirmation asks about, and the element that asked. */
   const [leaveRequest, setLeaveRequest] = createSignal<{
     hostId: string;
@@ -1047,43 +978,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
     if (leaveRequest()?.removeOwned) await workspace.removeOwnedHost(host);
     else await workspace.leaveHost(host);
   }
-  /** The hosted server that the restart confirmation asks about, and the element that asked. */
-  const [restartRequest, setRestartRequest] = createSignal<{ hostId: string; trigger: HTMLElement | null } | null>(
-    null,
-  );
-  const restartServer = createMemo(() => servers().find((item) => item.id === restartRequest()?.hostId) ?? null);
-  createEffect(
-    () => restartRequest() !== null && restartServer() === null,
-    (gone) => {
-      if (gone) setRestartRequest(null);
-    },
-  );
-  async function restartHost(): Promise<void> {
-    const hostId = restartRequest()?.hostId;
-    if (hostId) await hostedServers.calls.restart(hostId);
-  }
-  createEffect(
-    () => props.billingReturn,
-    (billingReturn) => {
-      if (!billingReturn) return;
-      setBillingOpen(true);
-      props.onBillingReturnConsumed?.();
-    },
-  );
-  // The add server dialog waits for the first list of hosted servers: before it, the account looks
-  // like one that cannot create a server, and the join dialog would open.
-  createEffect(
-    () => (props.start?.kind === "server" && !hostedServers.loaded() ? null : props.start),
-    (start) => {
-      if (!start) return;
-      if (start.kind === "server") hostedServers.openAddServer("pricing_page", start.order);
-      else {
-        setLicenseStart({ order: start.order });
-        setBillingOpen(true);
-      }
-      props.onStartConsumed?.();
-    },
-  );
   const saveFile = createWebFileSaver();
   const storageCalls: FilesPort = {
     agent: { listAgents: () => workspace.runtime.listAgents() },
@@ -1105,12 +999,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
         saveFile(await workspace.runtime.download(input.fileId));
       },
     },
-  };
-  const hostedSiteCalls: ServerHostedSitesOptions["api"] = {
-    list: async (serverId) =>
-      runTeamEffect(listHostedSites(hostRequest(serverId)).pipe(Effect.mapError((error) => error.cause))),
-    delete: async ({ siteId }, serverId) =>
-      runTeamEffect(deleteHostedSite(hostRequest(serverId), siteId).pipe(Effect.mapError((error) => error.cause))),
   };
   const agentImportCalls = createWebAgentImportCalls({
     request: hostRequest,
@@ -1213,12 +1101,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
     onOpenNotificationSettings: (serverId) => openNotificationSettings(serverId),
     onLeave: (hostId, trigger) => setLeaveRequest({ hostId, trigger }),
     onRemove: (hostId, trigger) => setLeaveRequest({ hostId, trigger, removeOwned: true }),
-    canRemove: (serverId) =>
-      Boolean(workspace.runtime.removeOwnedHost) && hostedServers.loaded() && !hostedServers.isHosted(serverId),
-    onDelete: deleteHostedServer,
-    canDelete: hostedServers.isHosted,
-    onRestart: (hostId, trigger) => setRestartRequest({ hostId, trigger }),
-    canRestart: hostedServers.isHosted,
+    canRemove: () => Boolean(workspace.runtime.removeOwnedHost),
   } satisfies ServerActionCallbacks;
   // Each time the user enters a host that has a new version, the update dialog opens. A reconnect does not offer again.
   let entry: { id: string; offered: boolean } | null = null;
@@ -1545,7 +1428,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
     return () =>
       Effect.runPromise(clearAgentContext(hostRequest(), agent.id).pipe(Effect.mapError((error) => error.cause)));
   });
-  const offlineUpsell = createHostedUpsellOffline(() => workspace.state.hostOffline);
   /** The side threads of the connected host. Each host has its own, with its own tabs. */
   const agentThreads = createMemo(() => {
     const hostId = workspace.state.host?.hostId;
@@ -1852,21 +1734,10 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                     <ServerConnectionNotice
                       name={workspace.state.host?.name ?? t("webClient.notice.findingHosts")}
                       initial={!workspace.state.workspaceLoaded}
-                      issue={workspace.state.hostedIssue}
-                      start={workspace.state.hostedStart}
                       updateVersion={workspace.state.hostRestart?.version ?? null}
-                      detail={
-                        workspace.state.hostedSleep !== "sleeping" && !workspace.state.hostedIssue && !hostUpdating()
-                          ? (workspace.state.connectionError?.message ?? null)
-                          : null
-                      }
-                      reference={
-                        workspace.state.hostedSleep !== "sleeping" && !workspace.state.hostedIssue && !hostUpdating()
-                          ? (workspace.state.connectionError?.reference ?? null)
-                          : null
-                      }
+                      detail={hostUpdating() ? null : (workspace.state.connectionError?.message ?? null)}
+                      reference={hostUpdating() ? null : (workspace.state.connectionError?.reference ?? null)}
                       phase={serverWorkspacePhase({
-                        hostedSleep: workspace.state.hostedSleep,
                         updating: hostUpdating(),
                         blocked: workspace.state.recovery?.phase === "suspended",
                         loading: workspace.state.status === "connecting",
@@ -1879,8 +1750,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                       }
                       busy={workspace.state.status === "connecting" || !workspace.state.host}
                       onRetry={() => void workspace.run(workspace.reconnect)}
-                      onManage={() => setBillingOpen(true)}
-                      upsell={offlineUpsell()}
                     />
                   </Show>
                   <Show when={workspace.state.status === "online" && workspace.state.panelsFailed}>
@@ -2017,8 +1886,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                       servers={servers()}
                       onSelect={selectServer}
                       onReorder={workspace.reorderHosts}
-                      onAdd={() => hostedServers.openAddServer("server_rail")}
-                      addCreatesServer={hostedServers.available()}
+                      onAdd={() => setJoinOpen(true)}
                       {...serverActionCallbacks}
                     />
                   </Show>
@@ -2058,8 +1926,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                       view: layout.serverView(),
                       onViewChange: layout.setServerView,
                       onSelect: selectServer,
-                      onAdd: () => hostedServers.openAddServer("server_rail"),
-                      addCreatesServer: hostedServers.available(),
+                      onAdd: () => setJoinOpen(true),
                       ...serverActionCallbacks,
                     }}
                     agents={workspace.profiles()}
@@ -2149,41 +2016,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
               after={
                 <>
                   <ServerUpdateDialogHost hosts={workspace.hostViews()} />
-                  <HostedServerUpsell
-                    accountId={props.accountId}
-                    canOffer={
-                      hostedServers.available() &&
-                      hostedServers.loaded() &&
-                      !hostedServers.ownsHostedServer() &&
-                      server()?.role === "owner" &&
-                      server()?.hosted !== true
-                    }
-                    serverId={server()?.id ?? ""}
-                    host={{ name: server()?.name ?? "" }}
-                    busy={(agentId) => Boolean(workspace.state.conversations[agentId]?.page?.activeTurnId)}
-                    openPlans={() => hostedServers.openAddServer("upsell")}
-                  />
-                  <AddServerOverlay
-                    open={hostedServers.addServer() !== null}
-                    entryPoint={hostedServers.addServer()?.entryPoint}
-                    order={hostedServers.addServer()?.order}
-                    calls={hostedServers.calls}
-                    servers={servers()}
-                    onRefreshServers={workspace.retryHosts}
-                    resume={hostedServers.addServer()?.resume}
-                    license={licenseCalls}
-                    onClose={hostedServers.closeAddServer}
-                    onOpenServer={(serverId) => {
-                      hostedServers.closeAddServer();
-                      selectServer(serverId);
-                    }}
-                    onContactUs={() => window.location.assign(HOSTED_SERVER_CONTACT_URL)}
-                    onJoinWithInvite={() => {
-                      hostedServers.closeAddServer();
-                      setJoinOpen(true);
-                    }}
-                    onManageServers={() => setBillingOpen(true)}
-                  />
                   <JoinServerOverlay
                     open={joinOpen()}
                     inviteUrl={props.inviteUrl ?? ""}
@@ -2205,7 +2037,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                         calls={accountCalls}
                         appearance={props.appearance}
                         onChangeAppearance={props.onChangeAppearance}
-                        onOpenBilling={() => setBillingOpen(true)}
                         onSignOut={signOut}
                         notifications={notificationSettings}
                         notificationFocusRequest={notificationFocusRequest()}
@@ -2240,8 +2071,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                         // Publication and screen recording belong to the computer that runs the server.
                         onSetPublished={unavailable}
                         onCreateInvite={serverSettings.createInvite}
-                        license={licenseCalls}
-                        onContactUs={() => window.location.assign(HOSTED_SERVER_CONTACT_URL)}
                         onUpdateMember={serverSettings.updateMember}
                         onRemoveMember={serverSettings.removeMember}
                         onRevokeInvite={serverSettings.revokeInvite}
@@ -2309,16 +2138,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                             void openMessage(agentId, messageId);
                           },
                         }}
-                        // Every member lists; the host deletes only for an owner or admin.
-                        hostedSites={
-                          workspace.state.capabilities.includes(HOSTED_SITES_CAPABILITY)
-                            ? {
-                                api: hostedSiteCalls,
-                                onOpenSite: (url) => void openWebLink(url),
-                                onSeePlans: canOfferServerPlans() ? openServerPlans : undefined,
-                              }
-                            : undefined
-                        }
                         providers={providerSettings()}
                         hostUpdate={{ calls: hostUpdateCalls }}
                         hostTimezone={{ calls: hostTimezoneCalls }}
@@ -2352,31 +2171,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                     onClose={() => setLeaveRequest(null)}
                     onLeave={leaveHost}
                     restoreFocusTarget={leaveRequest()?.trigger}
-                  />
-                  <RestartServerDialog
-                    server={restartServer()}
-                    servers={servers()}
-                    onClose={() => setRestartRequest(null)}
-                    onRestart={restartHost}
-                    restoreFocusTarget={restartRequest()?.trigger}
-                  />
-                  <BillingDialog
-                    open={billingOpen()}
-                    onOpenChange={(open) => {
-                      setBillingOpen(open);
-                      if (!open) setLicenseStart(null);
-                    }}
-                    store={billing}
-                    hostedServers={billingHostedServers}
-                    license={
-                      <LicenseSection
-                        store={license}
-                        onManagePayment={() => void billing.openPortal({ flow: "manage" })}
-                        onContactUs={() => window.location.assign(HOSTED_SERVER_CONTACT_URL)}
-                        startBuying={licenseStart() !== null}
-                        startOrder={licenseStart()?.order ?? undefined}
-                      />
-                    }
                   />
                   <ChannelCreateOverlay />
                   <GlobalSearchOverlay
@@ -2616,13 +2410,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                   failed={Boolean(workspace.state.hostsError)}
                   reference={workspace.state.hostsError?.reference ?? null}
                   onJoin={() => setJoinOpen(true)}
-                  onCreateServer={
-                    // An account with a hosted server that is not a host yet, such as one that waits for payment,
-                    // must not buy a second one from here.
-                    hostedServers.available() && !hostedServers.ownsHostedServer()
-                      ? () => hostedServers.openAddServer("empty_state")
-                      : undefined
-                  }
                   onRefresh={() => void workspace.run(workspace.refreshHosts)}
                 />
               </Show>

@@ -96,12 +96,6 @@ const Settings = createSimpleContext({
     createEffect(appSettingsOpen, (open) => {
       if (!open) setNotificationFocusRequest(null);
     });
-    /** A hosted server that the server menu asked to delete. The nonce repeats a request for the same server. */
-    const [hostedServerDeleteRequest, setHostedServerDeleteRequest] = createSignal<{
-      serverId: string;
-      nonce: number;
-    } | null>(null);
-    let hostedServerDeleteNonce = 0;
     const [generalSettings, setGeneralSettings] = createSignal<GeneralSettingsValue>({
       ...DEFAULT_GENERAL_SETTINGS,
       taskSound: readTaskSound(),
@@ -365,12 +359,6 @@ const Settings = createSimpleContext({
       openAppSettings(trigger, "notifications");
     }
 
-    /** Opens the Hosted servers tab with the delete confirmation of one server. */
-    function openHostedServerDelete(serverId: string, trigger?: HTMLElement | null): void {
-      setHostedServerDeleteRequest({ serverId, nonce: ++hostedServerDeleteNonce });
-      openAppSettings(trigger, "hosted-servers");
-    }
-
     onSettled(() => {
       // The native Preferences menu item sends the same request from main, so the shortcut below only
       // covers the window itself: both land here, and the dialog owns the open state either way.
@@ -552,8 +540,6 @@ const Settings = createSimpleContext({
       openAppSettings,
       notificationFocusRequest,
       openNotificationLevels,
-      hostedServerDeleteRequest,
-      openHostedServerDelete,
       skillsMarketplaceOpen,
       setSkillsMarketplaceOpen,
       pendingPluginSlug,

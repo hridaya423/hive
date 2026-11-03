@@ -1,4 +1,4 @@
-import type { HostedServerSleep, ServerConnectionState, ServerSummary } from "@openbot/contracts/ipc";
+import type { ServerConnectionState, ServerSummary } from "@openbot/contracts/ipc";
 import type { AppTextKey, AppTranslate } from "@openbot/i18n";
 import {
   BellOff,
@@ -26,47 +26,15 @@ const SERVER_STATE_LABELS = {
   incompatible: "server.state.incompatible",
 } as const satisfies Record<ServerConnectionState, AppTextKey>;
 
-const HOSTED_SLEEP_LABELS = {
-  sleeping: "server.state.sleeping",
-  waking: "server.state.waking",
-} as const satisfies Record<HostedServerSleep, AppTextKey>;
-
-/** Whether a hosted server that is not connected sleeps or wakes. It replaces the connection state word. */
-export function serverHostedSleep(server: Pick<ServerSummary, "hostedSleep" | "state">): HostedServerSleep | null {
-  return server.state === "online" ? null : (server.hostedSleep ?? null);
-}
-
 /** The muted and connection state words that a server's accessible name adds after its name. */
 export function serverStatusLabels(
-  server: Pick<ServerSummary, "hostedSleep" | "notificationsMuted" | "state">,
+  server: Pick<ServerSummary, "notificationsMuted" | "state">,
   t: AppTranslate,
 ): string[] {
-  const sleep = serverHostedSleep(server);
   return [
     ...(server.notificationsMuted ? [t("server.rail.notificationsMuted")] : []),
-    ...(sleep ? [t(HOSTED_SLEEP_LABELS[sleep])] : []),
-    ...(sleep || server.state === "online" ? [] : [t(SERVER_STATE_LABELS[server.state])]),
+    ...(server.state === "online" ? [] : [t(SERVER_STATE_LABELS[server.state])]),
   ];
-}
-
-/**
- * The add item. It names the hosted server plans only when it is the one way to add a server: beside
- * a server on this computer, both the plans and an invite give a remote server.
- */
-export function addServerLabel(props: {
-  addCreatesServer?: boolean | undefined;
-  onCreateLocal?: (() => void) | undefined;
-}): AppTextKey {
-  return props.addCreatesServer && !props.onCreateLocal ? "server.rail.add" : "server.rail.addRemote";
-}
-
-/** A small dot on a server's logo while its hosted server sleeps or wakes. */
-export function ServerSleepDot(props: { server: Pick<ServerSummary, "hostedSleep" | "state">; class: string }) {
-  return (
-    <Show when={serverHostedSleep(props.server)}>
-      {(sleep) => <span class={props.class} data-state={sleep()} aria-hidden="true" />}
-    </Show>
-  );
 }
 
 /** The server on this computer while the user hides it from the server list, and the action that shows it again. */
@@ -81,8 +49,6 @@ interface ServerRailProps extends ServerActionCallbacks {
   onReorder: (serverIds: string[]) => void;
   /** Without it, the rail has no add button. */
   onAdd?: (() => void) | undefined;
-  /** True when the plus button opens the hosted server plans, where the user can also join with an invite. */
-  addCreatesServer?: boolean | undefined;
   /** Opens the dialog that creates a server on this computer. With it, the plus button opens a menu. */
   onCreateLocal?: (() => void) | undefined;
   /** The server on this computer while the user hides it. With it, the plus button opens a menu. */
@@ -377,7 +343,7 @@ export function ServerRail(props: ServerRailProps) {
                 <Tooltip.Trigger
                   type="button"
                   class={`${buttonVariants({ variant: "outline", size: "sm" })} server-rail-button server-rail-action`}
-                  aria-label={t(addServerLabel(props))}
+                  aria-label={t("server.rail.addRemote")}
                   data-cuelume-open=""
                   data-cuelume-emphasis="subtle"
                   onClick={() => props.onAdd?.()}
@@ -385,13 +351,13 @@ export function ServerRail(props: ServerRailProps) {
                   <span class="server-rail-monogram">+</span>
                 </Tooltip.Trigger>
                 <Tooltip.Portal>
-                  <Tooltip.Content class="server-rail-tooltip">{t(addServerLabel(props))}</Tooltip.Content>
+                  <Tooltip.Content class="server-rail-tooltip">{t("server.rail.addRemote")}</Tooltip.Content>
                 </Tooltip.Portal>
               </Tooltip.Root>
             }
           >
             <ServerRailAddMenu
-              addLabel={addServerLabel(props)}
+              addLabel="server.rail.addRemote"
               onAdd={() => props.onAdd?.()}
               onCreateLocal={props.onCreateLocal}
               hiddenLocal={props.hiddenLocal}
@@ -491,10 +457,6 @@ function ServerRailButton(
   const buttonLabel = () =>
     [t("server.rail.buttonLabel", { name: props.server.name }), ...serverStatusLabels(props.server, t)].join(", ");
   const muteDescription = () => serverMuteDescription(props.server, t, format);
-  const sleepLabel = () => {
-    const sleep = serverHostedSleep(props.server);
-    return sleep ? t(HOSTED_SLEEP_LABELS[sleep]) : null;
-  };
   return (
     <Tooltip.Root
       open={overlay.tooltipOpen && !overlay.menuOpen}
@@ -593,7 +555,6 @@ function ServerRailButton(
         <Tooltip.Content class="server-rail-tooltip">
           {props.server.name}
           {props.server.thisComputer ? ` · ${t("server.rail.thisComputer")}` : ""}
-          {sleepLabel() ? ` · ${sleepLabel()}` : ""}
           {props.server.notificationsMuted ? ` · ${muteDescription()}` : ""}
         </Tooltip.Content>
       </Tooltip.Portal>

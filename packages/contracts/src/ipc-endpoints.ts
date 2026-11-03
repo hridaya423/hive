@@ -32,15 +32,6 @@ import type { AppAppearancePreference, SetAppAppearancePreferenceInput } from ".
 import type { AppInterfaceSizePreference, SetAppInterfaceSizePreferenceInput } from "./app-interface-size";
 import type { AppLanguagePreference, SetAppLanguagePreferenceInput } from "./app-language";
 import type { AppLogoColorPreference, SetAppLogoColorPreferenceInput } from "./app-logo-color";
-import type { BillingPortalRequest, BillingState } from "./billing";
-import type {
-  CreateHostedServerInput,
-  DeleteHostedServerInput,
-  HostedServerCatalog,
-  HostedServerLifecycleInput,
-  HostedServerList,
-  HostedServerSummary,
-} from "./hosted-servers";
 import type {
   AddedAgent,
   AgentAdminSettings,
@@ -315,13 +306,6 @@ import type { HostAnalytics, HostAnalyticsInput } from "./ipc-host-analytics";
 import type { HostReleaseStatus } from "./ipc-host-release";
 import type { HostTimezoneSettings } from "./ipc-host-timezone";
 import type {
-  DeleteHostedSiteInput,
-  HostedSiteList,
-  HostedSiteSummary,
-  PublishHostedSiteInput,
-  ReplaceHostedSiteInput,
-} from "./ipc-hosted-sites";
-import type {
   ApplyInstanceTransferInput,
   ExportInstanceInput,
   InstanceExportResult,
@@ -563,13 +547,6 @@ import type {
   WorkflowVersionInput,
   WorkflowWebhookSecret,
 } from "./ipc-workflows";
-import type {
-  LicenseCheckoutRequest,
-  LicensePlanRequest,
-  LicenseRenewalRequest,
-  LicenseState,
-  LicenseUsersRequest,
-} from "./license";
 import type { MarketplaceListingLink } from "./marketplace-links";
 import type { AccountSession, MobileConnectedDevice, MobileConnectLink, MobileConnectTicket } from "./mobile-connect";
 
@@ -1265,47 +1242,11 @@ export const IPC_ENDPOINTS = {
     ),
     hostDisconnect: scopedQuery<OnePasswordConnectorStatus, "required">()("onepassword-connector:host-disconnect"),
   },
-  hostedSites: {
-    // The sites of one server. A joined server answers through `hosted-sites-v1`.
-    list: scopedQuery<HostedSiteList, "required">()("hosted-sites:list"),
-    chooseDirectory: request<undefined, string | null>()("hosted-sites:choose-directory"),
-    publish: request<PublishHostedSiteInput, HostedSiteSummary>()("hosted-sites:publish"),
-    replace: request<ReplaceHostedSiteInput, HostedSiteSummary>()("hosted-sites:replace"),
-    delete: scopedRequest<DeleteHostedSiteInput, void, "required">()("hosted-sites:delete"),
-  },
-  // The account's Stripe subscription. The main process gets the Checkout or Portal URL from the
-  // account server and opens it in the browser, so the renderer never sends a URL.
   // The iCalendar feed of this computer's routines. `create` also replaces the URL of a feed that is on.
   routineFeed: {
     get: request<undefined, RoutineFeed>()("routine-feed:get"),
     create: request<undefined, RoutineFeed>()("routine-feed:create"),
     remove: request<undefined, RoutineFeed>()("routine-feed:remove"),
-  },
-  billing: {
-    getState: request<undefined, BillingState>()("billing:get-state"),
-    openPortal: request<BillingPortalRequest, void>()("billing:open-portal"),
-  },
-  // The commercial license of the account. Main opens the Checkout page; the renderer never sends a URL.
-  license: {
-    getState: request<undefined, LicenseState>()("license:get-state"),
-    openCheckout: request<LicenseCheckoutRequest, void>()("license:open-checkout"),
-    setUsers: request<LicenseUsersRequest, LicenseState>()("license:set-users"),
-    changePlan: request<LicensePlanRequest, LicenseState>()("license:change-plan"),
-    setRenewal: request<LicenseRenewalRequest, LicenseState>()("license:set-renewal"),
-  },
-  // OpenBot servers that the account server runs for this account. `wake` also works for a server
-  // that the account is a member of; it answers 404 for a host that is not a hosted server.
-  hostedServers: {
-    list: request<undefined, HostedServerList>()("hosted-servers:list"),
-    plans: request<undefined, HostedServerCatalog>()("hosted-servers:plans"),
-    // Main opens the Stripe Checkout page and returns only the server, which waits for the payment.
-    create: request<CreateHostedServerInput, HostedServerSummary>()("hosted-servers:create"),
-    openCheckout: request<string, HostedServerSummary>()("hosted-servers:open-checkout"),
-    delete: request<DeleteHostedServerInput, void>()("hosted-servers:delete"),
-    lifecycle: request<HostedServerLifecycleInput, void>()("hosted-servers:lifecycle"),
-    wake: request<string, HostedServerSummary>()("hosted-servers:wake"),
-    // Owner only. Stops a running server and starts it again; a server that does not run starts.
-    restart: request<string, HostedServerSummary>()("hosted-servers:restart"),
   },
   // Servers that the desktop app starts on this computer, each with its own data. Each one is in the
   // server list as a joined server with `thisComputer`. `create` takes the name; the others take the
@@ -1986,14 +1927,10 @@ export const IPC_GROUP_PATHS = {
   bitwardenConnector: "bitwardenConnector",
   linkAccount: "linkAccount",
   vault: "vault",
-  hostedSites: "hostedSites",
   routineFeed: "routineFeed",
   routineFlows: "routineFlows",
   workflows: "workflows",
   routineResults: "routineResults",
-  billing: "billing",
-  license: "license",
-  hostedServers: "hostedServers",
   localServers: "localServers",
   marketplaceAgents: "marketplaceAgents",
   agentTemplates: "agentTemplates",

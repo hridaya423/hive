@@ -50,8 +50,7 @@ const openTransactions = new WeakMap<OpenBotDatabase, TransactionScope>();
 /**
  * Runs `work` inside a SQLite transaction, opening one only when the caller is not already inside
  * another. Nesting is load-bearing: `deleteRoutine` drives a routine mutation whose `beforeMutate`
- * hook appends a run transition in the same transaction, and an approval response can append a
- * hosted-site event inside an outer one. This is the only `BEGIN IMMEDIATE` under `src/backend/agent`.
+ * hook appends a run transition in the same transaction. This is the only `BEGIN IMMEDIATE` under `src/backend/agent`.
  *
  * `onCommit` exists because a nested caller must not publish in-memory state the owner can still
  * discard: there is no partial rollback here, so effects that make rows visible to the rest of the

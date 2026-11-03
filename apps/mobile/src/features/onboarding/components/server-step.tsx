@@ -3,7 +3,6 @@ import { Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
 import type { LucideIcon } from "lucide-react-native";
 import ChevronRight from "lucide-react-native/icons/chevron-right";
-import Cloud from "lucide-react-native/icons/cloud";
 import Mail from "lucide-react-native/icons/mail";
 import Monitor from "lucide-react-native/icons/monitor";
 import { View } from "react-native";
@@ -59,7 +58,6 @@ export function ServerStep({
   motion,
   connecting,
   onComputer,
-  onCloud,
   onInvitation,
   onBack,
   onSkip,
@@ -69,7 +67,6 @@ export function ServerStep({
   connecting: MobileServer | null;
   onComputer: () => void;
   /** Absent when the account cannot have a cloud server. */
-  onCloud: (() => void) | null;
   onInvitation: () => void;
   /** The flow's own Back and Skip are under the loader, so the loader offers one of them. */
   onBack: (() => void) | null;
@@ -102,17 +99,6 @@ export function ServerStep({
       description: t("mobile.onboarding.server.invitationBody"),
       onPress: onInvitation,
     },
-    ...(onCloud
-      ? [
-          {
-            id: "cloud",
-            icon: Cloud,
-            title: t("mobile.onboarding.server.cloud"),
-            description: t("mobile.onboarding.server.cloudBody"),
-            onPress: onCloud,
-          },
-        ]
-      : []),
     {
       id: "computer",
       icon: Monitor,

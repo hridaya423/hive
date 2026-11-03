@@ -33,9 +33,6 @@ export const GlobalSearch = lazy(() =>
 export const InitialSetup = lazy(() =>
   import("./features/onboarding/InitialSetup").then((module) => ({ default: module.InitialSetup })),
 );
-export const AddServerDialog = lazy(() =>
-  import("@openbot/ui/features/servers/AddServerDialog").then((module) => ({ default: module.AddServerDialog })),
-);
 export const CreateLocalServerDialog = lazy(() =>
   import("@openbot/ui/features/servers/CreateLocalServerDialog").then((module) => ({
     default: module.CreateLocalServerDialog,

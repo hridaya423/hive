@@ -161,7 +161,6 @@ import type { SectionTeammates } from "./agent/developer-instructions";
 import { DrainScheduler } from "./agent/drain-scheduler";
 import { DuplicationGate, toAgentDuplicationFailed } from "./agent/duplication-gate";
 import type { FailureContext } from "./agent/failure-signal";
-import { type AgentHostedSites, HostedSiteCoordinator } from "./agent/hosted-site-coordinator";
 import { ImageGenRuntime } from "./agent/image-gen-runtime";
 import { InstructionsChanges } from "./agent/instructions-changes";
 import { MailboxSync } from "./agent/mailbox-sync";
@@ -291,7 +290,6 @@ export interface AgentServiceOptions {
   clientFactory?: AgentClientFactory | null;
   bundledExecutables?: BundledProviderExecutables;
   prepareAgentWorkspace?: (agent: AgentSummary) => Effect.Effect<void, AgentLifecycleFailed>;
-  hostedSites?: AgentHostedSites | null;
   /** Draws pages for `html_preview`. Without it the tool tells the agent to show the page unchecked. */
   visualPreview?: ChatVisualPreviewHost | null;
   /** Captures the desktop for `capture_screen`; null where this process has no desktop. */
@@ -448,7 +446,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #providerUseChanges = Semaphore.makeUnsafe(1);
   readonly #endpoints: CustomEndpoints;
   readonly #prepareAgentWorkspace: (agent: AgentSummary) => Effect.Effect<void, AgentLifecycleFailed>;
-  readonly #hostedSites: HostedSiteCoordinator;
   readonly #conversation: ConversationRuntime;
   readonly #attention: AttentionRegistry;
   readonly #images: ImageGenRuntime;
@@ -495,7 +492,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       clientFactory = null,
       bundledExecutables = DEFAULT_BUNDLED_EXECUTABLES,
       prepareAgentWorkspace = () => Effect.void,
-      hostedSites = null,
       sidebarLayout = null,
       credentials = NO_PROVIDER_CREDENTIALS,
       localSkillTools,
@@ -679,13 +675,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         isRunning: () => this.#initialized && !this.#stopping,
         usageLimited: (agentId) => !this.#usageLimits.mayDrain(agentId),
       },
-    });
-    this.#hostedSites = new HostedSiteCoordinator({
-      store,
-      conversation: this.#conversation,
-      hostedSites,
-      emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
-      isStopping: () => this.#stopping,
     });
     this.#providers = new ProviderRuntime({
       offProviders: options.offProviders ?? [],
@@ -917,7 +906,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#attention = new AttentionRegistry({
       conversation: this.#conversation,
       browser: this.#browser,
-      hostedSites: this.#hostedSites,
       routines: this.#routines,
       ...(options.approvalAutomation === undefined ? {} : { approvalAutomation: options.approvalAutomation }),
       workspaceSandboxed: (agentId) => {
@@ -1500,7 +1488,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       drain: this.#drain,
       threads: this.#threads,
       turn: this.#turn,
-      hostedSites: this.#hostedSites,
       compaction: this.#compaction,
       apiKeys: options.agentApiKeys ?? null,
       deleteWithRevokedApproval: options.deleteWithRevokedApproval ?? ((_agentId, remove) => remove()),
@@ -1537,7 +1524,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       attachments: this.#attachments,
       channels: this.channels,
       messaging: this.messaging,
-      hostedSites: this.#hostedSites,
       routines: this.#routines,
       memories: this.#memories,
       waits: this.#waits,
@@ -3570,7 +3556,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       );
     yield* lifecycleStep("recover agent state", () => {
       this.#boot.recoverPersistedTurns();
-      this.#hostedSites.restore();
       this.#routines.skipMissed(new Date(), options.heldRoutines);
       this.#channelRoutines.skipMissed(new Date(), options.heldRoutines);
       this.#initialized = true;
@@ -4113,7 +4098,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#initialized = false;
     this.#routineTimer.dispose();
     yield* this.#memoryHold.dispose();
-    this.#hostedSites.dispose();
     this.#compaction.dispose();
     this.#deltas.dispose();
     this.#conversation.dispose();

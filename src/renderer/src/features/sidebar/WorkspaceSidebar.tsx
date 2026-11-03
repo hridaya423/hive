@@ -295,8 +295,7 @@ export function WorkspaceSidebar(props: { peopleEnabled: boolean }) {
               onViewChange: layout.setServerView,
               onSelect: serverActions.select,
               onAdd: serverActions.add,
-              onCreateLocal: serverActions.addMenuCreateLocal(),
-              addCreatesServer: serverActions.addCreatesServer(),
+              onCreateLocal: serverActions.createLocal,
               hiddenLocal: serverActions.hiddenLocal(),
               ...serverActions.callbacks,
             }

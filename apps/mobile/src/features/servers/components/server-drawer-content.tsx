@@ -28,21 +28,14 @@ import { scheduleOnRN } from "react-native-worklets";
 import { useCSSVariable, useUniwind } from "uniwind";
 import type { MobileSession } from "@/features/auth/api/mobile-auth";
 import { mobileUserName } from "@/features/auth/api/mobile-user-name";
-import { hostedServerCalls } from "@/features/servers/api/hosted-servers";
-import {
-  refreshHostedServerAvailability,
-  useHostedServerAvailability,
-} from "@/features/servers/model/hosted-server-availability";
 import { DrawerPinnedWorkflows, useDrawerWorkflows } from "@/features/workflows/components/drawer-workflows";
 import type { MobileServer } from "@/features/workspace/context/mobile-workspace-context";
 import { moveServerId } from "@/features/workspace/model/server-order";
 import { serverStatusLabel, showsOnline } from "@/features/workspace/model/server-status";
 import { type MenuAction, type MenuComponentRef, MenuView } from "@/shared/components/menu-view";
 import { ProfileAvatar } from "@/shared/components/profile-avatar";
-import { devFeatureOverride } from "@/shared/lib/dev-feature-overrides";
 import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
-import { refreshMobileFeatures, useMobileFeature } from "@/shared/lib/mobile-features";
 import { useReducedMotion } from "@/shared/lib/motion";
 import { isAndroid, longPressDelay } from "@/shared/lib/platform";
 import { currentText, useText } from "@/shared/lib/text";
@@ -168,19 +161,15 @@ export const ServerDrawerContent = memo(function ServerDrawerContent({
   // Without an open server the list is the only content, so it stays open.
   const showsList = listOpen || editing || !activeServer;
   const memberCount = useDrawerMemberCount(activeServer?.id ?? "");
-  const hostedServerIds = useHostedServerAvailability((state) =>
-    state.userId === session.user.id ? state.serverIds : null,
-  );
   const exiting = useRef(false);
-  // The same rules as the server settings screen. The owner cannot leave. Billing deletes a hosted
-  // server, so Remove shows only after the hosted servers are known.
+  // The same rules as the server settings screen. The owner cannot leave.
   function serverExit(server: MobileServer): ServerExit | null {
     if (server.role !== "owner") return "leave";
     // The desktop app's own server stays while the app runs; a server beside it is deleted on its computer.
     const kind = localServerKind(server.id);
     if (kind === "computer") return null;
     if (kind === "onComputer") return "delete";
-    return hostedServerIds && !hostedServerIds.has(server.id) ? "remove" : null;
+    return "remove";
   }
   function menuActions(server: MobileServer): MenuAction[] {
     const actions: MenuAction[] = canReorder
@@ -251,17 +240,6 @@ export const ServerDrawerContent = memo(function ServerDrawerContent({
     setDragging(false);
     setListOpen(false);
   }, [open]);
-
-  // The plus button opens the plans and the account's hosted servers when the account can have
-  // hosted servers and the feature flag of this build is on. A development build can override both.
-  const accountHasPlans = useHostedServerAvailability((state) => state.userId === session.user.id && state.available);
-  const cloudServersOn = useMobileFeature(session.apiUrl, "cloudServers");
-  const showsPlans = devFeatureOverride("cloudServers") ?? (accountHasPlans && cloudServersOn);
-  useEffect(() => {
-    if (!open) return;
-    void refreshHostedServerAvailability(session.user.id, hostedServerCalls(session));
-    void refreshMobileFeatures(session.apiUrl);
-  }, [open, session]);
 
   function move(serverId: string, targetIndex: number) {
     const next = moveServerId(serverIds, serverId, targetIndex);
@@ -448,11 +426,11 @@ export const ServerDrawerContent = memo(function ServerDrawerContent({
               </ServerDrawerIconButton>
             ) : (
               <ServerDrawerIconButton
-                accessibilityLabel={showsPlans ? t("mobile.server.drawer.add") : t("mobile.server.drawer.join")}
+                accessibilityLabel={t("mobile.server.drawer.join")}
                 color={mutedColor}
                 fallbackVariant="filled"
                 systemName="plus"
-                onPress={() => onNavigate(showsPlans ? "/hosted-server" : "/add-server")}
+                onPress={() => onNavigate("/add-server")}
               >
                 <Plus color={mutedColor} size={18} strokeWidth={2} />
               </ServerDrawerIconButton>

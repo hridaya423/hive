@@ -3,7 +3,6 @@ import { EventEmitter } from "node:events";
 import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { HostKeyHandover } from "@openbot/contracts/host-key-handover";
-import { parseHostedServerClaim } from "@openbot/contracts/hosted-servers";
 import type {
   AvatarImageInput,
   CentralAuthIssue,
@@ -1596,36 +1595,6 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   canPersistSession(): boolean {
     return this.#options.canPersist();
   }
-
-  /**
-   * Signs a new hosted server in with the claim that the account server put in its VM.
-   * The result names the host ID that the account server reserved for this account.
-   */
-
-  readonly redeemHostedServerClaim = Effect.fn("CentralAuth.redeemHostedServerClaim")(
-    function* (
-      this: CentralAuthManager,
-      claim: string,
-    ): Effect.fn.Return<
-      { hostId: string; name: string; user: CentralAuthUser },
-      CentralAuthOperationError,
-      CentralAuthTransport
-    > {
-      const redeemed = yield* this.#requestEffect(
-        "/v2/hosting/claims/redeem",
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ claim }) },
-        (value) => {
-          const parsed = parseHostedServerClaim(value);
-          if (!parsed) throw new Error("Invalid hosted server claim.");
-          return parsed;
-        },
-      );
-      // The start retry redeems the claim again in its retry window when the session is not stored.
-      const user = yield* this.#applyClaimedSession(redeemed);
-      return { hostId: redeemed.hostId, name: redeemed.name, user };
-    },
-    (operation) => this.#owned(operation),
-  ).bind(this);
 
   /**
    * Signs a self-hosted server in with a one-time claim that an operator made for the owner's email.
