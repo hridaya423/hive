@@ -761,3 +761,11 @@ First request of a fresh `Probe` session, real Codex, `agent_usage_records`: bas
 
 ### Done / remaining
 Done: 1.1 to 1.9 (1.5 and 1.6 measured and not built; 1.4 partly). Remaining for the lead: merge into `personal`; decide the per-agent skills mode; GUI check of the packaged app on the mini after Phase 2.
+
+## Final install and switch-over (2026-11-03)
+- All branches merged into `personal`: review/rename-5-6 (`bc23bf766`), fix/copilot (`2d88e2db6`), cleanup/final (`4f499fc5a`), phase/1 (`e9f819903`). Phase 1 lazy language loading (1.8) dropped in the merge: Phase 2.2 made the app English only, and its Vite plugin pointed at a missing `lazy-catalogs.ts`.
+- `bun run package` passed. `/Applications/Hive.app` replaced (previous build in the Trash), ad-hoc signed, `dev.hridaya.hive` 0.59.0. It starts with `--user-data-dir=~/Library/Application Support/Hive`, one Codex app-server, opencode from `Hive/provider-runtimes`. Five agents on `gpt-6.1-terra`, three routines active, Weekly booking paused, all `run-once`.
+- Removed to `~/.Trash/removed-2026-11-03` on the MacBook: `OpenBot.app`, `~/OpenBot`, `Application Support/OpenBot`, `Caches/OpenBot`, `~/.hermes`, `~/.local/bin/hermes*`. Hermes held the default Node v26.7.0 (`~/.local/bin/node`); it is copied to `~/.local/node` and relinked. The `npm`/`npx` links already pointed at missing files and are deleted (Homebrew npm is used, as before).
+- Removed to `~/.Trash/removed-2026-11-03` on the mini: Hermes services (`ai.hermes.gateway`, `ai.hermes.serve`, `com.hermes.ipad.bridge`, `com.honey.hermes-g2.bridge`, booted out first) and their plists, `Hermes.app`, `~/.hermes`, `~/.local/bin` hermes and dead node links, `~/OpenBot`, `Application Support/OpenBot`, `Caches/OpenBot`. No "openmausbot" exists; OpenClaw kept on Hridya's answer.
+- After removal: Worker 200, ntfy healthy, Signal and Worker launchd jobs running.
+- Copilot: account now shows `free_educational_quota` and `cli_enabled: true`, but the model API still returns 403 for both the CLI and `gh` tokens. Waiting on GitHub.
