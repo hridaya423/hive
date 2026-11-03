@@ -1671,15 +1671,18 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     }
     const previousToken = this.#sessionToken;
     const previousMobileConnectLink = this.#mobileConnectLink;
+    const previousUser = this.#cachedUser;
+    const user = this.#resolveUserAvatar(session.user);
     this.#sessionToken = session.sessionToken;
     this.#mobileConnectLink = null;
+    this.#cachedUser = user;
     const stored = yield* this.#writeStoredSession({ required: true }).pipe(Effect.result);
     if (Result.isFailure(stored)) {
       this.#sessionToken = previousToken;
       this.#mobileConnectLink = previousMobileConnectLink;
+      this.#cachedUser = previousUser;
       return yield* new CentralAuthOperationError({ cause: stored.failure.cause });
     }
-    const user = this.#resolveUserAvatar(session.user);
     this.#setState({ status: "signed_in", user });
     return user;
   });
