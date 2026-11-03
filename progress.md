@@ -133,7 +133,7 @@ Fixed: the preview mock created new agents with `computerUse: true` (now false, 
 Not changed, on purpose: Computer Use default off (decision recorded in 1.2; stored explicit `true` stays); `enabled_tools` is Codex only (Claude and ACP read the MCP set themselves; their schema cost is unmeasured); `AgentSettingsPanel.tsx:306` form state `computerUse: true` is initial form state (not checked against a live agent); `progress.md` is committed because the wave rules require it.
 
 ## External check, Phase 1 (headless path)
-First request of a fresh `Probe` session, real Codex, `agent_usage_records`: baseline 53,877 to 27,604 uncached+cached at the end of 1.4 (cold run 27,596; a cache-warm run shows 14,0xx uncached + 13,568 cached). Pass is <= 30,000, fail is > 40,000: pass. On the merged head the run was repeated for 1.9 (see below).
+First request of a fresh `Probe` session, real Codex, `agent_usage_records`: baseline 53,877 to 27,604 uncached+cached at the end of 1.4 (cold run 27,596; a cache-warm run shows 14,0xx uncached + 13,568 cached). Pass is <= 30,000, fail is > 40,000: pass. On the merged head (`final-head`, 2 runs, default agent): 27,158 and 27,152 total (14,102 + 13,056 cached; 14,076 + 13,056), turn 2 +24 to +26. The 1.9 description cuts took about 450 tokens off the first request (27,604 to 27,155). Cold uncached equals the total. Pass (<= 30,000). Not measured: the real Hive app, an agent with Computer Use on at the head (28 tools, about +15.5K).
 
 ### Done / remaining
 Done: 1.1 to 1.9 (1.5 and 1.6 measured and not built; 1.4 partly). Remaining for the lead: merge into `personal`; decide the per-agent skills mode; GUI check of the packaged app on the mini after Phase 2.
