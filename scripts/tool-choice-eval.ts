@@ -359,6 +359,8 @@ function activeTurnOf(agentId: string): string | null {
   return row?.id ? String(row.id) : null;
 }
 
+class ProviderFailure extends Error {}
+
 async function runPrompt(entry: EvalPrompt, run: number): Promise<RunResult> {
   const started = Date.now();
   const agent = await runCauseEffect(
@@ -389,7 +391,8 @@ async function runPrompt(entry: EvalPrompt, run: number): Promise<RunResult> {
     }
     const active = activeTurnOf(agent.id);
     if (active) turnStarted = true;
-    if (turnStarted && !active && idle(agent.id)) {
+    const finished = rollout ? readFileSync(rollout, "utf8").includes('"type":"task_complete"') : false;
+    if ((finished || (turnStarted && !active)) && idle(agent.id)) {
       endedBy = "turn-end";
       break;
     }
@@ -400,7 +403,9 @@ async function runPrompt(entry: EvalPrompt, run: number): Promise<RunResult> {
   await waitFor(`${agent.name} to settle`, () => idle(agent.id), SETTLE_DEADLINE_MS).catch(() => {});
   const rollout = rolloutOf(agent.id);
   if (rollout) calls = toolCalls(rollout);
+  const failure = rollout ? /"error":\{"message":"([^"]*)"/.exec(readFileSync(rollout, "utf8")) : null;
   await runCauseEffect(agents.deleteAgent(agent.id)).catch(() => {});
+  if (failure) throw new ProviderFailure(failure[1] ?? "The provider failed the turn.");
   const tool = firstTool(calls, entry.skip);
   return {
     run,
@@ -417,8 +422,9 @@ try {
   for (const entry of prompts) {
     const result: PromptResult = { ...entry, runs: [], passes: 0, majorityPassed: false };
     for (let run = 1; run <= RUNS; run++) {
-      const outcome = await runPrompt(entry, run).catch(
-        (error): RunResult => ({
+      const outcome = await runPrompt(entry, run).catch((error): RunResult => {
+        if (error instanceof ProviderFailure) throw error;
+        return {
           run,
           firstTool: null,
           passed: false,
@@ -426,8 +432,8 @@ try {
           endedBy: "deadline",
           seconds: 0,
           error: error instanceof Error ? error.message : String(error),
-        }),
-      );
+        };
+      });
       result.runs.push(outcome);
       process.stdout.write(
         `${outcome.passed ? "ok  " : "FAIL"} #${entry.id}.${run} ${outcome.firstTool ?? "none"} (want ${entry.expect.join("|")})\n`,
