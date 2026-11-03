@@ -71,6 +71,7 @@ async function buildSource(): Promise<void> {
       active: true,
       timezone: "Europe/London",
       schedule: { kind: "daily", time: "07:30" },
+      missedPolicy: "skip",
     });
   }
   const alpha = created.get("Alpha") ?? "";
