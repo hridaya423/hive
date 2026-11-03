@@ -5,7 +5,6 @@ import {
   developmentChildEnvironment,
   developmentSettingsForService,
   loadDevelopmentEnvironment,
-  loadTestDeploymentEnvironment,
 } from "./development-environment";
 import { resolvePackageBin } from "./package-bin";
 
@@ -13,13 +12,10 @@ const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
 async function main(): Promise<void> {
   const [mode, ...extra] = process.argv.slice(2).filter((argument) => argument !== "--");
-  if (!mode || !["api", "remote", "deploy-test"].includes(mode)) {
-    throw new Error("Choose api, remote, or deploy-test.");
+  if (mode !== "api" && mode !== "remote") {
+    throw new Error("Choose api or remote.");
   }
-  const environment =
-    mode === "deploy-test"
-      ? await loadTestDeploymentEnvironment(projectRoot)
-      : await loadDevelopmentEnvironment(projectRoot);
+  const environment = await loadDevelopmentEnvironment(projectRoot);
   let executable = process.execPath;
   let args: string[];
   let cwd = projectRoot;
@@ -27,17 +23,12 @@ async function main(): Promise<void> {
     executable = resolvePackageBin(projectRoot, "vite");
     args = ["dev", ...extra];
     cwd = join(projectRoot, "apps/auth-api");
-  } else if (mode === "remote") {
-    args = ["run", "--cwd", join(projectRoot, "remote/api"), "dev", ...extra];
   } else {
-    args = [join(projectRoot, "scripts/deploy-auth-api.ts"), "--env", "test", ...extra];
+    args = ["run", "--cwd", join(projectRoot, "remote/api"), "dev", ...extra];
   }
   const child = spawn(executable, args, {
     cwd,
-    env:
-      mode === "api" || mode === "remote"
-        ? developmentChildEnvironment({ ...developmentSettingsForService(environment, mode), ...process.env }, mode)
-        : environment,
+    env: developmentChildEnvironment({ ...developmentSettingsForService(environment, mode), ...process.env }, mode),
     stdio: "inherit",
   });
   const terminate = () => child.kill("SIGTERM");
