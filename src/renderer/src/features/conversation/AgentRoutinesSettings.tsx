@@ -331,8 +331,8 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
         limitPolicy:
           current.limitPolicy === (base.limitPolicy ?? "wait") ? (routine.limitPolicy ?? "wait") : current.limitPolicy,
         missedPolicy:
-          current.missedPolicy === (base.missedPolicy ?? "skip")
-            ? (routine.missedPolicy ?? "skip")
+          current.missedPolicy === (base.missedPolicy ?? "run-once")
+            ? (routine.missedPolicy ?? "run-once")
             : current.missedPolicy,
         ...(triggerEdited || scheduleEdited || webhookEdited ? {} : triggerDraftOf(routine)),
       };
@@ -351,7 +351,7 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
       instruction: routine.instruction,
       active: routine.active,
       limitPolicy: routine.limitPolicy ?? "wait",
-      missedPolicy: routine.missedPolicy ?? "skip",
+      missedPolicy: routine.missedPolicy ?? "run-once",
       ...triggerDraftOf(routine),
       destination: undefined,
     });
@@ -378,7 +378,7 @@ export function AgentRoutinesSettings(props: AgentRoutinesSettingsProps) {
       schedule: routineScheduleFromDraft(NEW_ROUTINE_SCHEDULE),
       scheduleDraft: NEW_ROUTINE_SCHEDULE,
       limitPolicy: "wait",
-      missedPolicy: "skip",
+      missedPolicy: "run-once",
       triggerKind: "schedule",
       eventType: "",
       eventFilters: [],

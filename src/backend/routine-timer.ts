@@ -11,6 +11,8 @@ import { Effect } from "effect";
  */
 export interface RoutineDueSource {
   nextDueAt(): string | null;
+  /** Settles the occurrences that came due while the system slept, by each routine's missed-run policy. */
+  skipMissed?(now: Date): void;
   /** `active` turns false when the system suspends during the pass; stop before the next routine. */
   processDue(now: Date, active: () => boolean): Effect.Effect<void, { readonly cause: unknown }>;
 }
@@ -70,9 +72,13 @@ export class RoutineTimer {
     this.#timer = null;
   }
 
-  /** Every occurrence missed while suspended collapses into one run in the next pass. */
+  /**
+   * The occurrences missed while suspended settle as they do at a start: a routine set to skip drops
+   * them, any other runs once in the next pass. A hold keeps them due until `release`.
+   */
   resume(): void {
     this.#suspended = false;
+    if (!this.#held) for (const source of this.sources()) source.skipMissed?.(new Date());
     this.arm();
   }
 

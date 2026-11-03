@@ -307,7 +307,7 @@ export function createMockChannels(
         active: input.active,
         timezone: input.timezone,
         limitPolicy: input.limitPolicy ?? "wait",
-        missedPolicy: input.missedPolicy ?? "skip",
+        missedPolicy: input.missedPolicy ?? "run-once",
         trigger: nextTrigger(id, input.schedule, now),
         createdAt: now,
         updatedAt: now,

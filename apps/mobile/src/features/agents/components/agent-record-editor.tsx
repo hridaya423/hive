@@ -385,7 +385,7 @@ export function RoutineEditor({
   // Such a host saves a scheduled routine through the event routes, which carry `missedPolicy`.
   const missedRuns = useMobileWorkspaceSelector((current) => current.canManageMissedRuns(agent.serverId));
   const routineResults = useMobileWorkspaceSelector((current) => current.canManageRoutineResults(agent.serverId));
-  const savedMissedPolicy = routine?.missedPolicy ?? "skip";
+  const savedMissedPolicy = routine?.missedPolicy ?? "run-once";
   const missedPolicy = edits.missedPolicy ?? savedMissedPolicy;
   const setMissedPolicy = (missedPolicy: RoutineMissedPolicy) => setEdits((current) => ({ ...current, missedPolicy }));
   // A new routine keeps its place in the draft: the host sets a place only for a routine with an id.
@@ -446,7 +446,7 @@ export function RoutineEditor({
           eventType: "",
           filters: [],
           timezone: initialTimezone.current,
-          missedPolicy: "skip",
+          missedPolicy: "run-once",
           destination: null,
         }));
   useRecordDraftGuard(dirty && !finished, action.pending);

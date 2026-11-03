@@ -147,7 +147,8 @@ export type RoutineLimitPolicy = (typeof ROUTINE_LIMIT_POLICIES)[number];
 
 /**
  * What a routine does with the occurrences that came due while OpenBot was closed: `skip` records
- * them and drops them, `run-once` runs the newest one when OpenBot opens and records the others.
+ * them and drops them, `run-once` runs the newest one when OpenBot opens or the computer wakes and
+ * records the others. A new routine with no value uses `run-once`.
  */
 export const ROUTINE_MISSED_POLICIES = ["skip", "run-once"] as const;
 export type RoutineMissedPolicy = (typeof ROUTINE_MISSED_POLICIES)[number];

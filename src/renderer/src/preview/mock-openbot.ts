@@ -1050,7 +1050,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       active: input.active,
       timezone: input.timezone,
       limitPolicy: input.limitPolicy ?? "wait",
-      missedPolicy: input.missedPolicy ?? "skip",
+      missedPolicy: input.missedPolicy ?? "run-once",
       trigger: {
         id: crypto.randomUUID(),
         routineId,
