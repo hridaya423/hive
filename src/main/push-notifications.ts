@@ -21,6 +21,7 @@ import {
   agentNotificationLevel,
   notificationForAgentEvent,
 } from "@openbot/team-client/agent-notifications";
+import { LIVE_ACTIVITY_URL } from "@openbot/team-client/live-activity-props";
 import {
   decodeLiveActivityBytes,
   LIVE_ACTIVITY_NONCE_BYTES,
@@ -70,6 +71,15 @@ export type NotificationRelayRequest =
   | { platform: "ios"; push: NotificationRelayPush }
   | { platform: "android"; push: AndroidNotificationRelayPush };
 
+/** The plain text of one notification for an ntfy topic. `click` opens the agent in the app. */
+export interface NtfyNotice {
+  title: string;
+  body: string;
+  click: string;
+}
+
+export type NtfySender = (notice: NtfyNotice) => Effect.Effect<"sent", PushNotificationSendFailure>;
+
 type PushNotificationAgents = Pick<
   TeamApiAgents,
   "on" | "off" | "listAgents" | "readConversationPageFor" | "getRuntimeSnapshot" | "listConversationReads"
@@ -80,6 +90,8 @@ interface PushNotificationOptions {
   store: Pick<PushNotificationStore, "list" | "replace">;
   /** Sends one notification through the account service. `gone` means the phone gets no more. */
   send(request: NotificationRelayRequest): Effect.Effect<"sent" | "gone", PushNotificationSendFailure>;
+  /** Sends the notifications of Android phones as plain text to an ntfy topic, in place of `send`. */
+  ntfy?: NtfySender;
   /** The agents that the member's phone with this protocol and these capabilities cannot see. */
   hiddenAgentIds(protocol: number, capabilities: ReadonlySet<string>, memberId: string): ReadonlySet<string>;
   /** Whether the member is still a member and not disabled. A removed member gets no more notifications. */
@@ -408,17 +420,25 @@ export class PushNotificationService {
     shortBody: string,
   ) {
     const { stored, keys } = registration;
-    let sealed = sealPushNotification(content, keys, this.#options.randomBytes(LIVE_ACTIVITY_NONCE_BYTES));
-    // A long agent name and a preview of wide characters can pass the 4 KB limit of Apple and Google.
-    if (sealed.length > NOTIFICATION_SEALED_LIMIT) {
-      const short = { ...content, title: content.title.slice(0, 64), body: shortBody };
-      sealed = sealPushNotification(short, keys, this.#options.randomBytes(LIVE_ACTIVITY_NONCE_BYTES));
+    const ntfy = stored.platform === "android" ? this.#options.ntfy : undefined;
+    let dispatch: Effect.Effect<"sent" | "gone", PushNotificationSendFailure>;
+    if (ntfy) {
+      const click = `${LIVE_ACTIVITY_URL}?${new URLSearchParams({ server: content.serverId, agent: content.agentId })}`;
+      dispatch = ntfy({ title: content.title, body: content.body, click });
+    } else {
+      let sealed = sealPushNotification(content, keys, this.#options.randomBytes(LIVE_ACTIVITY_NONCE_BYTES));
+      // A long agent name and a preview of wide characters can pass the 4 KB limit of Apple and Google.
+      if (sealed.length > NOTIFICATION_SEALED_LIMIT) {
+        const short = { ...content, title: content.title.slice(0, 64), body: shortBody };
+        sealed = sealPushNotification(short, keys, this.#options.randomBytes(LIVE_ACTIVITY_NONCE_BYTES));
+      }
+      const request = relayRequest(stored, sealed, Math.floor(this.#now() / 1_000));
+      if (!request) return;
+      dispatch = this.#options.send(request);
     }
-    const request = relayRequest(stored, sealed, Math.floor(this.#now() / 1_000));
-    if (!request) return;
     // A Mac that wakes before its network, or a short fault at Apple or Google, refuses one send.
     for (let attempt = 0; ; attempt += 1) {
-      const result = yield* Effect.result(this.#options.send(request));
+      const result = yield* Effect.result(dispatch);
       if (Result.isSuccess(result)) {
         // The session ended, the app was removed, or Apple or Google refused the token.
         if (result.success === "gone" && this.#registrations.get(stored.sessionId) === registration) {

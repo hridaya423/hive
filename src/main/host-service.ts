@@ -61,6 +61,7 @@ import { LiveActivityPushService, LiveActivitySendFailure } from "./live-activit
 import type { PushNotificationStore } from "./push-notification-store";
 import {
   type NotificationRelayRequest,
+  type NtfySender,
   PushNotificationSendFailure,
   PushNotificationService,
 } from "./push-notifications";
@@ -207,6 +208,8 @@ interface HostServiceOptions {
     hostId: string,
     request: NotificationRelayRequest,
   ) => Effect.Effect<"sent" | "gone", RemoteWorkflowError>;
+  /** Sends the notifications of Android phones to an ntfy topic instead of the account service. */
+  ntfy?: NtfySender;
   /** The phones that get notifications, kept for the next start. */
   pushNotificationStore?: PushNotificationStore;
   /** Whether the owner uses the desktop app on this computer now and sees the event there, so the owner's phone stays quiet. */
@@ -410,6 +413,7 @@ export class HostService extends EventEmitter<HostEvents> {
             },
             lastUseElsewhere: (memberId, sessionId) => this.#api.lastMemberUseElsewhere(memberId, sessionId),
             ...(options.awayAfterMs === undefined ? {} : { awayAfterMs: options.awayAfterMs }),
+            ...(options.ntfy === undefined ? {} : { ntfy: options.ntfy }),
             // The desktop app of this computer runs as the owner.
             atHostComputer: (memberId, event) =>
               memberId === options.store.getOwnerMemberId() && (options.hostComputerInUse?.(event) ?? false),

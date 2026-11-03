@@ -60,6 +60,18 @@ at `api.openbot.run` and the Signal host at `signal.openbot.run`.
 Phase 5 moves the account service and Signal to the owner's own server. After that move, Hive makes
 no connection to `openbot.run` hosts. This page changes at the same time.
 
+## Android notifications through ntfy
+
+A host that has the environment variables `HIVE_NTFY_URL` and `HIVE_NTFY_TOPIC` sends the notifications
+of Android phones to that ntfy server instead of the account service. It decides who is away, and
+which events notify, as it does above. The phone gives the host a fixed placeholder in place of a
+Firebase token when the build has no Firebase file, and the host ignores it. The host sends one HTTP
+`POST` to the ntfy server for each notification, with the agent name, the text, which holds the
+answer only when the preview is on, and a link that opens the agent in the app. The text is plain, not
+sealed. `HIVE_NTFY_TOKEN` is the access token of that ntfy server. The host sends the token to that
+server only, and logs neither the token nor the text. Run the ntfy server on your own network. ntfy,
+the host and the phone must be on your tailnet, because nothing else protects the plain text.
+
 ## Agent access
 
 Agents run with `danger-full-access` and `approvalPolicy: never`. They can read and change local
