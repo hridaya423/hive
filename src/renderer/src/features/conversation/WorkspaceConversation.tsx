@@ -5,6 +5,7 @@ import {
   agentPermissionUpdate,
   type CentralAuthUser,
   DEFAULT_AGENT_ACCESS,
+  DEFAULT_HOST_BACKUP_MODELS,
   sameAgentModelChoice,
   type UpdateAgentAdminSettingsInput,
   type UpdateAgentInput,
@@ -48,6 +49,7 @@ import { remoteMcpSignIn, serverCanAdminister, serverSupportsCapability } from "
 import { useServerScope } from "../servers/server-scope";
 import { useServerSettings } from "../servers/server-settings";
 import { useServers } from "../servers/servers-context";
+import { hostBackupModels, loadHostBackupModels } from "../settings/host-fallback-order";
 import { useSettings } from "../settings/settings-context";
 import { isReaderAuthor } from "../team/reader-identity";
 import { usePresence } from "../team/team-context";
@@ -424,6 +426,7 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
       threads()?.open === undefined ? conversations[agent.id]?.messages : threads()?.conversation?.messages;
     return (messages ?? []).findLast((message) => messagePromptRequestKey(message) === requestKey)?.uiBlock;
   });
+  loadHostBackupModels().catch(() => undefined);
   /**
    * A usage limit holds the active agent's queued message on this computer. The chat asks where to
    * send it, unless the agent switches by itself to a saved backup model that is ready.
@@ -443,11 +446,11 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
       providers: agentStatus().providers,
       limited: usageLimited,
     };
-    const options = usageLimitAskOptions({ ...agent, provider }, agent.backupModels, source);
+    const backupModels = agent.backupModels ?? hostBackupModels() ?? DEFAULT_HOST_BACKUP_MODELS;
+    const options = usageLimitAskOptions({ ...agent, provider }, backupModels, source);
     if (options.length === 0) return undefined;
-    const backupModels = agent.backupModels;
     if (
-      backupModels?.automatic &&
+      backupModels.automatic &&
       backupModels.order.some((choice) => options.some((option) => sameAgentModelChoice(option.choice, choice)))
     )
       return undefined;

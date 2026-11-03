@@ -462,6 +462,26 @@ async function send(agentId: string, text: string, sourcePaths?: string[]) {
   return { deliveryId, status, error: mailbox.getDelivery(deliveryId)?.delivery.error ?? null };
 }
 
+async function assertMessageOnce(agentId: string, text: string, deliveryId: string) {
+  const snapshot = await runCauseEffect(service.readConversation(agentId));
+  assert.equal(
+    snapshot.messages.filter((message) => message.author === "user" && message.text === text).length,
+    1,
+    `"${text}" shows once in the conversation.`,
+  );
+  const deliveries = service.listQueue(agentId).deliveries;
+  assert.deepEqual(
+    deliveries.filter((delivery) => delivery.status !== "completed").map((delivery) => delivery.id),
+    [],
+    "No delivery is left queued or failed.",
+  );
+  assert.equal(
+    mailbox.getDelivery(deliveryId)?.delivery.status,
+    "completed",
+    "The one delivery of the message completed.",
+  );
+}
+
 /** The name the service lists for a model, which the switch notes show. */
 function modelName(model: string): string {
   return service.listModels().find((option) => option.provider === "claude" && option.id === model)?.name ?? model;
@@ -778,6 +798,7 @@ try {
     assert.deepEqual(errorsFor(agent.id, since), [], "No error shows for the moved message.");
     const notes = await markers(agent.id, MODEL_SWITCH_ITEM_TYPES["provider-error"]);
     assert.equal(notes.length, 1, "A note says why the agent moved.");
+    await assertMessageOnce(agent.id, "work", outcome.deliveryId);
     return { notes };
   });
 
@@ -853,6 +874,7 @@ try {
     assert.deepEqual(errorsFor(agent.id, since), [], "No error shows for the moved message.");
     const notes = await markers(agent.id, MODEL_SWITCH_ITEM_TYPES["provider-error"]);
     assert.equal(notes.length, 1, "A note says why the agent moved.");
+    await assertMessageOnce(agent.id, "auth-refused", outcome.deliveryId);
     return { notes };
   });
 
