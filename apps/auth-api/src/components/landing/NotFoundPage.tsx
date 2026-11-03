@@ -1,9 +1,8 @@
 import { AppLogo } from "@openbot/brand";
 import { prefersReducedMotion } from "@openbot/ui/utils";
-import { Link, useLocation } from "@tanstack/solid-router";
+import { useLocation } from "@tanstack/solid-router";
 import { createSignal, For, onSettled } from "solid-js";
 import { ButtonLink } from "../ui/button";
-import { LandingFooter } from "./LandingFooter";
 import { SiteHeader } from "./SiteHeader";
 
 // After this long without a pointer move, the logo stops following the pointer and looks around again.
@@ -13,13 +12,6 @@ const SEARCH_STEPS = [
   { label: "Searching workspaces", result: "empty" },
   { label: "Checking threads", result: "empty" },
   { label: "Asking teammates", result: "no answer" },
-] as const;
-
-const SUGGESTIONS = [
-  { to: "/guides", label: "Guides" },
-  { to: "/news", label: "News" },
-  { to: "/compare", label: "Compare" },
-  { to: "/marketplace", label: "Marketplace" },
 ] as const;
 
 export function NotFoundPage() {
@@ -64,7 +56,7 @@ export function NotFoundPage() {
 
   return (
     <div class="landing-page not-found-page">
-      <SiteHeader page="content" />
+      <SiteHeader />
 
       <main class="not-found-main">
         <div class="landing-hero-grid not-found-grid" aria-hidden="true" />
@@ -84,15 +76,10 @@ export function NotFoundPage() {
           <h1 id="not-found-title" class="not-found-title">
             This page wandered off
           </h1>
-          <p class="not-found-description">
-            The link may be out of date, or the page moved. Check the address, or try one of these pages.
-          </p>
+          <p class="not-found-description">The link may be out of date, or the page moved. Check the address.</p>
           <div class="not-found-actions">
-            <ButtonLink to="/" variant="primary" size="lg" icon="open">
-              Back to home
-            </ButtonLink>
-            <ButtonLink to="/guides" variant="secondary" size="lg" icon="arrow-right">
-              Read the guides
+            <ButtonLink to="/app" reloadDocument variant="primary" size="lg" icon="open">
+              Open the web app
             </ButtonLink>
           </div>
         </section>
@@ -122,19 +109,7 @@ export function NotFoundPage() {
             </li>
           </ol>
         </div>
-
-        <nav class="not-found-links" aria-label="Popular pages">
-          <For each={SUGGESTIONS}>
-            {(link, index) => (
-              <Link to={link.to} class="not-found-link" style={{ "--link": index() }}>
-                {link.label}
-              </Link>
-            )}
-          </For>
-        </nav>
       </main>
-
-      <LandingFooter />
     </div>
   );
 }

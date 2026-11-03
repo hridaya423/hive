@@ -123,7 +123,7 @@ if a step fails. The steps have separate logs. The groups run in this order:
 - `Browser smoke` completes checkout, then runs `Set up Bun` and virtual-display installation
   together. The smoke test starts only after both succeed.
 - `Surfaces` completes setup, then runs three groups: `mobile:typecheck` with
-  `typecheck:team-client`; `typecheck:sites`, `typecheck:remote` and `typecheck:status`; and `typecheck:logging`,
+  `typecheck:team-client`; `typecheck:remote`; and `typecheck:logging`,
   `typecheck:telemetry`, `typecheck:user-errors`, and `typecheck:i18n`. Each command uses `bun run`
   in its own step. Mobile generation stays inside `mobile:typecheck`. Compose validation starts
   after all groups succeed.
@@ -159,17 +159,17 @@ renderer bundles it. Then it selects the lanes:
 | --- | --- | --- |
 | `code` | Check, Tests (desktop) | anything that is left |
 | `docs` | Check, with only `check:doc-links` when `code` is off | any Markdown file, before the removal above, or `scripts/check-doc-links.ts` |
-| `desktop` | Browser smoke, Local scripts CLI E2E, Team API and reverse actions E2E | outside `apps/auth-api`, `apps/mobile`, `apps/site-router`, `apps/status`, `remote` and `docker` |
-| `api` | API | in `apps/auth-api`, `apps/site-router`, `src/renderer` or `resources`, or a `CHANGELOG.md` |
+| `desktop` | Browser smoke, Local scripts CLI E2E, Team API and reverse actions E2E | outside `apps/auth-api`, `apps/mobile`, `remote` and `docker` |
+| `api` | API | in `apps/auth-api`, `src/renderer` or `resources`, or a `CHANGELOG.md` |
 | `remote` | Signal E2E | in `remote` or `scripts` |
-| `storybook` | Storybook build | in `src`, `apps/auth-api`, `apps/status`, `.storybook`, `resources`, `marketplace` or `build` |
-| `surfaces` | Surfaces | in `apps/mobile`, `apps/site-router`, `apps/status`, `remote` or `scripts` |
+| `storybook` | Storybook build | in `src`, `apps/auth-api`, `.storybook`, `resources`, `marketplace` or `build` |
+| `surfaces` | Surfaces | in `apps/mobile`, `remote` or `scripts` |
 
 A path every workspace reads (`package.json`, `bun.lock`, `bunfig.toml`, `.nvmrc`, `tsconfig*.json`, `biome.json`,
 `.github/`, `packages/`, `tools/`, `patches/`, `vendor/`) runs every lane. `code` runs for a
 mobile-only pull request: the desktop test run holds a mobile test, and lint and knip cover every
 workspace. The API Worker bundles the
-renderer preview and web client and imports `apps/site-router/src`, so `api` reads them. A push to
+renderer preview and web client, so `api` reads them. A push to
 `main` and a manual run always run every lane, because a skipped need would skip
 `deploy-production`. When a lane reads another directory, add it to that lane's pattern in the
 `detect` job. When in doubt, let the lane run.

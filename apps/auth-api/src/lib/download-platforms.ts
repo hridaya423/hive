@@ -51,8 +51,6 @@ export const DOWNLOAD_PLATFORMS: Record<DownloadPlatform, DownloadPlatformDetail
   },
 };
 
-export const DOWNLOAD_PLATFORM_ORDER: readonly DownloadPlatform[] = ["macos", "windows", "linux"];
-
 export function detectDownloadPlatform(source: PlatformNavigator): DownloadPlatform | undefined {
   const platform =
     `${source.userAgentData?.platform ?? ""} ${source.platform ?? ""} ${source.userAgent ?? ""}`.toLowerCase();

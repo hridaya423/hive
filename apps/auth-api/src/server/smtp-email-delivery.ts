@@ -2,17 +2,7 @@ import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { isCanonicalInviteUrl } from "@openbot/contracts/invite-links";
 import { isValidHostname as isSharedValidHostname } from "@openbot/contracts/validation";
 import { Effect, Fiber, Option, Result, Schema } from "effect";
-import {
-  type ContactMessageEmailInput,
-  type LicenseEmailInput,
-  type RenderedEmail,
-  renderContactMessageEmail,
-  renderLicenseEmail,
-  renderSignInCodeEmail,
-  renderTeamInviteEmail,
-  renderWelcomeEmail,
-  type WelcomeEmailInput,
-} from "./email-templates";
+import { type RenderedEmail, renderSignInCodeEmail, renderTeamInviteEmail } from "./email-templates";
 
 /**
  * The `EMAIL_RELAY` service binding: the `openbot-email-relay` Worker in `src/email-relay-entry.ts`.
@@ -46,15 +36,6 @@ export interface SmtpTeamInviteMessage {
   inviteUrl: string;
   role: "admin" | "member";
 }
-
-export type SmtpContactMessage = ContactMessageEmailInput;
-
-export interface SmtpWelcomeMessage extends WelcomeEmailInput {
-  email: string;
-}
-
-/** A license email and its address. */
-export type SmtpLicenseMessage = LicenseEmailInput & { email: string };
 
 interface PreparedEmailMessage {
   email: string;
@@ -187,49 +168,6 @@ export const sendPrivateTeamInvite = Effect.fn("Smtp.sendPrivateTeamInvite ")(fu
         role: message.role,
       }),
     },
-    connector,
-  );
-});
-
-/** Sends the welcome email of an account's first plan. A reply goes to the sending mailbox. */
-export const sendPrivateWelcomeEmail = Effect.fn("Smtp.sendPrivateWelcomeEmail")(function* (
-  config: SmtpEmailConfig,
-  message: SmtpWelcomeMessage,
-  connector?: SmtpConnector,
-) {
-  yield* smtpValidate(() => {
-    if (
-      !message.serverName.trim() ||
-      message.serverName.length > INPUT_LIMITS.serverName ||
-      hasHeaderBreak(message.serverName)
-    ) {
-      throw new Error("smtp_invalid_server_name");
-    }
-  });
-  return yield* sendPrivateEmail(
-    config,
-    { email: message.email, content: renderWelcomeEmail({ plan: message.plan, serverName: message.serverName }) },
-    connector,
-  );
-});
-
-export const sendPrivateLicenseEmail = Effect.fn("Smtp.sendPrivateLicenseEmail")(function* (
-  config: SmtpEmailConfig,
-  message: SmtpLicenseMessage,
-  connector?: SmtpConnector,
-) {
-  return yield* sendPrivateEmail(config, { email: message.email, content: renderLicenseEmail(message) }, connector);
-});
-
-/** Sends a message from the site's contact form to the sending mailbox. A reply goes to the visitor. */
-export const sendPrivateContactMessage = Effect.fn("Smtp.sendPrivateContactMessage")(function* (
-  config: SmtpEmailConfig,
-  message: SmtpContactMessage,
-  connector?: SmtpConnector,
-) {
-  return yield* sendPrivateEmail(
-    config,
-    { email: config.from, replyTo: message.email, content: renderContactMessageEmail(message) },
     connector,
   );
 });

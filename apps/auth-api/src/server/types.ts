@@ -3,17 +3,15 @@ import { isDynamicRecord, isFunction } from "@openbot/contracts/runtime-values";
 import type { Effect } from "effect";
 import type { AuthStoreError } from "./d1-auth-repository";
 import type { EmailDeliveryError } from "./email-delivery";
-import type { SmtpContactMessage, SmtpFailure, SmtpLicenseMessage, SmtpWelcomeMessage } from "./smtp-email-delivery";
+import type { SmtpFailure } from "./smtp-email-delivery";
 
 export interface WorkerBindings {
   DB: D1Database;
   AVATARS: R2Bucket;
   SKILLS: R2Bucket;
-  SITES: R2Bucket;
   MARKETPLACE_INGRESS_RATE_LIMITER: RateLimit;
   MARKETPLACE_MUTATION_RATE_LIMITER: RateLimit;
   MARKETPLACE_UPLOAD_RATE_LIMITER: RateLimit;
-  SITE_REPORT_RATE_LIMITER: RateLimit;
   GITHUB_TOKEN_RATE_LIMITER: RateLimit;
   /** Checked by the Live Activity relay only, so a Worker without it keeps its other routes. */
   LIVE_ACTIVITY_RATE_LIMITER?: RateLimit;
@@ -23,19 +21,11 @@ export interface WorkerBindings {
   EMAIL_SMTP_USERNAME?: string;
   EMAIL_SMTP_PASSWORD?: string;
   EMAIL_FROM?: string;
-  /** The sender of license emails. Empty uses `EMAIL_FROM`. The SMTP account must be allowed to send as it. */
-  EMAIL_LICENSE_FROM?: string;
   /** The email relay Worker. Without it, email leaves from this Worker's own socket. */
   EMAIL_RELAY?: Fetcher;
   EMAIL_DELIVERY_WEBHOOK_URL?: string;
   EMAIL_DELIVERY_WEBHOOK_SECRET?: string;
   SKILLS_ADMIN_TOKEN?: string;
-  SITE_OPERATIONS_ADMIN_TOKEN?: string;
-  SERVER_CLAIMS_ADMIN_TOKEN?: string;
-  SITE_REPORT_HASH_SECRET?: string;
-  SITE_COOKIE_ISOLATION_READY?: string;
-  SITE_PUBLISH_ENABLED?: string;
-  SITE_LOCAL_ORIGIN?: string;
   REMOTE_TICKET_PRIVATE_JWK?: string;
   REMOTE_TICKET_PUBLIC_JWKS?: string;
   REMOTE_TICKET_KEY_ID?: string;
@@ -84,23 +74,6 @@ export interface WorkerBindings {
    */
   TELEGRAM_BOT_ID?: string;
   TELEGRAM_BOT_USERNAME?: string;
-  /** A Stripe sandbox (`sk_test_`) key in development and test. */
-  STRIPE_SECRET_KEY?: string;
-  STRIPE_WEBHOOK_SECRET?: string;
-  /**
-   * An ISO 8601 time. A license bought more than 2 days before it is free until then. Empty or absent:
-   * a new license is paid at once.
-   */
-  LICENSE_TRIAL_END?: string;
-  HOSTED_SERVERS_ENABLED?: string;
-  /** Comma-separated account IDs or emails that can create hosted servers. `*` allows each account. */
-  HOSTED_SERVERS_ALLOWED_USER_IDS?: string;
-  /** A request with this key in `OpenBot-Hosting-Developer-Key` can create hosted servers. Test Worker only. */
-  HOSTED_SERVERS_DEVELOPER_KEY?: string;
-  /** The boat named snapshot that new hosted servers start from. */
-  HOSTED_SERVER_TEMPLATE?: string;
-  BOAT_API_KEY?: string;
-  BOAT_WEBHOOK_SECRET?: string;
   /** An OpenPanel server client and its write-only secret, for account events. Set only in production. */
   OPENPANEL_CLIENT_ID?: string;
   OPENPANEL_CLIENT_SECRET?: string;
@@ -128,11 +101,9 @@ function isWorkerBindings(value: unknown): value is WorkerBindings {
   const database = value.DB;
   const avatars = value.AVATARS;
   const skills = value.SKILLS;
-  const sites = value.SITES;
   const marketplaceIngressRateLimiter = value.MARKETPLACE_INGRESS_RATE_LIMITER;
   const marketplaceMutationRateLimiter = value.MARKETPLACE_MUTATION_RATE_LIMITER;
   const marketplaceUploadRateLimiter = value.MARKETPLACE_UPLOAD_RATE_LIMITER;
-  const siteReportRateLimiter = value.SITE_REPORT_RATE_LIMITER;
   const githubTokenRateLimiter = value.GITHUB_TOKEN_RATE_LIMITER;
   if (
     !isDynamicRecord(database) ||
@@ -145,18 +116,12 @@ function isWorkerBindings(value: unknown): value is WorkerBindings {
     !isFunction(skills.get) ||
     !isFunction(skills.put) ||
     !isFunction(skills.delete) ||
-    !isDynamicRecord(sites) ||
-    !isFunction(sites.get) ||
-    !isFunction(sites.put) ||
-    !isFunction(sites.delete) ||
     !isDynamicRecord(marketplaceIngressRateLimiter) ||
     !isFunction(marketplaceIngressRateLimiter.limit) ||
     !isDynamicRecord(marketplaceMutationRateLimiter) ||
     !isFunction(marketplaceMutationRateLimiter.limit) ||
     !isDynamicRecord(marketplaceUploadRateLimiter) ||
     !isFunction(marketplaceUploadRateLimiter.limit) ||
-    !isDynamicRecord(siteReportRateLimiter) ||
-    !isFunction(siteReportRateLimiter.limit) ||
     !isDynamicRecord(githubTokenRateLimiter) ||
     !isFunction(githubTokenRateLimiter.limit)
   ) {
@@ -219,18 +184,6 @@ export interface TeamInviteEmailDelivery {
     inviteUrl: string;
     role: "admin" | "member";
   }): Effect.Effect<void, EmailDeliveryError | SmtpFailure>;
-}
-
-export interface WelcomeEmailDelivery {
-  send(message: SmtpWelcomeMessage): Effect.Effect<void, SmtpFailure>;
-}
-
-export interface LicenseEmailDelivery {
-  send(message: SmtpLicenseMessage): Effect.Effect<void, SmtpFailure>;
-}
-
-export interface ContactMessageDelivery {
-  send(message: SmtpContactMessage): Effect.Effect<void, SmtpFailure>;
 }
 
 export type EmailVerificationResult =
@@ -357,17 +310,4 @@ export interface AuthRepository {
     hostId: string | null,
   ): Effect.Effect<MobileAuthDevice[], AuthStoreError>;
   revokeMobileAuthDevice(userId: string, sessionId: string, now: number): Effect.Effect<boolean, AuthStoreError>;
-  /** Creates the user of the email when there is none. */
-  createServerClaim(input: {
-    claimHash: string;
-    email: string;
-    createdAt: number;
-    expiresAt: number;
-  }): Effect.Effect<void, AuthStoreError>;
-  /** Spends the claim and makes a desktop session. Null when the claim is unknown, used or expired. */
-  redeemServerClaim(input: {
-    claimHash: string;
-    now: number;
-    session: { id: string; token: string; expiresAt: number };
-  }): Effect.Effect<{ sessionToken: string; user: AuthUser } | null, AuthStoreError>;
 }

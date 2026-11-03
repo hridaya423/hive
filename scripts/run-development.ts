@@ -6,7 +6,6 @@ import {
   developmentSettingsForService,
   loadDevelopmentEnvironment,
   loadTestDeploymentEnvironment,
-  requireDevelopmentValues,
 } from "./development-environment";
 import { resolvePackageBin } from "./package-bin";
 
@@ -14,8 +13,8 @@ const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
 async function main(): Promise<void> {
   const [mode, ...extra] = process.argv.slice(2).filter((argument) => argument !== "--");
-  if (!mode || !["api", "remote", "stripe", "stripe-e2e", "deploy-test"].includes(mode)) {
-    throw new Error("Choose api, remote, stripe, stripe-e2e, or deploy-test.");
+  if (!mode || !["api", "remote", "deploy-test"].includes(mode)) {
+    throw new Error("Choose api, remote, or deploy-test.");
   }
   const environment =
     mode === "deploy-test"
@@ -30,14 +29,8 @@ async function main(): Promise<void> {
     cwd = join(projectRoot, "apps/auth-api");
   } else if (mode === "remote") {
     args = ["run", "--cwd", join(projectRoot, "remote/api"), "dev", ...extra];
-  } else if (mode === "deploy-test") {
-    args = [join(projectRoot, "scripts/deploy-auth-api.ts"), "--env", "test", ...extra];
   } else {
-    requireDevelopmentValues(environment, ["STRIPE_SECRET_KEY"]);
-    args = [
-      join(projectRoot, mode === "stripe" ? "scripts/stripe-bootstrap.ts" : "scripts/stripe-flows-e2e.ts"),
-      ...extra,
-    ];
+    args = [join(projectRoot, "scripts/deploy-auth-api.ts"), "--env", "test", ...extra];
   }
   const child = spawn(executable, args, {
     cwd,

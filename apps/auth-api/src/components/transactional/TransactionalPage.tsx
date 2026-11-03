@@ -1,5 +1,4 @@
 import type { JSX } from "@solidjs/web";
-import { LandingFooter } from "../landing/LandingFooter";
 import { SiteHeader } from "../landing/SiteHeader";
 
 export interface TransactionalPageProps {
@@ -10,7 +9,7 @@ export interface TransactionalPageProps {
   /** More classes for the card, for example `contact-section` for the form field colours. */
   class?: string;
   /**
-   * The language of the page text, when it comes from the catalogs. The site header and footer stay
+   * The language of the page text, when it comes from the catalogs. The site header stays
    * in English, so the attribute goes on `<main>` and not on `<html>`.
    */
   lang?: string;
@@ -18,14 +17,13 @@ export interface TransactionalPageProps {
 }
 
 /**
- * The frame of a page that does one task: join a server, return from Slack or Discord, return from
- * billing, report a site, or show a load error. It has the site header, one centred card, and the
- * site footer, so that these pages look like the rest of the site.
+ * The frame of a page that does one task: join a server, return from Slack or Discord, or show a
+ * load error. It has the site header and one centred card.
  */
 export function TransactionalPage(props: TransactionalPageProps) {
   return (
     <div class="landing-page transactional-page">
-      <SiteHeader page="content" />
+      <SiteHeader />
       <main class="transactional-main" lang={props.lang}>
         <section
           class={props.class ? `join-card transactional-card ${props.class}` : "join-card transactional-card"}
@@ -35,7 +33,6 @@ export function TransactionalPage(props: TransactionalPageProps) {
           {props.children}
         </section>
       </main>
-      <LandingFooter />
     </div>
   );
 }

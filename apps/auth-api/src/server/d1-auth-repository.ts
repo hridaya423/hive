@@ -949,22 +949,15 @@ export class D1AuthRepository implements AuthRepository {
           .prepare(`
       SELECT a.id AS sessionId, COALESCE(m.device_name, h.name, 'Desktop') AS name,
         CASE WHEN m.session_id IS NULL THEN 'desktop' ELSE 'mobile' END AS kind,
-        a.token_hash = ? AS is_current, a.created_at AS connectedAt, a.last_used_at AS lastActiveAt,
-        h.server_id IS NOT NULL AS is_hosted_server
+        a.token_hash = ? AS is_current, a.created_at AS connectedAt, a.last_used_at AS lastActiveAt
       FROM auth_sessions a LEFT JOIN mobile_auth_sessions m ON m.session_id = a.id
-      LEFT JOIN hosted_servers h
-        ON h.owner_user_id = a.user_id AND h.auth_session_id = a.id AND h.desired_state != 'deleted'
       WHERE a.user_id = ? AND a.revoked_at IS NULL AND a.expires_at > ?
       ORDER BY a.last_used_at DESC, a.created_at DESC
     `)
           .bind(tokenHash, userId, now)
-          .all<Omit<AccountSession, "current" | "hostedServer"> & { is_current: number; is_hosted_server: number }>(),
+          .all<Omit<AccountSession, "current" | "hostedServer"> & { is_current: number }>(),
       );
-      return result.results.map(({ is_current, is_hosted_server, ...session }) => ({
-        ...session,
-        current: is_current === 1,
-        ...(is_hosted_server === 1 ? { hostedServer: true } : {}),
-      }));
+      return result.results.map(({ is_current, ...session }) => ({ ...session, current: is_current === 1 }));
     },
     (operation) => operation.pipe(Effect.provide(this.#layer)),
   ).bind(this);
@@ -1012,83 +1005,6 @@ export class D1AuthRepository implements AuthRepository {
           .first<{ id: string }>(),
       );
       return result !== null;
-    },
-    (operation) => operation.pipe(Effect.provide(this.#layer)),
-  ).bind(this);
-
-  readonly createServerClaim = Effect.fn("D1AuthRepository.createServerClaim")(
-    function* (
-      this: D1AuthRepository,
-      input: { claimHash: string; email: string; createdAt: number; expiresAt: number },
-    ): Effect.fn.Return<void, AuthStoreError, AuthDatabase> {
-      const database = yield* AuthDatabase;
-      // One batch, and no conflict on a user that another request creates at the same time.
-      const [, created] = yield* storeCall(() =>
-        database.batch([
-          database
-            .prepare(
-              `INSERT INTO users(id, identity_key, email, name, avatar_url, created_at, updated_at)
-           VALUES (?, ?, ?, NULL, NULL, ?, ?) ON CONFLICT DO NOTHING`,
-            )
-            .bind(crypto.randomUUID(), `email:${input.email}`, input.email, input.createdAt, input.createdAt),
-          database
-            .prepare(
-              `INSERT INTO server_claims(claim_hash, user_id, created_at, expires_at)
-           SELECT ?, id, ?, ? FROM users WHERE email = ?`,
-            )
-            .bind(input.claimHash, input.createdAt, input.expiresAt, input.email),
-        ]),
-      );
-      if (created?.meta.changes !== 1) return yield* new AuthStoreError({ message: "Account store operation failed." });
-    },
-    (operation) => operation.pipe(Effect.provide(this.#layer)),
-  ).bind(this);
-
-  readonly redeemServerClaim = Effect.fn("D1AuthRepository.redeemServerClaim")(
-    function* (
-      this: D1AuthRepository,
-      input: { claimHash: string; now: number; session: { id: string; token: string; expiresAt: number } },
-    ): Effect.fn.Return<{ sessionToken: string; user: AuthUser } | null, AuthStoreError, AuthDatabase> {
-      const database = yield* AuthDatabase;
-      const tokenHash = yield* storeHash(input.session.token);
-      // The session row is made only by the redeem that spent the claim.
-      const [spent] = yield* storeCall(() =>
-        database.batch([
-          database
-            .prepare(
-              `UPDATE server_claims SET redeemed_at = ?, session_id = ?
-           WHERE claim_hash = ? AND redeemed_at IS NULL AND expires_at > ?`,
-            )
-            .bind(input.now, input.session.id, input.claimHash, input.now),
-          database
-            .prepare(
-              `INSERT INTO auth_sessions(id, user_id, token_hash, expires_at, created_at, last_used_at)
-           SELECT ?, user_id, ?, ?, ?, ? FROM server_claims WHERE claim_hash = ? AND session_id = ?`,
-            )
-            .bind(
-              input.session.id,
-              tokenHash,
-              input.session.expiresAt,
-              input.now,
-              input.now,
-              input.claimHash,
-              input.session.id,
-            ),
-        ]),
-      );
-      if (spent?.meta.changes !== 1) return null;
-      // Through the new session: the retention job can already have removed the spent claim.
-      const row = yield* storeCall(() =>
-        database
-          .prepare(
-            `SELECT users.id, users.email, users.name, users.avatar_url, users.analytics_enabled
-         FROM auth_sessions JOIN users ON users.id = auth_sessions.user_id
-         WHERE auth_sessions.id = ?`,
-          )
-          .bind(input.session.id)
-          .first<UserRow>(),
-      );
-      return row ? { sessionToken: input.session.token, user: mapUser(row) } : null;
     },
     (operation) => operation.pipe(Effect.provide(this.#layer)),
   ).bind(this);
