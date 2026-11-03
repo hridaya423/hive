@@ -210,8 +210,8 @@ alert has "OpenBot" as its only text and `mutable-content`; the app opens the se
 
 The relay is off until `APNS_PRIVATE_KEY` (the `.p8` key text) and `APNS_KEY_ID` are set. Create
 the key in Apple Developer > Keys with the Apple Push Notifications service, then add both to the
-encrypted environment and to the `cloudflare-production` GitHub environment. `APNS_TEAM_ID` and
-`APNS_TOPIC` are in `wrangler.jsonc`.
+encrypted environment and to the `cloudflare-production` GitHub environment, with the Worker
+variables `APNS_TEAM_ID` and `APNS_TOPIC`.
 
 For local development, run `bun run dev:apns-key -- ~/Downloads/AuthKey_<KEY_ID>.p8`. It saves the
 key in ignored development state. The local Worker runtime cannot open HTTP/2, which APNs requires, so `vite dev`

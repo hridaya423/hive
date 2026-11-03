@@ -43,9 +43,7 @@
     "REMOTE_SIGNAL_HOMES": "",
     "REMOTE_AUTH_WEBHOOK_URL": "",
     "REMOTE_AUTH_WEBHOOK_URLS": "",
-    "SIGNAL_ENTRY_ZONE_ID": "",
-    "APNS_TEAM_ID": "8A47NKRZSJ",
-    "APNS_TOPIC": "run.openbot.mobile"
+    "SIGNAL_ENTRY_ZONE_ID": ""
   },
   // Email leaves through the relay Worker (`wrangler.email-relay.jsonc`), which runs near the mail
   // host. Only production has it: the preview and test Workers and `vite dev` send from their own
@@ -203,9 +201,7 @@
         "REMOTE_AUTH_WEBHOOK_URL": "",
         "REMOTE_AUTH_WEBHOOK_URLS": "",
         // The test Worker never moves the production entry name.
-        "SIGNAL_ENTRY_ZONE_ID": "",
-        "APNS_TEAM_ID": "8A47NKRZSJ",
-        "APNS_TOPIC": "run.openbot.mobile"
+        "SIGNAL_ENTRY_ZONE_ID": ""
       },
       "d1_databases": [
         {
