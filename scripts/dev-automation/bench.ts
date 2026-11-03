@@ -134,8 +134,10 @@ async function findAppPage(browser: Browser): Promise<Page | null> {
 
 async function connect(app: BenchApp): Promise<{ browser: Browser; page: Page }> {
   await waitFor("the CDP port", READY_TIMEOUT_MS, async () => {
-    const response = await fetch(`http://127.0.0.1:${app.remoteDebuggingPort}/json/version`);
-    return response.ok ? true : null;
+    const response = await fetch(`http://127.0.0.1:${app.remoteDebuggingPort}/json/list`);
+    if (!response.ok) return null;
+    const targets: { type: string; url: string }[] = await response.json();
+    return targets.some((target) => target.type === "page" && isAppWindowUrl(target.url)) ? true : null;
   });
   const browser = await chromium.connectOverCDP(`http://127.0.0.1:${app.remoteDebuggingPort}`);
   if (!(await verifyBrowserOwnership(browser, app.pid))) {

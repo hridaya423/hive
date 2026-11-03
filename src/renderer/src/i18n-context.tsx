@@ -29,9 +29,9 @@ export interface I18nValue {
 }
 
 /**
- * `requested` once its catalogs are loaded. The desktop build holds every language, so this is
- * `requested` at once. The public web build loads a language on first use and keeps the previous
- * one on the screen until then; if the load fails, the screen stays in that language.
+ * `requested` once its catalogs are loaded. Both builds hold English and load another language on
+ * first use, and keep the previous one on the screen until then; if the load fails, the screen stays
+ * in that language.
  */
 function createLoadedLocale(requested: () => TranslatedLocale): () => TranslatedLocale {
   const [loads, setLoads] = createSignal(0);
