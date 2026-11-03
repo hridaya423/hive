@@ -118,6 +118,27 @@ class FakeSocket implements WhatsAppSocket {
     this.loggedOut = true;
   };
 
+  credsPending: Promise<void> = Promise.resolve();
+  credsWritten = false;
+
+  writeCreds(): void {
+    this.credsPending = new Promise<void>((done) =>
+      setTimeout(() => {
+        try {
+          writeFileSync(join(authDir, "creds.json"), "{}");
+          this.credsWritten = true;
+        } catch (error) {
+          credsErrors.push(error instanceof Error ? error.message : String(error));
+        }
+        done();
+      }, 50),
+    );
+  }
+
+  stopCreds = async () => {
+    await this.credsPending;
+  };
+
   update(update: WhatsAppConnectionUpdate): void {
     for (const handler of this.#handlers["connection.update"]) handler(update);
   }
@@ -131,6 +152,7 @@ const sockets: FakeSocket[] = [];
 const connectCalls: string[] = [];
 let connectFailures = 0;
 const qrCodes: Array<string | null> = [];
+const credsErrors: string[] = [];
 let autoOpen = false;
 
 class RecordingPairing extends WhatsAppPairing {
@@ -153,7 +175,7 @@ const connect = async (dir: string): Promise<WhatsAppClient> => {
   const socket = new FakeSocket();
   sockets.push(socket);
   if (autoOpen) setTimeout(() => socket.update({ connection: "open" }), 0);
-  return { socket, downloadMedia: async () => MEDIA };
+  return { socket, downloadMedia: async () => MEDIA, stopCreds: socket.stopCreds };
 };
 const liveSocket = (): FakeSocket => {
   const socket = sockets.at(-1);
@@ -527,6 +549,42 @@ try {
         assert.equal(existsSync(authDir), false, "The login stayed on disk.");
         assert.equal(warned(), lines + 1, "The incomplete logout was not reported.");
         return { loggedOut: false };
+      });
+
+      await step("unlink waits for a pending write of the login before it deletes the folder", async () => {
+        const before = sockets.length;
+        await runCauseEffect(messaging.connectWhatsApp());
+        await waitFor("a socket for the link", () => sockets.length > before);
+        liveSocket().update({ connection: "open" });
+        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
+        const writer = liveSocket();
+        writer.writeCreds();
+        await runCauseEffect(messaging.disconnectWhatsApp());
+        await writer.credsPending;
+        assert.equal(writer.credsWritten, true, "The write did not finish before the delete.");
+        assert.deepEqual(credsErrors, [], "A write of the login failed.");
+        assert.equal(existsSync(authDir), false, "The login stayed on disk.");
+        return { written: true };
+      });
+
+      await step("a logout from the phone waits for a pending write of the login before it deletes it", async () => {
+        const before = sockets.length;
+        await runCauseEffect(messaging.connectWhatsApp());
+        await waitFor("a socket for the link", () => sockets.length > before);
+        liveSocket().update({ connection: "open" });
+        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
+        const writer = liveSocket();
+        writer.writeCreds();
+        writer.update({ connection: "close", lastDisconnect: { error: closeError(401) } });
+        await waitFor(
+          "the stopped state",
+          () => messaging.whatsappOverview().connections[0]?.state === "invalid_token",
+        );
+        await writer.credsPending;
+        assert.equal(writer.credsWritten, true, "The write did not finish before the delete.");
+        assert.deepEqual(credsErrors, [], "A write of the login failed.");
+        assert.equal(existsSync(authDir), false, "The login stayed on disk.");
+        return { written: true };
       });
     },
     { linked: true, profile: "edges" },

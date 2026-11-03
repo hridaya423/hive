@@ -66,6 +66,8 @@ export interface WhatsAppSocket {
 export interface WhatsAppClient {
   socket: WhatsAppSocket;
   downloadMedia(message: WhatsAppMessage): Promise<Uint8Array>;
+  /** Stops the writer of the login and waits for the write that is under way. Call it before the login is deleted. */
+  stopCreds(): Promise<void>;
 }
 
 /** Opens a socket whose login is kept in `authDir`. The caller listens to it and ends it. */

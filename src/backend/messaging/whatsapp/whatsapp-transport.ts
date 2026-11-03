@@ -27,6 +27,11 @@ function closeStatus(error: Error | undefined): number | undefined {
   return isNumber(status) ? status : undefined;
 }
 
+async function endClient(client: WhatsAppClient): Promise<void> {
+  client.socket.end(undefined);
+  await client.stopCreds();
+}
+
 function openedOrGone(socket: WhatsAppClient["socket"]): Promise<"open" | "gone"> {
   return new Promise((resolve, reject) => {
     socket.ev.on("connection.update", (update) => {
@@ -65,7 +70,7 @@ export async function unlinkWhatsApp(options: WhatsAppUnlinkOptions, live: Whats
       if (!linked) return true;
       const opened = await connect(authDir);
       if (expired) {
-        opened.socket.end(undefined);
+        await endClient(opened);
         return false;
       }
       client = opened;
@@ -83,7 +88,7 @@ export async function unlinkWhatsApp(options: WhatsAppUnlinkOptions, live: Whats
   ]);
   clearTimeout(timer);
   expired = true;
-  client?.socket.end(undefined);
+  if (client) await endClient(client);
   await rm(authDir, { recursive: true, force: true });
   if (!loggedOut)
     logger.warn("WhatsApp did not log this device out, so the phone may still list it as a linked device.");
@@ -168,10 +173,11 @@ export class WhatsAppTransport implements MessagingTransport {
     return client;
   }
 
-  #dropClient(): void {
+  #dropClient(): WhatsAppClient | null {
     const client = this.#options.session.client;
     this.#options.session.client = null;
     client?.socket.end(undefined);
+    return client;
   }
 
   #clearTimer(): void {
@@ -219,12 +225,15 @@ export class WhatsAppTransport implements MessagingTransport {
     }
     if (update.connection !== "close") return;
     const status = closeStatus(update.lastDisconnect?.error);
-    this.#dropClient();
+    const dropped = this.#dropClient();
     if (status === WHATSAPP_CLOSE.loggedOut) {
       this.#halted = true;
       this.#generation += 1;
       this.#options.pairing.qr(null);
-      void rm(this.#options.authDir, { recursive: true, force: true }).finally(() => sink.state("invalid_token"));
+      void (async () => {
+        await dropped?.stopCreds();
+        await rm(this.#options.authDir, { recursive: true, force: true });
+      })().finally(() => sink.state("invalid_token"));
     } else if (status === WHATSAPP_CLOSE.replaced || status === WHATSAPP_CLOSE.forbidden) {
       this.#halted = true;
       this.#generation += 1;
