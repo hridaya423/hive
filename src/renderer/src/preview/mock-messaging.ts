@@ -199,6 +199,7 @@ export function createMockMessaging(orchestrator: () => string): MessagingDeskto
       whatsapp = null;
       whatsappQr = null;
       whatsappChats = [];
+      return { deviceRemoved: true };
     },
     reconnectWhatsApp: async () => changeWhatsApp({ enabled: true, state: "connected" }),
     setWhatsAppEnabled: async ({ enabled }) => changeWhatsApp({ enabled, state: enabled ? "connected" : "paused" }),
@@ -238,7 +239,7 @@ export function createMockMessaging(orchestrator: () => string): MessagingDeskto
         : platform === "discord"
           ? api.disconnectDiscordGuild({ workspaceId })
           : platform === "whatsapp"
-            ? api.disconnectWhatsApp()
+            ? api.disconnectWhatsApp().then(() => undefined)
             : api.disconnectTelegramChat({ workspaceId }),
     hostReconnect: ({ platform, workspaceId }) =>
       platform === "slack"

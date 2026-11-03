@@ -2,6 +2,11 @@ import type { MessagingConnection } from "@openbot/contracts/ipc";
 import { WHATSAPP_ORCHESTRATOR_AVATAR } from "@openbot/contracts/whatsapp-app";
 import type { AppTextKey } from "@openbot/i18n";
 import {
+  Alert,
+  AlertContent,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
   Button,
   Check,
   Field,
@@ -18,6 +23,7 @@ import {
   Spinner,
   Text,
   Trash2,
+  TriangleAlert,
 } from "@openbot/ui";
 import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
 import { useText } from "../../text";
@@ -50,6 +56,8 @@ export interface WhatsAppIntegrationPanelProps extends IntegrationPageSlots {
   /** The chats that can reach an agent, as jids. */
   allowedChats: string[];
   busy: boolean;
+  /** The last unlink could not log the device out of WhatsApp. The phone may still list it. */
+  phoneMayKeepDevice?: boolean | undefined;
   models?: WhatsAppOrchestratorModels | undefined;
   /** Starts the link, which makes the QR code. */
   onConnect: () => void;
@@ -102,6 +110,7 @@ const STATE_HELP: Partial<Record<MessagingConnection["state"], AppTextKey>> = {
   invalid_token: "connector.whatsapp.helpError",
   secret_storage_unavailable: "connector.whatsapp.helpError",
   error: "connector.whatsapp.helpError",
+  restricted: "connector.whatsapp.helpRestricted",
 };
 
 const WhatsAppMark = () => <MessageCircle aria-hidden="true" />;
@@ -176,6 +185,19 @@ export function WhatsAppIntegrationPanel(props: WhatsAppIntegrationPanelProps) {
       busy={props.busy}
       loadError={props.loadError}
       onRetry={props.onRetry}
+      notice={
+        <Show when={props.phoneMayKeepDevice && props.connections.length === 0}>
+          <Alert tone="warning" role="alert">
+            <AlertIcon>
+              <TriangleAlert />
+            </AlertIcon>
+            <AlertContent>
+              <AlertTitle>{t("connector.whatsapp.unlinkIncompleteTitle")}</AlertTitle>
+              <AlertDescription>{t("connector.whatsapp.unlinkIncompleteDescription")}</AlertDescription>
+            </AlertContent>
+          </Alert>
+        </Show>
+      }
       onConnect={() => {
         props.onConnect();
         openDialog("phone");

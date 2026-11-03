@@ -11,9 +11,11 @@ import {
   isMessagingOverview,
   isTelegramOverview,
   isWhatsAppOverview,
+  isWhatsAppUnlinkResult,
   type MessagingOverview,
   type TelegramOverview,
   type WhatsAppOverview,
+  type WhatsAppUnlinkResult,
 } from "@openbot/contracts/ipc";
 
 /** The orchestrator that main created, and the sidebar section it went to. */
@@ -44,5 +46,10 @@ export function decodeDiscordRolesReply(value: unknown): DiscordRoleList {
 
 export function decodeWhatsAppOverviewReply(value: unknown): WhatsAppOverview {
   if (!isWhatsAppOverview(value)) throw new Error("Invalid WhatsApp overview response.");
+  return value;
+}
+
+export function decodeWhatsAppUnlinkReply(value: unknown): WhatsAppUnlinkResult {
+  if (!isWhatsAppUnlinkResult(value)) throw new Error("Invalid WhatsApp unlink response.");
   return value;
 }

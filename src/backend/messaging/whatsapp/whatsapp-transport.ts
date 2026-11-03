@@ -56,8 +56,9 @@ export interface WhatsAppUnlinkOptions {
  * Logs the device out of WhatsApp, so the phone drops it, and deletes the login. A connection that
  * is paused or stopped has no socket, so a short-lived one opens from the saved login. When the logout
  * does not finish in time, the login is deleted anyway and the log says that the phone may keep the device.
+ * Resolves `false` in that case, and `true` when WhatsApp logged the device out.
  */
-export async function unlinkWhatsApp(options: WhatsAppUnlinkOptions, live: WhatsAppClient | null): Promise<void> {
+export async function unlinkWhatsApp(options: WhatsAppUnlinkOptions, live: WhatsAppClient | null): Promise<boolean> {
   const { connect, authDir, logger, timeoutMs } = options;
   let client = live;
   let expired = false;
@@ -92,6 +93,7 @@ export async function unlinkWhatsApp(options: WhatsAppUnlinkOptions, live: Whats
   await rm(authDir, { recursive: true, force: true });
   if (!loggedOut)
     logger.warn("WhatsApp did not log this device out, so the phone may still list it as a linked device.");
+  return loggedOut;
 }
 
 /** The pairing QR code that the settings page shows. It is null once the phone has scanned it. */
@@ -239,7 +241,7 @@ export class WhatsAppTransport implements MessagingTransport {
       this.#generation += 1;
       if (status === WHATSAPP_CLOSE.forbidden)
         this.#options.logger.warn("WhatsApp restricted or banned this number, so Hive stopped trying to connect.");
-      sink.state("error");
+      sink.state(status === WHATSAPP_CLOSE.forbidden ? "restricted" : "error");
     } else if (status === WHATSAPP_CLOSE.restartRequired) {
       void this.#open();
     } else {

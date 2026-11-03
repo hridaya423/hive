@@ -1,4 +1,9 @@
-import type { AddMessagingOrchestratorResult, MessagingDesktopApi, WhatsAppOverview } from "@openbot/contracts/ipc";
+import type {
+  AddMessagingOrchestratorResult,
+  MessagingDesktopApi,
+  WhatsAppOverview,
+  WhatsAppUnlinkResult,
+} from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import type { SlackOrchestratorChoice } from "@openbot/ui/features/settings/SlackIntegrationPanel";
 import { currentText } from "@openbot/ui/text";
@@ -10,7 +15,8 @@ import type { MessagingConnectorOptions } from "./messaging-connector";
 export interface WhatsAppApi {
   overview: () => Promise<WhatsAppOverview>;
   connect: () => Promise<void>;
-  disconnect: () => Promise<void>;
+  /** Null when the host does not say whether WhatsApp logged the device out, as a joined server does not. */
+  disconnect: () => Promise<WhatsAppUnlinkResult | null>;
   reconnect: () => Promise<void>;
   setEnabled: (enabled: boolean) => Promise<void>;
   addOrchestrator: (choice: SlackOrchestratorChoice | null) => Promise<AddMessagingOrchestratorResult>;
@@ -61,7 +67,9 @@ export function hostWhatsAppApi(
     overview: () => call((api, id) => api.hostGetWhatsAppOverview(id)),
     connect: () => call((api, id) => api.hostConnect({ platform: "whatsapp", place: null }, id)),
     disconnect: () =>
-      call((api, id) => api.hostDisconnect({ platform: "whatsapp", workspaceId: WHATSAPP_ACCOUNT }, id)),
+      call((api, id) => api.hostDisconnect({ platform: "whatsapp", workspaceId: WHATSAPP_ACCOUNT }, id)).then(
+        () => null,
+      ),
     reconnect: () => call((api, id) => api.hostReconnect({ platform: "whatsapp", workspaceId: WHATSAPP_ACCOUNT }, id)),
     setEnabled: (enabled) =>
       call((api, id) => api.hostSetEnabled({ platform: "whatsapp", workspaceId: WHATSAPP_ACCOUNT, enabled }, id)),
@@ -86,6 +94,7 @@ export function createWhatsAppConnector(api: WhatsAppApi, options: MessagingConn
   const [loaded, setLoaded] = createSignal<{ overview: WhatsAppOverview | null; error: string | null } | null>(null);
   const overview = () => loaded()?.overview ?? null;
   const actions = createConnectorActions("connector.whatsapp.actionFailed");
+  const [phoneMayKeepDevice, setPhoneMayKeepDevice] = createSignal(false);
   let reads = 0;
 
   const reload = () => {
@@ -135,6 +144,9 @@ export function createWhatsAppConnector(api: WhatsAppApi, options: MessagingConn
         get busy() {
           return actions.busy();
         },
+        get phoneMayKeepDevice() {
+          return phoneMayKeepDevice();
+        },
         get models() {
           return options.models?.();
         },
@@ -142,8 +154,15 @@ export function createWhatsAppConnector(api: WhatsAppApi, options: MessagingConn
           return loaded()?.error ?? null;
         },
         onRetry: reload,
-        onConnect: () => actions.run(() => api.connect(), { settled: reload }),
-        onDisconnect: () => actions.run(() => api.disconnect(), { settled: reload }),
+        onConnect: () => {
+          setPhoneMayKeepDevice(false);
+          actions.run(() => api.connect(), { settled: reload });
+        },
+        onDisconnect: () =>
+          actions.run(() => api.disconnect(), {
+            done: (result) => setPhoneMayKeepDevice(result?.deviceRemoved === false),
+            settled: reload,
+          }),
         onReconnect: () => actions.run(() => api.reconnect(), { settled: reload }),
         onSetEnabled: (enabled) => actions.run(() => api.setEnabled(enabled), { settled: reload }),
         onAddOrchestrator: (choice) =>

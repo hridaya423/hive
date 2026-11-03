@@ -473,6 +473,12 @@ the phone links on its own. The `overview` route is passive for the hosted-serve
 `whatsapp` (main sends them to these routes) and adds `hostGetWhatsAppOverview` and
 `hostSetWhatsAppAllowedChats`. The mobile app and the browser client do not use it yet.
 
+A close with status 403 stops the WhatsApp connection and shows the connection state `restricted`:
+"This number is restricted by WhatsApp." The state is text on the wire, so an older client reads it as
+`error`. `disconnectWhatsApp` answers `{ deviceRemoved }` to the local desktop only; it is `false` when
+WhatsApp did not confirm the logout, and the page then says that the phone may still list the device.
+A joined server's unlink route answers an empty body, so that page shows no such notice.
+
 The optional capability `onepassword-connector-v1`
 ([`onepassword-connector-v1.ts`](../../packages/contracts/src/team-protocol/onepassword-connector-v1.ts),
 host route [`route-onepassword-connector.ts`](../../src/main/team-api/route-onepassword-connector.ts))

@@ -374,6 +374,7 @@ import type {
   TelegramChatInput,
   TelegramOverview,
   WhatsAppOverview,
+  WhatsAppUnlinkResult,
 } from "./ipc-messaging";
 import type { NotificationOpenedEvent, NotificationPreference } from "./ipc-notifications";
 import type {
@@ -1109,7 +1110,7 @@ export const IPC_ENDPOINTS = {
     // folder, and an unlink logs the account out of WhatsApp and deletes it.
     getWhatsAppOverview: request<undefined, WhatsAppOverview>()("messaging:get-whatsapp-overview"),
     connectWhatsApp: request<undefined, void>()("messaging:connect-whatsapp"),
-    disconnectWhatsApp: request<undefined, void>()("messaging:disconnect-whatsapp"),
+    disconnectWhatsApp: request<undefined, WhatsAppUnlinkResult>()("messaging:disconnect-whatsapp"),
     reconnectWhatsApp: request<undefined, void>()("messaging:reconnect-whatsapp"),
     setWhatsAppEnabled: request<SetWhatsAppEnabledInput, void>()("messaging:set-whatsapp-enabled"),
     addWhatsAppOrchestrator: request<AddWhatsAppOrchestratorInput, AddMessagingOrchestratorResult>()(

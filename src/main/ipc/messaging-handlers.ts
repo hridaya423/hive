@@ -273,7 +273,7 @@ export function messagingIpcHandlers({
               : platform === "discord"
                 ? messaging.disconnectDiscordGuild(workspaceId)
                 : platform === "whatsapp"
-                  ? messaging.disconnectWhatsApp()
+                  ? messaging.disconnectWhatsApp().pipe(Effect.asVoid)
                   : messaging.disconnectTelegramChat(workspaceId),
           ),
         remote: async ({ platform, workspaceId }, serverId) => {
