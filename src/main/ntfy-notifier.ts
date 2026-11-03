@@ -9,10 +9,30 @@ export interface NtfyConfig {
   token: string | null;
 }
 
-export function ntfyConfigFromEnvironment(env: NodeJS.ProcessEnv): NtfyConfig | null {
+function reachesOnlyThisComputer(url: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(url);
+    if (protocol === "https:") return true;
+    return (
+      protocol === "http:" && (hostname === "localhost" || hostname === "[::1]" || /^127(\.\d{1,3}){3}$/.test(hostname))
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function ntfyConfigFromEnvironment(
+  env: NodeJS.ProcessEnv,
+  logger: { warn(message: string): void },
+): NtfyConfig | null {
   const url = env.HIVE_NTFY_URL?.trim();
   const topic = env.HIVE_NTFY_TOPIC?.trim();
-  return url && topic ? { url, topic, token: env.HIVE_NTFY_TOKEN?.trim() || null } : null;
+  if (!url || !topic) return null;
+  if (!reachesOnlyThisComputer(url)) {
+    logger.warn("HIVE_NTFY_URL must use https unless it names this computer. ntfy notifications are off.");
+    return null;
+  }
+  return { url, topic, token: env.HIVE_NTFY_TOKEN?.trim() || null };
 }
 
 export function createNtfySender({ url, topic, token }: NtfyConfig): NtfySender {

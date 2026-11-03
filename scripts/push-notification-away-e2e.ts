@@ -29,7 +29,7 @@ import { Effect } from "effect";
 import { openSealedLiveActivity } from "../apps/mobile/src/features/live-activity/model/live-activity-open";
 import { ntfyInstallToken } from "../apps/mobile/src/features/push-notifications/ntfy-install-token";
 import { LiveActivityPushService } from "../src/main/live-activity-push";
-import { createNtfySender } from "../src/main/ntfy-notifier";
+import { createNtfySender, ntfyConfigFromEnvironment } from "../src/main/ntfy-notifier";
 import {
   type NotificationRelayRequest,
   PushNotificationSendFailure,
@@ -568,6 +568,35 @@ try {
     assert.equal(ntfySends - sendsBefore, 2, "One event did not make exactly one POST to the topic.");
     return { installs: installs.length };
   });
+  await step(
+    "an ntfy URL that is not https and not on this computer is refused once, and the log has no token",
+    async () => {
+      const warnings: string[] = [];
+      const environment = (url: string): NodeJS.ProcessEnv => ({
+        HIVE_NTFY_URL: url,
+        HIVE_NTFY_TOPIC: NTFY_TOPIC,
+        HIVE_NTFY_TOKEN: NTFY_TOKEN,
+      });
+      const configs = (url: string) => ntfyConfigFromEnvironment(environment(url), { warn: (m) => warnings.push(m) });
+      assert.equal(configs("http://ntfy.example.com"), null, "A plain http URL on the network was accepted.");
+      assert.equal(configs("ftp://127.0.0.1"), null, "A URL of another scheme was accepted.");
+      assert.equal(warnings.length, 2, "Each refusal logs once.");
+      assert.ok(
+        warnings.every((message) => !message.includes(NTFY_TOKEN) && !message.includes("example.com")),
+        "The log has the token or the URL.",
+      );
+      for (const url of [
+        "https://ntfy.example.com",
+        "http://127.0.0.1:8080",
+        "http://localhost:8080",
+        "http://[::1]:8080",
+      ]) {
+        assert.equal(configs(url)?.token, NTFY_TOKEN, `${url} was refused.`);
+      }
+      assert.equal(warnings.length, 2, "An allowed URL logged a refusal.");
+      return { warnings };
+    },
+  );
   passed = true;
 } catch {
   passed = false;

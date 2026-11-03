@@ -2393,7 +2393,7 @@ export async function createApplicationServices({
   // Development only: a shorter or longer time without input before a phone notifies, to test it.
   const awaySeconds = app.isPackaged ? Number.NaN : Number(process.env.OPENBOT_DEV_AWAY_SECONDS);
   const awayAfterMs = Number.isInteger(awaySeconds) && awaySeconds > 0 ? awaySeconds * 1_000 : DESKTOP_USE_MS;
-  const ntfy = ntfyConfigFromEnvironment(process.env);
+  const ntfy = ntfyConfigFromEnvironment(process.env, logger);
   const host = new HostService({
     appVersion: app.getVersion(),
     store: teamStore,
