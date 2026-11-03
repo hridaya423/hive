@@ -932,10 +932,21 @@ Two holds move an agent:
   after it goes back. The return is marked `cause: "provider-error"`, so the notes read
   `model-switch:provider-error` and `model-switch:provider-error-ended`.
 
-A turn that wrote text or ran a tool fails with its error, as with no backup. Tasks, channel tasks,
-a refused `turn/start`, and a provider that fails to start do not fail over. A message runs again at
-most once for each model that failed it, so a move that cannot happen shows the error on the next
-failure; the check for a ready backup runs again when the turn ends.
+A turn that wrote text or ran a tool fails with its error, as with no backup. Tasks and channel
+tasks do not fail over. A message runs again at most once for each model that failed it, so a move
+that cannot happen shows the error on the next failure; the check for a ready backup runs again when
+the turn ends.
+
+A start that fails before any work follows the same rule. When `turn/start` is refused or the
+provider process exits, and the failure is a failover cause, `DrainScheduler.startDelivery` puts the
+messages back in the queue and calls `UsageLimitGate.failed` for the model. A provider process that
+exits counts as `provider_unavailable` (`isFailoverFailure`). Routine runs in the agent's own chat
+take the same path.
+
+An agent with no list of its own follows the host default chain (`HostBackupModelsPreferenceStore`,
+`openbot-host-backup-models-v1.json`). The chain of the agent wins, also when it is empty. The host
+chain is set in Settings > Providers > Fallback order, and its order always switches without asking.
+An entry whose account is removed or not connected is skipped, as in an agent's own list.
 
 ### Usage read pacing
 

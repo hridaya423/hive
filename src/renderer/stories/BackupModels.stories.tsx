@@ -55,6 +55,23 @@ function Page(props: { value: AgentBackupModels | null }) {
   );
 }
 
+function HostPage(props: { value: AgentBackupModels | null }) {
+  const [value, setValue] = createSignal(props.value);
+  return (
+    <div class="agent-settings-page" style={{ width: "420px" }}>
+      <BackupModelsPage host value={value()} source={SOURCE} onChange={setValue} />
+    </div>
+  );
+}
+
+/** Settings > Providers > Fallback order: no order yet, so agents with none of their own ask first. */
+export const HostEmpty: Story = { render: () => <HostPage value={null} /> };
+
+/** The order every agent with none of its own follows. */
+export const HostOrder: Story = {
+  render: () => <HostPage value={{ automatic: true, order: ORDER.order }} />,
+};
+
 /** The default: no order, and the agent asks before it switches. */
 export const AskFirst: Story = { render: () => <Page value={null} /> };
 

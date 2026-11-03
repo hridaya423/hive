@@ -1,3 +1,31 @@
+import { type CauseCode, classifyFailure } from "@openbot/telemetry";
+
+/**
+ * The provider errors that move an agent set to switch without asking to its next backup model. Each
+ * one can pass on another provider, account or model; a request the model refuses fails on each.
+ * A usage limit that the usage-limit gate does not hold comes here too, such as a spent Gemini quota (#4368).
+ */
+const FAILOVER_CAUSES: ReadonlySet<CauseCode> = new Set([
+  "billing",
+  "usage_limit",
+  "provider_unavailable",
+  "rate_limit",
+  "authentication",
+  "network",
+  "timeout",
+]);
+
+/**
+ * Whether a failure of a turn, or of its start, is one that another provider, account or model can
+ * pass. A provider process that exits says only that it exited, which the text classifier does not know.
+ */
+export function isFailoverFailure(error: unknown): boolean {
+  const cause = classifyFailure(error);
+  if (FAILOVER_CAUSES.has(cause)) return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return cause === "unknown" && /\bexited with (?:code|signal)\b/iu.test(message);
+}
+
 /**
  * Whether a provider diagnostic is about an MCP server rather than about the agent's work.
  *

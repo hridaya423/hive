@@ -9,7 +9,9 @@
 //   3. A turn that did nothing yet runs again on the backup model, with a note and no error.
 //   4. read_agent shows the backup model, and the model to go back to with the provider error as cause.
 //   5. After a restart, the agent goes back to its own model, with a note.
-// Also checks continuation after a usage limit interrupts partial work.
+// Also checks the host default chain (used by an agent with no chain, beaten by its own chain), a
+// provider process that exits and a refused turn start (both move to the backup), a routine run
+// that fails over, and continuation after a usage limit interrupts partial work.
 // `bun run test:backup-model-failover`. Writes .openbot-build/backup-model-failover-e2e/report.json.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -41,6 +43,7 @@ const userData = join(root, "user-data");
 const home = join(root, "home");
 const turnLog = join(root, "claude-turns.jsonl");
 const failingFile = join(root, "failing.json");
+const startFailingFile = join(root, "start-failing.json");
 const claudeExecutable = join(root, "claude");
 const codexExecutable = join(root, "codex");
 const codexLog = join(root, "codex-turns.jsonl");
@@ -86,6 +89,10 @@ const option = (name) => {
 };
 const sessionId = option("--resume") ?? option("--session-id") ?? randomUUID();
 let model = option("--model");
+if (fs.existsSync(${JSON.stringify(startFailingFile)}) && JSON.parse(fs.readFileSync(${JSON.stringify(startFailingFile)}, "utf8")).includes(model)) {
+  process.stderr.write("claude: could not start\\n");
+  process.exit(1);
+}
 const project = require("node:path").join(process.env.CLAUDE_CONFIG_DIR, "projects", process.cwd().replace(/[^a-zA-Z0-9]/g, "-"));
 fs.mkdirSync(project, { recursive: true });
 const transcript = require("node:path").join(project, sessionId + ".jsonl");
@@ -195,6 +202,8 @@ const answer = (request) => {
       return reply({ data: thread.turns.toReversed(), nextCursor: null });
     case "thread/items/list": return reply({ data: (thread.turns.find((turn) => turn.id === params.turnId)?.items ?? []).map((item) => ({ turnId: params.turnId, item })), nextCursor: null });
     case "turn/start": {
+      if (JSON.stringify(params.input).includes("auth-refused"))
+        return write({ id: request.id, error: { code: -32000, message: "Your access token could not be refreshed: 401 Unauthorized. Log in again." } });
       const turn = { id: randomUUID(), status: "inProgress", items: [] };
       thread.turns.push(turn);
       const input = JSON.stringify(params.input);
@@ -374,6 +383,7 @@ function turns(): { model: string; failed: boolean; input: string }[] {
 }
 
 const failing = (models: string[]) => writeFileSync(failingFile, JSON.stringify(models));
+const startFailing = (models: string[]) => writeFileSync(startFailingFile, JSON.stringify(models));
 
 function readLog<T>(path: string): T[] {
   try {
@@ -397,6 +407,7 @@ interface CodexTurn {
 await writeFile(claudeExecutable, STAND_IN_CLAUDE, { mode: 0o755 });
 await writeFile(codexExecutable, STAND_IN_CODEX, { mode: 0o755 });
 failing([]);
+startFailing([]);
 const database = new OpenBotDatabase(userData);
 const clients: ClaudeStandIn[] = [];
 const events: AgentEvent[] = [];
@@ -741,6 +752,109 @@ try {
 
   hostBackupModels = { automatic: false, order: [] };
   failing([]);
+
+  await check("a provider that will not start moves the agent to its backup model", async () => {
+    await restart();
+    const agent = await create("Nostart");
+    await waitFor("the first turn to end", () =>
+      service.listQueue(agent.id).deliveries.every((delivery) => delivery.status === "completed"),
+    );
+    await runCauseEffect(
+      service.updateAgent({
+        agentId: agent.id,
+        backupModels: { automatic: true, order: [{ provider: "codex", model: CODEX_MODEL }] },
+      }),
+    );
+    await restart();
+    startFailing([PRIMARY]);
+    const since = events.length;
+    const beforeCodex = readLog<CodexTurn>(codexLog).length;
+    const outcome = await send(agent.id, "work");
+    startFailing([]);
+    assert.equal(outcome.status, "completed", `The message completes: ${outcome.error}`);
+    assert.equal(readLog<CodexTurn>(codexLog).length, beforeCodex + 1, "The message runs on the backup.");
+    assert.equal(agentOf(agent.id).provider, "codex", "The agent is on the backup provider.");
+    assert.equal(agentOf(agent.id).usageLimitReturn?.model, PRIMARY, "The agent keeps its own model to go back to.");
+    assert.deepEqual(errorsFor(agent.id, since), [], "No error shows for the moved message.");
+    const notes = await markers(agent.id, MODEL_SWITCH_ITEM_TYPES["provider-error"]);
+    assert.equal(notes.length, 1, "A note says why the agent moved.");
+    return { notes };
+  });
+
+  await check("a routine run fails over to the backup model", async () => {
+    await restart();
+    failing([]);
+    const agent = await create("Routiner");
+    await waitFor("the first turn to end", () =>
+      service.listQueue(agent.id).deliveries.every((delivery) => delivery.status === "completed"),
+    );
+    await runCauseEffect(
+      service.updateAgent({
+        agentId: agent.id,
+        backupModels: { automatic: true, order: [{ provider: "claude", model: BACKUP }] },
+      }),
+    );
+    const routine = service.createRoutine(
+      {
+        agentId: agent.id,
+        name: "Health check",
+        instruction: "Check the build.",
+        active: false,
+        timezone: "UTC",
+        schedule: { kind: "custom", expression: "0 * * * *" },
+      },
+      { recordConversationEvent: false },
+    );
+    failing([PRIMARY]);
+    const since = events.length;
+    const before = turns().length;
+    const run = await runCauseEffect(service.testRoutine({ agentId: agent.id, routineId: routine.id }));
+    assert.ok(run.deliveryId, "The run has a delivery.");
+    const deliveryId = run.deliveryId;
+    const status = await waitFor("the routine run to end", () => {
+      const value = mailbox.getDelivery(deliveryId)?.delivery.status;
+      return value === "completed" || value === "failed" ? value : null;
+    });
+    assert.equal(status, "completed", `The run completes: ${mailbox.getDelivery(deliveryId)?.delivery.error}`);
+    assert.deepEqual(
+      turns()
+        .slice(before)
+        .map((turn) => turn.model),
+      [PRIMARY, BACKUP],
+      "The run ran on the own model, then on the backup.",
+    );
+    assert.equal(agentOf(agent.id).model, BACKUP, "The agent is on the backup model.");
+    assert.deepEqual(errorsFor(agent.id, since), [], "No error shows for the moved run.");
+    failing([]);
+    return {
+      models: turns()
+        .slice(before)
+        .map((turn) => turn.model),
+    };
+  });
+
+  await check("a refused turn start moves the agent to its backup model", async () => {
+    await restart();
+    const agent = await createCodex("Refused", automaticBackups);
+    const since = events.length;
+    const beforeCodex = readLog<CodexTurn>(codexLog).length;
+    const before = turns().length;
+    const outcome = await send(agent.id, "auth-refused");
+    assert.equal(outcome.status, "completed", `The message completes: ${outcome.error}`);
+    assert.equal(readLog<CodexTurn>(codexLog).length, beforeCodex, "The refused start ran no Codex turn.");
+    assert.deepEqual(
+      turns()
+        .slice(before)
+        .map((turn) => turn.model),
+      [PRIMARY],
+      "The message runs on the first backup.",
+    );
+    assert.equal(agentOf(agent.id).provider, "claude", "The agent is on the backup provider.");
+    assert.deepEqual(errorsFor(agent.id, since), [], "No error shows for the moved message.");
+    const notes = await markers(agent.id, MODEL_SWITCH_ITEM_TYPES["provider-error"]);
+    assert.equal(notes.length, 1, "A note says why the agent moved.");
+    return { notes };
+  });
 
   for (const mode of ["partial", "tool-only", "chain", "chain-empty"]) {
     await check(`Codex ${mode} work continues on another provider`, async () => {
