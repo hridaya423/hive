@@ -1662,7 +1662,7 @@ export class AgentStore {
       model: DEFAULT_AGENT_MODEL,
       reasoningEffort: DEFAULT_REASONING_EFFORT,
       access: DEFAULT_AGENT_ACCESS,
-      computerUse: true,
+      computerUse: false,
       threadId: null,
       workspacePath: join(this.#agentsRoot, id),
       preview: NEW_AGENT_PREVIEW,
@@ -1957,7 +1957,7 @@ function readStoredAgent(value: unknown): ReadStoredAgent | UnreadableStoredAgen
       ? value.excludedFolders
       : readableFolders(value.excludedFolders, () => repaired.push("excludedFolders"));
   const computerUse =
-    value.computerUse === undefined || isBoolean(value.computerUse) ? value.computerUse : reset("computerUse", true);
+    value.computerUse === undefined || isBoolean(value.computerUse) ? value.computerUse : reset("computerUse", false);
   const allowAutomation =
     value.allowAutomation === undefined || isBoolean(value.allowAutomation)
       ? value.allowAutomation
@@ -2150,7 +2150,7 @@ function normalizeStoredAgent(agent: PersistedStoredAgent): StoredAgent {
     ...agent,
     provider: agent.provider ?? providerForLegacyModel(agent.model),
     access: agent.access ?? DEFAULT_AGENT_ACCESS,
-    computerUse: agent.computerUse ?? true,
+    computerUse: agent.computerUse ?? false,
     avatarUrl: isString(agent.avatarUrl) && parseAgentAvatarUrl(agent.avatarUrl, agent.id) ? agent.avatarUrl : null,
     ...(agent.marketplaceSource === undefined
       ? {}

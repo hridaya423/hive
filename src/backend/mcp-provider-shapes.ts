@@ -5,6 +5,7 @@ import { delimiter, isAbsolute, join } from "node:path";
 import { promisify } from "node:util";
 import {
   type AgentProviderId,
+  COMPUTER_USE_CORE_TOOLS,
   COMPUTER_USE_MCP_SERVER_ID,
   isReservedMcpServerName,
   type McpServerConfig,
@@ -584,6 +585,7 @@ export type CodexMcpServer =
       env: Record<string, string>;
       cwd?: string;
       enabled?: boolean;
+      enabled_tools?: readonly string[];
       tools?: DynamicRecord;
     }
   | { url: string; http_headers: Record<string, string> };
@@ -722,6 +724,7 @@ export function codexMcpServers(
         args: [...server.config.args],
         env: mcpLaunchEnvironment(server),
         ...(server.workingDirectory ? { cwd: server.workingDirectory } : {}),
+        ...(server.config.id === COMPUTER_USE_MCP_SERVER_ID ? { enabled_tools: COMPUTER_USE_CORE_TOOLS } : {}),
       };
     } else {
       record[name] = {
