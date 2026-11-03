@@ -5,13 +5,11 @@ import { useText } from "@openbot/ui/text";
 import { createSignal, createStore } from "solid-js";
 import { settingsPort } from "./settings-port";
 
-const [hostBackupModelsValue, setHostBackupModelsValue] = createSignal<AgentBackupModels>();
-
 /** The order of every agent with none of its own, as the host last said. Undefined until it answered. */
-export const hostBackupModels = hostBackupModelsValue;
+export const [hostBackupModels, setHostBackupModels] = createSignal<AgentBackupModels>();
 
 export async function loadHostBackupModels(): Promise<void> {
-  setHostBackupModelsValue(await settingsPort().getHostBackupModels());
+  setHostBackupModels(await settingsPort().getHostBackupModels());
 }
 
 export function createHostFallbackOrder(source: () => BackupModelSource): ProviderFallbackOrder {
@@ -25,7 +23,7 @@ export function createHostFallbackOrder(source: () => BackupModelSource): Provid
 
   async function save(next: AgentBackupModels | null): Promise<void> {
     try {
-      setHostBackupModelsValue(await settingsPort().setHostBackupModels(next ?? DEFAULT_HOST_BACKUP_MODELS));
+      setHostBackupModels(await settingsPort().setHostBackupModels(next ?? DEFAULT_HOST_BACKUP_MODELS));
       setState((draft) => {
         draft.error = null;
       });
@@ -38,7 +36,7 @@ export function createHostFallbackOrder(source: () => BackupModelSource): Provid
 
   return {
     get value() {
-      return hostBackupModelsValue() ?? null;
+      return hostBackupModels() ?? null;
     },
     get source() {
       return source();
