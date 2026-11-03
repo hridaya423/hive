@@ -396,7 +396,6 @@ function finish(id: string, result: "online" | "failed", failure: ServerUpdateFa
     else
       toast.error(t("server.update.dialog.failedTitle", { name }), {
         description,
-        report: { operation: "update", source: "system", cause_code: "unknown" },
       });
   }, 0);
 }

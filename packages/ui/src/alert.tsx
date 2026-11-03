@@ -1,39 +1,15 @@
-import type { FailureProperties, NotificationMetadata } from "@openbot/telemetry";
 import type { JSX } from "@solidjs/web";
-import { createContext, createEffect, omit, useContext } from "solid-js";
+import { omit } from "solid-js";
 import { cx } from "./utils";
 
 export type AlertTone = "neutral" | "success" | "warning" | "danger";
 
 export interface AlertProps extends JSX.HTMLAttributes<HTMLDivElement> {
   tone?: AlertTone;
-  report?: NotificationMetadata | false;
-}
-
-const NotificationContext = createContext<((report: FailureProperties) => void) | null>(null);
-
-/** Applications observe presentations. The shared UI does not send or store reports. */
-export function NotificationObserver(props: {
-  onShown: (report: FailureProperties) => void;
-  children?: JSX.Element;
-}): JSX.Element {
-  return <NotificationContext value={props.onShown}>{props.children}</NotificationContext>;
 }
 
 export function Alert(props: AlertProps): JSX.Element {
-  const observe = useContext(NotificationContext);
-  createEffect(
-    () => props.tone,
-    (tone) => {
-      if (props.report === false || (tone !== "danger" && tone !== "warning")) return;
-      observe?.({
-        ...(props.report ?? { operation: "other", source: "system", cause_code: "unknown" }),
-        severity: tone === "danger" ? "error" : "warning",
-        presentation: "banner",
-      });
-    },
-  );
-  const others = omit(props, "class", "tone", "report");
+  const others = omit(props, "class", "tone");
   return <div class={cx("ui-alert", props.class)} data-tone={props.tone ?? "neutral"} {...others} />;
 }
 

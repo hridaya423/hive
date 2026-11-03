@@ -109,14 +109,6 @@ export interface ProviderConnectionOptions {
   openVerificationUrl: (url: string) => void;
   /** Opens the page that downloads the OpenBot app, for a provider that only the app can sign in. */
   openAppDownload?: () => void;
-  /**
-   * A connect attempt, for analytics: begun when a sign-in starts, failed through the function it
-   * returns, and dropped when the user cancels.
-   */
-  analytics?: {
-    begin: (provider: AgentProviderId) => () => void;
-    drop: (provider: AgentProviderId) => void;
-  };
 }
 
 /**
@@ -186,7 +178,6 @@ export function createProviderConnection(options: ProviderConnectionOptions): Pr
     setCodeLoginOpener(opener);
     setCodeLoginProvider(provider);
     setCodeLoginState({ phase: "starting" });
-    const failConnection = options.analytics?.begin(provider);
     try {
       // Cancellation emits a terminal status. Finish it before the next attempt can wait.
       await codeLoginCancellation;
@@ -257,7 +248,6 @@ export function createProviderConnection(options: ProviderConnectionOptions): Pr
       );
     } catch (error) {
       if (generation !== codeLoginGeneration) return;
-      failConnection?.();
       endProviderCodeLogin(provider, {
         kind: "failed",
         message:
@@ -407,7 +397,6 @@ export function createProviderConnection(options: ProviderConnectionOptions): Pr
     setCodeLoginProvider(null);
     const target = codeLoginTarget;
     if (!provider || !target) return;
-    options.analytics?.drop(provider);
     const cancel =
       codeLoginMethod === "relay" && target.relay
         ? target.relay.cancel
@@ -467,7 +456,6 @@ export function createProviderConnection(options: ProviderConnectionOptions): Pr
           description: t("app.provider.codeExpiredDescription"),
           action: retry,
         },
-        report: { operation: "provider", source: "action", cause_code: "unknown" },
       });
       return;
     }
@@ -476,7 +464,6 @@ export function createProviderConnection(options: ProviderConnectionOptions): Pr
         description: sourceText(outcome.message),
         action: { ...retry, label: t("common.tryAgain") },
       },
-      report: { operation: "provider", source: "action", cause_code: "unknown" },
     });
   }
 

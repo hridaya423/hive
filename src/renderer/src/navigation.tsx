@@ -2,7 +2,6 @@ import type { GlobalSearchPage } from "@openbot/ui/components/GlobalSearch";
 import type { AgentMessage } from "@openbot/ui/data";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createSignal, onSettled, untrack } from "solid-js";
-import { desktopAnalytics } from "./analytics";
 import { toAgentMessage } from "./app-message-projection";
 import { appPort } from "./app-port";
 import { type ChatHistoryEntry, chatHistoryShortcut, createChatHistory } from "./chat-history";
@@ -132,36 +131,24 @@ const Navigation = createSimpleContext({
       query: string,
       cursor?: string,
     ): Promise<GlobalSearchPage<{ agentId: string; message: AgentMessage }>> {
-      const analytics = desktopAnalytics.scope();
-      try {
-        const page = await appPort().agent.searchConversationMessages({
-          query,
-          ...(cursor === undefined ? {} : { cursor }),
-          limit: 100,
-          includeSideThreads: true,
-        });
-        if (cursor === undefined) searchHitThreads.clear();
-        for (const result of page.results) {
-          if (result.taskId) searchHitThreads.set(searchHitKey(result.agentId, result.message.id), result.taskId);
-        }
-        // One search counts once, not once per page.
-        if (cursor === undefined) {
-          analytics.track("search_action", { scope: "global", result: "succeeded", result_count: page.total });
-        }
-        return {
-          results: page.results.map((result) => ({
-            agentId: result.agentId,
-            message: toAgentMessage(result.message, result.agentId),
-          })),
-          total: page.total,
-          nextCursor: page.nextCursor,
-        };
-      } catch (error) {
-        if (cursor === undefined) {
-          analytics.track("search_action", { scope: "global", result: "failed", failure_code: "search_failed" });
-        }
-        throw error;
+      const page = await appPort().agent.searchConversationMessages({
+        query,
+        ...(cursor === undefined ? {} : { cursor }),
+        limit: 100,
+        includeSideThreads: true,
+      });
+      if (cursor === undefined) searchHitThreads.clear();
+      for (const result of page.results) {
+        if (result.taskId) searchHitThreads.set(searchHitKey(result.agentId, result.message.id), result.taskId);
       }
+      return {
+        results: page.results.map((result) => ({
+          agentId: result.agentId,
+          message: toAgentMessage(result.message, result.agentId),
+        })),
+        total: page.total,
+        nextCursor: page.nextCursor,
+      };
     }
 
     function selectGlobalSearchMessage(agentId: string, messageId: string): void {

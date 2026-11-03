@@ -11,7 +11,6 @@ import type {
   UpdateTeamMemberInput,
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import { classifyFailure } from "@openbot/telemetry";
 import {
   Alert,
   AlertActions,
@@ -47,10 +46,7 @@ import {
   type SettingsPagePlacement,
 } from "@openbot/ui/features/settings/SettingsDialogShell";
 import { SettingsHostedSitesTab } from "@openbot/ui/features/settings/SettingsHostedSitesTab";
-import {
-  createSettingsHostedSitesStore,
-  type HostedSiteDeleteResult,
-} from "@openbot/ui/features/settings/stores/hosted-sites-store";
+import { createSettingsHostedSitesStore } from "@openbot/ui/features/settings/stores/hosted-sites-store";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, onCleanup, Show, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
@@ -239,8 +235,6 @@ export interface ServerHostedSitesOptions {
   /** Called with this dialog's server. */
   api: Pick<HostedSitesDesktopApi, "list" | "delete">;
   onOpenSite: (url: string) => void;
-  /** Called as a deletion starts. It returns the call that records the result. */
-  trackDelete?: () => (result: HostedSiteDeleteResult) => void;
   /** Opens the server plans when the server is at its site limit. Only for a user who can buy a plan. */
   onSeePlans?: (() => void) | undefined;
 }
@@ -336,7 +330,6 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
         ...{
           description: errorMessage(error, t("server.settings.actionFailed")),
         },
-        report: { operation: "settings", source: "action", cause_code: classifyFailure(error) },
       });
       return false;
     } finally {
@@ -356,7 +349,6 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
     showCopyError() {
       actionToast.error(t("server.settings.copyFailedTitle"), {
         ...{ description: t("server.settings.copyFailed") },
-        report: { operation: "settings", source: "action", cause_code: "unknown" },
       });
     },
   };
@@ -381,9 +373,6 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
       },
       get hostedSitesApi() {
         return props.hostedSites?.api;
-      },
-      get trackDelete() {
-        return props.hostedSites?.trackDelete;
       },
     },
     () => section() === "sites",

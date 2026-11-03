@@ -1,6 +1,5 @@
 import type { UpdateStatus } from "@openbot/contracts/ipc";
 import { createSignal, flush, onSettled } from "solid-js";
-import { desktopAnalytics } from "../../analytics";
 import { FALLBACK_UPDATE_STATUS } from "../../app-defaults";
 import { createSimpleContext } from "../../simple-context";
 import { createIdleRestartToast } from "./idle-restart-toast";
@@ -38,51 +37,21 @@ const Updates = createSimpleContext({
      * settles even if the event is slower than the call.
      */
     async function runAction(): Promise<void> {
-      const analytics = desktopAnalytics.scope();
       const current = status();
       // Host-managed tenants never act: the host owns check, download and install timing.
       // The button is disabled too; this is the second lock for callers that reach past it.
       if (current.managedByHost === true) return;
       const phase = current.phase;
       if (phase === "ready") {
-        try {
-          await updatesPort().update.install();
-          analytics.track("update_action", { action: "install", result: "succeeded", phase: "installing" });
-        } catch (error) {
-          analytics.track("update_action", {
-            action: "install",
-            result: "failed",
-            failure_code: "install_failed",
-          });
-          throw error;
-        }
+        await updatesPort().update.install();
         return;
       }
       const action =
         phase === "available" || (phase === "error" && current.errorCode === "download_failed")
           ? ("download" as const)
           : ("check" as const);
-      try {
-        const next = action === "download" ? await updatesPort().update.download() : await updatesPort().update.check();
-        setStatus(next);
-        const succeeded =
-          action === "download"
-            ? next.phase === "downloading" || next.phase === "ready"
-            : next.phase !== "error" && next.phase !== "unsupported";
-        analytics.track("update_action", {
-          action,
-          result: succeeded ? "succeeded" : "failed",
-          phase: next.phase,
-          ...(succeeded ? {} : { failure_code: action === "download" ? "download_failed" : "check_failed" }),
-        });
-      } catch (error) {
-        analytics.track("update_action", {
-          action,
-          result: "failed",
-          failure_code: action === "download" ? "download_failed" : "check_failed",
-        });
-        throw error;
-      }
+      const next = action === "download" ? await updatesPort().update.download() : await updatesPort().update.check();
+      setStatus(next);
     }
 
     /** Removes a restart that a server admin asked for. The update stays downloaded. */

@@ -15,7 +15,6 @@ const WhatsNew = createSimpleContext({
   name: "WhatsNew",
   init: (props: { loadReleases?: (signal: AbortSignal) => Promise<readonly WhatsNewRelease[]> }) => {
     const platform = usePlatform();
-    // Capture the old analytics value before Settings writes this launch's version.
     const storage = {
       getItem: (key: string) => window.localStorage.getItem(key),
       setItem: (key: string, value: string) => window.localStorage.setItem(key, value),

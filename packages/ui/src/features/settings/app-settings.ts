@@ -68,7 +68,6 @@ export interface GeneralSettingsValue {
   allowRemoteUpdates: boolean;
   /** Restart into a downloaded update when no work runs. */
   autoInstallUpdates: boolean;
-  productAnalytics: boolean;
 }
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettingsValue = {
@@ -100,6 +99,4 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettingsValue = {
   autoDownloadUpdates: true,
   allowRemoteUpdates: true,
   autoInstallUpdates: false,
-  // Opt-in: main reads the saved choice, and an older install with no choice reads as on.
-  productAnalytics: false,
 };

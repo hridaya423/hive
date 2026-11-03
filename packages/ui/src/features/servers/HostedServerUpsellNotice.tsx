@@ -32,7 +32,7 @@ export function HostedServerUpsellNotice(props: HostedServerUpsellNoticeProps) {
       : t("server.upsell.notice.title.remote", { count: props.count, server: host.name });
   };
   return (
-    <Alert class="hosted-upsell-notice hosted-upsell-beam" role="status" report={false}>
+    <Alert class="hosted-upsell-notice hosted-upsell-beam" role="status">
       <HostedUpsellBeamGlow />
       <AlertIcon>
         <Moon />

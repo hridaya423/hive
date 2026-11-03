@@ -77,7 +77,6 @@ import {
   updateAgentAdminSettings,
 } from "@openbot/team-client/team-admin-requests";
 import { clearAgentContext, type TeamApiRequest } from "@openbot/team-client/team-api-requests";
-import { classifyFailure } from "@openbot/telemetry";
 import { hasVisibleToasts, toast } from "@openbot/ui";
 import { accountUsageProviderRows } from "@openbot/ui/features/account/account-usage-view";
 import { computeAgentAvatarMoods } from "@openbot/ui/features/agents/agent-avatar-mood";
@@ -131,7 +130,6 @@ import "katex/contrib/copy-tex";
 // Copying a selection gives clean HTML, as on desktop.
 import "../../selection-copy";
 import { actionToast } from "../../action-toast";
-import { desktopAnalytics } from "../../analytics";
 import { toAgentMessage } from "../../app-message-projection";
 import { ProviderSignInDialogs } from "../../components/ProviderSignInDialogs";
 import { isGlobalSearchShortcut } from "../../global-search-shortcut";
@@ -203,7 +201,6 @@ import {
   serverUpdateBadge,
   showServerUpdate,
 } from "../servers/server-update-flow";
-import { licenseContactUs, trackLicenseEvent } from "../settings/license-analytics";
 import type { HostPromptCacheTtlCalls } from "../settings/provider-prompt-cache";
 import { createCommunityCardVisibility } from "../sidebar/community-card";
 import { isReaderAuthor } from "../team/reader-identity";
@@ -1014,7 +1011,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
   const billingCalls = createWebBillingCalls(props.accountFetch);
   const billing = createBillingStore(() => billingCalls, billingOpen);
   const licenseCalls = createWebLicenseCalls(props.accountFetch);
-  const license = createLicenseStore(() => licenseCalls, billingOpen, trackLicenseEvent);
+  const license = createLicenseStore(() => licenseCalls, billingOpen);
   // The web client has no Hosted servers settings, so a server whose plan ended is renewed or deleted in Billing.
   const billingHostedServers = createSettingsHostedServersStore(
     {
@@ -1345,7 +1342,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
       if (claimErrorToast(description))
         toast.error(t("webClient.error.hostReported"), {
           ...{ description },
-          report: { operation: "other", source: "system", cause_code: "unknown" },
         });
     }),
   );
@@ -1486,12 +1482,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
         ? (workspace.conversation()?.page?.messages.at(-1)?.id ?? null)
         : null,
     (unread) => {
-      if (unread)
-        void workspace.markRead().catch(() =>
-          toast.error(t("chat.unread.markReadFailed"), {
-            report: { operation: "other", source: "system", cause_code: "unknown" },
-          }),
-        );
+      if (unread) void workspace.markRead().catch(() => toast.error(t("chat.unread.markReadFailed")));
     },
   );
   const sidebarActivity = createMemo(() => {
@@ -1613,7 +1604,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
         toast.error(sourceText(error.message), {
           // The toast shows the code of the failure that `report` kept.
           error,
-          report: { operation: "other", source: "system", cause_code: classifyFailure(error.message) },
         });
     },
   );
@@ -1742,7 +1732,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
       (error: unknown) => {
         actionToast.error(t(hidden ? "agent.error.hideFailed" : "agent.error.restoreFailed"), {
           description: text.errorMessage(error, t("agent.error.hiddenFailed")),
-          report: { operation: "agent", source: "action", cause_code: classifyFailure(error) },
         });
       },
     );
@@ -2048,11 +2037,9 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                     onMarkAllRead={
                       workspace.state.status === "online"
                         ? () => {
-                            void workspace.markAllRead().catch(() =>
-                              actionToast.error(t("chat.unread.markReadFailed"), {
-                                report: { operation: "other", source: "action", cause_code: "unknown" },
-                              }),
-                            );
+                            void workspace
+                              .markAllRead()
+                              .catch(() => actionToast.error(t("chat.unread.markReadFailed")));
                             if (channelsSupported()) void channels.markAllRead();
                           }
                         : undefined
@@ -2175,9 +2162,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                     host={{ name: server()?.name ?? "" }}
                     busy={(agentId) => Boolean(workspace.state.conversations[agentId]?.page?.activeTurnId)}
                     openPlans={() => hostedServers.openAddServer("upsell")}
-                    track={(action, entryPoint) =>
-                      desktopAnalytics.track("hosted_server_upsell", { action, entry_point: entryPoint })
-                    }
                   />
                   <AddServerOverlay
                     open={hostedServers.addServer() !== null}
@@ -2388,7 +2372,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                       <LicenseSection
                         store={license}
                         onManagePayment={() => void billing.openPortal({ flow: "manage" })}
-                        onContactUs={licenseContactUs(() => window.location.assign(HOSTED_SERVER_CONTACT_URL))}
+                        onContactUs={() => window.location.assign(HOSTED_SERVER_CONTACT_URL)}
                         startBuying={licenseStart() !== null}
                         startOrder={licenseStart()?.order ?? undefined}
                       />

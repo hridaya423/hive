@@ -162,7 +162,7 @@ export function SettingsAgentsTab(props: SettingsAgentsTabProps) {
 
   const loadError = () => (
     <Show when={props.loadFailed}>
-      <Alert tone="danger" role="alert" report={{ operation: "settings", source: "system", cause_code: "unknown" }}>
+      <Alert tone="danger" role="alert">
         <AlertContent>
           <AlertDescription>{t("settings.agentDefaults.loadFailed")}</AlertDescription>
         </AlertContent>

@@ -32,7 +32,6 @@ import {
   type TeamAdminRequestError,
 } from "@openbot/team-client/team-admin-requests";
 import type { TeamApiRequest } from "@openbot/team-client/team-api-requests";
-import { classifyFailure } from "@openbot/telemetry";
 import { currentText } from "@openbot/ui/text";
 import { Effect } from "effect";
 import { actionToast } from "../../action-toast";
@@ -110,7 +109,6 @@ export function webHostMessaging(
         const title = t(`connector.${install.platform}.actionFailed`);
         actionToast.error(title, {
           description: errorMessage(error, title),
-          report: { operation: "other", source: "action", cause_code: classifyFailure(error) },
         });
       },
     );

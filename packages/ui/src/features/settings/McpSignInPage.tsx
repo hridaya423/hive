@@ -181,7 +181,7 @@ export function McpSignInRelayControls(props: McpSignInRelayActions & { page: Mc
         fallback={
           <Show when={error()}>
             {(message) => (
-              <Alert tone="danger" report={false} role="alert">
+              <Alert tone="danger" role="alert">
                 <AlertDescription>{message()}</AlertDescription>
               </Alert>
             )}

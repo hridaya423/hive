@@ -24,7 +24,6 @@ import {
 import { currentText } from "@openbot/ui/text";
 import { playActionSound } from "../../../action-sounds";
 import { claimDictatedSend, forgetDictatedMessage } from "../../speech/speech-replies";
-import { rememberAttachmentKinds } from "../attachment-analytics";
 import { type PastedComposerCopy, rememberComposerFile } from "../composer-clipboard";
 import {
   copyComposerDraft,
@@ -863,7 +862,6 @@ export function createComposerActions(deps: ComposerActionsDeps) {
     const voiceRecordingDraftId = voice?.recordingDraftId ?? null;
     const dictatedSent = claimDictatedSend(target);
     deps.pendingSends.add(target, { draft, text, retrySafe, voiceRecordingDraftId, queued }, async (pending) => {
-      rememberAttachmentKinds(pending.draft.attachments);
       const result = await send(
         pending.text,
         pending.draft.attachments.map((item) => item.id),

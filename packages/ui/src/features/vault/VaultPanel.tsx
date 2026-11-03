@@ -439,7 +439,7 @@ export function VaultPanel(props: VaultPanelProps) {
     <div class="vault-panel">
       <Switch>
         <Match when={props.state.status === "unavailable"}>
-          <Alert tone="warning" report={false}>
+          <Alert tone="warning">
             <AlertIcon>
               <ShieldCheck />
             </AlertIcon>
@@ -450,7 +450,7 @@ export function VaultPanel(props: VaultPanelProps) {
           </Alert>
         </Match>
         <Match when={props.state.status === "unreadable"}>
-          <Alert tone="warning" report={false}>
+          <Alert tone="warning">
             <AlertIcon>
               <ShieldCheck />
             </AlertIcon>

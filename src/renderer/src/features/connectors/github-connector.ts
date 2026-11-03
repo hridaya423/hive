@@ -6,12 +6,7 @@ import {
 import type { GitHubConnectorPanelProps } from "@openbot/ui/features/settings/GitHubConnectorPanel";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createSignal, onCleanup, onSettled } from "solid-js";
-import {
-  type ConnectorAnalyticsAction,
-  type ConnectorController,
-  createConnectorActions,
-  NO_WATCH,
-} from "./connector-controller";
+import { type ConnectorController, createConnectorActions, NO_WATCH } from "./connector-controller";
 import { type GitHubConnectorPort, githubConnectorPort } from "./github-connector-port";
 
 /** A controller whose page is the GitHub page, for a view that shows a part of it. */
@@ -40,7 +35,7 @@ export function createGitHubConnector(
   const [repositoriesError, setRepositoriesError] = createSignal<string | null>(null);
   /** False until the first status read ends. Until then, `available` is not known. */
   const [read, setRead] = createSignal(false);
-  const actions = createConnectorActions("connector.github.actionFailed", "github");
+  const actions = createConnectorActions("connector.github.actionFailed");
   /** Each read replaces the one before it, so a slow answer never overwrites a newer one. */
   let repositoriesRead = 0;
   /** Set when GitHub opened to change the repositories. The next window focus reads them again. */
@@ -102,19 +97,14 @@ export function createGitHubConnector(
     window.removeEventListener("focus", onFocus);
   });
 
-  const run = (
-    action: () => Promise<GitHubConnectorStatus | undefined>,
-    waits = true,
-    track?: ConnectorAnalyticsAction,
-  ) =>
+  const run = (action: () => Promise<GitHubConnectorStatus | undefined>, waits = true) =>
     actions.run(action, {
       waits,
-      ...(track ? { track } : {}),
       done: (next) => {
         if (next) setStatus(next);
       },
     });
-  const connect = () => run(() => port().connect(), true, "connect_started");
+  const connect = () => run(() => port().connect());
 
   return {
     id: "github",
@@ -144,7 +134,7 @@ export function createGitHubConnector(
         },
         onConnect: connect,
         onCancel: () => run(() => port().cancel(), false),
-        onDisconnect: () => run(() => port().disconnect(), true, "disconnected"),
+        onDisconnect: () => run(() => port().disconnect()),
         onOpenVerification: () => run(async () => void (await port().openVerification())),
         onOpenInstall: () =>
           run(async () => {

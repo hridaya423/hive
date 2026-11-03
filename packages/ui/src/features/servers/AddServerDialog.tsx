@@ -112,10 +112,6 @@ interface AddServerDialogProps {
   onOpenServer: () => void;
   /** Opens the payment page again, for the `payment` status. */
   onOpenPayment: () => Promise<void>;
-  /** Tells the consumer that the user chose another currency. */
-  onCurrencyChange?: ((currency: HostedCurrency) => void) | undefined;
-  /** Tells the consumer that the user chose another billing period. */
-  onBillingChange?: ((billing: HostedServerBilling) => void) | undefined;
   /**
    * Set when the account has no license. The dialog then lets the user choose personal or work use, and
    * for work use it sells a license with the server. `used` is the number of people who use the account's
@@ -395,10 +391,7 @@ export function AddServerDialog(props: AddServerDialogProps) {
                       </Show>
                       <HostedCurrencySelect
                         currency={currency()}
-                        onChange={(next) => {
-                          setCurrency(next);
-                          props.onCurrencyChange?.(next);
-                        }}
+                        onChange={setCurrency}
                         disabled={creating()}
                         locked={props.currencyLocked}
                         mount={pricing}
@@ -406,10 +399,7 @@ export function AddServerDialog(props: AddServerDialogProps) {
                       <HostedBillingSwitch
                         billing={billing()}
                         discountPercent={discountPercent()}
-                        onChange={(next) => {
-                          setBilling(next);
-                          props.onBillingChange?.(next);
-                        }}
+                        onChange={setBilling}
                         disabled={creating()}
                       />
                     </div>

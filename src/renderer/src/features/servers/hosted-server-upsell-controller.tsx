@@ -16,7 +16,6 @@ import {
 } from "./hosted-server-upsell";
 
 type HostedUpsellEntryPoint = "routine_created" | "routines_list" | "server_offline";
-type HostedUpsellAction = "shown" | "see_plans" | "dismissed";
 
 interface HostedUpsellRoutine {
   id: string;
@@ -42,7 +41,6 @@ interface HostedServerUpsellProps {
   host: HostedUpsellHost;
   busy: (agentId: string) => boolean;
   openPlans: () => void;
-  track?: ((action: HostedUpsellAction, entryPoint: HostedUpsellEntryPoint) => void) | undefined;
 }
 
 interface HostedUpsellController {
@@ -52,7 +50,6 @@ interface HostedUpsellController {
   noticeVisible: () => boolean;
   dismissNotice: () => void;
   seePlans: (entryPoint: HostedUpsellEntryPoint) => void;
-  track: (action: HostedUpsellAction, entryPoint: HostedUpsellEntryPoint) => void;
 }
 
 /*
@@ -74,15 +71,12 @@ export function hostedUpsellRoutineCreated(routine: HostedUpsellRoutine): void {
 
 /**
  * The offer in the offline notice while `offline()` is true, or null when there is nothing to offer.
- * It counts as shown each time it appears.
+ *
  */
 export function createHostedUpsellOffline(offline: () => boolean): () => { onSeePlans: () => void } | null {
   const offer = createMemo(() => {
     const current = offline() ? controller() : null;
     return current?.canOffer() ? current : null;
-  });
-  createEffect(offer, (current) => {
-    current?.track("shown", "server_offline");
   });
   return () => {
     const current = offer();
@@ -132,10 +126,6 @@ export function HostedServerUpsell(props: HostedServerUpsellProps) {
     },
   );
 
-  function track(action: HostedUpsellAction, entryPoint: HostedUpsellEntryPoint): void {
-    untrack(() => props.track)?.(action, entryPoint);
-  }
-
   /** Saves the new state first. A failed write shows nothing, so the modal cannot repeat. */
   function showModal(routine: HostedUpsellRoutine): void {
     setPending(null);
@@ -149,7 +139,6 @@ export function HostedServerUpsell(props: HostedServerUpsellProps) {
     setState(next);
     setModalThisSession(true);
     setOpenRoutine(routine);
-    track("shown", "routine_created");
   }
 
   // The modal waits until the agent's turn ends and the window has focus, so it does not cover a reply.
@@ -178,7 +167,6 @@ export function HostedServerUpsell(props: HostedServerUpsellProps) {
 
   function seePlans(entryPoint: HostedUpsellEntryPoint): void {
     if (entryPoint === "routines_list") updateState(withNoticePlansSeen);
-    track("see_plans", entryPoint);
     untrack(() => props.openPlans)();
   }
 
@@ -217,10 +205,8 @@ export function HostedServerUpsell(props: HostedServerUpsellProps) {
     },
     dismissNotice() {
       updateState(withNoticeDismissed);
-      track("dismissed", "routines_list");
     },
     seePlans,
-    track,
   };
   // A component body cannot write a signal, so the offer registers after it mounts.
   onSettled(() => {
@@ -237,10 +223,7 @@ export function HostedServerUpsell(props: HostedServerUpsellProps) {
             setOpenRoutine(null);
             seePlans("routine_created");
           }}
-          onClose={() => {
-            setOpenRoutine(null);
-            track("dismissed", "routine_created");
-          }}
+          onClose={() => setOpenRoutine(null)}
         />
       )}
     </Show>
@@ -251,19 +234,14 @@ export function HostedServerUpsell(props: HostedServerUpsellProps) {
 export function HostedUpsellRoutinesNotice(props: { count: number }) {
   return (
     <Show when={props.count > 0 && controller()?.noticeVisible() ? controller() : null}>
-      {(upsell) => <ShownNotice upsell={upsell()} count={props.count} />}
+      {(upsell) => (
+        <HostedServerUpsellNotice
+          count={props.count}
+          host={upsell().host()}
+          onSeePlans={() => upsell().seePlans("routines_list")}
+          onDismiss={() => upsell().dismissNotice()}
+        />
+      )}
     </Show>
-  );
-}
-
-function ShownNotice(props: { upsell: HostedUpsellController; count: number }) {
-  onSettled(() => props.upsell.track("shown", "routines_list"));
-  return (
-    <HostedServerUpsellNotice
-      count={props.count}
-      host={props.upsell.host()}
-      onSeePlans={() => props.upsell.seePlans("routines_list")}
-      onDismiss={() => props.upsell.dismissNotice()}
-    />
   );
 }

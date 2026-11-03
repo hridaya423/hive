@@ -5,7 +5,6 @@ import {
   STORAGE_CAPABILITY,
   type StorageUsage,
 } from "@openbot/contracts/ipc";
-import { classifyFailure } from "@openbot/telemetry";
 import type { StoredFileAction, StoredFileRow } from "@openbot/ui/features/files/files-view";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createStore, untrack } from "solid-js";
@@ -145,7 +144,6 @@ export function createStorageUsage(target: () => StorageTarget | null, calls: ()
         ...{
           description: text.errorMessage(error, text.t("files.storage.tryAgain")),
         },
-        report: { operation: "other", source: "action", cause_code: classifyFailure(error) },
       });
     }
   }

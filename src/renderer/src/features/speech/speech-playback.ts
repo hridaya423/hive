@@ -216,16 +216,6 @@ function end(own: Reading): void {
   });
 }
 
-/** How a reading ended, for analytics. */
-export interface ReadAloudResult {
-  /** All parts played; false when a new reading or `stopSpeech` ended it. */
-  completed: boolean;
-  /** From the call to the first part that plays, or null when none played. */
-  firstAudioMs: number | null;
-  /** The length of the parts that played or started to play. */
-  seconds: number;
-}
-
 /**
  * Reads a text aloud in parts, and synthesizes each part while the part before it plays. A new
  * reading, or `stopSpeech`, ends this one; the answer then comes at once. A failed part ends the
@@ -235,13 +225,11 @@ export async function readAloud(
   text: string,
   language: SpeechLanguage,
   source: SpeechSource | null = null,
-): Promise<ReadAloudResult> {
-  const calledAt = performance.now();
-  const result: ReadAloudResult = { completed: false, firstAudioMs: null, seconds: 0 };
+): Promise<void> {
   stopSpeech();
   const parts = speechParts(text, language);
   const first = parts[0];
-  if (first === undefined) return result;
+  if (first === undefined) return;
   const own = newReading();
   setState((draft) => {
     draft.reading = {
@@ -260,7 +248,7 @@ export async function readAloud(
   try {
     for (let index = 1; next; index += 1) {
       const audio = await next;
-      if (own.stopped) return result;
+      if (own.stopped) return;
       const part = parts[index - 1];
       if (part !== undefined)
         setState((draft) => {
@@ -271,15 +259,11 @@ export async function readAloud(
       next = following === undefined ? undefined : voice.speak({ text: following, language });
       // A reading that stops before this part plays never reads its answer.
       next?.catch(() => undefined);
-      result.firstAudioMs ??= Math.round(performance.now() - calledAt);
-      result.seconds += audio.pcm.byteLength / 2 / audio.sampleRate;
       await play(own, audio);
-      if (own.stopped) return result;
+      if (own.stopped) return;
     }
     const messageId = source?.messageId;
     if (messageId) keepSpokenAudio(messageId, own.played);
-    result.completed = true;
-    return result;
   } finally {
     end(own);
   }

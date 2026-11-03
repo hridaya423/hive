@@ -3,7 +3,6 @@ import { speechLanguageOf } from "@openbot/contracts/speech-language";
 import { speechTextFromMarkdown } from "@openbot/contracts/speech-text";
 import { toast } from "@openbot/ui";
 import { currentText } from "@openbot/ui/text";
-import { desktopAnalytics } from "../../analytics";
 import {
   loadRecording,
   pauseSpeech,
@@ -43,9 +42,6 @@ interface DictatedMessage {
   /** A voice conversation reads its replies also when the setting is off. */
   always: boolean;
 }
-
-/** What started a reading: a voice conversation, a dictated message, or the Read aloud control. */
-type SpeechTrigger = "voice_conversation" | "dictation" | "read_aloud";
 
 /** An agent on one server. Agent ids repeat across servers. */
 export type SpeechAgent = Pick<SpeechSource, "serverId" | "agentId">;
@@ -209,19 +205,9 @@ async function readReply(agent: SpeechAgent, turnId: string, message: DictatedMe
     if (!loading.has(own)) return;
     loading.delete(own);
     const answer = latestTurnAnswer(page.messages, turnId);
-    await speak(
-      answer?.text ?? "",
-      { ...agent, messageId: answer?.id ?? null },
-      message.language,
-      message.always ? "voice_conversation" : "dictation",
-    );
+    await speak(answer?.text ?? "", { ...agent, messageId: answer?.id ?? null }, message.language);
   } catch (error) {
     if (!loading.has(own)) return;
-    desktopAnalytics.track("speech_reply", {
-      trigger: message.always ? "voice_conversation" : "dictation",
-      result: "failed",
-      failure_code: "load_failed",
-    });
     reportReadFailure(error);
   } finally {
     loading.delete(own);
@@ -235,7 +221,7 @@ export function toggleReadAloud(source: SpeechSource & { messageId: string }, ma
     stopSpokenReply();
     return;
   }
-  void speak(markdown, source, "en", "read_aloud");
+  void speak(markdown, source, "en");
 }
 
 /**
@@ -262,7 +248,7 @@ export function toggleRecording(messageId: string, url: string): void {
  */
 export function toggleSpokenReply(source: SpeechSource & { messageId: string }, markdown: string): void {
   if (pauseOrResumeSpeech(source.messageId)) return;
-  if (!playSpokenReply(source.messageId)) void speak(markdown, source, "en", "read_aloud");
+  if (!playSpokenReply(source.messageId)) void speak(markdown, source, "en");
 }
 
 /** Moves the kept audio of a reply to a position, in seconds, and plays it from there. */
@@ -290,9 +276,7 @@ export function recordingWaveform(url: string): VoiceRecordingSummary | undefine
 function startRecording(messageId: string, url: string, from: number): void {
   // The cause is a fetch or decode failure, which says nothing useful to the user.
   playRecording(messageId, url, from).catch(() => {
-    toast.error(currentText().t("chat.voice.playFailed"), {
-      report: { operation: "voice", source: "system", cause_code: "unknown" },
-    });
+    toast.error(currentText().t("chat.voice.playFailed"));
   });
 }
 
@@ -301,30 +285,16 @@ function serverLanguage(fallback: SpeechLanguage): SpeechLanguage | null {
 }
 
 /** Reads a reply aloud. A failure shows a toast, because no control waits for the answer. */
-async function speak(
-  markdown: string,
-  source: SpeechSource,
-  fallback: SpeechLanguage,
-  trigger: SpeechTrigger,
-): Promise<void> {
+async function speak(markdown: string, source: SpeechSource, fallback: SpeechLanguage): Promise<void> {
   const own = { serverId: source.serverId, agentId: source.agentId };
-  const analytics = desktopAnalytics.scope();
   try {
     const text = markdown ? speechTextFromMarkdown(markdown) : "";
     // Supertonic reads only its own languages. The user's server takes any text, and ignores the language.
     const language = text ? (speechLanguageOf(text, fallback) ?? serverLanguage(fallback)) : null;
     if (!language) return;
     spoken = own;
-    const result = await readAloud(text, language, source);
-    analytics.track("speech_reply", {
-      trigger,
-      result: "succeeded",
-      completed: result.completed,
-      ...(result.firstAudioMs === null ? {} : { first_audio_ms: result.firstAudioMs }),
-      audio_duration_seconds: Math.round(result.seconds * 10) / 10,
-    });
+    await readAloud(text, language, source);
   } catch (error) {
-    analytics.track("speech_reply", { trigger, result: "failed", failure_code: "speech_failed" });
     reportReadFailure(error);
   } finally {
     if (spoken === own) spoken = undefined;
@@ -333,7 +303,5 @@ async function speak(
 
 function reportReadFailure(error: unknown): void {
   const { t, errorMessage } = currentText();
-  toast.error(errorMessage(error, t("composer.voice.readFailed")), {
-    report: { operation: "voice", source: "system", cause_code: "unknown" },
-  });
+  toast.error(errorMessage(error, t("composer.voice.readFailed")));
 }

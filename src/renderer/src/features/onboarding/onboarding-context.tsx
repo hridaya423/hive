@@ -1,13 +1,9 @@
 import type { AgentModelId, AgentProviderId, AppSetupState } from "@openbot/contracts/ipc";
 import { errorReference } from "@openbot/user-errors";
 import { createSignal, createStore, onSettled } from "solid-js";
-import { type DesktopAnalyticsProperties, desktopAnalytics } from "../../analytics";
 import { createSimpleContext } from "../../simple-context";
 import { firstRunTransition } from "./first-run-transition";
 import { onboardingPort } from "./onboarding-port";
-
-/** How first run went: the path the user took, and whether they skipped a step. */
-export type OnboardingJourney = Pick<DesktopAnalyticsProperties<"onboarding_completed">, "path" | "skipped">;
 
 /** The first read of the saved setup. */
 interface SetupRead {
@@ -87,17 +83,9 @@ const Setup = createSimpleContext({
       return previous.preferredModel ?? null;
     }
 
-    /**
-     * An omitted model keeps the current provider's model; null clears it. `journey` tells analytics
-     * how first run went.
-     */
-    async function saveSetup(
-      preferredProvider: AgentProviderId,
-      preferredModel?: AgentModelId | null,
-      journey: OnboardingJourney = {},
-    ) {
+    /** An omitted model keeps the current provider's model; null clears it. */
+    async function saveSetup(preferredProvider: AgentProviderId, preferredModel?: AgentModelId | null) {
       const wasCompleted = setupState()?.completed === true;
-      const analytics = desktopAnalytics.scope();
       const state = await onboardingPort().saveSetup({
         preferredProvider,
         preferredModel: preferredModel === undefined ? keptModel(preferredProvider) : preferredModel,
@@ -108,7 +96,6 @@ const Setup = createSimpleContext({
         await firstRunTransition("open", () => {
           setSetupState(state);
         });
-        analytics.track("onboarding_completed", { preferred_provider: preferredProvider, ...journey });
       } else {
         setSetupState(state);
       }

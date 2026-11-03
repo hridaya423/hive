@@ -1,5 +1,4 @@
 import type { ServerSummary } from "@openbot/contracts/ipc";
-import { classifyFailure } from "@openbot/telemetry";
 import type { ServerActionCallbacks } from "@openbot/ui/features/servers/ServerActionItems";
 import type { HiddenLocalServer } from "@openbot/ui/features/servers/ServerRail";
 import { useText } from "@openbot/ui/text";
@@ -58,7 +57,6 @@ export function useServerActions() {
       ...{
         description: errorMessage(error, t("server.select.failedDescription")),
       },
-      report: { operation: "team", source: "action", cause_code: classifyFailure(error) },
     });
   }
 

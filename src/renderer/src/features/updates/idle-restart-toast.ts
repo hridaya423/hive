@@ -1,5 +1,4 @@
 import type { UpdateStatus } from "@openbot/contracts/ipc";
-import { classifyFailure } from "@openbot/telemetry";
 import { toast } from "@openbot/ui";
 import { restartReasonKey } from "@openbot/ui/features/updates/restart-reasons";
 import { currentText } from "@openbot/ui/text";
@@ -47,7 +46,6 @@ export function createIdleRestartToast(options: { status: Accessor<UpdateStatus>
       }
       const show = view.failed ? toast.error : toast;
       show(view.title, {
-        report: { operation: "update", source: "system", cause_code: "unknown" },
         id: TOAST_ID,
         description: view.description,
         duration: Number.POSITIVE_INFINITY,
@@ -57,9 +55,7 @@ export function createIdleRestartToast(options: { status: Accessor<UpdateStatus>
           onClick: () => {
             options.cancel().catch((error: unknown) => {
               const text = currentText();
-              toast.error(text.errorMessage(error, text.t("update.idleRestart.cancelFailed")), {
-                report: { operation: "update", source: "system", cause_code: classifyFailure(error) },
-              });
+              toast.error(text.errorMessage(error, text.t("update.idleRestart.cancelFailed")));
             });
           },
         },

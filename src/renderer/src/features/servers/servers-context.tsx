@@ -2,7 +2,6 @@ import type { HostedServerEntryPoint } from "@openbot/contracts/hosted-servers";
 import type { HostStatus, ServerNotificationLevel, ServerSummary } from "@openbot/contracts/ipc";
 import type { TeamCurrentCapability } from "@openbot/contracts/team-protocol/current";
 import { WAKE_RECONNECT_STATES } from "@openbot/team-client/hosted-server-wake";
-import { classifyFailure } from "@openbot/telemetry";
 import { toast } from "@openbot/ui";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, flush, onSettled, untrack } from "solid-js";
@@ -222,7 +221,6 @@ const Servers = createSimpleContext({
                   ? { label: t("server.update.hostAction"), onClick: () => opener(serverId) }
                   : undefined,
             },
-            report: { operation: "team", source: "system", cause_code: "unknown" },
           });
         }
         // Each connection reads the update status once, so the sidebar header shows a new version.
@@ -386,7 +384,6 @@ const Servers = createSimpleContext({
         actionToast.error(text.t("server.connection.failedTitle"), {
           error,
           fallback: text.t("server.connection.failedDescription"),
-          report: { operation: "team", source: "action", cause_code: classifyFailure(error) },
         });
       }
     }
@@ -404,7 +401,6 @@ const Servers = createSimpleContext({
         actionToast.error(text.t("server.notifications.changeFailedTitle"), {
           error,
           fallback: text.t("server.notifications.changeFailedDescription"),
-          report: { operation: "team", source: "action", cause_code: classifyFailure(error) },
         });
       }
     }
@@ -417,7 +413,6 @@ const Servers = createSimpleContext({
         actionToast.error(text.t("server.notifications.changeFailedTitle"), {
           error,
           fallback: text.t("server.notifications.changeFailedDescription"),
-          report: { operation: "team", source: "action", cause_code: classifyFailure(error) },
         });
       }
     }

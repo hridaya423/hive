@@ -12,7 +12,6 @@ import {
 import type { InstalledSkill, MessageReaction } from "@openbot/contracts/ipc";
 import type { AgentMessage } from "@openbot/ui/data";
 import { currentText } from "@openbot/ui/text";
-import { desktopAnalytics } from "../../../analytics";
 import { writeClipboardText } from "../../../clipboard";
 import { copiedFileRead, copyMessageWithAttachments } from "../composer-clipboard";
 import type { StoredQueueEdit } from "../composer-draft";
@@ -80,7 +79,6 @@ export function createMessageActions(deps: MessageActionsDeps) {
     const agentId = deps.props.agent?.id;
     if (!agentId) return;
     const target = { agentId, serverId: deps.props.server?.id ?? "local" };
-    const analytics = desktopAnalytics.scope();
     deps.setOpenReactionMessageId(null);
     deps.setExpandedEmojiMessageId(null);
     try {
@@ -89,13 +87,7 @@ export function createMessageActions(deps: MessageActionsDeps) {
         messageId: message.id,
         emoji,
       });
-      analytics.track("reaction_action", { action: emoji ? "add" : "remove", result: "succeeded" });
     } catch (error) {
-      analytics.track("reaction_action", {
-        action: emoji ? "add" : "remove",
-        result: "failed",
-        failure_code: "reaction_failed",
-      });
       deps.setComposerError(errorMessage(error, t("chat.actions.reactionFailed")), target);
     }
   }

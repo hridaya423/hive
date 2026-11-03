@@ -17,7 +17,6 @@ import type {
 } from "@openbot/contracts/ipc";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, flush, onCleanup } from "solid-js";
-import { desktopAnalytics } from "../../analytics";
 import { createSimpleContext } from "../../simple-context";
 import { useAuth } from "../account/account-context";
 import { mcpSignInRecord } from "./mcp-servers";
@@ -40,9 +39,7 @@ import { serverAdminPort, serversPort } from "./servers-port";
  *
  * Every mutation ends in `refreshServerSettings(server.id)` rather than patching
  * the lists it just changed: main is the authority on membership, and a failed
- * write must not leave a row the server never accepted. The `operationSucceeded`
- * latch in each is what keeps a failure *after* the write from being reported as
- * a failed write.
+ * write must not leave a row the server never accepted.
  */
 /** How often the panel asks which host tab shows a remote sign-in page. */
 const MCP_SIGN_IN_PAGE_POLL_MS = 1_000;
@@ -252,37 +249,17 @@ const ServerSettings = createSimpleContext({
       const server = serverSettingsTarget();
       if (!serverCanAdminister(server, "host-admin-v1"))
         throw new Error(currentText().t("server.settings.identityLocalOnly"));
-      const analytics = desktopAnalytics.scope();
       const serverKind = server.kind;
-      let operationSucceeded = false;
-      try {
-        if (serverKind === "local") {
-          const status = hostStatus().configured
-            ? await serversPort().host.updateIdentity(input)
-            : await serversPort().host.configure(input);
-          setHostStatus(status);
-        } else {
-          await serversPort().hostAdmin.updateIdentity(input, server.id);
-        }
-        analytics.track("team_action", {
-          action: "identity_saved",
-          result: "succeeded",
-          server_kind: serverKind,
-        });
-        operationSucceeded = true;
-        setServers(await serversPort().servers.list());
-        await refreshServerSettings(server.id);
-      } catch (error) {
-        if (!operationSucceeded) {
-          analytics.track("team_action", {
-            action: "identity_saved",
-            result: "failed",
-            server_kind: serverKind,
-            failure_code: "identity_save_failed",
-          });
-        }
-        throw error;
+      if (serverKind === "local") {
+        const status = hostStatus().configured
+          ? await serversPort().host.updateIdentity(input)
+          : await serversPort().host.configure(input);
+        setHostStatus(status);
+      } else {
+        await serversPort().hostAdmin.updateIdentity(input, server.id);
       }
+      setServers(await serversPort().servers.list());
+      await refreshServerSettings(server.id);
     }
 
     /**
@@ -312,32 +289,15 @@ const ServerSettings = createSimpleContext({
     async function setLocalServerPublished(published: boolean): Promise<void> {
       const server = servers().find((candidate) => candidate.kind === "local");
       if (!server) throw new Error(currentText().t("server.settings.publicationLocalOnly"));
-      const analytics = desktopAnalytics.scope();
-      const action = published ? ("published" as const) : ("unpublished" as const);
-      let operationSucceeded = false;
-      try {
-        // The host needs a name to publish. One that the user did not set is generated, so the
-        // switch works on its own; the user can change it in General later.
-        if (published && !hostStatus().configured)
-          setHostStatus(await serversPort().host.configure({ serverName: generatedServerName(signedInAccount()) }));
-        const status = published ? await serversPort().host.start() : await serversPort().host.stop();
-        if (published && status.phase !== "online") throw new Error("publish_failed");
-        analytics.track("team_action", { action, result: "succeeded", server_kind: "local" });
-        operationSucceeded = true;
-        setHostStatus(status);
-        setServers(await serversPort().servers.list());
-        if (serverSettingsTargetId() === server.id) await refreshServerSettings(server.id);
-      } catch (error) {
-        if (!operationSucceeded) {
-          analytics.track("team_action", {
-            action,
-            result: "failed",
-            server_kind: "local",
-            failure_code: published ? "publish_failed" : "unpublish_failed",
-          });
-        }
-        throw error;
-      }
+      // The host needs a name to publish. One that the user did not set is generated, so the
+      // switch works on its own; the user can change it in General later.
+      if (published && !hostStatus().configured)
+        setHostStatus(await serversPort().host.configure({ serverName: generatedServerName(signedInAccount()) }));
+      const status = published ? await serversPort().host.start() : await serversPort().host.stop();
+      if (published && status.phase !== "online") throw new Error("publish_failed");
+      setHostStatus(status);
+      setServers(await serversPort().servers.list());
+      if (serverSettingsTargetId() === server.id) await refreshServerSettings(server.id);
     }
 
     async function createServerInvite(input: {
@@ -346,99 +306,27 @@ const ServerSettings = createSimpleContext({
       permanent?: boolean;
     }): Promise<InviteSummary> {
       const server = requireServerSettingsTarget();
-      const analytics = desktopAnalytics.scope();
-      let operationSucceeded = false;
-      try {
-        const invite = await serverAdminPort(server).createInvite(input);
-        analytics.track("team_action", {
-          action: "invite_created",
-          result: "succeeded",
-          server_kind: server.kind,
-          role: input.role,
-          email_bound: Boolean(input.email),
-        });
-        operationSucceeded = true;
-        await refreshServerSettings(server.id);
-        return invite;
-      } catch (error) {
-        if (!operationSucceeded) {
-          analytics.track("team_action", {
-            action: "invite_created",
-            result: "failed",
-            server_kind: server.kind,
-            role: input.role,
-            email_bound: Boolean(input.email),
-            failure_code: "invite_create_failed",
-          });
-        }
-        throw error;
-      }
+      const invite = await serverAdminPort(server).createInvite(input);
+      await refreshServerSettings(server.id);
+      return invite;
     }
 
     async function updateServerMember(input: UpdateTeamMemberInput): Promise<void> {
       const server = requireServerSettingsTarget();
-      const analytics = desktopAnalytics.scope();
-      let operationSucceeded = false;
-      try {
-        await serverAdminPort(server).updateMember(input);
-        analytics.track("team_action", { action: "member_updated", result: "succeeded", server_kind: server.kind });
-        operationSucceeded = true;
-        await refreshServerSettings(server.id);
-      } catch (error) {
-        if (!operationSucceeded) {
-          analytics.track("team_action", {
-            action: "member_updated",
-            result: "failed",
-            server_kind: server.kind,
-            failure_code: "member_update_failed",
-          });
-        }
-        throw error;
-      }
+      await serverAdminPort(server).updateMember(input);
+      await refreshServerSettings(server.id);
     }
 
     async function removeServerMember(memberId: string): Promise<void> {
       const server = requireServerSettingsTarget();
-      const analytics = desktopAnalytics.scope();
-      let operationSucceeded = false;
-      try {
-        await serverAdminPort(server).removeMember(memberId);
-        analytics.track("team_action", { action: "member_removed", result: "succeeded", server_kind: server.kind });
-        operationSucceeded = true;
-        await refreshServerSettings(server.id);
-      } catch (error) {
-        if (!operationSucceeded) {
-          analytics.track("team_action", {
-            action: "member_removed",
-            result: "failed",
-            server_kind: server.kind,
-            failure_code: "member_remove_failed",
-          });
-        }
-        throw error;
-      }
+      await serverAdminPort(server).removeMember(memberId);
+      await refreshServerSettings(server.id);
     }
 
     async function revokeServerInvite(inviteId: string): Promise<void> {
       const server = requireServerSettingsTarget();
-      const analytics = desktopAnalytics.scope();
-      let operationSucceeded = false;
-      try {
-        await serverAdminPort(server).revokeInvite(inviteId);
-        analytics.track("team_action", { action: "invite_revoked", result: "succeeded", server_kind: server.kind });
-        operationSucceeded = true;
-        await refreshServerSettings(server.id);
-      } catch (error) {
-        if (!operationSucceeded) {
-          analytics.track("team_action", {
-            action: "invite_revoked",
-            result: "failed",
-            server_kind: server.kind,
-            failure_code: "invite_revoke_failed",
-          });
-        }
-        throw error;
-      }
+      await serverAdminPort(server).revokeInvite(inviteId);
+      await refreshServerSettings(server.id);
     }
 
     /**
@@ -470,20 +358,7 @@ const ServerSettings = createSimpleContext({
     }
 
     async function removeMembership(server: ServerSummary): Promise<void> {
-      const analytics = desktopAnalytics.scope();
-      const action = server.role === "owner" ? "server_removed" : "server_left";
-      try {
-        await serversPort().servers.remove(server.id);
-      } catch (error) {
-        analytics.track("team_action", {
-          action,
-          result: "failed",
-          server_kind: server.kind,
-          failure_code: "server_leave_failed",
-        });
-        throw error;
-      }
-      analytics.track("team_action", { action, result: "succeeded", server_kind: server.kind });
+      await serversPort().servers.remove(server.id);
     }
 
     /**
@@ -525,15 +400,7 @@ const ServerSettings = createSimpleContext({
      */
     async function testMcpServer(config: McpServerConfig): Promise<McpTestResult> {
       const server = requireServerSettingsTarget();
-      const analytics = desktopAnalytics.scope();
-      const result = await serversPort().agent.testMcpServer({ config }, server.id);
-      analytics.track("team_action", {
-        action: "mcp_server_tested",
-        result: result.error ? "failed" : "succeeded",
-        server_kind: server.kind,
-        ...(result.error ? { failure_code: "mcp_server_test_failed" } : {}),
-      });
-      return result;
+      return await serversPort().agent.testMcpServer({ config }, server.id);
     }
 
     /** Which http rows the server holds a sign-in for. A host without `mcp-sign-in-v1` answers none. */
@@ -653,61 +520,34 @@ const ServerSettings = createSimpleContext({
     }
 
     async function saveMcpServer(config: McpServerConfig): Promise<void> {
-      await runMcpMutation("mcp_server_saved", "mcp_server_save_failed", (serverId) =>
-        serversPort().agent.saveMcpServer({ config }, serverId),
-      );
+      await runMcpMutation((serverId) => serversPort().agent.saveMcpServer({ config }, serverId));
     }
 
     async function removeMcpServer(mcpServerId: string): Promise<void> {
-      await runMcpMutation("mcp_server_removed", "mcp_server_remove_failed", (serverId) =>
-        serversPort().agent.removeMcpServer({ mcpServerId }, serverId),
-      );
+      await runMcpMutation((serverId) => serversPort().agent.removeMcpServer({ mcpServerId }, serverId));
     }
 
     async function setMcpServerEnabled(mcpServerId: string, enabled: boolean): Promise<void> {
-      await runMcpMutation("mcp_server_toggled", "mcp_server_toggle_failed", (serverId) =>
-        serversPort().agent.setMcpServerEnabled({ mcpServerId, enabled }, serverId),
-      );
+      await runMcpMutation((serverId) => serversPort().agent.setMcpServerEnabled({ mcpServerId, enabled }, serverId));
     }
 
     /**
      * Main answers every mutation with the whole list, so the rows are taken from the reply rather
-     * than patched. The `operationSucceeded` latch keeps a failure after the write from being
-     * reported as a failed write, as every other mutation in this file does.
+     * than patched.
      */
-    async function runMcpMutation(
-      action: "mcp_server_saved" | "mcp_server_removed" | "mcp_server_toggled",
-      failureCode: string,
-      mutate: (serverId: string) => Promise<McpServerConfig[]>,
-    ): Promise<void> {
+    async function runMcpMutation(mutate: (serverId: string) => Promise<McpServerConfig[]>): Promise<void> {
       const server = requireServerSettingsTarget();
-      const analytics = desktopAnalytics.scope();
-      let operationSucceeded = false;
-      try {
-        const configs = await mutate(server.id);
-        analytics.track("team_action", { action, result: "succeeded", server_kind: server.kind });
-        operationSucceeded = true;
-        if (serverSettingsTargetId() !== server.id) return;
-        // A read that is still in flight started before this write and would answer with the list
-        // as it was, putting a removed server back or showing the old enabled state. The reply
-        // carries the whole list, so nothing is lost by dropping that read.
-        serverSettingsMcpRequest += 1;
-        setServerSettingsMcp(configs);
-        setServerSettingsMcpError(null);
-        // A saved row can name an address this computer is already signed in to.
-        const signIns = await listMcpSignIns(server);
-        if (serverSettingsTargetId() === server.id) setServerSettingsMcpSignIns(signIns);
-      } catch (error) {
-        if (!operationSucceeded) {
-          analytics.track("team_action", {
-            action,
-            result: "failed",
-            server_kind: server.kind,
-            failure_code: failureCode,
-          });
-        }
-        throw error;
-      }
+      const configs = await mutate(server.id);
+      if (serverSettingsTargetId() !== server.id) return;
+      // A read that is still in flight started before this write and would answer with the list
+      // as it was, putting a removed server back or showing the old enabled state. The reply
+      // carries the whole list, so nothing is lost by dropping that read.
+      serverSettingsMcpRequest += 1;
+      setServerSettingsMcp(configs);
+      setServerSettingsMcpError(null);
+      // A saved row can name an address this computer is already signed in to.
+      const signIns = await listMcpSignIns(server);
+      if (serverSettingsTargetId() === server.id) setServerSettingsMcpSignIns(signIns);
     }
     setHostUpdateOpener((serverId) => openServerSettings(serverId, null, "updates"));
     onCleanup(() => setHostUpdateOpener(undefined));

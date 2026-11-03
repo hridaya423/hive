@@ -138,7 +138,7 @@ component. Needing either for logic means the logic is not separable from the DO
 | --- | --- |
 | `await screen.findByRole(role, { name })` | The normal case. It retries until the element exists, so it *is* the wait — a `getBy*` after a manual wait is the same query with a worse failure message. |
 | `await screen.findByText(...)` | Copy that is a product contract and has no accessible role of its own. |
-| `vi.waitFor(() => expect(spy)...)` | A call that produces no visible change — an analytics event, an IPC invoke. |
+| `vi.waitFor(() => expect(spy)...)` | A call that produces no visible change, such as an IPC invoke. |
 | `vi.useFakeTimers()` + `vi.advanceTimersByTime(n)` | A debounce or a poll interval. Advancing the clock is input, not waiting. |
 
 Never raise a `vi.waitFor` timeout to make a test pass: that is the sleep the `no-sleep-in-tests`

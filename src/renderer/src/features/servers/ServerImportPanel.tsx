@@ -5,7 +5,6 @@ import type {
   HermesImportPreview,
   OpenBotDesktopApi,
 } from "@openbot/contracts/ipc";
-import { classifyFailure } from "@openbot/telemetry";
 import { AgentImportSources } from "@openbot/ui/features/import/AgentImportSources";
 import {
   type AgentImportPhase,
@@ -172,7 +171,6 @@ export function ServerImportPanel(
         ...{
           description: errorMessage(error, t("server.import.tryAgain")),
         },
-        report: { operation: "team", source: "action", cause_code: classifyFailure(error) },
       });
     }
   };
