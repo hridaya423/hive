@@ -261,6 +261,11 @@ export const messages = defineMessages("error.provider", {
   "error.provider.hermesNotStarted": "Hermes Agent could not start. Run `hermes --version` in a terminal.",
   "error.provider.hermesVersionUnreadable": "Unable to read the Hermes Agent version.",
   "error.provider.hermesSignIn": "Sign in with Nous Portal, or run `hermes setup` in a terminal, to use Hermes.",
+  "error.provider.copilotMissing": "GitHub Copilot CLI is not installed. Install it, then try again.",
+  "error.provider.copilotOutdated": "GitHub Copilot CLI {version} is too old. OpenBot requires 1.0.105 or newer.",
+  "error.provider.copilotNotStarted": "GitHub Copilot CLI could not start. Run `copilot --version` in a terminal.",
+  "error.provider.copilotVersionUnreadable": "Unable to read the GitHub Copilot CLI version.",
+  "error.provider.copilotSignIn": "Sign in with GitHub to use Copilot.",
   "error.provider.usageLimitReached": "The account reached its usage limit.",
   "error.provider.foreignReasoning":
     "{provider} did not accept the earlier reasoning in this chat, because a different account or API key received it. OpenBot started a new {provider} session with the chat history. Try again.",

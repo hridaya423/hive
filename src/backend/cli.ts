@@ -22,6 +22,8 @@ const MINIMUM_GROK_VERSION = [1, 0, 5] as const;
 const MINIMUM_CLINE_VERSION = [3, 0, 68] as const;
 // The first checked Python Kimi CLI. Login capabilities are probed before code sign-in.
 const MINIMUM_KIMI_VERSION = [1, 52, 0] as const;
+// The only Copilot CLI that OpenBot was run with. Older builds list no model in ACP (github/copilot-cli#4880).
+const MINIMUM_COPILOT_VERSION = [1, 0, 105] as const;
 
 /** What every resolved provider CLI carries. */
 interface ResolvedCli {
@@ -75,6 +77,10 @@ export interface HermesCliInfo extends ResolvedCli {
   source?: "system" | "managed";
 }
 
+export interface CopilotCliInfo extends ResolvedCli {
+  source?: "system" | "managed";
+}
+
 export type AgentCliInfo =
   | CodexCliInfo
   | ClaudeCliInfo
@@ -84,7 +90,8 @@ export type AgentCliInfo =
   | CursorCliInfo
   | ClineCliInfo
   | KimiCliInfo
-  | HermesCliInfo;
+  | HermesCliInfo
+  | CopilotCliInfo;
 
 export class CodexCliError extends Error {
   constructor(
@@ -476,6 +483,56 @@ export const resolveHermesCli: (input?: {
   },
   Effect.catchDefect((cause) => Effect.fail(providerFailure(cause))),
 );
+
+/**
+ * Finds the user's own GitHub Copilot CLI. OpenBot has no copy of its own: the CLI keeps the user's
+ * sign-in in the login Keychain and updates itself. A CLI older than `MINIMUM_COPILOT_VERSION` is
+ * the error the user sees.
+ */
+export const resolveCopilotCli: (input?: {
+  systemCandidates?: string[];
+}) => Effect.Effect<CopilotCliInfo, ProviderClientOperationError> = Effect.fn("Cli.resolveCopilotCli")(
+  function* (
+    input: { systemCandidates?: string[] } = {},
+  ): Effect.fn.Return<CopilotCliInfo, ProviderClientOperationError> {
+    const candidates = yield* cliCandidates("copilot", input.systemCandidates, null);
+    const failures: CodexCliError[] = [];
+    for (const candidate of candidates) {
+      if (!(yield* isExecutable(candidate.executable))) continue;
+      const attempt = yield* Effect.result(
+        Effect.gen(function* () {
+          const { stdout, launch } = yield* readCliVersion(candidate, "copilot");
+          const version = parseCopilotVersion(stdout);
+          if (!isMinimumVersion(version, MINIMUM_COPILOT_VERSION)) {
+            throw new CodexCliError(sourceText("error.provider.copilotOutdated", { version }), "outdated");
+          }
+          return { executable: candidate.executable, version, source: "system" as const, ...launch };
+        }).pipe(Effect.catchDefect((cause) => Effect.fail(providerFailure(cause)))),
+      );
+      if (Result.isSuccess(attempt)) return attempt.success;
+      const error = attempt.failure.cause;
+
+      if (isCliTimeout(error)) throw error;
+      failures.push(
+        error instanceof CodexCliError
+          ? error
+          : new CodexCliError(sourceText("error.provider.copilotNotStarted"), "invalid"),
+      );
+    }
+    throw (
+      failures.find((failure) => failure.code === "outdated") ??
+      failures[0] ??
+      new CodexCliError(sourceText("error.provider.copilotMissing"), "missing")
+    );
+  },
+  Effect.catchDefect((cause) => Effect.fail(providerFailure(cause))),
+);
+
+function parseCopilotVersion(output: string): string {
+  const version = output.match(/^GitHub Copilot CLI v?(\d+\.\d+\.\d+)\b/mu)?.[1];
+  if (!version) throw new CodexCliError(sourceText("error.provider.copilotVersionUnreadable"), "invalid");
+  return version;
+}
 
 /**
  * Hermes prints its release and its build on the first line, such as

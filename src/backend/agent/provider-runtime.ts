@@ -186,6 +186,7 @@ const SPAWN_ENVIRONMENT_PROVIDERS: readonly AgentProvider[] = [
   "cline",
   "kimi",
   "hermes",
+  "copilot",
   "acp",
 ];
 

@@ -22,8 +22,10 @@ update check for itself.
 Hive makes network connections only in these cases:
 
 - **Providers.** A provider CLI that you set up connects to its own service, such as OpenAI,
-  Anthropic, xAI, Google, Cursor, Cline, Moonshot AI or Nous. Hive sends the conversation to that
-  provider through the CLI, under the provider's own policy.
+  Anthropic, xAI, Google, Cursor, Cline, Moonshot AI, Nous or GitHub. Hive sends the conversation to that
+  provider through the CLI, under the provider's own policy. Hive does not download the GitHub
+  Copilot CLI: it starts the `copilot` that you installed. That CLI keeps its login in the Keychain
+  and its files in `~/.copilot`, and Hive does not read them.
 - **Provider CLI release checks.** Hive checks for new provider CLI releases when it starts, once
   an hour, and when you select `Check for updates`. It asks the release source of each CLI, such as
   `api.github.com`, `registry.npmjs.org`, `x.ai/cli` and the ACP registry on

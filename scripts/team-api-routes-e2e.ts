@@ -1566,6 +1566,7 @@ try {
         "openrouter",
         "kimi",
         "hermes",
+        "copilot",
       ],
       3: [
         "opencode",
@@ -1580,6 +1581,7 @@ try {
         "openrouter",
         "kimi",
         "hermes",
+        "copilot",
       ],
       4: [
         "antigravity",
@@ -1593,10 +1595,11 @@ try {
         "openrouter",
         "kimi",
         "hermes",
+        "copilot",
       ],
-      5: ["cursor", "cline", "pi", "muse", "inception", "deepseek", "openrouter", "kimi", "hermes"],
-      6: ["pi", "muse", "inception", "deepseek", "openrouter", "kimi", "hermes"],
-      7: ["inception", "deepseek", "openrouter", "kimi", "hermes"],
+      5: ["cursor", "cline", "pi", "muse", "inception", "deepseek", "openrouter", "kimi", "hermes", "copilot"],
+      6: ["pi", "muse", "inception", "deepseek", "openrouter", "kimi", "hermes", "copilot"],
+      7: ["inception", "deepseek", "openrouter", "kimi", "hermes", "copilot"],
       8: [],
       9: [],
     };

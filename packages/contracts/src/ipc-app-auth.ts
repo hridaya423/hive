@@ -401,6 +401,7 @@ export type ExternalDestination =
   | "agent-setup"
   | "claude-install"
   | "hermes-install"
+  | "copilot-install"
   | "feedback"
   | "message"
   // The release notes, the guides and the Discord community of OpenBot, from the Help menu of the window rail.
