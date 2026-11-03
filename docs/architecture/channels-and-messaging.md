@@ -554,17 +554,14 @@ transport for its events. `messaging-types.ts` is the seam; the core never reads
   `/invite`.
 - **Deduplication.** An in-memory set drops a redelivered event at once; the mailbox idempotency key
   covers a restart, and a kept event that Signal sends again. Events that arrive while no socket is
-  open are lost after Slack's retries, except for a hosted server that starts. A message that does
+  open are lost after Slack's retries. A message that does
   not address OpenBot gets 200 from Signal and is lost at once; other events get 503. Slack turns
   off events for the whole app when more than 95% of deliveries fail for 60 minutes, and a computer
   that is off would otherwise fail every channel message of its workspace.
 - **Screen.** **Marketplace → Apps → Slack** on the computer that runs the agents shows
   each workspace and its orchestrator, and a two-step dialog connects the workspace and adds the
   orchestrator on the model the user picks (`messaging:*`). A remote server shows no Slack page,
-  because the install returns to the host's own browser. A live connection does not count as use:
-  a hosted server sleeps, and Signal starts it for the next message that addresses OpenBot and keeps
-  that message, sealed to the host, until the host connects
-  ([Connector events](../hosted-servers.md#connector-events)). **Apps → Discord** is the same page for Discord
+  because the install returns to the host's own browser. **Apps → Discord** is the same page for Discord
   (`SlackIntegrationPanel` with `platform="discord"`). **Apps → Telegram** has its own page
   (`TelegramIntegrationPanel`), with one row per chat and one orchestrator for all chats.
 

@@ -89,8 +89,13 @@ Keep the private JWK secret. With it, a person can open each host that uses your
 4. Deploy. The script puts the secrets, applies the D1 migrations, builds and deploys the Worker:
 
    ```sh
-   bunx dotenvx run -f .env.self-hosted -- bun ../../scripts/deploy-auth-api.ts
+   bunx wrangler d1 migrations apply DB --remote
+   bun run build
+   bunx wrangler deploy --config dist/server/wrangler.json --secrets-file <secrets file>
    ```
+
+   The fork has no deploy script. Phase 5 of [the plan](plans/2026-11-03-personal-openbot.md) moves
+   the account service to the owner's own server.
 
 5. Check the service. Each command must return `200`:
 
@@ -129,31 +134,11 @@ Do these steps on each computer that hosts or connects.
 2. Quit the app. Then start it with the two variables. `OPENBOT_REMOTE_SIGNAL_URL` must be equal to
    the `REMOTE_SIGNAL_URL` of your Worker.
 
-   macOS:
-
    ```sh
    OPENBOT_AUTH_API_URL=https://api.example.com \
    OPENBOT_REMOTE_SIGNAL_URL=wss://signal.example.com/v1/signal \
-   /Applications/OpenBot.app/Contents/MacOS/OpenBot
+   /Applications/Hive.app/Contents/MacOS/Hive
    ```
-
-   Linux:
-
-   ```sh
-   OPENBOT_AUTH_API_URL=https://api.example.com \
-   OPENBOT_REMOTE_SIGNAL_URL=wss://signal.example.com/v1/signal \
-   ./OpenBot-<version>-x86_64.AppImage
-   ```
-
-   Windows (PowerShell):
-
-   ```powershell
-   $env:OPENBOT_AUTH_API_URL = "https://api.example.com"
-   $env:OPENBOT_REMOTE_SIGNAL_URL = "wss://signal.example.com/v1/signal"
-   & "$env:LOCALAPPDATA\Programs\OpenBot\OpenBot.exe"
-   ```
-
-   This is the default install folder. If you chose a different folder in the installer, use it.
 
 3. Sign in with an email address. The code comes from your SMTP account.
 4. To connect an iPhone, scan the connection QR code from the desktop app. The phone then uses the

@@ -128,38 +128,22 @@ if a step fails. The steps have separate logs. The groups run in this order:
   in its own step. Mobile generation stays inside `mobile:typecheck`. Compose validation starts
   after all groups succeed.
 
-The desktop test shards keep separate runners. The API checks, artifact uploads, and production
-deployment dependencies keep their existing order. Local commands do not change. Compare job
+The desktop test shards keep separate runners. The API checks keep their existing order. Local commands do not change. Compare job
 times on GitHub before claiming a time reduction; parallel steps share the runner's resources.
 
-The `Provider CLI canary` workflow is not a pull request check. It runs every six hours on the newest
-upstream provider CLIs, which reach users without an OpenBot release; see
-[Provider CLI updates](architecture/providers.md#provider-cli-updates).
-
-`check:api` ends with `api:build:check`, which is the preview build of the Worker, so the API job
-uploads that build as the `cloudflare-preview` artifact. The job has no secrets. After the CI run completes, the trusted
-[cloudflare-preview.yml](../.github/workflows/cloudflare-preview.yml) workflow runs its `main`
-version with the preview deploy token. It skips a closed pull request, a newer commit, and a fork. It
-builds the `main` Worker config, and `scripts/check-preview-worker-config.ts` stops the upload when
-the pull request's generated `wrangler.json` differs from it in anything but the code entry and the
-compatibility settings. Thus a pull request that changes the preview Worker name, bindings, vars, or
-routes gets no preview. A change to `cloudflare-preview.yml` takes effect only after it merges.
-
-All of these jobs gate Cloudflare production deployment on `main`. Surfaces was previously missing from
-that dependency list, which allowed deployment despite a failed mobile or remote check.
 These long suites belong in CI; local desktop runs can reach their time limits under load.
 
 The `Detect changed areas` job lets a pull request skip the lanes it cannot affect. It compares the
 merge commit with its first parent and first removes Markdown that no build or test reads: `docs/`,
 `plans/` and `changelog.d/` Markdown, every `AGENTS.md`, and the root Markdown files except
-`CHANGELOG.md`, which the API bundles, and `CLA.md`. Markdown under `resources/` is not removed either, because the
+`CHANGELOG.md`, which the API bundles. Markdown under `resources/` is not removed either, because the
 renderer bundles it. Then it selects the lanes:
 
 | Lane | Jobs | Runs when a changed path is |
 | --- | --- | --- |
 | `code` | Check, Tests (desktop) | anything that is left |
 | `docs` | Check, with only `check:doc-links` when `code` is off | any Markdown file, before the removal above, or `scripts/check-doc-links.ts` |
-| `desktop` | Browser smoke, Local scripts CLI E2E, Team API and reverse actions E2E | outside `apps/auth-api`, `apps/mobile`, `remote` and `docker` |
+| `desktop` | Browser smoke, Local scripts CLI E2E, Team API and reverse actions E2E | outside `apps/auth-api`, `apps/mobile` and `remote` |
 | `api` | API | in `apps/auth-api`, `src/renderer` or `resources`, or a `CHANGELOG.md` |
 | `remote` | Signal E2E | in `remote` or `scripts` |
 | `storybook` | Storybook build | in `src`, `apps/auth-api`, `.storybook`, `resources`, `marketplace` or `build` |
@@ -194,8 +178,7 @@ check, the lint, the desktop typecheck, the build and `verify:preload`, followed
 smoke test. CI is
 the only caller that splits them. The smoke test starts the real Electron binary, so it runs under
 xvfb on Ubuntu rather than on a macOS runner, and reads nothing the build writes, so the order
-between the halves is free. `release.yml` keeps the whole of `check:desktop` on one macOS runner,
-where it checks the machine that builds the release.
+between the halves is free.
 
 `bun run knip:check` fails on unused files, unused exports and exported types, unused or unlisted
 dependencies, unresolved imports and unlisted binaries in every workspace. It takes about 6 seconds. `knip.config.ts` names the entry

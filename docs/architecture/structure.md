@@ -4,20 +4,14 @@
 
 ```text
 apps/
-  auth-api/          Public web and /app browser entry, accounts, memberships, connection tickets, and billing
-  discord-app/       Developer Portal settings of the OpenBot Discord app (no code)
+  auth-api/          Public web and /app browser entry, accounts, memberships, and connection tickets
   mobile/            Expo React Native client for remote team hosts
-  site-router/       Cloudflare Worker that serves published sites from private R2 storage
-  slack-app/         Slack CLI projects with the OpenBot Slack app manifests (production, development)
-  status/            Public status page on GitHub Pages, and the check and webhook scripts of its workflow
-  telegram-app/      BotFather settings of the OpenBot Telegram bot (no code)
 packages/
   ui/                Shared SolidJS controls and primitive styles for desktop, web, and Storybook
   brand/             Shared logos, avatars, and design tokens
   contracts/         Process and network boundary types, limits, and pure validation
   i18n/              Message catalogs, translate and format functions for desktop, shared UI and mobile
   logging/           ts-log Logger interface plus the redacting console/file implementation
-  telemetry/         Safe error reports, bounded retry queue, and local storage/HTTP adapters
   team-client/       Shared team connection, recovery, WebRTC framing, Dynamic Island state, and routine schedules
   user-errors/       Shared user-facing error messages for desktop and mobile
 remote/
@@ -89,8 +83,6 @@ SolidJS, provider, Cloudflare, and application code; and the account server to d
   and Muse XDG folders are provider-owned login and resume state. They are not OpenBot
   conversation storage.
 - D1 is the source of truth for central accounts, remote membership, invitations, and logical sessions.
-- Stripe is the source of truth for paid plans. D1 `billing_subscriptions` is a copy that the Stripe
-  webhook keeps current; see [Billing](servers.md#billing).
 - A local team host owns conversations, files, agents, and the local member projection used by Team API.
 - `openbot-approval-automation-v3.json` holds which agents have Full access: the `autoApprove` half of
   each agent's Permissions level (Workspace only, Ask first, Full access). OpenBot reads an older

@@ -4,7 +4,7 @@
 
 Service workflows use the catalog-pinned `effect` 4.0.0 package. Read the source and
 reference material in the installed package when changing these workflows. The Electron
-main process, account Worker, site-router Worker, Signal service, and shared team client
+main process, account Worker, Signal service, and shared team client
 use the same version. Framework routing, IPC validation, UI rendering, and event delivery
 keep their native interfaces.
 
