@@ -6,7 +6,6 @@ import { type AppMessages, en } from "./messages/en/index";
 export { APP_LANGUAGES, type AppLanguage, DEFAULT_APP_LANGUAGE } from "@openbot/contracts/app-language";
 export { type AppFormat, createFormat } from "./format";
 export { formatLocale, resolveLocale, TRANSLATED_LOCALES, type TranslatedLocale } from "./locale";
-export { loadLocale, localeLoaded } from "./locale-loading";
 export {
   createTranslate,
   type Message,
@@ -39,9 +38,6 @@ const translators = new Map<TranslatedLocale, AppTranslate>();
 
 /**
  * The translator for a resolved locale. English is both a catalog and every other catalog's fallback.
- *
- * A language the web build has not loaded yet reads English (see `loadLocale`). That translator is
- * not kept, so the first call after the load reads the language.
  */
 export function translateFor(locale: TranslatedLocale): AppTranslate {
   const cached = translators.get(locale);

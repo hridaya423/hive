@@ -84,6 +84,26 @@ Done before this session. Bun 1.4.2 at `~/.bun/bin/bun`. `bun install --frozen-l
 ### Surprise: "analytics" in contracts is two things
 `AgentAnalytics`, `HostAnalytics`, `readAgentAnalytics`, `readHostAnalytics`, `team-protocol/analytics-v1` and `host-analytics-v1` are the local **Usage report** (token counts from `openbot.db`). The research listed them as telemetry. They stay.
 
+### Tasks 2.3 to 2.7: merged into `phase/2`
+- 2.3 hosted sites, 2.3 licence purchase, 2.4 hosted servers and billing: commits bd39485c2, f368c3d3a, 0de2858d4 (merge eaed39410). The join and local-server flows stay (`AddServerOverlay` join part, mobile `scan`, `local`). `c1fe58062` removes the unused `OrderForm`, `money.ts` and `hosted-server-wake`.
+- 2.6 telemetry: 3bd507c57, b56300e93, 1b64c058a, 74bce9e3c. `packages/telemetry`, OpenPanel, `ANALYTICS.md` deleted. Failure classification moved to `@openbot/user-errors/failure-cause` because provider failover uses it.
+- 2.7 Worker: aba741744 (merge 11f54e835).
+- Data safety: `git diff personal...HEAD` has 0 changes in `src/backend/openbot-database-schema.ts`, in any `*migration*` file, in `apps/auth-api/migrations` and in `packages/contracts/src/team-protocol`. 0 contract files deleted. Readers of old rows stay (`hostedSiteConversationEvent`, `HostedSiteEventLog`, `excludeHostedSiteEvents`). `openbot-database.test.ts` and `agent-usage-migration.test.ts`: 92 tests pass.
+- Checks on the merged head: typecheck contracts, node, renderer, team-client, api, remote, mobile exit 0; `build` and `verify:preload` pass (688 methods, was 712 before 2.1); `check:ui`, `check:doc-links`, `i18n:check` (11,340 English keys, was 11,949) and `knip:check` (4 configuration hints) pass; `bunx vitest run --changed personal --maxWorkers=1`: 53 files, 957 tests pass; `test:invite-acceptance` exit 0, no FAIL (report in `.openbot-build/invite-acceptance-e2e/report.json`).
+
+### Task 2.5: `local-servers-e2e.ts` NOT proven
+- The code of `src/main/local-servers/`, `local-server-child.ts` and `server-mode.ts` has no diff against `personal`.
+- Mini, dev stack of a clone at `c1fe58062`: the first run opened the create dialog and `local-servers:create` failed after 96 s with "The server on this computer did not start" (`.openbot-build/local-servers-e2e/report.json` on the mini). The child had no `--use-mock-keychain`, so a macOS keychain prompt ("Hive Safe Storage") is the likely cause. I added that flag to the child arguments in the disposable clone only. Later runs could not click: the dev window stays in the Stage Manager strip, its splash waits for a CSS animation event and never ends, and menus do not open. A keychain prompt owned by another running Hive (PID 50434 from `~/honey/openbot`) sits over the desktop. I did not answer it.
+- Needs Hridya: answer or dismiss that prompt, then run `bun scripts/local-servers-e2e.ts --allow-mutations` against a visible dev app.
+
+### Task 2.9: network check after (Mac mini)
+- Build: `bun run package` of `c1fe58062` in `~/honey/hive-p2-9`. The GitHub API rate limit (HTTP 403, 60 per hour without token) stopped the runtime download, so I copied `build/remote-desktop-runtime` and `build/cua-driver` from the older clone (same `native-runtime.lock.json`, `cmp` equal). Then `package` exit 0.
+- The default launch stalls at the keychain prompt, so the app never starts its services. Launch with `--user-data-dir=<new dir> --use-mock-keychain` (the flags `scripts/verify-macos-package.ts` uses). Services start: logs, loopback listeners.
+- 15 minutes, `lsof -nP -i -a -p` on every process with that profile, every 5 s, 356 lines (`~/hive-checks/after29.log` on the mini): only `127.0.0.1:51286` and `127.0.0.1:51287` LISTEN. 0 remote peers. Before (Phase 0 build, 15 min): 5 remote peers (`172.67.136.14` Cloudflare, `20.26.156.210` GitHub, `104.16.10.34`, `104.18.19.80`, `57.144.62.128` Meta).
+- Same signed-out state in both runs. The check does not cover a signed-in session: `api.openbot.run` and `signal.openbot.run` are then the expected hosts.
+- `git grep "openbot\.run\|nightly-labs"` outside `apps/auth-api` and i18n: only constants for share, invite and marketplace link origins, podspec homepages, the mobile About and support rows, the mobile `app.json` associated domain, and one skill id. None runs without a user action.
+- Visual check of Settings and the server menu: not done (window occluded, same cause as 2.5). One frame of the rail is in `/private/tmp/claude-501/shots29/settings-general.png` on this computer: no hosting or billing entries; the "OpenBot for mobile" card is still there.
+
 ## Task 2.8: repo furniture (branch `phase/2-furniture`)
 - Done: CLA, review and release workflows, deploy and announcement scripts, Linux and Windows packaging (`nix/`, `docker/`, `flake.*`, AppImage/NSIS targets), `install-server.sh`, `install-host-update-agent.sh`, host installer scripts, upstream skills `babysit`, `ship`, `smoke-and-ship`. `ci.yml` keeps its test jobs and loses `deploy-production` and the preview upload. README, PRIVACY, RELEASING, TROUBLESHOOTING rewritten for Hive. Docs of hosted servers, Docker and the Linux server removed.
 - Evidence: `bun run check:doc-links` and `check:agent-context` pass; `knip:check` shows only the 4 configuration hints; the script-target checker reports 0 missing targets; all workflow YAML parses.
