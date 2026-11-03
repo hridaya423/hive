@@ -66,12 +66,7 @@ import {
   type RuntimeTarget,
 } from "./provider-runtime-descriptors";
 import { ProviderRuntimeFailure, runtimeIO, runtimeSync } from "./provider-runtime-effects";
-import {
-  type BlockedVersions,
-  fetchBlockedVersions,
-  latestRelease,
-  readLimitedBody,
-} from "./provider-runtime-releases";
+import { bundledBlockedVersions, latestRelease, readLimitedBody } from "./provider-runtime-releases";
 
 const execFileAsync = promisify(execFile);
 const logger = createOpenBotLogger("provider-runtimes");
@@ -257,7 +252,6 @@ export class ProviderRuntimeManager extends EventEmitter<ProviderRuntimeManagerE
     signal: AbortSignal,
     onWait: () => void,
   ) => Effect.Effect<void, ProviderRuntimeFailure>;
-  #blocked: BlockedVersions = new Map();
   #check: Deferred.Deferred<void, ProviderRuntimeFailure> | null = null;
   readonly #scope = Scope.makeUnsafe();
   #checkTimer: NodeJS.Timeout | null = null;
@@ -528,27 +522,20 @@ export class ProviderRuntimeManager extends EventEmitter<ProviderRuntimeManagerE
   }
   #runCheck(target: RuntimeTarget): Effect.Effect<void, ProviderRuntimeFailure> {
     return Effect.gen({ self: this }, function* (): Effect.fn.Return<void, ProviderRuntimeFailure> {
-      const [blocked, releases] = yield* Effect.all(
-        [
-          Effect.result(fetchBlockedVersions(this.#fetch)),
-          Effect.forEach(
-            PROVIDERS,
-            (provider) =>
-              Effect.result(
-                latestRelease(provider, { target, lock: this.#lock, fetch: this.#fetch }).pipe(
-                  Effect.tap((release) =>
-                    Effect.sync(() => {
-                      this.#latest.set(provider, release);
-                    }),
-                  ),
-                ),
+      const releases = yield* Effect.forEach(
+        PROVIDERS,
+        (provider) =>
+          Effect.result(
+            latestRelease(provider, { target, lock: this.#lock, fetch: this.#fetch }).pipe(
+              Effect.tap((release) =>
+                Effect.sync(() => {
+                  this.#latest.set(provider, release);
+                }),
               ),
-            { concurrency: "unbounded" },
+            ),
           ),
-        ],
         { concurrency: "unbounded" },
       );
-      if (Result.isSuccess(blocked)) this.#blocked = blocked.success;
       if (this.#updateInstalled) {
         // Before offers show again, so the renderer sees these updates already downloading and
         // announces no offer for them. A download reports its own failure in its status.
@@ -605,7 +592,11 @@ export class ProviderRuntimeManager extends EventEmitter<ProviderRuntimeManagerE
     const pinned = runtimeSpec(runtime, target, this.#lock);
     if (isManagedToolRuntime(runtime)) return pinned;
     const latest = this.#latest.get(runtime);
-    if (!latest || this.#blocked.get(runtime)?.has(latest.version) || !olderVersion(pinned.version, latest.version)) {
+    if (
+      !latest ||
+      bundledBlockedVersions.get(runtime)?.has(latest.version) ||
+      !olderVersion(pinned.version, latest.version)
+    ) {
       return pinned;
     }
     return latest;

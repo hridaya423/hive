@@ -2,23 +2,15 @@ import { execFile } from "node:child_process";
 import { chmod, lstat, mkdir, readdir, readlink, rename, rm } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import { z } from "zod";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import type { HostManagerOperations } from "../src/main/host-manager";
-import { HOST_MANAGER_DIRECTORY, verifyHostDirectory } from "../src/main/host-update-files";
+import { verifyHostDirectory } from "../src/main/host-update-files";
 
 const exec = promisify(execFile);
 export const SHARED_APP = "/Applications/OpenBot.app";
 const STAGING = "/Applications/.openbot-host-stage";
-const PRIVATE = join(HOST_MANAGER_DIRECTORY, "private");
 const SIGNING_REQUIREMENT =
   '=anchor apple generic and identifier "app.openbot.desktop" and certificate leaf[subject.OU] = "ZTRDTUL87R"';
-const releaseSchema = z.object({
-  tag_name: z.string().regex(/^v?\d+\.\d+\.\d+$/),
-  draft: z.literal(false),
-  prerelease: z.literal(false),
-});
-
 export async function hostCommand(file: string, args: string[], timeout = 60_000): Promise<string> {
   const result = await exec(file, args, {
     timeout,
@@ -153,66 +145,7 @@ export function macHostOperations(): HostManagerOperations {
       await verifySignature(SHARED_APP);
       return bundleVersion();
     },
-    stageLatest: async () => {
-      await verifySharedAppParent();
-      await verifyBundleTree(SHARED_APP, true);
-      await verifySignature(SHARED_APP);
-      const response = await fetch("https://api.github.com/repos/nightly-labs/openbot/releases/latest", {
-        signal: AbortSignal.timeout(30_000),
-        headers: { Accept: "application/vnd.github+json" },
-      });
-      if (!response.ok) throw new Error("Release lookup failed.");
-      const release = releaseSchema.parse(await response.json());
-      const version = release.tag_name.replace(/^v/, "");
-      const current = await bundleVersion();
-      if (!isNewerRelease(version, current)) return null;
-      await ensureHostDirectory(PRIVATE, 0o700);
-      await ensureHostDirectory(STAGING, 0o700);
-      const dmg = join(PRIVATE, "release.dmg");
-      await rm(dmg, { force: true });
-      // Asset names and repository are fixed. No tenant supplies a network destination.
-      const url = `https://github.com/nightly-labs/openbot/releases/download/${release.tag_name}/OpenBot-${version}-arm64.dmg`;
-      await command(
-        "/usr/bin/curl",
-        [
-          "--fail",
-          "--location",
-          "--proto",
-          "=https",
-          "--proto-redir",
-          "=https",
-          "--max-time",
-          "900",
-          "--max-filesize",
-          "2147483648",
-          "--output",
-          dmg,
-          url,
-        ],
-        920_000,
-      );
-      const mount = join(PRIVATE, "mount");
-      await ensureHostDirectory(mount, 0o700);
-      await command("/usr/bin/hdiutil", ["attach", dmg, "-readonly", "-nobrowse", "-noautoopen", "-mountpoint", mount]);
-      try {
-        const source = join(mount, "OpenBot.app");
-        await verifyBundleTree(source, false);
-        await verifySignature(source);
-        if ((await bundleVersion(source)) !== version) throw new Error("Downloaded version mismatch.");
-        const staged = join(STAGING, "OpenBot.app");
-        await rm(staged, { recursive: true, force: true });
-        await command("/usr/bin/ditto", ["--noqtn", source, staged], 180_000);
-        await command("/usr/sbin/chown", ["-Rh", "root:wheel", staged]);
-        await command("/bin/chmod", ["-RN", staged]);
-        await command("/bin/chmod", ["-R", "go-w", staged]);
-        await verifyBundleTree(staged, true);
-        await verifySignature(staged);
-      } finally {
-        await command("/usr/bin/hdiutil", ["detach", mount]);
-      }
-      await rm(dmg);
-      return version;
-    },
+    stageLatest: async () => null,
     install: async (version) => {
       await verifySharedAppParent();
       await verifyHostPath(STAGING);

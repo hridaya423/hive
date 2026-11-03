@@ -8,5 +8,4 @@ export const messages = {
   "startup.archiveChangedTitle": "OpenBot 文件已被更改",
   "startup.archiveChangedBody":
     "另一个程序更改了 OpenBot 的文件 app.asar。OpenBot 现在仍在运行，但退出后将无法再次打开。\n\n要修复 OpenBot，请重新安装。你的本地数据会保留。",
-  "startup.archiveChangedDownload": "下载 OpenBot",
 } as const satisfies PartialTranslation<typeof source>;

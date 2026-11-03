@@ -728,8 +728,8 @@ const UPDATE_PHASES = new Set([
   "unsupported",
 ]);
 
-function shouldEnableDesktopAnalytics(appInfo: AppInfo, productionBuild: boolean): boolean {
-  return appInfo.analyticsCaptureUrl !== undefined || (productionBuild && appInfo.variant === "production");
+function shouldEnableDesktopAnalytics(appInfo: AppInfo): boolean {
+  return appInfo.analyticsCaptureUrl !== undefined;
 }
 
 function sanitizeDesktopAnalyticsEvent(
@@ -859,7 +859,7 @@ class DesktopAnalytics {
   configure(appInfo: AppInfo): boolean {
     configureDesktopReports(appInfo, this.#trackingEnabled, this.#identity);
     if (this.#client) return true;
-    if (!shouldEnableDesktopAnalytics(appInfo, this.#productionBuild)) {
+    if (!shouldEnableDesktopAnalytics(appInfo)) {
       this.#disabled = true;
       this.#pending = [];
       return false;

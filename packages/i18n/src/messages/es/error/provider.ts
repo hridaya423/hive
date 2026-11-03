@@ -92,7 +92,6 @@ export const messages = {
   "error.provider.codexReleaseNoDownload": "La versión de Codex no tiene una descarga verificable para este equipo.",
   "error.provider.claudeReleaseShape": "La versión de Claude tiene una estructura inesperada.",
   "error.provider.grokReleaseVersion": "La publicación de Grok tiene una versión inesperada.",
-  "error.provider.blockedListShape": "La lista de versiones bloqueadas tiene una estructura inesperada.",
   "error.provider.releaseNoDownload": "La versión de {name} no tiene una descarga verificable.",
   "error.provider.releaseSizeUnknown": "Se desconoce el tamaño de la descarga de la versión.",
   "error.provider.releaseMetadataNotObject": "Los metadatos de la versión no son un objeto JSON.",

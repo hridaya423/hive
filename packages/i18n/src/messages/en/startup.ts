@@ -9,5 +9,4 @@ export const messages = defineMessages("startup", {
   "startup.archiveChangedTitle": "OpenBot files were changed",
   "startup.archiveChangedBody":
     "Another program changed the OpenBot file app.asar. OpenBot runs now, but it will not open after you quit it.\n\nTo repair OpenBot, install it again. Your local data stays.",
-  "startup.archiveChangedDownload": "Download OpenBot",
 });

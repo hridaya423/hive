@@ -88,7 +88,6 @@ export const messages = {
   "error.provider.codexReleaseNoDownload": "Codex 릴리스에 이 컴퓨터용으로 검증할 수 있는 다운로드가 없어요.",
   "error.provider.claudeReleaseShape": "Claude 릴리스의 형식이 예상과 달라요.",
   "error.provider.grokReleaseVersion": "Grok 릴리스의 버전이 예상과 달라요.",
-  "error.provider.blockedListShape": "차단된 버전 목록의 형식이 예상과 달라요.",
   "error.provider.releaseNoDownload": "{name} 릴리스에 검증할 수 있는 다운로드가 없어요.",
   "error.provider.releaseSizeUnknown": "릴리스 다운로드의 크기를 알 수 없어요.",
   "error.provider.releaseMetadataNotObject": "릴리스 메타데이터가 JSON 객체가 아니에요.",

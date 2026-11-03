@@ -89,7 +89,6 @@ export const messages = {
   "error.provider.codexReleaseNoDownload": "Codex sürümü bu bilgisayar için doğrulanabilir bir indirmeye sahip değil.",
   "error.provider.claudeReleaseShape": "Claude sürümü beklenmeyen bir yapıya sahip.",
   "error.provider.grokReleaseVersion": "Grok sürümü beklenmeyen bir sürüme sahip.",
-  "error.provider.blockedListShape": "Engellenen sürümler listesi beklenmeyen bir yapıya sahip.",
   "error.provider.releaseNoDownload": "{name} sürümü doğrulanabilir bir indirmeye sahip değil.",
   "error.provider.releaseSizeUnknown": "Sürüm indirmesinin bilinen bir boyutu yok.",
   "error.provider.releaseMetadataNotObject": "Sürüm meta verileri bir JSON nesnesi değil.",

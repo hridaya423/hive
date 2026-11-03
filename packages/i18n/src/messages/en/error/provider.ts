@@ -87,7 +87,6 @@ export const messages = defineMessages("error.provider", {
   "error.provider.codexReleaseNoDownload": "The Codex release has no verifiable download for this computer.",
   "error.provider.claudeReleaseShape": "The Claude release has an unexpected shape.",
   "error.provider.grokReleaseVersion": "The Grok release has an unexpected version.",
-  "error.provider.blockedListShape": "The blocked version list has an unexpected shape.",
   "error.provider.releaseNoDownload": "The {name} release has no verifiable download.",
   "error.provider.releaseSizeUnknown": "The release download has no known size.",
   "error.provider.releaseMetadataNotObject": "The release metadata is not a JSON object.",

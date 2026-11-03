@@ -8,5 +8,4 @@ export const messages = {
   "startup.archiveChangedTitle": "I file di OpenBot sono stati modificati",
   "startup.archiveChangedBody":
     "Un altro programma ha modificato il file app.asar di OpenBot. OpenBot ora funziona, ma non si aprirà più dopo la chiusura.\n\nPer ripararlo, installa di nuovo OpenBot. I tuoi dati locali restano.",
-  "startup.archiveChangedDownload": "Scarica OpenBot",
 } as const satisfies PartialTranslation<typeof source>;

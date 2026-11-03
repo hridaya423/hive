@@ -89,7 +89,6 @@ export const messages = {
   "error.provider.codexReleaseNoDownload": "Wydanie Codex nie ma weryfikowalnego pliku do pobrania dla tego komputera.",
   "error.provider.claudeReleaseShape": "Wydanie Claude ma nieoczekiwaną strukturę.",
   "error.provider.grokReleaseVersion": "Wydanie Grok ma nieoczekiwaną wersję.",
-  "error.provider.blockedListShape": "Lista zablokowanych wersji ma nieoczekiwaną strukturę.",
   "error.provider.releaseNoDownload": "Wydanie {name} nie ma weryfikowalnego pliku do pobrania.",
   "error.provider.releaseSizeUnknown": "Rozmiar pliku wydania jest nieznany.",
   "error.provider.releaseMetadataNotObject": "Metadane wydania nie są obiektem JSON.",

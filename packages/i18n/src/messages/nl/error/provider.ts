@@ -86,7 +86,6 @@ export const messages = {
   "error.provider.codexReleaseNoDownload": "De Codex-release heeft geen controleerbare download voor deze computer.",
   "error.provider.claudeReleaseShape": "De Claude-release heeft een onverwachte vorm.",
   "error.provider.grokReleaseVersion": "De Grok-release heeft een onverwachte versie.",
-  "error.provider.blockedListShape": "De lijst met geblokkeerde versies heeft een onverwachte vorm.",
   "error.provider.releaseNoDownload": "De release van {name} heeft geen controleerbare download.",
   "error.provider.releaseSizeUnknown": "De grootte van de releasedownload is onbekend.",
   "error.provider.releaseMetadataNotObject": "De metadata van de release zijn geen JSON-object.",

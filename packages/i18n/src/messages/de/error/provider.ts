@@ -91,7 +91,6 @@ export const messages = {
   "error.provider.codexReleaseNoDownload": "Die Codex-Version hat keinen überprüfbaren Download für diesen Computer.",
   "error.provider.claudeReleaseShape": "Die Claude-Version hat eine unerwartete Struktur.",
   "error.provider.grokReleaseVersion": "Die Grok-Veröffentlichung hat eine unerwartete Version.",
-  "error.provider.blockedListShape": "Die Liste gesperrter Versionen hat eine unerwartete Struktur.",
   "error.provider.releaseNoDownload": "Die Version von {name} hat keinen überprüfbaren Download.",
   "error.provider.releaseSizeUnknown": "Die Größe des Versionsdownloads ist unbekannt.",
   "error.provider.releaseMetadataNotObject": "Die Versionsmetadaten sind kein JSON-Objekt.",

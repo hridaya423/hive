@@ -88,7 +88,6 @@ export const messages = {
   "error.provider.codexReleaseNoDownload": "У релиза Codex нет проверяемой загрузки для этого компьютера.",
   "error.provider.claudeReleaseShape": "У релиза Claude неожиданная структура.",
   "error.provider.grokReleaseVersion": "У релиза Grok неожиданная версия.",
-  "error.provider.blockedListShape": "У списка заблокированных версий неожиданная структура.",
   "error.provider.releaseNoDownload": "У релиза {name} нет проверяемой загрузки.",
   "error.provider.releaseSizeUnknown": "У загрузки релиза неизвестен размер.",
   "error.provider.releaseMetadataNotObject": "Метаданные релиза — не объект JSON.",

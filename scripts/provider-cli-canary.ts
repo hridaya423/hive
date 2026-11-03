@@ -22,8 +22,7 @@ import { NO_PROVIDER_CREDENTIALS, requireProviderDriver } from "../src/backend/p
 import { providerRuntimeDescriptor, type RuntimeTarget } from "../src/main/provider-runtime-descriptors";
 import { ProviderRuntimeManager, runtimeTarget } from "../src/main/provider-runtime-manager";
 import {
-  type BlockedVersions,
-  fetchBlockedVersions,
+  bundledBlockedVersions,
   type LatestReleaseContext,
   latestRelease,
 } from "../src/main/provider-runtime-releases";
@@ -138,12 +137,10 @@ async function expectedVersion(provider: ManagedProviderId): Promise<string> {
   const target = runtimeTarget(process.platform, process.arch);
   if (!target) throw new Error(`No provider runtime exists for ${process.platform}-${process.arch}.`);
   const newest = await runCauseEffect(latestRelease(provider, { target, lock, fetch }));
-  // The manager also blocks nothing when it cannot read the list.
-  const blocked = await Effect.runPromise(
-    fetchBlockedVersions(fetch).pipe(Effect.catch(() => Effect.succeed<BlockedVersions>(new Map()))),
-  );
   const pinned = providerRuntimeDescriptor(provider).spec(target, lock).version;
-  return blocked.get(provider)?.has(newest.version) || !olderVersion(pinned, newest.version) ? pinned : newest.version;
+  return bundledBlockedVersions.get(provider)?.has(newest.version) || !olderVersion(pinned, newest.version)
+    ? pinned
+    : newest.version;
 }
 
 async function canary(manager: ProviderRuntimeManager, provider: ManagedProviderId): Promise<CanaryResult> {

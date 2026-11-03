@@ -91,7 +91,6 @@ export const messages = {
     "Codex のリリースには、このコンピューター向けの検証可能なダウンロードがありません。",
   "error.provider.claudeReleaseShape": "Claude のリリース情報の形式が予期しないものです。",
   "error.provider.grokReleaseVersion": "Grok のリリースのバージョンが予期しないものです。",
-  "error.provider.blockedListShape": "ブロックされたバージョンのリストの形式が予期しないものです。",
   "error.provider.releaseNoDownload": "{name} のリリースには検証可能なダウンロードがありません。",
   "error.provider.releaseSizeUnknown": "リリースのダウンロードのサイズが不明です。",
   "error.provider.releaseMetadataNotObject": "リリースのメタデータが JSON オブジェクトではありません。",

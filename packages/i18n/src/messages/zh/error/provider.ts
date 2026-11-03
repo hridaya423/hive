@@ -83,7 +83,6 @@ export const messages = {
   "error.provider.codexReleaseNoDownload": "Codex 发布包中没有适用于该电脑的可验证下载。",
   "error.provider.claudeReleaseShape": "Claude 发布包的结构异常。",
   "error.provider.grokReleaseVersion": "Grok 发布包的版本异常。",
-  "error.provider.blockedListShape": "被屏蔽版本列表的结构异常。",
   "error.provider.releaseNoDownload": "{name} 发布包中没有可验证的下载。",
   "error.provider.releaseSizeUnknown": "发布包下载的大小未知。",
   "error.provider.releaseMetadataNotObject": "发布包元数据不是 JSON 对象。",
