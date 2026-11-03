@@ -35,7 +35,9 @@ const DIRECT_NAMES = new Set([
 const BROWSER_SCRIPT_TOOL = requireTool(`${OPENBOT_BROWSER_NAMESPACE}.run_script`);
 
 // Names keep the complete, stable catalog below 4,000 characters without schema duplication.
-const INITIAL_TOOL_CATALOG = BUILTIN_TOOL_CATALOG.map((tool) => tool.name).join(", ");
+const INITIAL_TOOL_CATALOG = BUILTIN_TOOL_CATALOG.filter((tool) => !DIRECT_NAMES.has(tool.tool))
+  .map((tool) => tool.name)
+  .join(", ");
 const qualifiedName = z.string().trim().min(1).max(160);
 const searchQuery = z.string().trim().min(1).max(200);
 // Models often send one query string, so search accepts `query` as well as `queries`.
