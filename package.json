@@ -298,6 +298,7 @@
     "test:notification-summary": "bun scripts/notification-summary-e2e.ts",
     "test:browser-sign-in": "bun scripts/browser-sign-in-e2e.ts",
     "test:routine-pause-resume": "bun scripts/routine-pause-resume-e2e.ts",
+    "test:routine-missed-runs": "bun scripts/routine-missed-runs-e2e.ts",
     "test:routine-timezone-move": "bun scripts/routine-timezone-move-e2e.ts",
     "test:routine-overnight-window": "bun scripts/routine-overnight-window-e2e.ts",
     "test:agent-waits-tools": "bun scripts/agent-waits-tools-e2e.ts",

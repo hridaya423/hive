@@ -266,7 +266,7 @@ export class RoutineStore {
           input.active ? 1 : 0,
           input.timezone,
           limitPolicyFor(schedule, input.limitPolicy),
-          input.missedPolicy ?? defaultMissedPolicy(schedule),
+          input.missedPolicy ?? DEFAULT_MISSED_POLICY,
           createdAt,
           createdAt,
           sequence,
@@ -367,8 +367,7 @@ export class RoutineStore {
     const limitPolicy = schedule
       ? limitPolicyFor(schedule, input.limitPolicy ?? current?.limitPolicy)
       : (input.limitPolicy ?? current?.limitPolicy ?? "wait");
-    const missedPolicy =
-      input.missedPolicy ?? current?.missedPolicy ?? (schedule ? defaultMissedPolicy(schedule) : "skip");
+    const missedPolicy = input.missedPolicy ?? current?.missedPolicy ?? (schedule ? DEFAULT_MISSED_POLICY : "skip");
     const timestamp = now.toISOString();
     // A routine that runs already keeps its schedule; a new run time must still be ahead.
     const running =
@@ -1292,10 +1291,8 @@ function limitPolicyFor(schedule: RoutineSchedule, requested: RoutineLimitPolicy
   return schedule.kind === "once" ? "wait" : (requested ?? "wait");
 }
 
-/** A one-time routine that came due while OpenBot was closed runs late by default; it has no next run. */
-function defaultMissedPolicy(schedule: RoutineSchedule): RoutineMissedPolicy {
-  return schedule.kind === "once" ? "run-once" : "skip";
-}
+/** A routine that came due while the host was off or asleep runs once when the host is back, unless it says `skip`. */
+const DEFAULT_MISSED_POLICY: RoutineMissedPolicy = "run-once";
 
 function scheduleColumn(row: DynamicRecord): RoutineSchedule {
   const value = JSON.parse(requiredStringColumn(row, "schedule_json"));

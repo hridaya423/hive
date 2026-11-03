@@ -127,10 +127,14 @@ paths, so review it before you publish it.
 
 A routine runs only while the computer is awake and OpenBot is open.
 
-- After a sleep, each overdue routine runs one time, when the network is back. OpenBot does not run
-  each occurrence that it missed.
-- After OpenBot was closed, the routine setting "If OpenBot was closed at the scheduled time"
-  decides: skip the run, or run it one time when OpenBot opens.
+- A routine that came due while the computer slept or OpenBot was closed runs one time, when
+  OpenBot opens or the computer wakes and the network is back. OpenBot does not run each occurrence
+  that it missed. Then the routine goes on with its normal schedule.
+- The routine setting "If OpenBot was closed at the scheduled time" decides: run it one time (the
+  default for a new routine), or skip the run. A routine that you saved with "Skip this run" before
+  this change keeps skipping.
+- A paused routine, and the routines of a hidden agent, do not catch up. After a resume or a
+  restore, a routine waits for its next occurrence.
 
 Turn on Settings → General → **Keep this computer awake**. While the computer
 is connected to power, it then does not sleep when idle. The display can still turn off. A closed
