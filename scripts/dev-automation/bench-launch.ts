@@ -91,7 +91,7 @@ export async function launchBenchApp(options: LaunchBenchAppOptions): Promise<Be
       mkdirSync(dirname(options.logPath), { recursive: true });
       logFile = openSync(options.logPath, "a", 0o600);
     }
-    const spawned = spawn(executable, [`--inspect=127.0.0.1:${inspectorPort}`, projectRoot], {
+    const spawned = spawn(executable, ["--use-mock-keychain", `--inspect=127.0.0.1:${inspectorPort}`, projectRoot], {
       cwd: projectRoot,
       detached: true,
       stdio: logFile === null ? "ignore" : ["ignore", logFile, logFile],
