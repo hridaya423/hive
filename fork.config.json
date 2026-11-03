@@ -7,8 +7,8 @@
   "controlPlane": {
     "accountApiUrl": "https://hridyas-mini.tail59dec9.ts.net:8446",
     "signalUrl": "wss://hridyas-mini.tail59dec9.ts.net:8447/v1/signal",
-    "workerPort": 3100,
-    "signalPort": 3101,
-    "signalHealthPort": 3102
+    "workerPort": 3180,
+    "signalPort": 3181,
+    "signalHealthPort": 3182
   }
 }

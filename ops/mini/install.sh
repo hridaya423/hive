@@ -52,6 +52,15 @@ for name in worker signal tick; do
   plist="$AGENTS/$LABEL_PREFIX.$name.plist"
   sed -e "s|__ROOT__|$ROOT|g" -e "s|__LOGS__|$LOGS|g" "ops/mini/$LABEL_PREFIX.$name.plist" > "$plist"
   launchctl bootout "$DOMAIN/$LABEL_PREFIX.$name" 2>/dev/null || true
+  tries=0
+  while launchctl print "$DOMAIN/$LABEL_PREFIX.$name" > /dev/null 2>&1; do
+    tries=$((tries + 1))
+    if [ "$tries" -ge 30 ]; then
+      echo "$LABEL_PREFIX.$name did not stop." >&2
+      exit 1
+    fi
+    sleep 1
+  done
   launchctl bootstrap "$DOMAIN" "$plist"
 done
 
