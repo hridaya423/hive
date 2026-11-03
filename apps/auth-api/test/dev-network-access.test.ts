@@ -14,7 +14,6 @@ describe("development Auth API LAN access", () => {
       "/v1/mobile-auth/session",
       "/v1/me",
       "/v1/me/profile",
-      "/v1/me/analytics",
       "/v1/me/avatar",
       "/v1/mobile/features?platform=ios&version=1.2.0",
       "/v1/avatars/user-id?v=photo-version",

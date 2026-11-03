@@ -2,7 +2,7 @@ import { isAvatarMimeType } from "@openbot/contracts/avatar-images";
 import { type DynamicRecord, isBoolean, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { Cause, Effect } from "effect";
 import { requestFirstTouch } from "./account-attribution";
-import { type AuthService, AuthServiceError, readAnalyticsAnswer } from "./auth-service";
+import { type AuthService, AuthServiceError } from "./auth-service";
 import { AvatarUploadError, readAvatarUpload, removeAccountAvatar, storeAccountAvatar } from "./avatar-storage";
 import { sha256 } from "./crypto";
 import { runApiResponse } from "./effect-runtime";
@@ -23,7 +23,6 @@ export interface BrowserApiServices {
     | "verifyEmailCode"
     | "authenticate"
     | "enforceTeamInviteRateLimit"
-    | "updateAnalytics"
     | "updateName"
     | "updateAvatar"
     | "listAccountSessions"
@@ -260,12 +259,6 @@ const handleAccount = Effect.fn("BrowserApi.handleAccount")(function* (
     if (!isString(body.name))
       return yield* new AuthServiceError(400, "invalid_profile_name", "Enter a valid display name.");
     return json(yield* services.auth.updateName(token, body.name));
-  }
-  if (path === "v1/me/analytics" && request.method === "PUT") {
-    const answer = readAnalyticsAnswer(yield* readJsonObject(request));
-    if (!answer)
-      return yield* new AuthServiceError(400, "invalid_analytics_preference", "The analytics setting is not valid.");
-    return json(yield* services.auth.updateAnalytics(token, answer));
   }
   if (path === AVATAR_PATH && request.method === "PUT") {
     return yield* Effect.gen(function* () {
