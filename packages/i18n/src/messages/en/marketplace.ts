@@ -28,7 +28,7 @@ export const messages = defineMessages("marketplace", {
   "marketplace.description.skills": "Instructions that teach an agent a task or a tool.",
 
   // A plugin link.
-  "marketplace.plugins.missing": "This plugin is not in the OpenBot catalog.",
+  "marketplace.plugins.missing": "This plugin is not in the Hive catalog.",
 
   // The agent page.
   "marketplace.agents.loadingDetail": "Loading agent details…",
@@ -40,17 +40,17 @@ export const messages = defineMessages("marketplace", {
   "marketplace.agents.yours": "Your agents",
   "marketplace.agents.all": "All agents",
   "marketplace.agents.missing": "This agent is not in the Marketplace.",
-  "marketplace.agents.trust.reviewed": "Made by another OpenBot user. OpenBot reviewed it before it went live.",
+  "marketplace.agents.trust.reviewed": "Made by another Hive user. Hive reviewed it before it went live.",
   "marketplace.agents.trust.reviewedBeforeAdd":
-    "Made by another OpenBot user. OpenBot reviewed it before it went live. It can act on your behalf once added.",
-  "marketplace.agents.trust.pending": "Shared by its creator before OpenBot reviewed it.",
+    "Made by another Hive user. Hive reviewed it before it went live. It can act on your behalf once added.",
+  "marketplace.agents.trust.pending": "Shared by its creator before Hive reviewed it.",
   "marketplace.agents.trust.pendingBeforeAdd":
-    "Shared by its creator before OpenBot reviewed it. It can act on your behalf once added.",
+    "Shared by its creator before Hive reviewed it. It can act on your behalf once added.",
   "marketplace.agents.source.pending": "Not reviewed yet",
 
   // The skill page, and why Try is off.
   "marketplace.skill.loading": "Loading skill",
-  "marketplace.try.readFailed": "OpenBot could not read this agent's skills. Try again.",
+  "marketplace.try.readFailed": "Hive could not read this agent's skills. Try again.",
   "marketplace.try.enable": "Enable this skill in agent settings to try it.",
   "marketplace.try.repair": "Repair this skill in agent settings to try it.",
   "marketplace.try.update": "Update this skill to try this version.",
@@ -129,7 +129,7 @@ export const messages = defineMessages("marketplace", {
   "marketplace.app.setup.key": "Needs an API key from your {name} account.",
   "marketplace.app.setup.keySaved": "{field} saved on {host}.",
   // {host} is "this computer" or a server name.
-  "marketplace.app.account.removeDescription": "OpenBot deletes the sign-in of this account on {host}.",
+  "marketplace.app.account.removeDescription": "Hive deletes the sign-in of this account on {host}.",
   "marketplace.app.setup.desktop": "Runs in the {name} desktop app at {address}.",
   "marketplace.app.setup.desktopConnected": "Connected to {address}.",
   "marketplace.app.setup.open": "No sign-in or key needed.",
@@ -139,10 +139,10 @@ export const messages = defineMessages("marketplace", {
   "marketplace.app.automation.description":
     "macOS shows one prompt for each app. A closed app opens for a moment, then quits.",
   "marketplace.app.automation.request": "Ask for access",
-  "marketplace.app.automation.allowed": "OpenBot can now control all of the Apple apps.",
+  "marketplace.app.automation.allowed": "Hive can now control all of the Apple apps.",
   "marketplace.app.automation.refused":
-    "macOS did not give access to {apps}. Allow OpenBot in System Settings › Privacy & Security › Automation.",
-  "marketplace.app.automation.failed": "OpenBot could not ask macOS about {apps}. Try again.",
+    "macOS did not give access to {apps}. Allow Hive in System Settings › Privacy & Security › Automation.",
+  "marketplace.app.automation.failed": "Hive could not ask macOS about {apps}. Try again.",
   "marketplace.app.automation.app.calendar": "Calendar",
   "marketplace.app.automation.app.contacts": "Contacts",
   "marketplace.app.automation.app.mail": "Mail",
@@ -209,7 +209,7 @@ export const messages = defineMessages("marketplace", {
   "marketplace.plugin.figma.prompt.assets": "Extract the marketing icons at 2x for the app bundle.",
   "marketplace.plugin.paper.tagline": "Design canvas built on HTML and CSS",
   "marketplace.plugin.paper.description":
-    "Paper lets agents read and write the design file that is open in Paper Desktop: inspect artboards, selections, computed styles, JSX and tokens, and create or change frames, text and styles. Install Paper Desktop, open it once, and open a file before you start. OpenBot starts the Paper CLI that Paper Desktop installs. Paper needs no key. Write tools change the open file, so review each write before you approve it.",
+    "Paper lets agents read and write the design file that is open in Paper Desktop: inspect artboards, selections, computed styles, JSX and tokens, and create or change frames, text and styles. Install Paper Desktop, open it once, and open a file before you start. Hive starts the Paper CLI that Paper Desktop installs. Paper needs no key. Write tools change the open file, so review each write before you approve it.",
   "marketplace.plugin.paper.app":
     "Reads and writes the open Paper Desktop file, over the local MCP server that the Paper CLI relays. Needs Paper Desktop with a file open.",
   "marketplace.plugin.paper.prompt.implement":
@@ -220,7 +220,7 @@ export const messages = defineMessages("marketplace", {
     "List the design tokens in the open Paper file and compare them with our theme.",
   "marketplace.plugin.appleApps.tagline": "Mail, Calendar and more on your Mac",
   "marketplace.plugin.appleApps.description":
-    "Apple apps lets agents use Mail, Calendar, Contacts, Reminders, Notes, Messages and Safari on this Mac. It works on macOS only. OpenBot starts mcp-icloud, a community server that is not made by Apple or OpenBot. The server controls the apps through AppleScript, on this computer, and needs no account and no key. When you install it, OpenBot can ask macOS for access to all of these apps at once, with one prompt for each app. If you do not, macOS asks the first time an agent uses an app. To change this later, open System Settings › Privacy & Security › Automation. Agents can send email and iMessages, and change or delete events, contacts and reminders, so review each write before you approve it. What the tools read, such as email text, goes to the model provider of the agent.",
+    "Apple apps lets agents use Mail, Calendar, Contacts, Reminders, Notes, Messages and Safari on this Mac. It works on macOS only. Hive starts mcp-icloud, a community server that is not made by Apple or Hive. The server controls the apps through AppleScript, on this computer, and needs no account and no key. When you install it, Hive can ask macOS for access to all of these apps at once, with one prompt for each app. If you do not, macOS asks the first time an agent uses an app. To change this later, open System Settings › Privacy & Security › Automation. Agents can send email and iMessages, and change or delete events, contacts and reminders, so review each write before you approve it. What the tools read, such as email text, goes to the model provider of the agent.",
   "marketplace.plugin.appleApps.app":
     "Mail, Calendar, Contacts, Reminders, Notes, Messages and Safari, over the local mcp-icloud server. Needs macOS and Automation access.",
   "marketplace.plugin.appleApps.prompt.unread": "Summarize my unread email in Apple Mail from today.",
@@ -435,8 +435,8 @@ export const messages = defineMessages("marketplace", {
   "marketplace.skills.source.all": "All",
   "marketplace.skills.source.verified": "Verified",
   "marketplace.skills.source.public": "Public",
-  "marketplace.skills.source.verifiedLong": "Verified by OpenBot",
-  "marketplace.skills.source.publicLong": "Reviewed by OpenBot",
+  "marketplace.skills.source.verifiedLong": "Verified by Hive",
+  "marketplace.skills.source.publicLong": "Reviewed by Hive",
   "marketplace.skills.sortLabel": "Sort",
   "marketplace.skills.sortName": "Sort: {name}",
   "marketplace.skills.sort.installs": "Most used",

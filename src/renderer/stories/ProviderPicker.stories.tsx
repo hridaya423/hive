@@ -296,7 +296,7 @@ export const ProviderSwitchError: Story = {
   render: () => (
     <ProviderSwitchStory
       off={[]}
-      save={() => Promise.reject(new Error("OpenBot could not change the provider setting."))}
+      save={() => Promise.reject(new Error("Hive could not change the provider setting."))}
     />
   ),
 };

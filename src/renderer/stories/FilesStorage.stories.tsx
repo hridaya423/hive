@@ -356,7 +356,5 @@ export const ListLoading: Story = {
 
 export const ListError: Story = {
   name: "File list: Error",
-  render: () => (
-    <ListStage error="The attachment index is not available. Restart OpenBot and try again." onRetry={fn()} />
-  ),
+  render: () => <ListStage error="The attachment index is not available. Restart Hive and try again." onRetry={fn()} />,
 };

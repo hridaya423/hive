@@ -7,4 +7,4 @@ ROOT='/Library/Application Support/OpenBot/HostManager'
 if [ -f "$ROOT/config.json" ] && [ ! -L "$ROOT/config.json" ]; then
   launchctl bootstrap system /Library/LaunchDaemons/app.openbot.host-manager.plist
 fi
-echo 'OpenBot Host installed. Run sudo openbot-host setup, then sudo openbot-host verify.'
+echo 'Hive Host installed. Run sudo openbot-host setup, then sudo openbot-host verify.'

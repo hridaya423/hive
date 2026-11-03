@@ -3,7 +3,7 @@ import { defineMessages } from "../../message";
 export const messages = defineMessages("settings", {
   // The language setting itself.
   "settings.language.title": "Language",
-  "settings.language.description": "OpenBot shows menus, buttons and messages in this language.",
+  "settings.language.description": "Hive shows menus, buttons and messages in this language.",
   // The logo color setting, General tab.
   "settings.appearance.title": "Appearance",
   "settings.appearance.theme.title": "Theme",
@@ -15,7 +15,7 @@ export const messages = defineMessages("settings", {
   "settings.appearance.transparentWindow.description":
     "Show the blurred desktop behind the window. Websites and menus then use the app theme.",
   "settings.interfaceSize.title": "Interface size",
-  "settings.interfaceSize.description": "The size of text and controls in OpenBot.",
+  "settings.interfaceSize.description": "The size of text and controls in Hive.",
   "settings.logoColor.title": "Logo color",
   "settings.logoColor.description": "Shown in the Dock, the taskbar and the Dynamic Island.",
   "settings.logoColor.buildNote": "This build keeps its own logo color. The choice applies to the release app.",
@@ -32,12 +32,12 @@ export const messages = defineMessages("settings", {
   // The Settings window, General tab.
   "settings.appBehavior.title": "App behavior",
   "settings.conversations.title": "Conversations",
-  "settings.launchAtLogin.title": "Launch OpenBot at login",
+  "settings.launchAtLogin.title": "Launch Hive at login",
   "settings.launchAtLogin.description": "Open the app when you sign in to this computer.",
-  "settings.keepRunning.title": "Keep OpenBot running in the background",
+  "settings.keepRunning.title": "Keep Hive running in the background",
   "settings.keepRunning.description": "Keep active tasks running after you close the window.",
-  "settings.menuBar.title": "Show OpenBot in the menu bar",
-  "settings.menuBar.description": "Open or quit OpenBot from an icon in the menu bar.",
+  "settings.menuBar.title": "Show Hive in the menu bar",
+  "settings.menuBar.description": "Open or quit Hive from an icon in the menu bar.",
   "settings.keepAwake.title": "Keep this computer awake",
   "settings.keepAwake.description":
     "Routines run on time while the computer is connected to power. The display can still turn off.",
@@ -50,7 +50,7 @@ export const messages = defineMessages("settings", {
   "settings.externalLinks.description": "Links in chats, sign-in pages and billing pages open here.",
   // The two link targets. The saved value stays in English; only the label is translated.
   "settings.externalLinks.defaultBrowser": "Default browser",
-  "settings.externalLinks.openbot": "OpenBot",
+  "settings.externalLinks.openbot": "Hive",
   "settings.externalLinks.defaultBrowserNamed": "Default browser ({name})",
   "settings.externalLinks.otherApp": "Other app…",
   "settings.externalLinks.command": "Command…",
@@ -90,7 +90,7 @@ export const messages = defineMessages("settings", {
   "settings.agentDefaults.loadFailed": "The agents could not be read.",
   "settings.backgroundProcesses.title": "Background processes",
   "settings.backgroundProcesses.description":
-    "Programs that agents started and left running, such as dev servers. They keep running after the chat ends and after you quit OpenBot.",
+    "Programs that agents started and left running, such as dev servers. They keep running after the chat ends and after you quit Hive.",
   "settings.backgroundProcesses.empty": "No programs from agents are running.",
   "settings.backgroundProcesses.loadFailed": "The background processes could not be read.",
   "settings.backgroundProcesses.noAgent": "No agent",
@@ -101,7 +101,7 @@ export const messages = defineMessages("settings", {
   "settings.backgroundProcesses.stopFailed": "The process could not be stopped.",
   "settings.keepRemoteSessions.title": "Fast connection to servers",
   "settings.keepRemoteSessions.description":
-    "Keep the connection to your joined servers between launches. OpenBot starts about a second faster. When you quit OpenBot, the OpenBot service does not close the connection.",
+    "Keep the connection to your joined servers between launches. Hive starts about a second faster. When you quit Hive, the Hive service does not close the connection.",
   "settings.notifications.whatYouHear": "What you hear about",
   "settings.notifications.allDevices": "All my devices",
   "settings.notifications.thisComputer": "This computer",
@@ -117,7 +117,7 @@ export const messages = defineMessages("settings", {
   "settings.notificationMatrix.offline": "Offline",
   "settings.notificationMatrix.thisComputerOnly": "This computer only",
   "settings.notificationMatrix.thisBrowserOnly": "This browser only",
-  "settings.notificationMatrix.updateServer": "Update OpenBot on this server to choose agents",
+  "settings.notificationMatrix.updateServer": "Update Hive on this server to choose agents",
   "settings.notificationMatrix.loading": "Loading agents…",
   "settings.notificationMatrix.loadFailed": "Could not load the agents of this server.",
   "settings.desktopNotifications.title": "Desktop notifications",
@@ -126,7 +126,7 @@ export const messages = defineMessages("settings", {
   "settings.notificationPreview.description": "Show the start of the agent's reply or question in notifications.",
   "settings.testNotification.title": "Test notification",
   "settings.testNotification.description":
-    "Show one now. If it does not appear, allow OpenBot notifications in your system settings.",
+    "Show one now. If it does not appear, allow Hive notifications in your system settings.",
   "settings.testNotification.action": "Send test",
   "settings.testNotification.failed": "Could not show a notification.",
   "settings.testNotification.openSettings": "Open system settings",
@@ -146,7 +146,7 @@ export const messages = defineMessages("settings", {
   "settings.notch.show.title": "Show status in the MacBook notch",
   "settings.notch.show.description": "Show agent activity and items that need attention at the top of each display.",
   "settings.notch.idle.title": "Show idle island",
-  "settings.notch.idle.description": "Show the OpenBot logo and greeting when no status is active.",
+  "settings.notch.idle.description": "Show the Hive logo and greeting when no status is active.",
   "settings.notch.displays.title": "Show on additional displays",
   "settings.notch.displays.description": "Show Dynamic Island on connected external displays.",
   "settings.notch.haptics.title": "Haptic feedback",
@@ -163,26 +163,26 @@ export const messages = defineMessages("settings", {
   "settings.notch.size.previewIsland": "External display",
   // The Settings window shell: its tab list, headers and save bar.
   "settings.tab.general.title": "General",
-  "settings.tab.general.description": "Control how OpenBot behaves on this computer.",
+  "settings.tab.general.description": "Control how Hive behaves on this computer.",
   "settings.tab.agents.title": "Agents",
   "settings.tab.agents.description":
     "Choose what the agents on this computer can do when you do not set it for an agent.",
   "settings.tab.notifications.title": "Notifications",
-  "settings.tab.notifications.description": "Choose how OpenBot alerts you.",
+  "settings.tab.notifications.description": "Choose how Hive alerts you.",
   "settings.tab.voice.title": "Voice",
   "settings.tab.voice.description":
     "Dictation in the message box. Local models run on this computer; ElevenLabs runs in the cloud.",
   "settings.tab.computerUse.title": "Computer Use",
   "settings.tab.computerUse.description":
-    "Let agents on this computer's OpenBot see and use its apps. Agents on another server use that server's computer.",
+    "Let agents on this computer's Hive see and use its apps. Agents on another server use that server's computer.",
   "settings.tab.profile.title": "Profile",
-  "settings.tab.profile.description": "Manage how you appear in OpenBot.",
+  "settings.tab.profile.description": "Manage how you appear in Hive.",
   "settings.tab.mobileConnect.title": "Mobile Connect",
   "settings.tab.mobileConnect.description": "Sign in securely on your phone.",
   "settings.tab.dynamicIsland.title": "Dynamic Island",
   "settings.tab.dynamicIsland.description": "Choose when the island shows and how large it is.",
   "settings.tab.updates.title": "Updates",
-  "settings.tab.updates.description": "Keep OpenBot current on this computer.",
+  "settings.tab.updates.description": "Keep Hive current on this computer.",
   "settings.sections.label": "Settings sections",
   "settings.panel.resize": "Resize right panel",
   // A failed read or save of the app preferences on the General, Notifications, Dynamic Island and Updates tabs.
@@ -194,28 +194,28 @@ export const messages = defineMessages("settings", {
   "settings.disconnect.pending": "Disconnecting…",
   // The Mobile Connect tab.
   "settings.mobileConnect.phones.title": "Your phones",
-  "settings.mobileConnect.phones.description": "Phones that use OpenBot with this account.",
+  "settings.mobileConnect.phones.description": "Phones that use Hive with this account.",
   "settings.mobileConnect.phones.add": "Add phone",
   "settings.mobileConnect.phones.empty.title": "No phones yet",
   "settings.mobileConnect.phones.empty.description": "Chat with your agents and follow their work from your phone.",
   // {time} is "Just now", "5m ago", "2h ago" or a date.
   "settings.mobileConnect.devices.lastActive": "Last active: {time}",
   "settings.mobileConnect.add.title": "Add a phone",
-  "settings.mobileConnect.add.question": "Is OpenBot installed on the phone?",
+  "settings.mobileConnect.add.question": "Is Hive installed on the phone?",
   "settings.mobileConnect.add.signIn.title": "Yes, sign in",
   "settings.mobileConnect.add.signIn.hint": "Show a one-time code",
   "settings.mobileConnect.add.install.title": "No, get the app",
   "settings.mobileConnect.add.install.hint": "iPhone or Android",
   "settings.mobileConnect.add.install.heading": "Get the app",
-  "settings.mobileConnect.add.install.note": "Point the phone camera at the code, install OpenBot, then continue.",
+  "settings.mobileConnect.add.install.note": "Point the phone camera at the code, install Hive, then continue.",
   "settings.mobileConnect.add.continue": "Continue to sign in",
   // The tags under the QR codes. Each tag says what its code does.
   "settings.mobileConnect.qr.appStore": "Opens the App Store",
   "settings.mobileConnect.qr.playStore": "Opens Google Play",
-  "settings.mobileConnect.qr.signIn": "Scan in the OpenBot app",
+  "settings.mobileConnect.qr.signIn": "Scan in the Hive app",
   "settings.mobileConnect.qr.permanent": "Permanent code",
   "settings.mobileConnect.qr.connected": "{name} connected",
-  "settings.mobileConnect.step.open": "Open OpenBot on your phone.",
+  "settings.mobileConnect.step.open": "Open Hive on your phone.",
   "settings.mobileConnect.step.scan": "Tap Scan QR code.",
   "settings.mobileConnect.step.point": "Point the camera at this screen.",
   "settings.mobileConnect.code.expired": "Code expired",
@@ -264,16 +264,16 @@ export const messages = defineMessages("settings", {
   "settings.mobileConnect.route.title": "How devices connect",
   "settings.mobileConnect.route.description":
     "For phones, other computers and team members that connect to this computer.",
-  // {route} is "Through OpenBot" or "Private network".
+  // {route} is "Through Hive" or "Private network".
   "settings.mobileConnect.route.chipLabel": "How devices connect: {route}",
-  "settings.mobileConnect.route.openbot.title": "Through OpenBot",
+  "settings.mobileConnect.route.openbot.title": "Through Hive",
   "settings.mobileConnect.route.openbot.badge": "Recommended",
   "settings.mobileConnect.route.openbot.description":
     "Works on any network. Chats and files are encrypted between your devices.",
   "settings.mobileConnect.route.private.title": "Private network",
   "settings.mobileConnect.route.private.tailscale": "Tailscale found",
   "settings.mobileConnect.route.private.description":
-    "Tailscale or this Wi-Fi. Devices still sign in with OpenBot. Chats and files never go through OpenBot servers, and devices connect only on that network.",
+    "Tailscale or this Wi-Fi. Devices still sign in with Hive. Chats and files never go through Hive servers, and devices connect only on that network.",
   "settings.mobileConnect.route.error.load": "Could not load how devices connect.",
   "settings.mobileConnect.route.error.save": "Could not change how devices connect.",
   "settings.mobileConnect.disconnectInfo.description":
@@ -309,7 +309,7 @@ export const messages = defineMessages("settings", {
   "settings.profile.edit.title": "Edit profile",
   "settings.profile.share.action": "Share",
   "settings.profile.share.title": "Share your activity",
-  "settings.profile.share.imageAlt": "Your OpenBot activity in the past six months",
+  "settings.profile.share.imageAlt": "Your Hive activity in the past six months",
   "settings.profile.share.copy": "Copy image",
   "settings.profile.share.save": "Save image",
   "settings.profile.share.copied": "Image copied",
@@ -317,7 +317,7 @@ export const messages = defineMessages("settings", {
   "settings.profile.share.createFailed": "Could not make the image.",
   "settings.profile.share.fileName": "openbot-activity.png",
   // The text in the image to share.
-  "settings.profile.share.caption": "My last six months with OpenBot",
+  "settings.profile.share.caption": "My last six months with Hive",
   "settings.profile.activity.title": "Activity on this computer",
   "settings.profile.activity.activeDays": {
     one: "{count} active day in the past year",
@@ -353,7 +353,7 @@ export const messages = defineMessages("settings", {
   "settings.profile.models.title": "Model usage",
   "settings.profile.account.title": "Account",
   "settings.profile.email.title": "Email",
-  "settings.profile.email.description": "Used to sign in to OpenBot.",
+  "settings.profile.email.description": "Used to sign in to Hive.",
   "settings.profile.sessions.title": "Account sessions",
   "settings.profile.sessions.description":
     "Sessions stay signed in until you log out or disconnect them. Disconnecting also ends this account's active remote connections.",
@@ -373,10 +373,10 @@ export const messages = defineMessages("settings", {
   "settings.profile.sessions.disconnectConfirm.title": "Disconnect this session?",
   "settings.profile.sessions.disconnectConfirm.description":
     "This device is signed out of your account. It must sign in again to connect.",
-  // The Updates tab. {target} is "OpenBot v1.2.3" or settings.updates.target.latest.
-  "settings.updates.title": "OpenBot updates",
+  // The Updates tab. {target} is "Hive v1.2.3" or settings.updates.target.latest.
+  "settings.updates.title": "Hive updates",
   "settings.updates.track.title": "Update track",
-  "settings.updates.track.description": "Stable receives tested OpenBot releases.",
+  "settings.updates.track.description": "Stable receives tested Hive releases.",
   "settings.updates.track.stable": "Stable",
   "settings.updates.version": "Version {version}",
   "settings.updates.versionUnknown": "Unknown",
@@ -386,9 +386,9 @@ export const messages = defineMessages("settings", {
   "settings.updates.autoDownload.description": "Download new versions when they become available.",
   "settings.updates.managed.title": "Managed by Host Manager",
   "settings.updates.managed.description":
-    "Updates for this Mac are managed automatically by OpenBot Host Manager. All users share the same OpenBot application and are updated together when registered users are idle.",
-  "settings.updates.target.latest": "The latest OpenBot update",
-  "settings.updates.host.upToDate": "Up to date. OpenBot Host Manager keeps this Mac current.",
+    "Updates for this Mac are managed automatically by Hive Host Manager. All users share the same Hive application and are updated together when registered users are idle.",
+  "settings.updates.target.latest": "The latest Hive update",
+  "settings.updates.host.upToDate": "Up to date. Hive Host Manager keeps this Mac current.",
   "settings.updates.host.ready": "{target} is downloaded. Waiting for the other users of this Mac to be idle.",
   "settings.updates.host.installing": "Installing {target}…",
   "settings.updates.host.failed": "The managed update failed. Contact the administrator of this Mac.",
@@ -400,19 +400,19 @@ export const messages = defineMessages("settings", {
   "settings.updates.status.downloadingProgress": "Downloading {target} · {progress}",
   "settings.updates.status.ready": "{target} is ready. Restart to apply.",
   "settings.updates.status.installing": "Restarting to apply {target}…",
-  "settings.updates.status.upToDate": "OpenBot is up to date on the Stable track.",
-  "settings.updates.status.checkFailed": "OpenBot could not check for updates. Try again.",
+  "settings.updates.status.upToDate": "Hive is up to date on the Stable track.",
+  "settings.updates.status.checkFailed": "Hive could not check for updates. Try again.",
   "settings.updates.status.unsupported": "Updates are unavailable in this build.",
-  "settings.updates.actionFailed": "Could not update OpenBot.",
+  "settings.updates.actionFailed": "Could not update Hive.",
   "settings.updates.autoInstall.title": "Install updates automatically",
   "settings.updates.autoInstall.description":
-    "OpenBot restarts into a downloaded update when the agents are idle. Members of your servers are disconnected for a short time.",
+    "Hive restarts into a downloaded update when the agents are idle. Members of your servers are disconnected for a short time.",
   // Restart OpenBot, or install a downloaded update, when no agent works.
-  "settings.updates.idleRestart.title": "Restart OpenBot",
+  "settings.updates.idleRestart.title": "Restart Hive",
   "settings.updates.idleRestart.relaunchDescription":
-    "OpenBot restarts when no agent works. New routine runs wait until then.",
+    "Hive restarts when no agent works. New routine runs wait until then.",
   "settings.updates.idleRestart.updateDescription":
-    "OpenBot installs {target} when no agent works. New routine runs wait until then.",
+    "Hive installs {target} when no agent works. New routine runs wait until then.",
   "settings.updates.idleRestart.relaunch": "Restart when idle",
   "settings.updates.idleRestart.update": "Install when idle",
   "settings.updates.allowRemote.title": "Allow updates from server members",
@@ -541,8 +541,8 @@ export const messages = defineMessages("settings", {
   "settings.transfer.import.reading": "Reading the file…",
   "settings.transfer.import.openFailed": "The file could not be opened",
   "settings.transfer.import.contains": "This file contains",
-  "settings.transfer.import.source": "OpenBot {version} · exported {date}",
-  "settings.transfer.import.sourceNoDate": "OpenBot {version}",
+  "settings.transfer.import.source": "Hive {version} · exported {date}",
+  "settings.transfer.import.sourceNoDate": "Hive {version}",
   "settings.transfer.import.warnings": "Before the import starts",
   "settings.transfer.import.agentsLabel": "Agents in the file",
   "settings.transfer.import.nameExists": "Name already used",

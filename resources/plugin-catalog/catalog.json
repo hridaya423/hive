@@ -66,13 +66,13 @@
       "slug": "paper",
       "version": "1.0.1",
       "featured": false,
-      "detailSha256": "d15a140eec6ab0a0a6e79e354ccaba88d035435112bdb7a044528b2a4c7a1548"
+      "detailSha256": "a313def274ae9328abbb3a4a83dd93ebe5e896a06822f10b43b6828432cfea6b"
     },
     {
       "slug": "apple-apps",
       "version": "1.1.0",
       "featured": false,
-      "detailSha256": "ee3aa4ba4d11b38bea38f703959868cfb6bb5cf4ac5d3ef7a998e4a40a345984"
+      "detailSha256": "1ac32e1f90c4e1406b55a05b2c0b26732a7bb4189997fab804dcee6234ccbcc7"
     },
     {
       "slug": "sentry",

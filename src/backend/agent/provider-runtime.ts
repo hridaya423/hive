@@ -3121,7 +3121,7 @@ export class ProviderRuntime implements ProviderPort {
     keepsReleased = false,
   ): void {
     const hasActiveClient = this.#clients.has(provider) || (keepsReleased && this.#released.has(provider));
-    const fallbackMessage = `OpenBot could not connect ${providerLabel(provider)}. Try again.`;
+    const fallbackMessage = `Hive could not connect ${providerLabel(provider)}. Try again.`;
     const rawMessage = error instanceof Error ? error.message : String(error);
     const timeout = isProviderTimeout(error);
     // A timeout says which stage did not answer, and the row's last error keeps it. Only a catalog
@@ -3758,7 +3758,7 @@ export class ProviderRuntime implements ProviderPort {
               capabilities: { ...this.#status.capabilities, chat: "unavailable" },
               message: startStopped
                 ? this.#startStoppedMessage(client.provider)
-                : `${providerLabel(client.provider)} stopped repeatedly. Restart OpenBot after checking the CLI.`,
+                : `${providerLabel(client.provider)} stopped repeatedly. Restart Hive after checking the CLI.`,
             },
       );
       return;

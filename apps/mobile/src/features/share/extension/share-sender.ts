@@ -235,7 +235,7 @@ async function send(request: ShareSendRequest): Promise<void> {
           );
           const { minimum, maximum } = compatibility.protocol;
           if (minimum > TEAM_PROTOCOL_V3 || maximum < TEAM_PROTOCOL_V3) {
-            throw new ShareStageError("compatibility", "The server needs another OpenBot version.");
+            throw new ShareStageError("compatibility", "The server needs another Hive version.");
           }
           for (const [index, file] of request.files.entries()) {
             const query = new URLSearchParams({ name: file.name, mime: file.mimeType });

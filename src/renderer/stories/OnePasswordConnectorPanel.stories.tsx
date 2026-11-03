@@ -74,7 +74,7 @@ export const ConnectedLoading: Story = {
 
 export const InstallFailed: Story = {
   args: args({
-    error: "OpenBot could not install the 1Password CLI. Check the connection to the internet, then try again.",
+    error: "Hive could not install the 1Password CLI. Check the connection to the internet, then try again.",
   }),
 };
 

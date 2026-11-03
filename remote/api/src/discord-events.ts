@@ -24,7 +24,7 @@ import {
 } from "discord-api-types/v10";
 
 /** The text of the one reply to a direct message. */
-export const DISCORD_DIRECT_MESSAGE_REPLY = "OpenBot answers in Discord servers. Mention @OpenBot in a server channel.";
+export const DISCORD_DIRECT_MESSAGE_REPLY = "Hive answers in Discord servers. Mention @Hive in a server channel.";
 
 /** Discord accepts follow-ups with an interaction token for 15 minutes. */
 const INTERACTION_TOKEN_TTL_MILLISECONDS = 15 * 60_000;

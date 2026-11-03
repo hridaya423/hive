@@ -5,9 +5,9 @@ import { ButtonLink } from "../ui/button";
 export function SiteHeader() {
   return (
     <header class="landing-header" data-enter="header">
-      <Link class="landing-brand" to="/app" reloadDocument aria-label="OpenBot web app">
+      <Link class="landing-brand" to="/app" reloadDocument aria-label="Hive web app">
         <AppLogo variant="production" class="landing-brand-logo" />
-        <span>OpenBot</span>
+        <span>Hive</span>
       </Link>
       <div class="site-header-actions">
         <ButtonLink

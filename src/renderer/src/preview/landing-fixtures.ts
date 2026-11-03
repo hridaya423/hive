@@ -284,7 +284,7 @@ function landingServers(): ServerSummary[] {
     },
     {
       id: "team",
-      name: "OpenBot team",
+      name: "Hive team",
       logoUrl: productionLogoUrl,
       notificationsMuted: false,
       notificationsMutedUntil: null,

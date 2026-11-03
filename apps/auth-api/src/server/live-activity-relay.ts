@@ -45,7 +45,7 @@ export type ApnsRelayResult = "sent" | "gone" | "rejected" | "unavailable";
 /** The Live Activity type of the app. It must equal the name the app gives `LiveActivityFactory`. */
 const ACTIVITY_NAME = "AgentActivity";
 /** The alert title until the app opens the seal. A brand name, so it is the same in every language. */
-const NOTIFICATION_TITLE = "OpenBot";
+const NOTIFICATION_TITLE = "Hive";
 /**
  * The text of a Live Activity alert. iOS shows it on Apple Watch only: the iPhone shows the activity.
  * It is the app name, so Apple sees no agent and no event.

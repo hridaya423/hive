@@ -49,7 +49,7 @@ const MOCK_SPEECH_ONLY_MODELS: VoiceServerModels = {
 function probeMockServer(address: string, apiKey: string | null): VoiceServerProbe {
   const url = new URL(address);
   if (url.hostname.includes("offline"))
-    return { ok: false, field: "address", message: `OpenBot could not connect to ${url.host}.` };
+    return { ok: false, field: "address", message: `Hive could not connect to ${url.host}.` };
   if (apiKey === "wrong") return { ok: false, field: "apiKey", message: `${url.host} refused the API key.` };
   return { ok: true, models: clone(url.port === "8880" ? MOCK_SPEECH_ONLY_MODELS : MOCK_SERVER_MODELS) };
 }
