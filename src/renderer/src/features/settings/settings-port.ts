@@ -13,6 +13,7 @@ export interface SettingsPort {
   getApprovalAutomation: OpenBotDesktopApi["getApprovalAutomation"];
   getBusyMessageModePreference: OpenBotDesktopApi["getBusyMessageModePreference"];
   getExternalLinkPreference: OpenBotDesktopApi["getExternalLinkPreference"];
+  getHostBackupModels: OpenBotDesktopApi["getHostBackupModels"];
   listExternalLinkBrowsers: OpenBotDesktopApi["listExternalLinkBrowsers"];
   chooseExternalLinkApp: OpenBotDesktopApi["chooseExternalLinkApp"];
   onExternalLinkFallback: OpenBotDesktopApi["onExternalLinkFallback"];
@@ -26,6 +27,7 @@ export interface SettingsPort {
   setAppBehaviorPreference: OpenBotDesktopApi["setAppBehaviorPreference"];
   setBusyMessageModePreference: OpenBotDesktopApi["setBusyMessageModePreference"];
   setExternalLinkPreference: OpenBotDesktopApi["setExternalLinkPreference"];
+  setHostBackupModels: OpenBotDesktopApi["setHostBackupModels"];
   setRemoteNetworkRoute: OpenBotDesktopApi["setRemoteNetworkRoute"];
   setRemoteSessionReusePreference: OpenBotDesktopApi["setRemoteSessionReusePreference"];
   agent: Pick<

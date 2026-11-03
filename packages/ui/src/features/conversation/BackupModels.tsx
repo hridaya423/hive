@@ -136,63 +136,79 @@ function move<T>(list: readonly T[], index: number, by: -1 | 1): T[] {
   return [...rest.slice(0, other), item, ...rest.slice(other)];
 }
 
-export interface BackupModelsPageProps {
-  agentName: string;
-  /** The agent's own model: the one it leaves at a usage limit and goes back to. */
-  ownModel: string;
-  own: AgentModelChoice;
+export type BackupModelsPageProps = {
   value: AgentBackupModels | null;
   source: BackupModelSource;
   /** Null returns the agent to the default: ask, with no saved order. */
   onChange: (next: AgentBackupModels | null) => void;
-}
+} & (
+  | {
+      host?: false | undefined;
+      agentName: string;
+      /** The agent's own model: the one it leaves at a usage limit and goes back to. */
+      ownModel: string;
+      own: AgentModelChoice;
+    }
+  | { host: true }
+);
 
-/** The agent settings page that sets what the agent does when a usage limit holds a message. */
+/**
+ * The page that sets what an agent does when a usage limit holds a message. With `host`, it sets the
+ * order of every agent that has none of its own, and an order always switches without asking.
+ */
 export function BackupModelsPage(props: BackupModelsPageProps) {
   const { t } = useText();
   const label = useOptionLabel();
-  const automatic = () => props.value?.automatic === true;
+  const automatic = () => props.host === true || props.value?.automatic === true;
   const order = () => props.value?.order ?? [];
   const entries = () => order().map((choice) => backupModelOption(choice, props.source));
   const addable = () =>
-    backupModelOptions(props.source, [props.own, ...order()]).filter((option) => option.state !== "unavailable");
+    backupModelOptions(props.source, [...(props.host ? [] : [props.own]), ...order()]).filter(
+      (option) => option.state !== "unavailable",
+    );
   // The value can come from a store, and IPC cannot clone a store proxy, so each choice is copied.
   const save = (next: AgentBackupModels) =>
     props.onChange(
-      next.automatic || next.order.length > 0
+      (props.host ? next.order.length > 0 : next.automatic || next.order.length > 0)
         ? { automatic: next.automatic, order: next.order.map((choice) => ({ ...choice })) }
         : null,
     );
   return (
     <div class="backup-models-page">
       <Text as="p" variant="body-sm" tone="secondary" class="backup-models-intro">
-        {t(automatic() ? "agentSettings.backupModels.introAutomatic" : "agentSettings.backupModels.intro", {
-          model: props.ownModel,
-          name: props.agentName,
-        })}
+        {props.host
+          ? t("agentSettings.backupModels.hostIntro")
+          : t(automatic() ? "agentSettings.backupModels.introAutomatic" : "agentSettings.backupModels.intro", {
+              model: props.ownModel,
+              name: props.agentName,
+            })}
       </Text>
-      <SettingsLinkGroup inset class="agent-settings-runtime-rows">
-        <div class="agent-settings-switch-row">
-          <span class="settings-link-label">
-            <span class="settings-link-icon">
-              <ArrowLeftRight aria-hidden="true" />
+      <Show when={!props.host}>
+        <SettingsLinkGroup inset class="agent-settings-runtime-rows">
+          <div class="agent-settings-switch-row">
+            <span class="settings-link-label">
+              <span class="settings-link-icon">
+                <ArrowLeftRight aria-hidden="true" />
+              </span>
+              {t("agentSettings.backupModels.ask")}
             </span>
-            {t("agentSettings.backupModels.ask")}
-          </span>
-          <Switch
-            size="sm"
-            aria-label={t("agentSettings.backupModels.ask")}
-            checked={!automatic()}
-            onChange={(ask) => save({ automatic: !ask, order: order() })}
-          />
-        </div>
-      </SettingsLinkGroup>
+            <Switch
+              size="sm"
+              aria-label={t("agentSettings.backupModels.ask")}
+              checked={!automatic()}
+              onChange={(ask) => save({ automatic: !ask, order: order() })}
+            />
+          </div>
+        </SettingsLinkGroup>
+      </Show>
       <SettingsLinkGroup inset class="agent-settings-runtime-rows" title={t("agentSettings.backupModels.order")}>
         <Show
           when={entries().length > 0}
           fallback={
             <Text as="p" variant="body-sm" tone="muted" class="backup-models-empty">
-              {t("agentSettings.backupModels.empty", { name: props.agentName })}
+              {props.host
+                ? t("agentSettings.backupModels.hostEmpty")
+                : t("agentSettings.backupModels.empty", { name: props.agentName })}
             </Text>
           }
         >
@@ -277,7 +293,9 @@ export function BackupModelsPage(props: BackupModelsPageProps) {
         </Show>
       </SettingsLinkGroup>
       <Text as="p" class="agent-settings-runtime-note" variant="caption" tone="muted">
-        {t("agentSettings.backupModels.note", { model: props.ownModel, name: props.agentName })}
+        {props.host
+          ? t("agentSettings.backupModels.hostNote")
+          : t("agentSettings.backupModels.note", { model: props.ownModel, name: props.agentName })}
       </Text>
     </div>
   );

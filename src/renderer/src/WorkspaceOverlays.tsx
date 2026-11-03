@@ -1,4 +1,9 @@
-import { type CentralAuthUser, LOCAL_SERVER_LIMIT, type ServerSummary } from "@openbot/contracts/ipc";
+import {
+  type CentralAuthUser,
+  LOCAL_SERVER_LIMIT,
+  type ServerSummary,
+  sameAgentModelChoice,
+} from "@openbot/contracts/ipc";
 import { BROWSER_PROFILES_CAPABILITY } from "@openbot/contracts/team-protocol/browser-profiles-v1";
 import { VAULT_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v1";
 import { VAULT_V2_CAPABILITY } from "@openbot/contracts/team-protocol/vault-v2";
@@ -31,6 +36,7 @@ import { useServerSelection } from "./features/servers/server-selection";
 import { useServerSettings } from "./features/servers/server-settings";
 import { useServerSwitch } from "./features/servers/server-switch";
 import { useServers } from "./features/servers/servers-context";
+import { createHostFallbackOrder } from "./features/settings/host-fallback-order";
 import type { HostProviderSettings } from "./features/settings/ProviderSettingsSection";
 import { useSettings } from "./features/settings/settings-context";
 import { settingsPort } from "./features/settings/settings-port";
@@ -47,6 +53,7 @@ import { CreateLocalServerDialog, RemoteDesktopWorkspace, SettingsModal } from "
 import { useNavigation } from "./navigation";
 import { usePlatform } from "./platform";
 import { useProviders } from "./providers";
+import { useTurns } from "./turns";
 import {
   ChannelCreateOverlay,
   GlobalSearchOverlay,
@@ -266,7 +273,13 @@ function ServerSettings() {
   const { selectAgent, selectGlobalSearchMessage } = useNavigation();
   const { selectServer } = useServerSelection();
   const { setPendingAgentSelection } = useServerSwitch();
-  const { agentList, agentStatus } = useAgents();
+  const { agentList, agentStatus, modelOptions } = useAgents();
+  const { usageLimitedModels } = useTurns();
+  const fallbackOrder = createHostFallbackOrder(() => ({
+    modelOptions: modelOptions(),
+    providers: agentStatus().providers,
+    limited: (choice) => usageLimitedModels().some((limited) => sameAgentModelChoice(limited, choice)),
+  }));
   const { setupState, saveSetup } = useSetup();
   const {
     toolRuntimeStatuses,
@@ -519,6 +532,7 @@ function ServerSettings() {
       },
       onRestartProvider: local ? restartProvider : undefined,
       onCancelProviderRestart: local ? cancelProviderRestart : undefined,
+      fallbackOrder: local ? fallbackOrder : undefined,
       get providerDetection() {
         return local ? detection.detection() : undefined;
       },

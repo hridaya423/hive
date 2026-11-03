@@ -190,10 +190,13 @@ function copyModelChoice({ provider, model, providerAccountId }: AgentModelChoic
  * Refuses a provider that this OpenBot does not know, so the client hides the setting instead of
  * saving an order without it. Copies only the known fields.
  */
-function decodeBackupModels(value: unknown): AgentBackupModels | null {
-  if (value === null) return null;
+export function decodeAgentBackupModels(value: unknown): AgentBackupModels {
   if (!isAgentBackupModels(value)) throw new Error("Invalid backup models.");
   return { automatic: value.automatic, order: value.order.map(copyModelChoice) };
+}
+
+function decodeBackupModels(value: unknown): AgentBackupModels | null {
+  return value === null ? null : decodeAgentBackupModels(value);
 }
 
 export function decodeAgentBackupModelSettings(value: unknown): AgentBackupModelSettings {

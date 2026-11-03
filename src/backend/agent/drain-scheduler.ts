@@ -23,7 +23,7 @@ import type { MailboxSync } from "./mailbox-sync";
 import type { MemoryHold } from "./memory-hold";
 import type { PlanContinuation } from "./plan-continuation";
 import type { ProfileSave } from "./profile-save";
-import { isPlanLimitDiagnostic } from "./provider-diagnostics";
+import { isFailoverFailure, isPlanLimitDiagnostic } from "./provider-diagnostics";
 import type { ProviderRuntime } from "./provider-runtime";
 import type { RoutineScheduler } from "./routine-scheduler";
 import { sessionSettingsOverrides } from "./session-settings";
@@ -1021,6 +1021,27 @@ export class DrainScheduler {
               this.#requeuedAtLimit.add(delivery.recipientAgentId);
               return;
             }
+          }
+          // Nothing ran, so a ready backup model takes the messages. The failed model is passed over for
+          // a while, as after a provider error at the end of a turn, so the move cannot repeat.
+          if (
+            requestedModel !== null &&
+            !messagingDelivery &&
+            !channelDelivery &&
+            taskId === null &&
+            isFailoverFailure(error) &&
+            this.#hooks.mayFailOver(delivery.recipientAgentId)
+          ) {
+            for (const item of batch) yield* this.#mailbox.restoreQueued(item.delivery.id).pipe(toDeliveryStartFailed);
+            this.#mailboxSync.emitQueue(delivery.recipientAgentId);
+            this.#usageLimits.failed(delivery.recipientAgentId, requestedModel);
+            logger.warn("A message did not start. It goes to a backup model.", {
+              agentId: delivery.recipientAgentId,
+              model: requestedModel,
+              reason,
+            });
+            this.scheduleDrain(delivery.recipientAgentId);
+            return;
           }
           yield* this.#mailbox.markTerminal(delivery.id, "failed", reason).pipe(toDeliveryStartFailed);
           // The provider did not read the answers that were to start with it, so they wait for the next turn.

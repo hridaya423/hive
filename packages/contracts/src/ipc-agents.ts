@@ -113,6 +113,9 @@ export interface AgentBackupModels {
   order: AgentModelChoice[];
 }
 
+/** The chain of an agent with no chain of its own: ask first, with no saved order. */
+export const DEFAULT_HOST_BACKUP_MODELS: AgentBackupModels = { automatic: false, order: [] };
+
 export function isAgentModelChoice(value: unknown): value is AgentModelChoice {
   return (
     isDynamicRecord(value) &&

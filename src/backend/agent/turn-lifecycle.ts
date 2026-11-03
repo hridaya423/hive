@@ -59,6 +59,7 @@ import { type PlanContinuation, waitsForUser } from "./plan-continuation";
 import { PLAN_UPDATED_METHOD, planFromNotification } from "./plan-updates";
 import {
   isBalanceDiagnostic,
+  isFailoverFailure,
   isPlanLimitDiagnostic,
   isUsageLimitDiagnostic,
   providerResetDelayMs,
@@ -91,20 +92,6 @@ const RETRY_NOTICE_ATTEMPTS = 3;
 const ENDED_TURN_LIMIT = 256;
 /** How long before a turn's start its usage records can be, as in host analytics. */
 const TURN_USAGE_MARGIN_MS = 60 * 60 * 1_000;
-/**
- * The provider errors that move an agent set to switch without asking to its next backup model. Each
- * one can pass on another provider, account or model; a request the model refuses fails on each.
- * A usage limit that the usage-limit gate does not hold comes here too, such as a spent Gemini quota (#4368).
- */
-const FAILOVER_CAUSES: ReadonlySet<CauseCode> = new Set([
-  "billing",
-  "usage_limit",
-  "provider_unavailable",
-  "rate_limit",
-  "authentication",
-  "network",
-  "timeout",
-]);
 
 /** A provider error held until the end of its turn, which runs the turn again on a backup model or shows it. */
 interface HeldProviderError {
@@ -869,7 +856,7 @@ export class TurnLifecycle {
           agentId &&
           errorTurnId !== null &&
           this.#runningTurns.has(errorTurnId) &&
-          FAILOVER_CAUSES.has(context.causeCode) &&
+          isFailoverFailure(error ?? message) &&
           this.#hooks.mayFailOver(agentId)
         ) {
           this.#failoverTurns.set(errorTurnId, { message, context });

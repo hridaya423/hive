@@ -26,6 +26,10 @@ import { type AgentFolders, createAgentFolders } from "./agent-folders";
 import { type AgentHostSettingsService, createAgentHostSettings } from "./agent-host-settings";
 import { type AgentInstructionsFiles, createAgentInstructionsFiles } from "./agent-instructions-files";
 import { type BrowserProfileService, createBrowserProfileService } from "./browser-profile-service";
+import {
+  createHostBackupModelsPreferenceStore,
+  type HostBackupModelsPreferenceStore,
+} from "./host-backup-models-preference-store";
 import { HostReleaseService } from "./host-release-service";
 import { LocalSignInWindows } from "./local-sign-in-window";
 import { LocalSkillLibrary } from "./local-skill-library";
@@ -351,6 +355,7 @@ const PUSH_NOTIFICATION_FILE = "openbot-push-notifications-v1.json";
 const BUSY_MESSAGE_MODE_PREFERENCE_FILE = "openbot-busy-message-mode-v1.json";
 const PROVIDER_CLI_APP_VERSION_FILE = "openbot-provider-cli-app-version-v1.json";
 const AGENT_DEFAULTS_PREFERENCE_FILE = "openbot-agent-defaults-v1.json";
+const HOST_BACKUP_MODELS_PREFERENCE_FILE = "openbot-host-backup-models-v1.json";
 const AGENT_MEMORY_LIMIT_PREFERENCE_FILE = "openbot-agent-memory-limit-v1.json";
 const MEMORY_REVIEW_PREFERENCE_FILE = "openbot-memory-review-v1.json";
 const AGENT_NOTIFICATION_LEVELS_FILE = "openbot-agent-notification-levels-v1.json";
@@ -572,6 +577,7 @@ export interface ApplicationServices {
   notificationPreference: NotificationPreferenceStore;
   busyMessageMode: BusyMessageModePreferenceStore;
   agentDefaults: AgentDefaultsPreferenceStore;
+  hostBackupModels: HostBackupModelsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   memoryReview: MemoryReviewPreferenceStore;
   agentNotificationLevels: AgentNotificationLevelStore;
@@ -1009,6 +1015,10 @@ export async function createApplicationServices({
     join(app.getPath("userData"), AGENT_DEFAULTS_PREFERENCE_FILE),
   );
   await runCauseEffect(agentDefaults.load());
+  const hostBackupModels = createHostBackupModelsPreferenceStore(
+    join(app.getPath("userData"), HOST_BACKUP_MODELS_PREFERENCE_FILE),
+  );
+  await runCauseEffect(hostBackupModels.load());
   const store = new AgentStore(
     app.getPath("userData"),
     homedir(),
@@ -1771,6 +1781,7 @@ export async function createApplicationServices({
     webhookRoutines: () => agentWebhookRoutineWriter(events),
     approvalAutomation,
     busyMessageMode: () => busyMessageMode.get().mode,
+    hostBackupModels: () => hostBackupModels.get(),
     agentMemoryLimit: () => agentMemoryLimit.get().limit,
     memoryReviewInterval: () => memoryReview.get().interval,
     timezone: () => serverTimezone.effective(),
@@ -3224,6 +3235,7 @@ export async function createApplicationServices({
     notificationPreference,
     busyMessageMode,
     agentDefaults,
+    hostBackupModels,
     agentMemoryLimit: agentMemoryLimitSetting,
     memoryReview,
     agentNotificationLevels,

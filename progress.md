@@ -269,3 +269,29 @@ Screenshots on the mini, `~/honey/hive-checks-shots/tl/`: `after-playground.png`
 - Final state: conformance e2e passes (9 drivers), `typecheck:node`, `:contracts`, `:renderer` exit 0, the pre-commit hook ran every `typecheck:*` project.
 - The `docs/provider-terms.md` change landed in the `feat: github copilot provider` commit, not in a separate Task 3.4 commit (a `git add -A` staged it). No Task 3.3 commit (skipped).
 - Not verified: `bun scripts/team-api-routes-e2e.ts` (edited expected lists only); Workspace only Copilot with the real CLI; Team API peers; a real turn, the model picker with real models, and the full provider settings page.
+## Phase 4 (branch phase/4, 2026-11-03)
+
+### Task 4.1: blocked on Hridya
+Second Codex account needs Hridya's ChatGPT sign-in. Not started.
+
+### Task 4.2: done (commits 153e730d8, a511222a7)
+- Host default chain: `src/main/host-backup-models-preference-store.ts` (file `openbot-host-backup-models-v1.json`, `PreferenceStore`, no migration). Endpoints `app:get-host-backup-models` and `app:set-host-backup-models` (contracts, handler, preload decoder `decodeAgentBackupModels`, preview mock). `AgentService` option `hostBackupModels`; `#backupModelsOf(agent)` is `agent.backupModels ?? host`. The agent's own chain wins, also when empty. Entries with a removed or unconnected account are skipped by `#modelChoiceReady`. Any provider in `AGENT_PROVIDERS` is accepted (`isAgentModelChoice`), so Copilot works once Phase 3 merges.
+- UI: Settings > Providers has a "Fallback order" row and page (`BackupModelsPage host`). English keys only (`provider.settings.fallbackOrder*`, `agentSettings.backupModels.host*`). Local server only.
+- Evidence: red then green. Before the change the new case failed (`The message completes: API Error: 529`). After: `bun run test:backup-model-failover` PASS, 25 checks (20 existing, 5 new).
+- Visual check: storybook stories `Conversation/Backup models` `HostEmpty` and `HostOrder`, headless Chrome on the mini (`~/honey/hive-phase-4`, storybook port 6008). Both look right. NOT seen: the new row in the Providers list and the real dev window. `bun run dev` started on the mini, but the Electron window was hidden (same Stage Manager issue as Phase 0; `dev:automation snapshot` fails on port 9333, and another agent's Electron was frontmost). Lead should look at the row. Stack stopped with `dev:stop`.
+- Known gap: the chat's usage-limit ask card reads only `agent.backupModels`, so with a host chain it can flash for a moment before the move.
+
+### Task 4.3: done (3bfce008b)
+- Cause found by running the case: a Claude process that exits at start does not fail `turn/start`; the turn ends with "Claude Code process exited with code 1" and classifies as `unknown`, so it never failed over. New `isFailoverFailure` (`provider-diagnostics.ts`) adds "exited with code|signal" to the failover causes; `turn-lifecycle.ts` uses it.
+- A refused `turn/start` (Codex 401) now goes through `DrainScheduler.startDelivery`: messages go back to the queue, `UsageLimitGate.failed` holds the model 10 minutes, the next drain moves the agent. Not for channel, messaging or task deliveries.
+- Evidence: the 401 case failed without the drain change (`The message completes: Your access token could not be refreshed`) and passes with it. The exit case failed before, passes after. Note: a backup on the same provider as a dead process is not ready (provider state "error"), so the e2e backs up onto Codex.
+- `docs/architecture/providers.md` and `changelog.d/phase-4-fallback-chains.md` updated.
+
+### Task 4.4: no code change needed
+Routine runs already fail over. New case `a routine run fails over to the backup model` (Test run of a routine, first model overloaded) passes: models `[PRIMARY, BACKUP]`, no error. Kept as coverage in the 4.3 commit.
+
+### Task 4.5: pending for the lead (needs 4.1 and Phase 3)
+Set host chain Codex 1 > Codex 2 > Copilot in Settings > Providers > Fallback order, clear per-agent chains on the crew.
+
+### Other checks
+`typecheck:contracts`, `typecheck:node`, `typecheck:renderer`, `typecheck:storybook` exit 0; `vitest src/main/ipc-channel-coverage.test.ts` 14 passed; `i18n:check` reports counts (other locales lack the new keys; Phase 2 deletes them); biome clean on changed files; pre-commit hook passed.

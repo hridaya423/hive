@@ -6,6 +6,7 @@
 
 import { ProviderLogo } from "@openbot/brand";
 import {
+  type AgentBackupModels,
   type AgentProviderId,
   type AgentProviderStatus,
   agentProviderName,
@@ -22,6 +23,7 @@ import {
 } from "@openbot/contracts/ipc";
 import type { AppFormat, AppMessages, AppTextKey, AppTranslate } from "@openbot/i18n";
 import {
+  ArrowLeftRight,
   Badge,
   Button,
   badgeVariants,
@@ -61,6 +63,7 @@ import {
   Smartphone,
   Spinner,
   Switch,
+  Text,
   Trash2,
   UserRoundPlus,
   X,
@@ -84,6 +87,7 @@ import {
 import { useText } from "../../text";
 import { AccountUsageWindowList } from "../account/AccountUsageDetails";
 import type { AccountUsageProviderRow, AccountUsageWindowRow } from "../account/account-usage-view";
+import { type BackupModelSource, BackupModelsPage } from "../conversation/BackupModels";
 import { providerUpdateAvailable } from "../provider-updates/provider-update";
 import { DetailHeader, type IntegrationStatus } from "./IntegrationLayout";
 
@@ -103,6 +107,16 @@ export interface ProviderPromptCache {
   /** A load or a save that failed. */
   error: string | null;
   onChange: (ttl: PromptCacheTtl) => void;
+}
+
+/** The order that every agent with none of its own follows when a usage limit or a provider error stops it. */
+export interface ProviderFallbackOrder {
+  /** Null until the host answers. */
+  value: AgentBackupModels | null;
+  source: BackupModelSource;
+  /** A load or a save that failed. */
+  error: string | null;
+  onChange: (next: AgentBackupModels | null) => void;
 }
 
 export interface ProviderSettingsPageProps extends ProviderRowHost {
@@ -146,11 +160,13 @@ export interface ProviderSettingsPageProps extends ProviderRowHost {
   onDetailChange?: ((detail: ProviderSettingsDetail | null) => void) | undefined;
   /** On the Claude page. Only for a host with `prompt-cache-ttl-v1` that this account administers. */
   promptCache?: ProviderPromptCache | undefined;
+  /** This computer only: a joined server's order is not set from here. */
+  fallbackOrder?: ProviderFallbackOrder | undefined;
   /** Below the list: what the host found, and the other agents the user can add. */
   footer?: JSX.Element;
 }
 
-type PageId = AgentProviderId | "custom";
+type PageId = AgentProviderId | "custom" | "fallback";
 
 export function ProviderSettingsPage(props: ProviderSettingsPageProps) {
   const { t } = useText();
@@ -163,6 +179,7 @@ export function ProviderSettingsPage(props: ProviderSettingsPageProps) {
   /** The page on screen. The list shows again when its provider leaves the options. */
   const page = (): PageId | null => {
     if (open() === "custom") return customOffered() ? "custom" : null;
+    if (open() === "fallback") return props.fallbackOrder ? "fallback" : null;
     return openOption()?.id ?? null;
   };
   // The dialog outlives this page, so the cleanup clears a title that names a page that is gone.
@@ -170,6 +187,7 @@ export function ProviderSettingsPage(props: ProviderSettingsPageProps) {
     () => {
       const id = page();
       if (id === null) return null;
+      if (id === "fallback") return t("provider.settings.fallbackOrder");
       return id === "custom" ? t("provider.custom.name") : (openOption()?.name ?? null);
     },
     (title) => {
@@ -182,8 +200,15 @@ export function ProviderSettingsPage(props: ProviderSettingsPageProps) {
     <div class="provider-settings-stack">
       <Show when={page()} fallback={<ProviderList {...props} onOpen={setOpen} />}>
         {(id) => (
-          <Show when={id() === "custom" ? null : openOption()} fallback={<CustomEndpointsPage {...props} />}>
-            {(option) => <ProviderPage {...props} option={option()} />}
+          <Show
+            when={id() === "fallback" ? props.fallbackOrder : undefined}
+            fallback={
+              <Show when={id() === "custom" ? null : openOption()} fallback={<CustomEndpointsPage {...props} />}>
+                {(option) => <ProviderPage {...props} option={option()} />}
+              </Show>
+            }
+          >
+            {(order) => <FallbackOrderPage order={order()} />}
           </Show>
         )}
       </Show>
@@ -250,9 +275,25 @@ function ProviderList(props: ProviderSettingsPageProps & { onOpen: (id: PageId) 
   };
   return (
     <>
-      <Show when={props.defaultProvider}>
+      <Show when={props.defaultProvider || props.fallbackOrder}>
         <ItemGroup class="settings-modal-card">
-          <DefaultProviderRow {...props} />
+          <Show when={props.defaultProvider}>
+            <DefaultProviderRow {...props} />
+          </Show>
+          <Show when={props.fallbackOrder}>
+            {(order) => (
+              <NavRow
+                logo={<ArrowLeftRight class="provider-picker-custom-mark" aria-hidden="true" />}
+                name={t("provider.settings.fallbackOrder")}
+                summary={
+                  order().value === null || order().value?.order.length === 0
+                    ? t("provider.settings.fallbackOrderOff")
+                    : t("provider.settings.fallbackOrderCount", { count: order().value?.order.length ?? 0 })
+                }
+                onOpen={() => props.onOpen("fallback")}
+              />
+            )}
+          </Show>
         </ItemGroup>
       </Show>
       <SettingsSection
@@ -300,6 +341,21 @@ function ProviderList(props: ProviderSettingsPageProps & { onOpen: (id: PageId) 
         </SettingsSection>
       </Show>
       {props.footer}
+    </>
+  );
+}
+
+function FallbackOrderPage(props: { order: ProviderFallbackOrder }) {
+  return (
+    <>
+      <BackupModelsPage host value={props.order.value} source={props.order.source} onChange={props.order.onChange} />
+      <Show when={props.order.error}>
+        {(message) => (
+          <Text role="alert" tone="muted" variant="caption">
+            {message()}
+          </Text>
+        )}
+      </Show>
     </>
   );
 }

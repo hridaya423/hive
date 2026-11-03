@@ -8,6 +8,7 @@ import {
   type AppSetupState,
   type AppVariant,
   type ChatWindowTarget,
+  decodeAgentBackupModels,
   type ExternalDestination,
   type ExternalLinkBrowser,
   externalLinkAppName,
@@ -25,6 +26,7 @@ import type { AppearanceService } from "../appearance-service";
 import type { ApprovalAutomation } from "../approval-automation-store";
 import type { BusyMessageModePreferenceStore } from "../busy-message-mode-preference-store";
 import type { ExternalLinkOpener, ExternalLinkPreferenceStore } from "../external-link-opener";
+import type { HostBackupModelsPreferenceStore } from "../host-backup-models-preference-store";
 import type { InterfaceSizeService } from "../interface-size-service";
 import type { LanguageService } from "../language-service";
 import type { LogoColorService } from "../logo-color-service";
@@ -97,6 +99,7 @@ export interface AppIpcDependencies {
   approvalAutomation: ApprovalAutomation;
   busyMessageMode: BusyMessageModePreferenceStore;
   agentDefaults: AgentDefaultsPreferenceStore;
+  hostBackupModels: HostBackupModelsPreferenceStore;
   agentMemoryLimit: AgentMemoryLimitSetting;
   remoteSessionReuse: RemoteSessionReusePreferenceStore;
   remoteNetworkRoute: RemoteNetworkRoutePreferenceStore;
@@ -130,6 +133,7 @@ export function appIpcHandlers({
   approvalAutomation,
   busyMessageMode,
   agentDefaults,
+  hostBackupModels,
   agentMemoryLimit,
   remoteSessionReuse,
   remoteNetworkRoute,
@@ -173,6 +177,12 @@ export function appIpcHandlers({
       setBusyMessageModePreference: payloadHandler(parseBusyMessageModePreference, (parsed) =>
         runCauseEffect(busyMessageMode.set(parsed)),
       ),
+      getHostBackupModels: handler(() => hostBackupModels.get()),
+      setHostBackupModels: payloadHandler(decodeAgentBackupModels, async (parsed) => {
+        const saved = await runCauseEffect(hostBackupModels.set(parsed));
+        service.hostBackupModelsChanged();
+        return saved;
+      }),
       getAgentDefaults: handler(() => agentDefaults.get()),
       // The agents that follow a changed default get it at once: see `AgentService.agentDefaultsChanged`.
       setAgentDefaults: payloadHandler(parseAgentDefaults, async (parsed) => {

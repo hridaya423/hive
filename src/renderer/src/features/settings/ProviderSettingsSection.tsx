@@ -51,6 +51,7 @@ import {
 } from "@openbot/ui/features/settings/OpenCodeKeyDialog";
 import {
   type ProviderDefaultChoice,
+  type ProviderFallbackOrder,
   type ProviderPromptCache,
   type ProviderSettingsDetail,
   ProviderSettingsPage,
@@ -112,6 +113,7 @@ interface ProviderSettingsSectionProps {
   usage?: readonly AccountUsageProviderRow[] | undefined;
   onDetailChange?: ((detail: ProviderSettingsDetail | null) => void) | undefined;
   promptCache?: ProviderPromptCache | undefined;
+  fallbackOrder?: ProviderFallbackOrder | undefined;
 }
 
 /** The provider list of the computer the agents run on, with its custom endpoint dialogs. */
@@ -286,6 +288,7 @@ function ProviderSettingsSection(props: ProviderSettingsSectionProps) {
         menuMount={props.selectMount}
         onDetailChange={props.onDetailChange}
         promptCache={props.promptCache}
+        fallbackOrder={props.fallbackOrder}
         footer={
           <>
             <Show when={props.providerDetection}>
@@ -518,6 +521,8 @@ export interface HostProviderSettings {
   onShown?: (() => void) | undefined;
   /** The usage readings of each account, for the badge of an account that is low. */
   usage?: readonly AccountUsageProviderRow[] | undefined;
+  /** The order that agents with none of their own follow. This computer only. */
+  fallbackOrder?: ProviderFallbackOrder | undefined;
 }
 
 /**
@@ -597,6 +602,7 @@ export function HostProviderSettingsPanel(
         usage={props.usage}
         onDetailChange={props.onDetailChange}
         promptCache={promptCache()}
+        fallbackOrder={props.fallbackOrder}
         detectionSettings={
           <Show when={props.detectionSettings}>
             {(value) => (
