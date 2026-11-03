@@ -1,5 +1,6 @@
 // Runs the real `codex app-server` against a fake Responses server, to check that a thread with the
-// features that OpenBot sets declares no goal tools and no multi-agent tool. Codex sends each other tool and its permission
+// features that OpenBot sets declares no goal tools and no multi-agent tool, and that a turn after a
+// skill file changed does not send the whole skill catalog again. Codex sends each other tool and its permission
 // text as before: at Ask first Codex runs with no sandbox, and that text makes the model ask before a
 // destructive command. A local server stands in for the model and records the tools and the
 // instructions of each request, so no account or key is used.
@@ -109,12 +110,14 @@ const cli = await runCauseEffect(resolveCodexCli());
 const model = await startFakeModel();
 const root = await mkdtemp(join(tmpdir(), "openbot-codex-trim-e2e-"));
 const results: Record<string, Recorded | undefined> = {};
+const catalogs: Record<string, number | undefined> = {};
 const report: {
   passed: boolean;
   codexVersion: string;
   /** The characters that the largest request of a turn no longer sends. */
   saved?: number;
   results?: Record<string, { bytes: number; tools: string[] } | undefined>;
+  skillCatalogsAtTurnTwo?: Record<string, number | undefined>;
   error?: string;
 } = { passed: false, codexVersion: cli.version };
 try {
@@ -136,11 +139,21 @@ try {
       ].join(NL),
     );
     const client = new CodexAppServerClient(cli.executable, 30_000, { CODEX_HOME: home, FAKE_KEY: "e2e" });
-    const turnDone = new Promise<void>((done) => {
-      client.on("notification", (notification) => {
-        if (notification.method === "turn/completed") done();
-      });
+    let turnEnded = () => {};
+    let skillsChanged = () => {};
+    client.on("notification", (notification) => {
+      if (notification.method === "turn/completed") turnEnded();
+      if (notification.method === "skills/changed") skillsChanged();
     });
+    const turn = async (threadId: string, text: string, label: string) => {
+      const ended = new Promise<void>((done) => {
+        turnEnded = done;
+      });
+      await runCauseEffect(
+        client.request("turn/start", { threadId, input: [{ type: "text", text }] }, decodeRecordResponse),
+      );
+      await Promise.race([ended, deadline(label)]);
+    };
     client.start();
     try {
       await runCauseEffect(
@@ -167,11 +180,21 @@ try {
       const threadId = getString(getRecord(started, "thread"), "id");
       assert(threadId, "thread/start returned no thread id");
       const first = model.requests.length;
-      await runCauseEffect(
-        client.request("turn/start", { threadId, input: [{ type: "text", text: "hello" }] }, decodeRecordResponse),
-      );
-      await Promise.race([turnDone, deadline(`the turn of ${name}`)]);
+      await turn(threadId, "hello", `the first turn of ${name}`);
       results[name] = model.requests.slice(first).sort((a, b) => b.bytes - a.bytes)[0];
+      const changed = new Promise<void>((done) => {
+        skillsChanged = done;
+      });
+      await mkdir(join(home, "skills", "late"), { recursive: true });
+      await writeFile(
+        join(home, "skills", "late", "SKILL.md"),
+        `---${NL}name: late${NL}description: A skill that a user adds between two turns.${NL}---${NL}`,
+      );
+      await Promise.race([changed, deadline(`the skills change of ${name}`)]);
+      const second = model.requests.length;
+      await turn(threadId, "again", `the second turn of ${name}`);
+      const largest = model.requests.slice(second).sort((a, b) => b.bytes - a.bytes)[0];
+      catalogs[name] = largest?.developer.filter((text) => text.includes("<skills_instructions>")).length;
     } finally {
       await runCauseEffect(client.stop());
     }
@@ -187,6 +210,8 @@ try {
   const permissions = (request: Recorded) =>
     request.developer.some((text) => text.includes("<permissions instructions>"));
   assert.ok(permissions(after), "Codex sends no permission text.");
+  assert.equal(catalogs.before, 2, "Codex does not send the skill catalog again after a skill changed.");
+  assert.equal(catalogs.after, 1, "A turn after a skill changed sends the skill catalog again.");
   report.saved = before.bytes - after.bytes;
   report.passed = true;
 } catch (error) {
@@ -198,6 +223,7 @@ try {
   report.results = Object.fromEntries(
     Object.entries(results).map(([name, result]) => [name, result && { bytes: result.bytes, tools: result.tools }]),
   );
+  report.skillCatalogsAtTurnTwo = catalogs;
   await writeFile(join(OUT, "report.json"), `${JSON.stringify(report, null, 2)}${NL}`);
   process.stdout.write(`${report.passed ? "passed" : "failed"}: ${join(OUT, "report.json")}${NL}`);
 }

@@ -23,8 +23,11 @@ const { values: options } = parseArgs({
     label: { type: "string", default: "run" },
     message: { type: "string", default: "hi" },
     "no-breakdown": { type: "boolean", default: false },
+    keep: { type: "boolean", default: false },
     "no-computer-use-server": { type: "boolean", default: false },
     "computer-use": { type: "string", default: "default" },
+    access: { type: "string", default: "default" },
+    "add-skill-before-turn": { type: "string" },
     "cua-driver": { type: "string", default: join(homedir(), ".local/bin/cua-driver") },
   },
 });
@@ -83,11 +86,12 @@ interface AgentReport {
   breakdownError?: string;
   developerMessages?: Array<{ index: number; chars: number; skills: boolean }>;
   toolNamespaces?: Record<string, number>;
+  messages?: Array<{ index: number; role: string; chars: number; head: string }>;
 }
 const report: {
   passed: boolean;
   label: string;
-  options: { agents: number; turns: number; gapMs: number; message: string; computerUse: string };
+  options: { agents: number; turns: number; gapMs: number; message: string; computerUse: string; access: string };
   codexVersion?: string;
   model?: string;
   agents: AgentReport[];
@@ -151,15 +155,21 @@ function toolNamespaces(rollout: string) {
   return found;
 }
 
-function developerMessages(rollout: string) {
+function rolloutMessages(rollout: string) {
   const lines = readFileSync(rollout, "utf8").split("\n").filter(Boolean);
-  const found: Array<{ index: number; chars: number; skills: boolean }> = [];
+  const found: Array<{ index: number; role: string; chars: number; head: string; skills: boolean }> = [];
   for (const [index, line] of lines.entries()) {
     const item = JSON.parse(line);
     const payload = item.payload;
-    if (item.type !== "response_item" || payload?.type !== "message" || payload.role !== "developer") continue;
+    if (item.type !== "response_item" || payload?.type !== "message") continue;
     const text = (payload.content ?? []).map((part: { text?: string }) => part.text ?? "").join("");
-    found.push({ index, chars: text.length, skills: text.includes("<skills_instructions>") });
+    found.push({
+      index,
+      role: payload.role,
+      chars: text.length,
+      head: text.slice(0, 100),
+      skills: text.includes("<skills_instructions>"),
+    });
   }
   return found;
 }
@@ -250,6 +260,13 @@ try {
   }
   for (const entry of report.agents) await turnEnded(entry.agentId, 1);
   for (let turn = 2; turn <= TURN_COUNT; turn++) {
+    if (Number(options["add-skill-before-turn"]) === turn) {
+      mkdirSync(join(codexHome, "skills", "probe-skill"), { recursive: true });
+      writeFileSync(
+        join(codexHome, "skills", "probe-skill", "SKILL.md"),
+        "---\nname: probe-skill\ndescription: A skill that the probe adds between two turns.\n---\nNothing.\n",
+      );
+    }
     for (const entry of report.agents) {
       await runCauseEffect(
         agents.sendMessage({
@@ -288,7 +305,11 @@ try {
     const rollout = files.find((file) => entry.externalSessionId && file.includes(entry.externalSessionId));
     if (!rollout) continue;
     entry.rollout = rollout;
-    entry.developerMessages = developerMessages(rollout);
+    const messages = rolloutMessages(rollout);
+    entry.messages = messages.map(({ index, role, chars, head }) => ({ index, role, chars, head }));
+    entry.developerMessages = messages
+      .filter((message) => message.role === "developer")
+      .map(({ index, chars, skills }) => ({ index, chars, skills }));
     entry.toolNamespaces = toolNamespaces(rollout);
     if (options["no-breakdown"] || entry !== report.agents[0]) continue;
     const result = spawnSync(
@@ -318,7 +339,7 @@ try {
   mkdirSync(OUT, { recursive: true });
   const file = join(OUT, `${report.label}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
   writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
-  await rm(root, { recursive: true, force: true });
+  if (!options.keep) await rm(root, { recursive: true, force: true });
   process.stdout.write(`${report.passed ? "PASS" : "FAIL"} ${file}\n`);
   process.stdout.write(`first requests: ${JSON.stringify(report.firstRequests)}\n`);
   if (report.error) process.stdout.write(`${report.error}\n`);
