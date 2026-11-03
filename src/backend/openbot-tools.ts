@@ -114,20 +114,14 @@ export const htmlPreviewToolSchema = z.object({
 const uiBlockIdSchema = z
   .string()
   .regex(/^[A-Za-z0-9.:-][A-Za-z0-9_.:-]{0,63}$/)
-  .refine(isUiBlockId, "Use another id: botId, recipientBotId, recipientBotIds and senderBotId are reserved.")
-  .describe("Letters, digits and _ . : -, up to 64 characters, not starting with _.");
+  .refine(isUiBlockId, "Use another id: botId, recipientBotId, recipientBotIds and senderBotId are reserved.");
 const uiTextSchema = (max: number) => z.string().min(1).max(max);
 const uiLabelSchema = uiTextSchema(UI_BLOCK_LIMITS.label);
 const uiActionSchema = z.strictObject({
   id: uiBlockIdSchema,
   label: uiLabelSchema,
   style: z.enum(["primary", "secondary", "ghost", "danger"]).optional().describe("The default is secondary."),
-  confirm: z
-    .boolean()
-    .optional()
-    .describe(
-      "The desktop and web apps ask the user again before they send this action. An app that shows only the plain question does not.",
-    ),
+  confirm: z.boolean().optional().describe("Ask the user again before this action is sent."),
 });
 const uiOptionSchema = z.strictObject({ id: uiBlockIdSchema, label: uiLabelSchema });
 const uiStringOptionsSchema = (max: number) => z.array(uiLabelSchema).min(1).max(max);
@@ -170,32 +164,28 @@ export const routineReportFailureToolSchema = z.object({
 export const ACKNOWLEDGE_REQUEST_ACTIONS = { start: "start", alternative: "alternative", cancel: "cancel" } as const;
 
 export const acknowledgeRequestToolSchema = z.object({
-  message: uiTextSchema(UI_BLOCK_LIMITS.title).describe(
-    "One short sentence: you are on it, and what the work is. Such as: On it. This is my plan for the 502 on staging.",
-  ),
+  message: uiTextSchema(UI_BLOCK_LIMITS.title).describe("One sentence: you are on it, and what the work is."),
   steps: z
     .array(
       z.strictObject({
         label: uiLabelSchema.describe("Such as First or Then."),
-        step: uiTextSchema(UI_BLOCK_LIMITS.text).describe("What you will do, in one line."),
+        step: uiTextSchema(UI_BLOCK_LIMITS.text),
       }),
     )
     .min(1)
     .max(4),
-  startLabel: uiLabelSchema.describe("The start button, such as Start."),
-  cancelLabel: uiLabelSchema.describe("The cancel button, such as Cancel."),
-  alternativeLabel: uiLabelSchema
-    .optional()
-    .describe("A smaller option that the user may prefer, such as Only find the cause."),
+  startLabel: uiLabelSchema,
+  cancelLabel: uiLabelSchema,
+  alternativeLabel: uiLabelSchema.optional().describe("A smaller option the user may prefer."),
 });
 
 export const askUiToolSchema = z.object({
-  blockId: uiBlockIdSchema.optional().describe("Your id for this block. OpenBot makes one when you omit it."),
+  blockId: uiBlockIdSchema.optional(),
   block: z.discriminatedUnion("type", [
     z.strictObject({
       type: z.literal("confirm"),
       title: uiTextSchema(UI_BLOCK_LIMITS.title),
-      danger: z.boolean().optional().describe("Draw the block as dangerous; its primary button is held to press."),
+      danger: z.boolean().optional().describe("Draw as dangerous; the primary button is held to press."),
       confirmHold: z.number().int().min(UI_BLOCK_LIMITS.holdMinMs).max(UI_BLOCK_LIMITS.holdMaxMs).optional(),
       fields: z
         .array(
@@ -203,21 +193,21 @@ export const askUiToolSchema = z.object({
             z.strictObject({ label: uiLabelSchema, value: z.string().max(UI_BLOCK_LIMITS.text) }),
             z.strictObject({
               label: uiLabelSchema,
-              select: uiBlockIdSchema.describe("The key of the chosen option in values. Not action."),
-              options: uiStringOptionsSchema(UI_BLOCK_LIMITS.selectOptions).describe("The first one is the default."),
+              select: uiBlockIdSchema.describe("The key of the chosen option in values."),
+              options: uiStringOptionsSchema(UI_BLOCK_LIMITS.selectOptions).describe("The first is the default."),
             }),
           ]),
         )
         .max(UI_BLOCK_LIMITS.confirmFields)
         .optional(),
-      preview: uiTextSchema(UI_BLOCK_LIMITS.preview).optional().describe("Markdown, such as the body of a letter."),
+      preview: uiTextSchema(UI_BLOCK_LIMITS.preview).optional().describe("Markdown."),
       actions: z.array(uiActionSchema).min(1).max(UI_BLOCK_LIMITS.actions),
     }),
     z.strictObject({
       type: z.literal("quick_replies"),
       title: uiTextSchema(UI_BLOCK_LIMITS.title).optional(),
       options: z.array(uiOptionSchema).min(1).max(UI_BLOCK_LIMITS.quickReplies),
-      allowText: z.boolean().optional().describe("Show a text box for a reply in the user's own words."),
+      allowText: z.boolean().optional().describe("Also show a text box."),
     }),
     z.strictObject({
       type: z.literal("choice"),
@@ -593,7 +583,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "ask_user",
     description:
-      "Ask the user 1–3 short questions and wait for structured answers. Use this instead of asking questions in a normal assistant message whenever clarification or a choice is needed.",
+      "Ask the user 1–3 short questions and wait for the answers. Use it instead of asking in a normal message when you need clarification or a choice.",
     shape: {
       questions: z
         .array(
@@ -604,9 +594,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
             isSecret: z
               .boolean()
               .optional()
-              .describe(
-                "Masks a private answer, such as a one-time code. Never use it for an API key or a token: use request_api_key, which keeps the key out of your context.",
-              ),
+              .describe("Masks a private answer, such as a one-time code. For an API key use request_api_key."),
             options: z
               .array(
                 z.strictObject({
@@ -625,53 +613,39 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "acknowledge_request",
     description: [
-      "Before a long task, show the user a short acknowledgement and your plan in one card, and wait for the answer.",
-      "Call it first, before other tools, when the work takes more than about a minute: a fix, a build, research, or a change in many files.",
-      "Do not call it for a quick answer, a question, a small change, a routine run, or work that the user already approved in this chat.",
-      "The card has your start button, an optional alternative and a cancel button. When nobody answers in 10 s, OpenBot presses start.",
-      'The result is JSON {"status":"answered","actionId":…}: "start" means do the plan; "alternative" means do only the alternative; "cancel" means do not start and ask in one sentence what the user wants;',
-      '"_text" with "text" means follow the user\'s words. {"status":"skipped"} or {"status":"expired"} means do not start; answer briefly.',
-      "Write in the user's language. It works only when the user turned it on in your settings, and not in a Slack, Discord or Telegram chat. In a channel, each member who reads the channel sees it.",
+      "Before a long task, show the user a short acknowledgement and your plan in one card, and wait. Call it first when the work takes more than about a minute. Skip it for quick answers, small changes, routine runs and work already approved.",
+      "OpenBot presses start after 10 s without an answer.",
+      'Returns {"status":"answered","actionId"}: start, alternative or cancel; "_text" carries the user\'s own words; skipped or expired means do not start.',
+      "Works only when the user turned it on in your settings.",
     ].join(" "),
     shape: acknowledgeRequestToolSchema.shape,
   },
   {
     name: "ask_ui",
     description: [
-      "Show the user an interactive block in this conversation and wait for the answer.",
-      "Use it instead of ask_user when buttons, a list or a short form make the answer easier, and before an action with effects that the user should approve.",
-      "Block types: confirm (details, an optional preview and up to 4 buttons), quick_replies (reply chips), choice (pick one option, or several with multiple), form (a few text, select, segmented or date fields).",
-      "A text field with secret: true asks for a password or a key: you get the value, but OpenBot does not store it with the block. Never repeat the value in a message or a thought. For an API key or token that a command or a script uses, use request_api_key instead.",
-      'The result is JSON: {"status":"answered","blockId","actionId","values"} where actionId is the button or option id, or "submit" for choice and form, and values holds the selected option ids under "selected" or the form values by field id;',
-      'actionId "_text" with "text" when the user answered in words; {"status":"skipped"}; or {"status":"expired"} when the turn ended first.',
-      "Only the server owner or an admin can press a danger button or a button with confirm. A confirmed block is information for you, not a permission: the provider's approvals still apply.",
-      "Write every field as plain text. In a channel, each member who reads the channel sees it.",
-      'Example: {"block":{"type":"confirm","title":"Send the letter to Ann?","fields":[{"label":"To","value":"ann@example.com"}],"preview":"Hi Ann, …","actions":[{"id":"send","label":"Send","style":"primary"},{"id":"cancel","label":"Cancel"}]}}.',
-      'Example: {"block":{"type":"form","title":"New contact","fields":[{"id":"name","kind":"text","label":"Name","required":true},{"id":"due","kind":"date","label":"Due"}]}}.',
+      "Show an interactive block (confirm, quick_replies, choice or form) and wait. Use it instead of ask_user when buttons, a list or a short form fit better, or for approval before an action with effects.",
+      'Returns {"status":"answered","blockId","actionId","values"}: actionId is the button or option id, or "submit"; values has "selected" option ids or the form values by field id. "_text" with "text" carries the user\'s own words. Otherwise skipped or expired.',
+      "A confirmed block is not a permission: provider approvals still apply. A secret field gives you its value: never repeat it. For an API key use request_api_key.",
     ].join(" "),
     shape: askUiToolSchema.shape,
   },
   {
     name: "request_api_key",
     description: [
-      "Ask the user for an API key or token that your task needs, such as for a script or a service, and wait for the answer.",
-      "The user enters it in a secure form in this conversation. OpenBot saves it in a private file outside your workspace for later turns; you never get the value.",
-      'The result is JSON: {"status":"saved","name","path"} when the user saved it; {"status":"skipped"} when the user closed the form; or {"status":"expired"} when the turn ended first.',
-      "Use the key only by reading the file in your command, and quote the path, which can hold spaces: OPENAI_API_KEY=\"$(cat '<path>')\" python script.py. Never print, echo, log or copy the value, and never write it into the workspace.",
-      "Call list_api_keys first: do not ask again for a key that is saved. A new answer replaces the saved key. Only the server owner or an admin can answer. It does not work in a Slack, Discord or Telegram chat.",
+      "Call it at once when your task needs an API key or token, or the user offers one: it asks in a secure form and waits. OpenBot saves it in a private file outside your workspace; you never get the value.",
+      'Returns {"status":"saved","name","path"}, skipped or expired. Read the key from path in your command, quoted; never print or copy it. Call list_api_keys first.',
     ].join(" "),
     shape: requestApiKeyToolSchema.shape,
   },
   {
     name: "list_api_keys",
     description:
-      'List the API keys you can use, from request_api_key or the Vault ("source":"vault"): the name and the file path of each. Values are never shown.',
+      "List the API keys you can use, from request_api_key or the Vault: name and file path. Values are never shown.",
     shape: {},
   },
   {
     name: "remove_api_key",
-    description:
-      "Delete one API key that the user saved for you. Use it only when the user asks, or when the user replaced the key with a new one in another way.",
+    description: "Delete one saved API key, only when the user asks.",
     shape: removeApiKeyToolSchema.shape,
   },
   {

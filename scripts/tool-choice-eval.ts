@@ -152,6 +152,7 @@ const PROMPTS: EvalPrompt[] = [
     family: "keys",
     prompt: "I want you to call the OpenAI API for me. I have the API key. How do I give it to you?",
     expect: ["openbot.request_api_key"],
+    skip: ["openbot.list_api_keys"],
   },
   { id: 21, family: "keys", prompt: "Which API keys have I stored for you?", expect: ["openbot.list_api_keys"] },
   {
