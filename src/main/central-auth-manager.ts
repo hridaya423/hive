@@ -86,6 +86,8 @@ interface CentralAuthManagerOptions {
   startupRetryWindowMs?: number;
   startupRequestTimeoutMs?: number;
   startupRetryDelaysMs?: readonly number[];
+  offlineStartWindowMs?: number;
+  ownerSignIn?: boolean;
   emailCodeRequestTimeoutMs?: number;
 }
 
@@ -124,6 +126,7 @@ const TELEGRAM_BOT_USERNAME = /^[A-Za-z0-9_]{5,32}$/u;
 const STARTUP_RETRY_WINDOW_MS = 30_000;
 const STARTUP_REQUEST_TIMEOUT_MS = 3_000;
 const STARTUP_RETRY_DELAYS_MS = [250, 500, 1_000, 2_000] as const;
+const OFFLINE_START_WINDOW_MS = 4_000;
 const EMAIL_CODE_REQUEST_TIMEOUT_MS = 35_000;
 const RESEND_FALLBACK_DELAY_MS = 60_000;
 const DEFINITIVE_EMAIL_CODE_REQUEST_FAILURES = new Set([
@@ -171,6 +174,8 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   #sessionToken: string | null = null;
   /** The session token in the stored file, or null when the file holds none that this start could read. */
   #storedSessionToken: string | null = null;
+  /** The user that the last sign-in or startup check saw, kept in the file so a start with no network still opens. */
+  #cachedUser: CentralAuthUser | null = null;
   readonly #teamHostTokens = new Map<string, string>();
   /** Belongs to the session that made it: the account service rejects it when that session ends. */
   #mobileConnectLink: StoredMobileConnectLink | null = null;
@@ -199,6 +204,8 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
       startupRetryWindowMs: options.startupRetryWindowMs ?? STARTUP_RETRY_WINDOW_MS,
       startupRequestTimeoutMs: options.startupRequestTimeoutMs ?? STARTUP_REQUEST_TIMEOUT_MS,
       startupRetryDelaysMs: options.startupRetryDelaysMs ?? STARTUP_RETRY_DELAYS_MS,
+      offlineStartWindowMs: options.offlineStartWindowMs ?? OFFLINE_START_WINDOW_MS,
+      ownerSignIn: options.ownerSignIn ?? false,
       emailCodeRequestTimeoutMs: options.emailCodeRequestTimeoutMs ?? EMAIL_CODE_REQUEST_TIMEOUT_MS,
     };
   }
@@ -1431,23 +1438,67 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     }
     if (!this.#sessionToken) {
       yield* this.#startupRequestEffect("/health/live", { method: "GET" }, decodeRecordHealth);
-      return this.#setState({ status: "signed_out" });
+      return yield* this.#signInOwner();
     }
     const sessionToken = this.#sessionToken;
+    const cachedUser = this.#cachedUser;
     return yield* Effect.gen({ self: this }, function* () {
-      const user = yield* this.#startupRequestEffect("/v1/me", { method: "GET" }, decodeCentralAuthUser, sessionToken);
-      return this.#setState({ status: "signed_in", user: this.#resolveUserAvatar(user) });
+      const user = yield* this.#startupRequestEffect(
+        "/v1/me",
+        { method: "GET" },
+        decodeCentralAuthUser,
+        sessionToken,
+        cachedUser ? this.#options.offlineStartWindowMs : undefined,
+      );
+      this.#cachedUser = this.#resolveUserAvatar(user);
+      return this.#setState({ status: "signed_in", user: this.#cachedUser });
     }).pipe(
       Effect.catch(({ cause: error }) =>
         Effect.gen({ self: this }, function* () {
           if (error instanceof AuthApiError && error.status === 401) {
             yield* this.#clearStoredSessionEffect();
-            return this.#setState({ status: "signed_out" });
+            return yield* this.#signInOwner();
+          }
+          if (cachedUser && !isFinalClientError(error)) {
+            logger.warn("The account service did not answer. Starting with the stored account.");
+            return this.#setState({ status: "signed_in", user: cachedUser });
           }
           return yield* new CentralAuthOperationError({ cause: error });
         }),
       ),
     );
+  });
+
+  /**
+   * On a private control plane the service signs its one owner in from the network identity of the
+   * request, with no email. A service that refuses leaves the person signed out.
+   */
+  readonly #signInOwner = Effect.fn("CentralAuth.signInOwner")(function* (
+    this: CentralAuthManager,
+  ): Effect.fn.Return<CentralAuthState, CentralAuthOperationError, CentralAuthTransport> {
+    if (!this.#options.ownerSignIn) return this.#setState({ status: "signed_out" });
+    const session = yield* this.#requestEffect("/v1/auth/owner", { method: "POST" }, decodeSessionResponse).pipe(
+      Effect.result,
+    );
+    if (Result.isSuccess(session)) return yield* this.#applySession(session.success);
+    if (isFinalClientError(session.failure.cause)) return this.#setState({ status: "signed_out" });
+    return yield* session.failure;
+  });
+
+  readonly #applySession = Effect.fn("CentralAuth.applySession")(function* (
+    this: CentralAuthManager,
+    session: { sessionToken: string; user: CentralAuthUser },
+  ): Effect.fn.Return<CentralAuthState, CentralAuthOperationError, CentralAuthTransport> {
+    // Signing in as somebody else without signing out first. The host credentials belong
+    // to the account that was issued them, and must not be filed under this session.
+    if (this.#sessionAccountId !== null && this.#sessionAccountId !== session.user.id) {
+      this.#teamHostTokens.clear();
+    }
+    this.#sessionToken = session.sessionToken;
+    this.#mobileConnectLink = null;
+    this.#cachedUser = this.#resolveUserAvatar(session.user);
+    yield* this.#writeStoredSession();
+    return this.#setState({ status: "signed_in", user: this.#cachedUser });
   });
 
   readonly requestEmailCode = Effect.fn("CentralAuth.requestEmailCode")(
@@ -1556,19 +1607,8 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
           },
           decodeSessionResponse,
         );
-        // Signing in as somebody else without signing out first. The host credentials belong
-        // to the account that was issued them, and must not be filed under this session.
-        if (this.#sessionAccountId !== null && this.#sessionAccountId !== session.user.id) {
-          this.#teamHostTokens.clear();
-        }
-        this.#sessionToken = session.sessionToken;
-        this.#mobileConnectLink = null;
         sessionApplied = true;
-        yield* this.#writeStoredSession();
-        return this.#setState({
-          status: "signed_in",
-          user: this.#resolveUserAvatar(session.user),
-        });
+        return yield* this.#applySession(session);
       }).pipe(
         Effect.catch(({ cause: error }) =>
           Effect.gen({ self: this }, function* () {
@@ -1825,8 +1865,9 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
     init: RequestInit,
     decoder: (value: unknown) => T,
     sessionToken?: string,
+    windowMs?: number,
   ): Effect.fn.Return<T, CentralAuthOperationError, CentralAuthTransport> {
-    let deadline = Date.now() + this.#options.startupRetryWindowMs;
+    let deadline = Date.now() + (windowMs ?? this.#options.startupRetryWindowMs);
     // A timer that fires late means a blocked event loop, such as a slow database check at start,
     // not a slow server. The window counts only the time the loop ran.
     const excludeBlockedTime = (startedAt: number, expectedMs: number) => {
@@ -1915,6 +1956,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
         sessionToken,
         teamHostTokens: Object.fromEntries(this.#teamHostTokens),
         ...(this.#mobileConnectLink ? { mobileConnectLink: this.#mobileConnectLink } : {}),
+        ...(this.#cachedUser ? { user: this.#cachedUser } : {}),
       });
       const encrypted = yield* authDecode(() => this.#options.encrypt(value).toString("base64"));
       stage = "write";
@@ -1961,6 +2003,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   #forgetSession(): void {
     this.#sessionToken = null;
     this.#sessionAccountId = null;
+    this.#cachedUser = null;
     this.#teamHostTokens.clear();
     this.#mobileConnectLink = null;
   }
@@ -1968,6 +2011,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   #restoreStoredSession(value: string): void {
     if (!value.trimStart().startsWith("{")) {
       this.#sessionToken = value;
+      this.#cachedUser = null;
       this.#teamHostTokens.clear();
       this.#mobileConnectLink = null;
       return;
@@ -1986,6 +2030,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
       }
     }
     this.#mobileConnectLink = restoreMobileConnectLink(stored.mobileConnectLink);
+    this.#cachedUser = restoreCachedUser(stored.user);
   }
 
   #setState(state: CentralAuthState): CentralAuthState {
@@ -2245,6 +2290,15 @@ function restoreMobileConnectLink(value: unknown): StoredMobileConnectLink | nul
   if (!isMobileConnectHostBinding(host) || !isString(token) || !MOBILE_CONNECT_LINK_TOKEN.test(token)) return null;
   if (!isNumber(createdAt) || !Number.isFinite(createdAt)) return null;
   return { host: { hostId: host.hostId, fingerprint: host.fingerprint }, token, createdAt };
+}
+
+function restoreCachedUser(value: unknown): CentralAuthUser | null {
+  if (value === undefined) return null;
+  try {
+    return decodeCentralAuthUser(value);
+  } catch {
+    return null;
+  }
 }
 
 /** A repository that a GitHub route ticket names. */

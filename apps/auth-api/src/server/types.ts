@@ -18,6 +18,10 @@ export interface WorkerBindings {
   /** Checked by the Live Activity relay only, so a Worker without it keeps its other routes. */
   LIVE_ACTIVITY_RATE_LIMITER?: RateLimit;
   AUTH_EXPOSE_DEVELOPMENT_CODE?: string;
+  /** The one account of a private control plane. Empty keeps owner sign-in off. */
+  OWNER_EMAIL?: string;
+  /** The Tailscale login that `tailscale serve` names in `Tailscale-User-Login` for the owner. */
+  OWNER_TAILNET_LOGIN?: string;
   EMAIL_SMTP_HOST?: string;
   EMAIL_SMTP_PORT?: string;
   EMAIL_SMTP_USERNAME?: string;
