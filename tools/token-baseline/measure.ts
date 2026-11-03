@@ -24,6 +24,7 @@ const { values: options } = parseArgs({
     message: { type: "string", default: "hi" },
     "no-breakdown": { type: "boolean", default: false },
     keep: { type: "boolean", default: false },
+    tasks: { type: "string", default: "0" },
     "no-computer-use-server": { type: "boolean", default: false },
     "computer-use": { type: "string", default: "default" },
     access: { type: "string", default: "default" },
@@ -97,6 +98,7 @@ const report: {
   agents: AgentReport[];
   firstRequests?: Array<{ agent: string; uncached: number; cached: number }>;
   turnTwoFirstRequests?: Array<{ agent: string; uncached: number; cached: number }>;
+  taskFirstRequests?: Array<{ agent: string; uncached: number; cached: number }>;
   processes?: {
     codexAppServers: number;
     codexRss: number;
@@ -279,6 +281,13 @@ try {
     }
   }
 
+  for (let task = 1; task <= Number(options.tasks); task++) {
+    for (const entry of report.agents) {
+      await runCauseEffect(agents.startTask({ agentId: entry.agentId, text: `${options.message} (task ${task})` }));
+      await turnEnded(entry.agentId, TURN_COUNT + task);
+    }
+  }
+
   const live = descendantProcesses();
   const byCommand: Record<string, { count: number; rssKb: number }> = {};
   for (const row of live) {
@@ -327,6 +336,7 @@ try {
     });
   report.firstRequests = first(1);
   if (TURN_COUNT >= 2) report.turnTwoFirstRequests = first(2);
+  if (Number(options.tasks) > 0) report.taskFirstRequests = first(TURN_COUNT + 1);
   report.passed = report.firstRequests.length === AGENT_COUNT;
 } catch (error) {
   report.error = error instanceof Error ? (error.stack ?? error.message) : String(error);
@@ -339,8 +349,11 @@ try {
   mkdirSync(OUT, { recursive: true });
   const file = join(OUT, `${report.label}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
   writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);
-  if (!options.keep) await rm(root, { recursive: true, force: true });
+  if (options.keep) process.stdout.write(`kept: ${root}\n`);
+  else await rm(root, { recursive: true, force: true });
   process.stdout.write(`${report.passed ? "PASS" : "FAIL"} ${file}\n`);
   process.stdout.write(`first requests: ${JSON.stringify(report.firstRequests)}\n`);
+  if (report.taskFirstRequests)
+    process.stdout.write(`task first requests: ${JSON.stringify(report.taskFirstRequests)}\n`);
   if (report.error) process.stdout.write(`${report.error}\n`);
 }
