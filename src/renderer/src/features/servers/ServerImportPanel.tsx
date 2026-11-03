@@ -41,7 +41,7 @@ const SETUP_STORAGE_KEYS = {
 /** The setups each app offers. Reading the Hermes folder needs this computer. */
 function setupsFor(source: AgentImportSkillSource, folder: boolean): readonly AgentImportSetup[] {
   if (source === "grok-bot") return ["agent", "skill"];
-  return folder ? ["folder", "command", "skill"] : ["command", "skill"];
+  return folder ? ["folder", "skill"] : ["skill"];
 }
 
 function readSetup(source: AgentImportSkillSource, folder: boolean): AgentImportSetup {

@@ -5,7 +5,6 @@ import {
   type AgentImportPreviewChannel,
   GROK_BOT_EXPORT_URL,
   HERMES_EXPORT_PROMPT,
-  HERMES_SKILL_COMMAND,
   parseAgentImportSkillSource,
   type RemoteAgentImportResult,
 } from "@openbot/contracts/ipc";
@@ -188,16 +187,7 @@ export function ServerImportGuideScreen() {
       {title}
       <SettingsNote>{hermes ? t("mobile.server.import.hermesLede") : t("mobile.server.import.grokLede")}</SettingsNote>
       {hermes ? (
-        <SettingsSection title={t("mobile.server.import.hermesStep1")} footer={t("mobile.server.import.commandNote")}>
-          <SettingsRow
-            disclosure={false}
-            trailing={copyTrailing(HERMES_SKILL_COMMAND)}
-            accessibilityLabel={t("mobile.server.import.copyLabel", { text: HERMES_SKILL_COMMAND })}
-            onPress={() => void copy(HERMES_SKILL_COMMAND)}
-          >
-            <Typography.Paragraph selectable>{HERMES_SKILL_COMMAND}</Typography.Paragraph>
-          </SettingsRow>
-        </SettingsSection>
+        <SettingsNote>{t("mobile.server.import.hermesSetupNote")}</SettingsNote>
       ) : (
         <SettingsSection
           title={t("mobile.server.import.grokStep1")}

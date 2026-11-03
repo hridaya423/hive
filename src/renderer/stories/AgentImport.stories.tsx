@@ -198,7 +198,7 @@ const hermesGuideArgs = (overrides: Partial<ViewArgs> = {}): ViewArgs =>
     ...overrides,
   });
 
-/** Hermes on this computer: read its folder, install the export skill with a command, or add it by hand. */
+/** Hermes on this computer: read its folder, or add the export skill by hand. */
 export const HermesSteps: Story = {
   name: "Hermes: Steps",
   render: () => {
@@ -209,15 +209,6 @@ export const HermesSteps: Story = {
       </Stage>
     );
   },
-};
-
-export const HermesInstallCommand: Story = {
-  name: "Hermes: Install with a command",
-  render: () => (
-    <Stage>
-      <AgentImportView {...hermesGuideArgs({ setup: "command" })} />
-    </Stage>
-  ),
 };
 
 export const HermesSkillYourself: Story = {
@@ -234,7 +225,7 @@ export const HermesStepsJoinedServer: Story = {
   name: "Hermes: Steps on a joined server",
   render: () => (
     <Stage>
-      <AgentImportView {...hermesGuideArgs({ setup: "command", onReadFolder: undefined })} />
+      <AgentImportView {...hermesGuideArgs({ setup: "skill", onReadFolder: undefined })} />
     </Stage>
   ),
 };

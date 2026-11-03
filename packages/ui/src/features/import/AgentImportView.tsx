@@ -7,7 +7,6 @@ import {
   type AgentImportResult,
   type AgentImportSkillSource,
   HERMES_EXPORT_PROMPT,
-  HERMES_SKILL_COMMAND,
 } from "@openbot/contracts/ipc";
 import type { AppFormat, AppTranslate } from "@openbot/i18n";
 import {
@@ -46,9 +45,9 @@ export type AgentImportPhase = "idle" | "reading" | "review" | "importing" | "do
  * this computer with no export, `command` installs the export skill with `/skills install`, and
  * `skill` adds it by hand.
  */
-export type AgentImportSetup = "agent" | "skill" | "folder" | "command";
+export type AgentImportSetup = "agent" | "skill" | "folder";
 
-const SETUPS: readonly AgentImportSetup[] = ["agent", "skill", "folder", "command"];
+const SETUPS: readonly AgentImportSetup[] = ["agent", "skill", "folder"];
 
 const EXPORT_SKILL_FILE = "SKILL.md";
 const EXPORT_SKILL_ID = "openbot-export";
@@ -180,11 +179,8 @@ function ImportGuide(props: {
                 <Show when={hermes() && props.onReadFolder}>
                   <SlidingTabs.Trigger value="folder">{t("import.guide.setupFolder")}</SlidingTabs.Trigger>
                 </Show>
-                <Show
-                  when={hermes()}
-                  fallback={<SlidingTabs.Trigger value="agent">{t("import.guide.setupAgent")}</SlidingTabs.Trigger>}
-                >
-                  <SlidingTabs.Trigger value="command">{t("import.guide.setupCommand")}</SlidingTabs.Trigger>
+                <Show when={!hermes()}>
+                  <SlidingTabs.Trigger value="agent">{t("import.guide.setupAgent")}</SlidingTabs.Trigger>
                 </Show>
                 <SlidingTabs.Trigger value="skill">{t("import.guide.setupSkill")}</SlidingTabs.Trigger>
               </SlidingTabs.List>
@@ -203,36 +199,20 @@ function ImportGuide(props: {
                     </SlidingTabs.Content>
                   )}
                 </Show>
-                <Show
-                  when={hermes()}
-                  fallback={
-                    <SlidingTabs.Content value="agent" class="agent-import-setup-panel">
-                      <div class="agent-import-card">
-                        <AgentAvatar seed="openbot-export" class="storage-row-avatar" />
-                        <span class="agent-import-card-copy">
-                          <span class="agent-import-card-name">{AGENT_IMPORT_EXPORT_AGENT_NAME}</span>
-                          <span class="agent-import-card-meta">{t("import.guide.agentMeta")}</span>
-                        </span>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => props.onOpenExportAgent()}>
-                          <ExternalLink aria-hidden="true" />
-                          {t("import.guide.openAgent")}
-                        </Button>
-                      </div>
-                      <p class="agent-import-step-note">{t("import.guide.agentNote")}</p>
-                    </SlidingTabs.Content>
-                  }
-                >
-                  <SlidingTabs.Content value="command" class="agent-import-setup-panel">
-                    <div class="agent-import-prompt">
-                      <code class="agent-import-prompt-text agent-import-command">{HERMES_SKILL_COMMAND}</code>
-                      <CopyButton
-                        iconOnly
-                        value={HERMES_SKILL_COMMAND}
-                        label={t("import.guide.copyCommand")}
-                        copiedLabel={t("import.guide.commandCopied")}
-                      />
+                <Show when={!hermes()}>
+                  <SlidingTabs.Content value="agent" class="agent-import-setup-panel">
+                    <div class="agent-import-card">
+                      <AgentAvatar seed="openbot-export" class="storage-row-avatar" />
+                      <span class="agent-import-card-copy">
+                        <span class="agent-import-card-name">{AGENT_IMPORT_EXPORT_AGENT_NAME}</span>
+                        <span class="agent-import-card-meta">{t("import.guide.agentMeta")}</span>
+                      </span>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => props.onOpenExportAgent()}>
+                        <ExternalLink aria-hidden="true" />
+                        {t("import.guide.openAgent")}
+                      </Button>
                     </div>
-                    <p class="agent-import-step-note">{t("import.guide.commandNote")}</p>
+                    <p class="agent-import-step-note">{t("import.guide.agentNote")}</p>
                   </SlidingTabs.Content>
                 </Show>
                 <SlidingTabs.Content value="skill" class="agent-import-setup-panel">
