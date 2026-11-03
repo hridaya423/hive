@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AGENT_PROVIDERS, type WorkflowGraph, type WorkflowNode } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
+import { inertBrowserHost } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/workflow-webhook-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-workflow-webhook-"));
@@ -56,24 +56,6 @@ const check = (name: string, ok: boolean, detail?: unknown) => {
   report.checks.push(name);
 };
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
 const trigger = (type: "webhook" | "manual"): WorkflowNode => ({
   id: "trigger",
   kind: "trigger",
@@ -96,7 +78,13 @@ const database = new OpenBotDatabase(userData);
 const store = new AgentStore(userData, home, database);
 const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 // No step talks to an agent, so no provider CLI starts.
-const agents = new AgentService({ store, mailbox, browser, preferredProvider: "codex", offProviders: AGENT_PROVIDERS });
+const agents = new AgentService({
+  store,
+  mailbox,
+  browser: inertBrowserHost,
+  preferredProvider: "codex",
+  offProviders: AGENT_PROVIDERS,
+});
 const workflowStore = new WorkflowStore({ database, nextDueAt: workflowScheduleDueAt(() => "UTC") });
 const changedWorkflows: string[] = [];
 const revoked: string[] = [];

@@ -15,7 +15,6 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { AgentBrowserProfile } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { BrowserProfileStore } from "../src/backend/browser-profiles/browser-profile-store";
@@ -23,6 +22,7 @@ import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { type BrowserProfileService, createBrowserProfileService } from "../src/main/browser-profile-service";
+import { inertBrowserHost } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/browser-profile-agents-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-browser-profile-agents-"));
@@ -41,24 +41,6 @@ function pass(name: string, condition: boolean, detail?: unknown) {
   assert.ok(condition, `${name}: ${JSON.stringify(detail)}`);
 }
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const agentBrowser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
 interface Host {
   database: OpenBotDatabase;
   store: AgentStore;
@@ -73,7 +55,7 @@ async function startHost(): Promise<Host> {
   const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
   await runCauseEffect(store.initialize());
   await runCauseEffect(mailbox.initialize());
-  const agents = new AgentService({ store, mailbox, browser: agentBrowser });
+  const agents = new AgentService({ store, mailbox, browser: inertBrowserHost });
   const profiles = createBrowserProfileService({
     store: new BrowserProfileStore(store.database),
     agents,

@@ -11,6 +11,7 @@ import { TEAM_API_ROUTES } from "@openbot/contracts/team-api-routes";
 import { Effect } from "effect";
 import type { TeamApiRequestContext } from "../src/main/team-api/request-context";
 import { routeTeam, type TeamRouteDependencies } from "../src/main/team-api/route-team";
+import { unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/team-session-end-e2e");
 const ORIGIN = "https://host.test";
@@ -46,7 +47,6 @@ function recorder() {
     calls[name] = [...(calls[name] ?? []), value];
     return Effect.void;
   };
-  const unused = () => Effect.die(new Error("Not used by this check."));
   const store: TeamRouteDependencies["store"] = {
     logout: (token) => record("store.logout", token),
     changePassword: unused,

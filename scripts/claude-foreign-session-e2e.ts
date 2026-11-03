@@ -16,7 +16,6 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AGENT_PROVIDERS, type AgentSummary, defaultProviderModel } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import type { AgentClient, DiagnosticOrigin } from "../src/backend/agent-client";
 import type { ClaudeCliInfo } from "../src/backend/cli";
 import {
@@ -29,6 +28,7 @@ import {
 } from "../src/backend/protocol";
 import { providerFailure, providerSync, requiredString } from "../src/backend/provider-client-effects";
 import type { ReadProviderHistory } from "../src/backend/provider-history";
+import { inertBrowserHost, waitFor } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/claude-foreign-session-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-claude-foreign-session-"));
@@ -255,24 +255,6 @@ const report: {
   error?: string;
 } = { passed: false, checks };
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
 /** Each start of the stand-in Claude CLI for a session: its pid and its session arguments. */
 function claudeSpawns(): { pid: number; resume: string | null; sessionId: string | null }[] {
   let text = "";
@@ -298,17 +280,6 @@ function spawnEntry(entry: unknown) {
   return { pid, resume: option("--resume"), sessionId: option("--session-id") };
 }
 
-/** Waits for a state of the service or of a stand-in. */
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = read();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}.`);
-    await new Promise((done) => setTimeout(done, 25));
-  }
-}
-
 /** Waits for a state, and gives null instead of a stop when it does not come. */
 async function settle<T>(label: string, read: () => T | null | undefined | false, timeoutMs?: number) {
   return waitFor(label, read, timeoutMs).catch(() => null);
@@ -322,7 +293,7 @@ const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 const agents = new AgentService({
   store,
   mailbox,
-  browser,
+  browser: inertBrowserHost,
   preferredProvider: "claude",
   offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "claude" && provider !== "opencode"),
   clientFactory: (provider, cli) => (provider === "claude" ? new ClaudeStandIn(cli) : new FakeOpenCode()),

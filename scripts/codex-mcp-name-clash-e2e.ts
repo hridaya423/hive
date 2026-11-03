@@ -7,7 +7,7 @@
 // `bun scripts/codex-mcp-name-clash-e2e.ts`. Writes .openbot-build/codex-mcp-name-clash-e2e/report.json.
 import assert from "node:assert/strict";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { createServer, type Server as HttpServer } from "node:http";
+import { createServer } from "node:http";
 import { join, resolve } from "node:path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -28,6 +28,7 @@ import {
   usableMcpServers,
 } from "../src/backend/mcp-provider-shapes";
 import { decodeRecordResponse, getRecord, getString } from "../src/backend/protocol";
+import { listen } from "./net-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/codex-mcp-name-clash-e2e");
 const NL = String.fromCharCode(10);
@@ -126,20 +127,6 @@ async function startHttpMcp() {
     await transport.handleRequest(request, response);
   });
   return listen(server);
-}
-
-async function listen(server: HttpServer) {
-  await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
-  const address = server.address();
-  assert(address && typeof address === "object");
-  return {
-    port: address.port,
-    close: () =>
-      new Promise<void>((done) => {
-        server.closeAllConnections();
-        server.close(() => done());
-      }),
-  };
 }
 
 /** The SDK transport, with its optional members spelled the way `exactOptionalPropertyTypes` wants. */

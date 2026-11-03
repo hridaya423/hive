@@ -15,13 +15,12 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { AGENT_PROVIDERS, defaultProviderModel } from "@openbot/contracts/ipc";
-import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import type { AgentClient, DiagnosticOrigin } from "../src/backend/agent-client";
 import type { ClaudeCliInfo } from "../src/backend/cli";
 import type { AppServerNotification, AppServerRequest, RequestId, ResponseDecoder } from "../src/backend/protocol";
 import { providerSync } from "../src/backend/provider-client-effects";
 import type { ReadProviderHistory } from "../src/backend/provider-history";
+import { inertBrowserHost, waitFor } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/claude-late-steer-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-claude-late-steer-"));
@@ -222,35 +221,6 @@ const report: {
   error?: string;
 } = { passed: false };
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
-/** Waits for a state of the service, of its database or of the stand-in. */
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = read();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}.`);
-    await new Promise((done) => setTimeout(done, 25));
-  }
-}
-
 /** One run of the service on the profile, as one start of the app. */
 function startService() {
   const database = new OpenBotDatabase(userData);
@@ -259,7 +229,7 @@ function startService() {
   const agents = new AgentService({
     store,
     mailbox,
-    browser,
+    browser: inertBrowserHost,
     preferredProvider: "claude",
     offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "claude"),
     busyMessageMode: () => "steer",
