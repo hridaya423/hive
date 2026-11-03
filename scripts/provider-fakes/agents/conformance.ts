@@ -13,7 +13,13 @@
 //   reports the first model as current, but runs on no listed model until the client sets one.
 // - `FAKE_DEVICE_CODE=1` answers `login --device-code` with the text of Copilot CLI 1.0.105, as a CLI
 //   that waits for the sign-in, and starts no agent.
+// - `FAKE_COPILOT=1` makes the executable the Copilot CLI 1.0.105 for the runtime: `--version`, and
+//   `login --web-flow` and `login --device-code`, which end with `FAKE_LOGIN_MODE` after
+//   `FAKE_LOGIN_DELAY_MS`. `FAKE_MODE_FILE` names a file that holds what each new session does now:
+//   `ok`, `signed-out` (`-32000 "Authentication required"`), or `no-plan` (the 403 that GitHub gives an
+//   account with no Copilot plan: `-32603` with `data.category: "permission_denied"`, `data.status: 403`).
 // A prompt with the text `wait` runs until the client cancels it. Each other prompt answers at once.
+import { readFileSync, writeFileSync } from "node:fs";
 import {
   type AcpError,
   type AcpParams,
@@ -57,6 +63,17 @@ const HERMES_AUTH_METHODS = [
 ];
 const missingError = MISSING_ERRORS[process.env.FAKE_MISSING ?? "protocol"];
 const signedOut = process.env.FAKE_SIGNED_OUT === "1";
+const modeFile = process.env.FAKE_MODE_FILE;
+function sessionMode(): string {
+  if (modeFile) {
+    try {
+      return readFileSync(modeFile, "utf8").trim();
+    } catch {
+      return "ok";
+    }
+  }
+  return signedOut ? "signed-out" : "ok";
+}
 const kimiModelSet = process.env.FAKE_MODEL_SET === "kimi";
 const modelUnapplied = process.env.FAKE_MODEL_UNAPPLIED === "1";
 const UNAPPLIED_MODEL = "fake-unset";
@@ -108,6 +125,23 @@ function promptText(params: AcpParams): string {
   return (params.prompt ?? []).map((block) => block.text ?? "").join("");
 }
 
+const command = process.argv.slice(2).join(" ");
+if (process.env.FAKE_COPILOT === "1" && command === "--version") {
+  process.stdout.write("GitHub Copilot CLI 1.0.105.\nRun 'copilot update' to check for updates.\n");
+  process.exit(0);
+}
+if (process.env.FAKE_COPILOT === "1" && (command === "login --web-flow" || command === "login --device-code")) {
+  logEntry({ event: command });
+  if (command === "login --device-code") {
+    process.stdout.write(
+      "To authenticate, visit https://github.com/login/device and enter code ABCD-1234\nWaiting for authorization...\n",
+    );
+  }
+  await new Promise((settle) => setTimeout(settle, Number(process.env.FAKE_LOGIN_DELAY_MS ?? 0)));
+  if (modeFile) writeFileSync(modeFile, process.env.FAKE_LOGIN_MODE ?? "ok");
+  process.exit(0);
+}
+
 if (process.env.FAKE_DEVICE_CODE === "1" && process.argv.slice(2).join(" ") === "login --device-code") {
   process.stdout.write(
     "To authenticate, visit https://github.com/login/device and enter code ABCD-1234\nWaiting for authorization...\n",
@@ -133,8 +167,18 @@ serveFakeAcpAgent(
         peer.fail(request, { code: -32603, message: "Internal error" });
         return;
       }
-      if (signedOut) {
+      const mode = sessionMode();
+      if (mode === "signed-out") {
         peer.fail(request, { code: -32000, message: "Authentication required" });
+        return;
+      }
+      if (mode === "no-plan") {
+        const reason = "unauthorized: not authorized to use this Copilot feature\n";
+        peer.fail(request, {
+          code: -32603,
+          message: `403 ${JSON.stringify(reason)}`,
+          data: { category: "permission_denied", status: 403, error: reason },
+        });
         return;
       }
       count += 1;

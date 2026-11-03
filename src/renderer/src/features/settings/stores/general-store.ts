@@ -108,6 +108,7 @@ export function createSettingsGeneralStore(props: GeneralStoreProps) {
         signInPending: agent?.signInPending,
         restartPending: agent?.restartPending,
         checkError: agent?.checkError,
+        planRequired: agent?.planRequired,
         lastError: agent?.lastError,
         diagnostics: agent ? providerDiagnosticsText(agent) : undefined,
         availableVersion: props.providerAvailableVersions?.[provider] ?? null,

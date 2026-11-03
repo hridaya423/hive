@@ -124,6 +124,11 @@ export interface AcpFlavor {
    * turn and ends the process, so the next turn starts a process that reads the sign-in again.
    */
   signInLostChunk?: RegExp;
+  /**
+   * Whether the agent refused a request because the signed-in account has no plan that serves it,
+   * which is not a sign-out: signing in again changes nothing.
+   */
+  planRefused?(error: RequestError): boolean;
   /** The `_meta` of each `session/new`, `session/load` and `session/resume` request. */
   sessionMeta?: NewSessionRequest["_meta"];
   /**
@@ -144,6 +149,19 @@ export const DEFAULT_ACP_FLAVOR: AcpFlavor = {};
  */
 export const HERMES_ACP_FLAVOR: AcpFlavor = {
   loadInsteadOfResume: { missing: (response) => response.modes == null },
+};
+
+/**
+ * Copilot CLI 1.0.105 answers `session/new` of a GitHub account with no Copilot plan with `-32603`,
+ * and the HTTP refusal in `data`: `category: "permission_denied"`, `status: 403`. An account that is
+ * not signed in gets `-32000 "Authentication required"` instead.
+ */
+export const COPILOT_ACP_FLAVOR: AcpFlavor = {
+  planRefused: (error) =>
+    error.code === -32603 &&
+    isRecord(error.data) &&
+    error.data.status === 403 &&
+    error.data.category === "permission_denied",
 };
 
 /**

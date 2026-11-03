@@ -848,8 +848,18 @@ guide.
 Sign in runs `copilot login --web-flow`. The CLI keeps the token in the login Keychain (service
 `copilot-cli`). The code sign-in runs `copilot login --device-code` and reads
 `To authenticate, visit https://github.com/login/device and enter code XXXX-XXXX` (`codeOnEnterLine`).
-Without a sign-in, `session/new` fails with `-32000 "Authentication required"`. A sign-in that GitHub
-refuses for the account fails with `-32603` and HTTP 403. The CLI has no `logout` command, so the
+Without a sign-in, `session/new` fails with `-32000 "Authentication required"`. An account that is
+signed in but has no Copilot plan fails `session/new` with `-32603`, `data.category:
+"permission_denied"` and `data.status: 403` (message `403 "unauthorized: not authorized to use this
+Copilot feature"`). `COPILOT_ACP_FLAVOR.planRefused` matches that, and the client raises
+`ProviderPlanRequiredError`. The row keeps the state `error` (a new state would break the closed state
+list of the Team API codecs) and sets the local-only `planRequired` flag. Its message names the login
+that `copilotLogin` reads from `config.json`, and its badge says "No plan". The row offers "Open GitHub
+settings" (`copilot-plan`, `https://github.com/settings/copilot`) and "Try again", which checks the
+provider again; it offers no Connect, which would sign in again and change nothing. The message
+and GitHub's own 403 text are a `billing` failure cause, so a fallback chain skips Copilot.
+`scripts/copilot-sign-in-e2e.ts` runs this over the conformance fake. `copilot -p` says the same in
+words: "Your Copilot subscription does not include this feature". The CLI has no `logout` command, so the
 driver has no `signOut`. A token in `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` or `GITHUB_TOKEN` wins over the
 Keychain, and OpenBot never sets them.
 

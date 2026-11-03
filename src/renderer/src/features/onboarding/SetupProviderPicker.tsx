@@ -221,6 +221,7 @@ export function createSetupProviders(
         connectionState: status?.connectionState,
         signInPending: status?.signInPending,
         checkError: status?.checkError,
+        planRequired: status?.planRequired,
         availableVersion: props.providerAvailableVersions?.[provider.id] ?? null,
         freeModels: provider.id === "opencode",
         // For a user with no account anywhere, this row is the way forward, and among four rows it

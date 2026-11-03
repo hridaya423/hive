@@ -63,7 +63,7 @@ import {
   decodeRecordResponse,
   getString,
 } from "./../protocol";
-import { ProviderSignInError } from "../provider-client-effects";
+import { ProviderPlanRequiredError, ProviderSignInError } from "../provider-client-effects";
 import {
   antigravityTemp,
   BUILT_IN_PROVIDER_DRIVERS,
@@ -3130,6 +3130,7 @@ export class ProviderRuntime implements ProviderPort {
     const message =
       (timeout && matchingSourceKeys(rawMessage).length > 0) ||
       error instanceof ProviderSignInError ||
+      error instanceof ProviderPlanRequiredError ||
       /^(ChatGPT connection|OpenBot)/u.test(rawMessage)
         ? rawMessage
         : fallbackMessage;
@@ -3140,7 +3141,7 @@ export class ProviderRuntime implements ProviderPort {
           message,
           email: this.#accounts.get(provider)?.email ?? null,
         }
-      : error instanceof CodexCliError || cliFailed
+      : error instanceof CodexCliError || error instanceof ProviderPlanRequiredError || cliFailed
         ? providerFailureStatus(provider, error, version)
         : {
             state: "sign-in-required" as const,
@@ -3492,7 +3493,13 @@ export class ProviderRuntime implements ProviderPort {
                   message: failure.message === null ? null : this.#redactMcp(failure.message),
                 }),
               });
-              if (!(failed instanceof CodexCliError || failed instanceof ProviderSignInError)) {
+              if (
+                !(
+                  failed instanceof CodexCliError ||
+                  failed instanceof ProviderSignInError ||
+                  failed instanceof ProviderPlanRequiredError
+                )
+              ) {
                 this.#emitProviderError(provider, "start_failed", failed);
                 // No process started, and the row keeps the reason the user can act on.
                 if (!(failed instanceof ProviderTempDiskSpaceError) && this.#countStartFailure(provider))

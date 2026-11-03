@@ -15,6 +15,7 @@ import { sourceText } from "@openbot/i18n/source";
 import { Effect } from "effect";
 import { AcpAgentClient, type AcpHistoryPersistence } from "./acp-client";
 import {
+  COPILOT_ACP_FLAVOR,
   CURSOR_ACP_FLAVOR,
   customAgentFlavor,
   DEFAULT_ACP_FLAVOR,
@@ -54,6 +55,7 @@ import {
   resolvePiCli,
 } from "./cli";
 import { clineFreeModels } from "./cline-free-models";
+import { copilotLogin } from "./copilot-login";
 import { readCursorUsage } from "./cursor-usage";
 import { CustomAcpAgentsClient, type CustomAgentConfig, type CustomAgentSource } from "./custom-acp-agents-client";
 import { GrokAgentClient } from "./grok-client";
@@ -353,6 +355,13 @@ function confineHermesTarget(
 }
 
 const COPILOT_ARGV: readonly string[] = ["--acp"];
+
+function copilotPlanRequiredMessage(env: NodeJS.ProcessEnv): string {
+  const login = copilotLogin(env);
+  return login
+    ? sourceText("error.provider.copilotNoPlan", { login })
+    : sourceText("error.provider.copilotNoPlanUnnamed");
+}
 
 function confineCopilotTarget(
   target: SpawnTarget,
@@ -1256,7 +1265,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
     createClient: (cli, timeout, context, confinement) =>
       new AcpAgentClient(cli, timeout, {
         provider: "copilot",
-        flavor: DEFAULT_ACP_FLAVOR,
+        flavor: COPILOT_ACP_FLAVOR,
         argv: COPILOT_ARGV,
         env: {},
         ...(confinement
@@ -1267,6 +1276,7 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
           : {}),
         extraEnv: () => ({ ...context.agentEnvironment?.() }),
         signInMessage: sourceText("error.provider.copilotSignIn"),
+        planRequiredMessage: () => copilotPlanRequiredMessage({ ...process.env, ...context.agentEnvironment?.() }),
         servesModel: context.servesModel,
         mcpServers: context.mcpServers,
         reportMcpDrops: context.reportMcpDrops,
@@ -1277,11 +1287,12 @@ export const BUILT_IN_PROVIDER_DRIVERS: readonly BuiltInProviderDriver[] = [
     createProfileClient: (cli, timeout, context) =>
       new AcpAgentClient(cli, timeout, {
         provider: "copilot",
-        flavor: DEFAULT_ACP_FLAVOR,
+        flavor: COPILOT_ACP_FLAVOR,
         argv: COPILOT_ARGV,
         profileGeneration: true,
         env: {},
         signInMessage: sourceText("error.provider.copilotSignIn"),
+        planRequiredMessage: () => copilotPlanRequiredMessage(process.env),
         servesModel: context.servesModel,
       }),
     authState: (account) => ({ kind: "copilot", email: account?.email ?? null }),

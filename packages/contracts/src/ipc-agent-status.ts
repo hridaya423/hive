@@ -69,6 +69,12 @@ export interface AgentProviderStatus {
    */
   apiKeyInUse?: boolean;
   /**
+   * The provider's CLI is signed in, but the account has no plan that serves it, so the state is
+   * `error` and the message names the account. Copilot: GitHub refuses a session for an account with no
+   * Copilot plan. Local only: released Team API adapters omit it.
+   */
+  planRequired?: boolean;
+  /**
    * The last failure of the provider, redacted, kept after its toast is gone and cleared by the next
    * good model list. Only the computer that runs the provider sends it; the Team API does not.
    */
@@ -140,6 +146,7 @@ function isAgentProviderStatus(value: unknown): value is AgentProviderStatus {
     (value.off === undefined || typeof value.off === "boolean") &&
     (value.restartPending === undefined || typeof value.restartPending === "boolean") &&
     (value.apiKeyInUse === undefined || typeof value.apiKeyInUse === "boolean") &&
+    (value.planRequired === undefined || typeof value.planRequired === "boolean") &&
     (value.lastError === undefined || isNullableBoundedString(value.lastError, INPUT_LIMITS.messageText)) &&
     (value.lastErrorAt === undefined || isFiniteNumber(value.lastErrorAt)) &&
     (value.accounts === undefined ||

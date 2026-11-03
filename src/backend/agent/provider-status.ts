@@ -4,7 +4,7 @@ import { redactText } from "@openbot/logging";
 import { Effect, Schema } from "effect";
 import { type AgentProvider, RequestTimeoutError } from "../agent-client";
 import { CodexCliError } from "../cli";
-import { ProviderSignInError } from "../provider-client-effects";
+import { ProviderPlanRequiredError, ProviderSignInError } from "../provider-client-effects";
 import { stopProcessTree } from "../windows-process-tree";
 import { TimeoutError } from "../with-timeout";
 
@@ -49,6 +49,9 @@ export function providerFailureStatus(
   const message = redactText(error instanceof Error ? error.message : String(error));
   // The CLI runs, but the account or the saved key does not: the user must sign in again.
   if (error instanceof ProviderSignInError) return { state: "sign-in-required", version: version ?? null, message };
+  // The account is signed in, so the row must not ask for a sign-in that changes nothing.
+  if (error instanceof ProviderPlanRequiredError)
+    return { state: "error", version: version ?? null, message, planRequired: true };
   if (error instanceof CodexCliError) {
     // A CLI that did not answer in time is not broken, so the message must not ask for a reinstall.
     if (error.code === "timeout") return { state: "error", version: version ?? null, message };

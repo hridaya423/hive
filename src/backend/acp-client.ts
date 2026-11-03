@@ -74,6 +74,7 @@ import {
 } from "./protocol";
 import {
   type ProviderClientOperationError,
+  ProviderPlanRequiredError,
   ProviderSignInError,
   providerCall,
   providerFailure,
@@ -375,6 +376,8 @@ export interface AcpProviderOptions {
   /** A temporary folder of its own for each process (`provider-temp.ts`). */
   privateTemp?: AcpConnectionOptions["privateTemp"];
   signInMessage: string;
+  /** What the row says when the flavor reports an account with no plan. Read when that happens. */
+  planRequiredMessage?: () => string;
   /**
    * Whether the model this turn runs on may still be used. Read here, after every wait this client
    * makes for the model configuration and the prompt images, because the endpoint can be removed
@@ -1254,6 +1257,8 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
       }
       this.#signedIn = true;
     } catch (error) {
+      const planRequired = this.#planRequired(error);
+      if (planRequired) return yield* providerFailure(planRequired);
       if (isAuthenticationError(error)) {
         const keyRefused = this.options.savedKeyRefusedMessage?.();
         if (keyRefused) return yield* providerFailure(new ProviderSignInError({ message: keyRefused }));
@@ -1270,6 +1275,13 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
       this.#signInPrompt = null;
     }
   });
+
+  #planRequired(error: unknown): ProviderPlanRequiredError | null {
+    const message = this.options.planRequiredMessage;
+    return message && error instanceof RequestError && this.#flavor.planRefused?.(error)
+      ? new ProviderPlanRequiredError({ message: message() })
+      : null;
+  }
 
   #startTimeout(timeoutMs: number) {
     return Effect.timeoutOrElse({
@@ -1629,6 +1641,8 @@ export class AcpAgentClient extends EventEmitter<ClientEvents> {
           } catch (error) {
             // The server asked for a browser sign-in while the session opened, and the stop ended it.
             if (!this.#signedIn) return yield* providerFailure(new Error(this.options.signInMessage));
+            const planRequired = this.#planRequired(error);
+            if (planRequired) return yield* providerFailure(planRequired);
             return yield* transport ? yield* this.#explainSessionEnd(transport, error) : providerFailure(error);
           }
         }),
