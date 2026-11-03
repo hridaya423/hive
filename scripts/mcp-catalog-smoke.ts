@@ -16,13 +16,14 @@ import {
 } from "@modelcontextprotocol/sdk/client/auth.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { FetchLike, Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import type { FetchLike } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import { createOpenBotLogger, toLogValue } from "@openbot/logging";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { secureOAuthFetch } from "../src/backend/mcp-oauth-provider";
 import { hostAddresses, isPublicAddress, systemAddressLookup } from "../src/backend/network-address";
 import { defaultPluginCatalogPaths, loadPluginCatalog, type PluginApp } from "./build-plugin-catalog";
+import { asTransport } from "./mcp-transport-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/mcp-catalog-smoke");
 const TIMEOUT_MS = 20_000;
@@ -95,33 +96,6 @@ function recording(fetchFn: FetchLike, url: string, requests: string[]): FetchLi
 
 function withoutHash(url: URL): string {
   return `${url.origin}${url.pathname}${url.search}`;
-}
-
-/**
- * The SDK transport classes declare their handlers and `sessionId` as `T | undefined`, which
- * `exactOptionalPropertyTypes` does not accept as a `Transport`. This one forwards to such a class.
- */
-function asTransport(inner: {
-  start(): Promise<void>;
-  send: Transport["send"];
-  close(): Promise<void>;
-  onclose?: (() => void) | undefined;
-  onerror?: ((error: Error) => void) | undefined;
-  onmessage?: Transport["onmessage"] | undefined;
-  setProtocolVersion?: ((version: string) => void) | undefined;
-}): Transport {
-  const transport: Transport = {
-    start: () => {
-      inner.onclose = () => transport.onclose?.();
-      inner.onerror = (error) => transport.onerror?.(error);
-      inner.onmessage = (message, extra) => transport.onmessage?.(message, extra);
-      return inner.start();
-    },
-    send: (message, options) => inner.send(message, options),
-    close: () => inner.close(),
-    setProtocolVersion: (version) => inner.setProtocolVersion?.(version),
-  };
-  return transport;
 }
 
 /** An open server answers `initialize` from the SDK client with no credential. */

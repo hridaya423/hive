@@ -24,7 +24,7 @@ import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
 import { discordDriver } from "../src/backend/messaging/discord/discord-driver";
-import { type MessagingCredentials, MessagingService } from "../src/backend/messaging/messaging-service";
+import { MessagingService } from "../src/backend/messaging/messaging-service";
 import { MessagingThreads } from "../src/backend/messaging/messaging-threads";
 import {
   DiscordApiError,
@@ -35,7 +35,7 @@ import {
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import { parseSetDiscordAccessInput } from "../src/main/ipc/messaging-inputs";
-import { inertBrowserHost, unused } from "./agent-service-support";
+import { inertBrowserHost, memoryCredentials, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/messaging-discord-access-e2e");
 const REPORT = join(OUT, "report.json");
@@ -232,20 +232,6 @@ const ingress: MessagingIngress = {
   },
 };
 
-function memoryCredentials(): MessagingCredentials {
-  const values = new Map<string, Record<string, string>>();
-  return {
-    keys: () => [...values.keys()],
-    status: (connectionId) => (values.has(connectionId) ? "saved" : "missing"),
-    get: (connectionId) => values.get(connectionId) ?? null,
-    set: (connectionId, value) => Effect.sync(() => void values.set(connectionId, value)),
-    clear: (connectionId) => Effect.sync(() => void values.delete(connectionId)),
-    retain: (connectionIds) =>
-      Effect.sync(() => {
-        for (const key of values.keys()) if (!connectionIds.has(key)) values.delete(key);
-      }),
-  };
-}
 const credentials = memoryCredentials();
 
 interface Booted {

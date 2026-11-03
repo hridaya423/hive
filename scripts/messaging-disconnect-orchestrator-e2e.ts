@@ -20,7 +20,7 @@ import { type MessagingCredentials, MessagingService } from "../src/backend/mess
 import type { MessagingIngress } from "../src/backend/messaging/messaging-types";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
-import { inertBrowserHost, unused } from "./agent-service-support";
+import { inertBrowserHost, memoryCredentials, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/messaging-disconnect-orchestrator-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-messaging-disconnect-"));
@@ -48,22 +48,6 @@ const ingress: MessagingIngress = {
   discord: unused,
   onDiscordRoutes: () => () => {},
 };
-
-/** The tokens of each connection, in memory. */
-function memoryCredentials(): MessagingCredentials {
-  const values = new Map<string, Record<string, string>>();
-  return {
-    keys: () => [...values.keys()],
-    status: (connectionId) => (values.has(connectionId) ? "saved" : "missing"),
-    get: (connectionId) => values.get(connectionId) ?? null,
-    set: (connectionId, value) => Effect.sync(() => void values.set(connectionId, value)),
-    clear: (connectionId) => Effect.sync(() => void values.delete(connectionId)),
-    retain: (connectionIds) =>
-      Effect.sync(() => {
-        for (const key of values.keys()) if (!connectionIds.has(key)) values.delete(key);
-      }),
-  };
-}
 
 async function boot<T>(
   use: (services: {

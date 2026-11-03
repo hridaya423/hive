@@ -15,7 +15,7 @@ import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
-import { type MessagingCredentials, MessagingService } from "../src/backend/messaging/messaging-service";
+import { MessagingService } from "../src/backend/messaging/messaging-service";
 import type {
   IngressAnswer,
   IngressDelivery,
@@ -26,7 +26,7 @@ import type {
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import { parseSetMessagingEnabledInput } from "../src/main/ipc/messaging-inputs";
-import { inertBrowserHost, unused } from "./agent-service-support";
+import { inertBrowserHost, memoryCredentials, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/messaging-pause-resume-e2e");
 const REPORT = join(OUT, "report.json");
@@ -154,22 +154,6 @@ function fakeDriver(platform: MessagingPlatform, log: DriverLog): MessagingDrive
           }),
       };
     },
-  };
-}
-
-/** The tokens of each connection, in memory. */
-function memoryCredentials(): MessagingCredentials {
-  const values = new Map<string, Record<string, string>>();
-  return {
-    keys: () => [...values.keys()],
-    status: (connectionId) => (values.has(connectionId) ? "saved" : "missing"),
-    get: (connectionId) => values.get(connectionId) ?? null,
-    set: (connectionId, value) => Effect.sync(() => void values.set(connectionId, value)),
-    clear: (connectionId) => Effect.sync(() => void values.delete(connectionId)),
-    retain: (connectionIds) =>
-      Effect.sync(() => {
-        for (const key of values.keys()) if (!connectionIds.has(key)) values.delete(key);
-      }),
   };
 }
 
