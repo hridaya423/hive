@@ -566,6 +566,7 @@ host advertises a capability only when its `TeamApiAdmin` member exists.
 | `agent-access-v1` | Read and set the roles that give members access to agents (see [Roles](#roles)) | `hostAdmin` |
 | `server-audit-v1` | Read the changes to the members, roles and agent access of the server (see [Audit log](#audit-log)). Protocol 9 only | `hostAdmin` |
 | `discord-access-v1` | Read and set which Discord roles can use OpenBot in a Discord server; list its roles | `messaging` |
+| `whatsapp-link-v1` | Read the WhatsApp account of the host with its pairing QR code, link, unlink, pause, add the orchestrator and set the allowed chats. Owners and admins only. Protocol 9 only | `messaging` |
 | `events-v1` | Manage webhook routines, their secrets, and activity | `events` |
 | `routine-recovery-v1` | Read and set a routine's missed-run policy; read its runs with the missed occurrences | `events` |
 | `routine-results-v1` | List the messaging connections and their places; read and set where an agent routine sends its answers. Deliveries stay on the host | none: only the mobile app sends it |

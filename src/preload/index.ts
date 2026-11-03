@@ -1082,6 +1082,8 @@ const openbotApi: OpenBotDesktopApi = {
     hostGetDiscordAccess: decodeDiscordAccessReply,
     hostListDiscordRoles: decodeDiscordRolesReply,
     hostSetDiscordAccess: decodeDiscordAccessReply,
+    hostGetWhatsAppOverview: decodeWhatsAppOverviewReply,
+    hostSetWhatsAppAllowedChats: decodeWhatsAppOverviewReply,
   }),
   hostAdmin: bridgeGroup(IPC_ENDPOINTS.hostAdmin, {
     updateIdentity: decodeServer,

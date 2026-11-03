@@ -102,6 +102,12 @@ it, and WhatsApp then gives this computer the keys of the new device.
 - **Sent to WhatsApp.** The agents' answers and the files they attach, and reactions, only to a chat
   on the allowlist. They appear as messages from the user's own account. WhatsApp has no buttons for
   a linked device, so an approval request does not go to the chat: the user approves in the app.
+- **Linked from a joined computer.** An owner or admin of the server can also link, unlink and edit the
+  allowed chats from a computer that joined it (the `whatsapp-link-v1` capability of the Team API). The
+  host sends the pairing QR code, the state of the account and the allowed chats to that computer, over
+  the Team API, and to no one else: a member who is not an owner or admin gets a refusal. The QR code is a
+  short-lived secret. Whoever scans it in WhatsApp links the host's login to their own account. Neither
+  the login files nor any message ever leaves the host.
 - **Unlink.** Unlink logs the device out of WhatsApp, which removes it from the phone's linked
   devices, deletes the `whatsapp/auth` folder and the allowed chats, and deletes the WhatsApp
   Orchestrator with its conversations. If the phone removes the device first, the host deletes the

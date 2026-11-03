@@ -210,6 +210,18 @@ export interface TeamApiConnectors {
   >;
 }
 
+/** `whatsapp-link-v1`: the WhatsApp account of this host. Its presence is what `#protocolSupport` advertises it on. */
+export type TeamApiWhatsAppLink = Pick<
+  MessagingService,
+  | "whatsappOverview"
+  | "connectWhatsApp"
+  | "disconnectWhatsApp"
+  | "reconnect"
+  | "setEnabled"
+  | "addWhatsAppOrchestrator"
+  | "setWhatsAppAllowedChats"
+>;
+
 /**
  * Its presence, beside `mcpServers`, is what `#protocolSupport` advertises `sign-in-relay-v1` on, and
  * beside `providerAccounts` too, `provider-account-relay-v1`.
@@ -577,6 +589,7 @@ export interface TeamApiOptions {
   mcpSignIns?: TeamApiMcpSignIns | undefined;
   signInRelay?: TeamApiSignInRelay | undefined;
   connectors?: TeamApiConnectors | undefined;
+  whatsappLink?: TeamApiWhatsAppLink | undefined;
   onePasswordConnector?: TeamApiOnePasswordConnector | undefined;
   bitwardenConnector?: TeamApiBitwardenConnector | undefined;
   vault?: TeamApiVault | undefined;

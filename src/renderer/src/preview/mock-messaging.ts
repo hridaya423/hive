@@ -267,5 +267,7 @@ export function createMockMessaging(orchestrator: () => string): MessagingDeskto
     hostGetDiscordAccess: (input) => api.getDiscordAccess(input),
     hostListDiscordRoles: (input) => api.listDiscordRoles(input),
     hostSetDiscordAccess: (input) => api.setDiscordAccess(input),
+    hostGetWhatsAppOverview: () => api.getWhatsAppOverview(),
+    hostSetWhatsAppAllowedChats: (input) => api.setWhatsAppAllowedChats(input),
   };
 }

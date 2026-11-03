@@ -89,6 +89,7 @@ import { VAULT_IMPORT_CODECS } from "./vault-import-v1";
 import { VAULT_CODECS } from "./vault-v1";
 import { VAULT_V2_CODECS } from "./vault-v2";
 import { WEBHOOK_TESTS_CODECS } from "./webhook-tests-v1";
+import { WHATSAPP_LINK_CODECS } from "./whatsapp-link-v1";
 import { WORKFLOWS_GITHUB_CODECS } from "./workflows-github-v1";
 import { WORKFLOWS_CODECS } from "./workflows-v1";
 import { WORKSPACE_DIRECTORY_CODECS } from "./workspace-directory-v1";
@@ -150,6 +151,7 @@ const CODECS: ReadonlyMap<string, OptionalRouteCodec> = new Map([
   ...FOCUS_USE_CODECS,
   ...COMPUTER_ACTIVITY_CODECS,
   ...CONNECTORS_CODECS,
+  ...WHATSAPP_LINK_CODECS,
   ...CONVERSATION_FILE_SEARCH_CODECS,
   ...ROUTINE_FLOWS_CODECS,
   ...ROUTINE_RECOVERY_CODECS,

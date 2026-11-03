@@ -108,6 +108,7 @@ interface HostServiceOptions {
   mcpSignIns?: ForwardedApiOptions["mcpSignIns"];
   signInRelay?: ForwardedApiOptions["signInRelay"];
   connectors?: ForwardedApiOptions["connectors"];
+  whatsappLink?: ForwardedApiOptions["whatsappLink"];
   onePasswordConnector?: ForwardedApiOptions["onePasswordConnector"];
   bitwardenConnector?: ForwardedApiOptions["bitwardenConnector"];
   vault?: ForwardedApiOptions["vault"];
@@ -440,6 +441,7 @@ export class HostService extends EventEmitter<HostEvents> {
       ...(options.mcpSignIns === undefined ? {} : { mcpSignIns: options.mcpSignIns }),
       ...(options.signInRelay === undefined ? {} : { signInRelay: options.signInRelay }),
       ...(options.connectors === undefined ? {} : { connectors: options.connectors }),
+      ...(options.whatsappLink === undefined ? {} : { whatsappLink: options.whatsappLink }),
       ...(options.onePasswordConnector === undefined ? {} : { onePasswordConnector: options.onePasswordConnector }),
       ...(options.bitwardenConnector === undefined ? {} : { bitwardenConnector: options.bitwardenConnector }),
       ...(options.vault === undefined ? {} : { vault: options.vault }),
