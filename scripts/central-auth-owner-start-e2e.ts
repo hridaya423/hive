@@ -17,6 +17,7 @@ import { CentralAuthManager } from "../src/main/central-auth-manager";
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = join(ROOT, ".openbot-build", "central-auth-owner-start-e2e");
 const OWNER = { id: "owner-1", email: "owner@example.test", name: null, avatarUrl: null, analyticsEnabled: null };
+const OTHER = { id: "other-1", email: "other@example.test", name: null, avatarUrl: null, analyticsEnabled: null };
 
 interface Control {
   ownerAllowed: boolean;
@@ -39,9 +40,14 @@ async function listen(control: Control, requests: string[]): Promise<{ server: S
       control.validTokens.add(sessionToken);
       return send(200, { sessionToken, user: OWNER });
     }
+    if (request.url === "/v2/server-claims/redeem") {
+      control.validTokens.add("claim-session");
+      return send(200, { sessionToken: "claim-session", user: OTHER });
+    }
     if (request.url === "/v1/me") {
       const token = (request.headers.authorization ?? "").replace("Bearer ", "");
-      return control.validTokens.has(token) ? send(200, OWNER) : send(401, { error: { code: "unauthorized" } });
+      if (!control.validTokens.has(token)) return send(401, { error: { code: "unauthorized" } });
+      return send(200, token === "claim-session" ? OTHER : OWNER);
     }
     return send(404, { error: { code: "not_found" } });
   });
@@ -133,6 +139,19 @@ try {
     const state = await start(manager(await closedUrl(), "c.bin"));
     assert.equal(state.status, "error");
     return state.status;
+  });
+
+  await check("another account signed in by a claim is the one an offline start shows", async () => {
+    control.ownerAllowed = true;
+    const first = manager(live.url, "e.bin");
+    await runCauseEffect(first.initialize());
+    const issue = await runCauseEffect(first.redeemServerClaim("claim"));
+    await runCauseEffect(first.dispose());
+    assert.equal(issue, null);
+    const state = await start(manager(await closedUrl(), "e.bin"));
+    assert.equal(state.status, "signed_in");
+    assert.equal(state.status === "signed_in" ? state.user.id : null, OTHER.id);
+    return state.status === "signed_in" ? state.user.id : null;
   });
 
   await check("owner sign-in off: no owner request is made", async () => {
