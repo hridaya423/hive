@@ -19,6 +19,7 @@ Plan: `docs/plans/2026-11-03-personal-openbot.md`. Research: `docs/plans/researc
 - 2026-11-03: Added Task 1.9 (minimal tool descriptions with a tool-choice eval), Task 6.5 (one agent list across hosts, move agents), Phase 8 (performance hill-climb with a scoreboard and budgets), Phase 9 (WhatsApp through Baileys on the mini). ntfy may run on the mini or the Windows PC.
 
 ## Blocked on Hridya
+Hridya does all sign-ins and phone steps at the end, after all code is finished, as one setup session (decided 2026-11-03). Agents build and test everything against fakes until then.
 - Mac mini permission prompts (Hive Downloads, Hive local network, `cua-spacesd` controlling System Events): Hridya approved all three on 2026-11-03. Resolved.
 - Task 0.4 (steps 1 to 3): the packaged Hive needs an account sign-in (`AppView.tsx:77`), Codex connected on the mini, and an agent `Probe`. Nothing can drive the Hive window on the mini today (see Phase 0 evidence). Need Hridya for the sign-in. Not started: no baseline numbers yet.
 - Copilot browser sign-in (Task 3.1), and a second GitHub login if Task 3.3 runs.
