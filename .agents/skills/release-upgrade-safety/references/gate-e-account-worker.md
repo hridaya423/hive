@@ -1,29 +1,18 @@
 # Gate E — Account Worker — `apps/auth-api/`
 
 Triggered by **any** addition, modification, deletion or rename under `apps/auth-api/migrations/`,
-a change to any non-UI file under `apps/auth-api/src/`, or a change to any of the four files that
-decide the deploy order: `.github/workflows/ci.yml`, `scripts/deploy-auth-api.ts`,
-`apps/auth-api/package.json` and `apps/auth-api/wrangler.jsonc`.
+a change to any non-UI file under `apps/auth-api/src/`, or a change to a file that decides how the
+Worker runs: `apps/auth-api/package.json`, `apps/auth-api/wrangler.jsonc` and `ops/mini/`.
 
 The `src/` half is wider than `routes/` and `server/` on purpose: `worker-entry.ts` is the deployed
 Worker's default export and `router.tsx` builds the router from `routeTree.gen.ts`, so a `/v1` or
 `/v2` endpoint can be removed or shadowed there while every file under `routes/` is untouched.
 
-The deploy-order files are in the list because the deploy-race hazard below is a property of *how
-the deploy runs*, not of `apps/auth-api/`. **There are two independent paths and they must both
-hold:**
-
-- `.github/workflows/ci.yml` — "Apply production D1 migrations" runs before the Worker deploy in
-  the same job.
-- `scripts/deploy-auth-api.ts` — applies remote D1 migrations, then builds, then runs
-  `wrangler deploy`. `apps/auth-api/package.json` `deploy` and `deploy:test` are its entrypoints,
-  so a change to either can redirect or reorder the whole sequence.
-
-Reorder those operations, drop the migration step, or split them across jobs, and production runs a
-Worker against a schema it was never deployed against — with nothing under `apps/auth-api/src/`
-modified and the gate otherwise reporting "not triggered". Re-read the order in **both** paths every
-time one of these files changes; do not assume the order described here still holds, and do not
-assume fixing one path covers the other.
+The run files are in the list because the migration order is a property of *how the Worker starts*,
+not of `apps/auth-api/`. On the mini, `ops/mini/` applies the local D1 migrations (`api:migrate:local`)
+before it starts the Worker. A change that drops that step or starts the Worker first runs a Worker
+against a schema it was never started against, with nothing under `apps/auth-api/src/` modified and
+the gate otherwise reporting "not triggered". Re-read the order every time one of these files changes.
 
 ```bash
 git diff --stat --diff-filter=AMDR <tag>..HEAD -- apps/auth-api/migrations

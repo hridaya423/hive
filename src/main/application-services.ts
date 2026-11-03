@@ -504,7 +504,7 @@ export interface ApplicationServiceContext {
   developmentRemoteRole: DevelopmentRemoteRole | null;
   developmentTestClientEnabled: boolean;
   /** Set only in a hosted server VM. */
-  /** Set only in a self-hosted server that `install-server.sh` installed. */
+  /** Set only in a self-hosted server. */
   serverMode: ServerModeEnvironment | null;
   /** Set only by `bun run dev --hosting=test`. */
   /** Set only in a local server that the desktop app started as its child. See `local-server-child.ts`. */

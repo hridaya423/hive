@@ -165,13 +165,9 @@ untouched — they already spell the agent `agent` on both sides.
 | `apps/auth-api/src/routes/v1/`, `v2/` | the response shapes installed desktop builds keep reading forever |
 | `apps/auth-api/src/server/` | the handlers behind those routes |
 | `apps/auth-api/test/*-migration.test.ts` | `email-challenge-delivery-migration`, `marketplace-migration`, `mobile-auth-migration` |
-| `.github/workflows/ci.yml` | the CI deploy path: "Apply production D1 migrations" before the Worker deploy, one job |
-| `scripts/deploy-auth-api.ts` | the manual deploy path: remote D1 migrations, build, then `wrangler deploy` |
-| `apps/auth-api/package.json` | `deploy` and `deploy:test` — the entrypoints into that script |
-| `apps/auth-api/wrangler.jsonc` | the D1 binding and environments both paths deploy against |
-
-Two deploy paths, both ordered migrations-then-deploy. Neither one covers the other, and the
-deploy-race reasoning in gate E only holds while *both* keep that order.
+| `apps/auth-api/package.json` | the scripts that migrate and start the Worker |
+| `apps/auth-api/wrangler.jsonc` | the D1 binding and the variables the Worker runs with |
+| `ops/mini/` | the launch agents and the installer that run the migration before the Worker |
 
 `auth:*` channels in `packages/contracts/src/ipc-endpoints.ts` are the desktop side of this contract.
 
@@ -181,5 +177,3 @@ deploy-race reasoning in gate E only holds while *both* keep that order.
 | --- | --- |
 | `electron-builder.yml` | `appId` (`app.openbot.desktop`), `artifactName`, `electronUpdaterCompatibility`, `publish` owner/repo, `mac.extendInfo.ElectronTeamID` (`ZTRDTUL87R`), `extraResources` |
 | `src/main/update-service.ts` | the four `UpdateAdapter` behaviours, documented on the type |
-| `scripts/verify-update-artifacts.ts` | 700 MiB update artifact, 750 MiB DMG, manifest, blockmap, no voice model |
-| `.github/workflows/release.yml` | macOS ZIP must be under 800,000,000 bytes **and** smaller than the `v0.1.21` ZIP |

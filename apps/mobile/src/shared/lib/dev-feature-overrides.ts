@@ -5,11 +5,9 @@ import type { MobileFeature } from "@openbot/contracts/mobile-features";
  * and the account server's answer is ignored. `null` follows the account server. A release build
  * ignores this file, so a value left here does not ship.
  *
- * - `cloudServers`: no screen reads it. The account server still sends it.
  * - `browser`: the live view of an agent's browser tab.
  */
 const DEV_FEATURE_OVERRIDES: Readonly<Record<MobileFeature, boolean | null>> = {
-  cloudServers: null,
   browser: null,
 };
 
