@@ -29,7 +29,7 @@ import { Effect } from "effect";
 import { openSealedLiveActivity } from "../apps/mobile/src/features/live-activity/model/live-activity-open";
 import { ntfyInstallToken } from "../apps/mobile/src/features/push-notifications/ntfy-install-token";
 import { LiveActivityPushService } from "../src/main/live-activity-push";
-import { createNtfySender } from "../src/main/ntfy-notifier";
+import { createNtfySender, ntfyConfigFromEnvironment } from "../src/main/ntfy-notifier";
 import {
   type NotificationRelayRequest,
   PushNotificationSendFailure,
@@ -180,6 +180,13 @@ const answerPage: ConversationPage = {
 };
 const relaySendsWithNtfy: NotificationRelayRequest[] = [];
 
+const ntfySender = createNtfySender({
+  url: `http://127.0.0.1:${ntfyAddress.port}`,
+  topic: NTFY_TOPIC,
+  token: NTFY_TOKEN,
+});
+let ntfySends = 0;
+
 const ntfyPhones = new PushNotificationService({
   agents: { ...agents, readConversationPageFor: () => Effect.succeed(answerPage) },
   store: { list: () => [], replace: () => Effect.void },
@@ -188,11 +195,10 @@ const ntfyPhones = new PushNotificationService({
       relaySendsWithNtfy.push(request);
       return "sent" as const;
     }),
-  ntfy: createNtfySender({
-    url: `http://127.0.0.1:${ntfyAddress.port}`,
-    topic: NTFY_TOPIC,
-    token: NTFY_TOKEN,
-  }),
+  ntfy: (notice) => {
+    ntfySends += 1;
+    return ntfySender(notice);
+  },
   hiddenAgentIds: () => new Set(),
   memberActive: (memberId) => memberId === MEMBER,
   lastUseElsewhere: () => null,
@@ -501,7 +507,7 @@ try {
     },
   );
 
-  await step("two Android installs without Firebase keep their own registrations", async () => {
+  await step("two Android installs without Firebase share one topic, so one event makes one POST", async () => {
     ntfyPhones.remove(ANDROID);
     const installs = [0, 1].map(() => {
       let saved: string | null = null;
@@ -521,6 +527,7 @@ try {
     });
     assert.notEqual(installs[0], installs[1], "Two installs share one token.");
     const before = ntfyRequests.length;
+    const sendsBefore = ntfySends;
     for (const [index, token] of installs.entries()) {
       ntfyPhones.register(
         `${ANDROID}-${index}`,
@@ -541,21 +548,55 @@ try {
         },
       );
     }
-    events.emit("event", reply(AGENT_B, "turn-two-installs"));
-    await new Promise<void>((resolveRequest, reject) => {
-      const deadline = setTimeout(() => reject(new Error("Fewer than two ntfy requests.")), STEP_DEADLINE_MS);
-      const check = () => {
-        if (ntfyRequests.length < before + 2) return;
-        clearTimeout(deadline);
-        waiters.delete(check);
-        resolveRequest();
-      };
-      waiters.add(check);
-      check();
-    });
-    assert.equal(ntfyRequests.length, before + 2);
+    for (const [agentId, title] of [
+      [AGENT_B, "Agent B"],
+      [AGENT_A, "Agent A"],
+    ] as const) {
+      events.emit("event", reply(agentId, `turn-two-installs-${agentId}`));
+      await new Promise<void>((resolveRequest, reject) => {
+        const deadline = setTimeout(() => reject(new Error("No ntfy request before the deadline.")), STEP_DEADLINE_MS);
+        const check = () => {
+          if (!ntfyRequests.slice(before).some((request) => request.body.title === title)) return;
+          clearTimeout(deadline);
+          waiters.delete(check);
+          resolveRequest();
+        };
+        waiters.add(check);
+        check();
+      });
+    }
+    assert.equal(ntfySends - sendsBefore, 2, "One event did not make exactly one POST to the topic.");
     return { installs: installs.length };
   });
+  await step(
+    "an ntfy URL that is not https and not on this computer is refused once, and the log has no token",
+    async () => {
+      const warnings: string[] = [];
+      const environment = (url: string): NodeJS.ProcessEnv => ({
+        HIVE_NTFY_URL: url,
+        HIVE_NTFY_TOPIC: NTFY_TOPIC,
+        HIVE_NTFY_TOKEN: NTFY_TOKEN,
+      });
+      const configs = (url: string) => ntfyConfigFromEnvironment(environment(url), { warn: (m) => warnings.push(m) });
+      assert.equal(configs("http://ntfy.example.com"), null, "A plain http URL on the network was accepted.");
+      assert.equal(configs("ftp://127.0.0.1"), null, "A URL of another scheme was accepted.");
+      assert.equal(warnings.length, 2, "Each refusal logs once.");
+      assert.ok(
+        warnings.every((message) => !message.includes(NTFY_TOKEN) && !message.includes("example.com")),
+        "The log has the token or the URL.",
+      );
+      for (const url of [
+        "https://ntfy.example.com",
+        "http://127.0.0.1:8080",
+        "http://localhost:8080",
+        "http://[::1]:8080",
+      ]) {
+        assert.equal(configs(url)?.token, NTFY_TOKEN, `${url} was refused.`);
+      }
+      assert.equal(warnings.length, 2, "An allowed URL logged a refusal.");
+      return { warnings };
+    },
+  );
   passed = true;
 } catch {
   passed = false;

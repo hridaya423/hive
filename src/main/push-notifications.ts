@@ -342,6 +342,7 @@ export class PushNotificationService {
     const requestThread = agentEventRequestThread(event);
     const channel = requestThread ? (this.#options.channelForThread?.(requestThread) ?? null) : null;
     let answer: string | null | undefined;
+    let topicNotified = false;
     for (const registration of targets) {
       const { stored } = registration;
       const { value, memberId, sessionId } = stored;
@@ -353,6 +354,11 @@ export class PushNotificationService {
       // The fixed text, as the desktop shows it without a preview.
       const fixed = notificationForAgentEvent(event, agents, translate, level, null, eventChannel);
       if (!fixed) continue;
+      // The Android phones of a host share one ntfy topic, so one POST reaches all of them.
+      if (this.#options.ntfy && stored.platform === "android") {
+        if (topicNotified) continue;
+        topicNotified = true;
+      }
       // The Live Activity of an iPhone shows the event, and a notification would repeat it. With a
       // sound, the activity also lights up the screen and plays it; without one, it updates silently.
       // A message that did not start has no turn, so the activity does not show it.

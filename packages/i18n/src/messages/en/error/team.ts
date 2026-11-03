@@ -90,6 +90,8 @@ export const messages = defineMessages("error.team", {
   "error.team.agentMoveIncomplete": "{name} did not receive the whole agent. Nothing was moved.",
   "error.team.agentMoveCopyKept":
     "The move failed, and {name} kept a copy of the agent. Delete that copy, or its routines run on both servers.",
+  "error.team.agentMoveSourceHidden":
+    "The move failed, and {name} still hides the agent. Show it there again, or it stays hidden.",
   "error.team.agentMoveBackupModels": "{name} could not take the backup models. Set them again there.",
   "error.team.liveActivityUnsupported": "This host cannot update the Live Activity of a phone.",
   "error.team.pushNotificationsUnsupported": "This host cannot send notifications to a phone.",
