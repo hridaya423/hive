@@ -61,8 +61,17 @@ export class WhatsAppSession {
     return [...this.#allowed];
   }
 
-  allows(...chats: Array<string | null | undefined>): boolean {
-    return chats.some((chat) => chat != null && this.#allowed.has(normalizeChat(chat) ?? ""));
+  allows(chat: string): boolean {
+    return this.#allowed.has(normalizeChat(chat) ?? "");
+  }
+
+  /** The allowed jid of a chat that WhatsApp names by more than one jid, such as a lid and a phone number. */
+  allowedChat(...jids: Array<string | null | undefined>): string | null {
+    for (const jid of jids) {
+      const chat = jid == null ? null : normalizeChat(jid);
+      if (chat !== null && this.#allowed.has(chat)) return chat;
+    }
+    return null;
   }
 
   /** The jids of the linked account: the chat with itself is a place that only its owner writes in. */

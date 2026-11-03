@@ -43,6 +43,7 @@ const ME = "447700900001@s.whatsapp.net";
 const ME_LID = "100200300400@lid";
 const ALLOWED = "447700900002@s.whatsapp.net";
 const ALLOWED_GROUP = "120363000000000001@g.us";
+const ALLOWED_LID = "100999888777@lid";
 const NEW_CHAT = "447700900004@s.whatsapp.net";
 const STRANGER = "447700900099@s.whatsapp.net";
 const STRANGER_TEXT = "secret stranger text 7731";
@@ -164,10 +165,20 @@ const nextId = () => {
   return `WAMSG${counter}`;
 };
 
-function text(chat: string, body: string, options: { id?: string; from?: string; mention?: boolean } = {}) {
+function text(
+  chat: string,
+  body: string,
+  options: { id?: string; from?: string; mention?: boolean; alt?: string } = {},
+) {
   const id = options.id ?? nextId();
   const message: WhatsAppMessage = {
-    key: { remoteJid: chat, id, fromMe: false, ...(options.from ? { participant: options.from } : {}) },
+    key: {
+      remoteJid: chat,
+      id,
+      fromMe: false,
+      ...(options.from ? { participant: options.from } : {}),
+      ...(options.alt ? { remoteJidAlt: options.alt } : {}),
+    },
     message: options.mention
       ? {
           extendedTextMessage: {
@@ -345,6 +356,22 @@ try {
         assert.equal(answer.success, false, "A post to a stranger went out.");
         assert.equal(liveSocket().sent.length, before);
         return { refused: true };
+      });
+
+      await step("an allowed chat that arrives as a lid jid is answered in the allowed chat", async () => {
+        const { id, message } = text(ALLOWED_LID, "are you there?", { alt: ALLOWED });
+        liveSocket().receive(message);
+        await waitFor("the lid message in the mailbox", () => threads.received(key(connectionId, ALLOWED, id)));
+        await waitFor("the received reaction in the allowed chat", () =>
+          liveSocket().sent.some(
+            (sent) => sent.jid === ALLOWED && "react" in sent.content && sent.content.react.key.id === id,
+          ),
+        );
+        assert.ok(
+          liveSocket().sent.every((sent) => sent.jid !== ALLOWED_LID),
+          "A message went to the lid jid.",
+        );
+        return { received: true };
       });
 
       await step("a group message needs a mention, and it removes the mention from the text", async () => {

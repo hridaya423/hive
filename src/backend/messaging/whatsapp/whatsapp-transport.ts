@@ -183,9 +183,10 @@ export class WhatsAppTransport implements MessagingTransport {
   #message(message: WhatsAppMessage): void {
     const sink = this.#sink;
     const { session, logger } = this.#options;
-    const chat = whatsappChatOf(message);
-    if (!sink || !chat) return;
-    if (!session.allows(chat, message.key.remoteJidAlt)) {
+    const named = whatsappChatOf(message);
+    if (!sink || !named) return;
+    const chat = session.allowedChat(named, message.key.remoteJidAlt);
+    if (!chat) {
       session.dropped += 1;
       logger.warn("WhatsApp dropped a message from a chat that is not allowed.", { count: session.dropped });
       return;
