@@ -223,7 +223,7 @@ try {
     assert.notEqual(first.child.userData, second.child.userData);
     for (const { entryId, child } of created) {
       assert.ok(existsSync(join(child.userData, "openbot.db")), `${child.userData} has no openbot.db.`);
-      assert.ok(existsSync(join(homedir(), "OpenBot", "Servers", entryId)), `No agent folder for ${entryId}.`);
+      assert.ok(existsSync(join(homedir(), "Hive", "Servers", entryId)), `No agent folder for ${entryId}.`);
     }
     return created.map(({ child }) => child.userData);
   });
@@ -314,7 +314,7 @@ try {
         (await servers(page)).some((item) => item.id === server.id),
         false,
       );
-      const agentRoot = join(homedir(), "OpenBot", "Servers", entryId);
+      const agentRoot = join(homedir(), "Hive", "Servers", entryId);
       assert.equal(existsSync(child.userData), false, `${child.userData} is still in place.`);
       assert.equal(existsSync(agentRoot), false, `${agentRoot} is still in place.`);
       const trash = trashEntries();

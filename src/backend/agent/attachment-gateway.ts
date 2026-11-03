@@ -1,6 +1,7 @@
 import { constants } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
 import { basename, isAbsolute } from "node:path";
+import { APP_FOLDER_NAME } from "@openbot/contracts/app-url-scheme";
 import { sortConversationMessages } from "@openbot/contracts/conversation-order";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type { AgentEvent, ConversationSnapshot } from "@openbot/contracts/ipc";
@@ -318,9 +319,13 @@ export class AttachmentGateway {
       ),
     );
     const normalized = value.replaceAll("\\", "/");
-    const sharedReference = ["~/OpenBot/Shared/", "OpenBot/Shared/", "Shared/"].some((prefix) =>
-      normalized.startsWith(prefix),
-    );
+    const sharedReference = [
+      `~/${APP_FOLDER_NAME}/Shared/`,
+      `${APP_FOLDER_NAME}/Shared/`,
+      "~/OpenBot/Shared/",
+      "OpenBot/Shared/",
+      "Shared/",
+    ].some((prefix) => normalized.startsWith(prefix));
     // An absolute path may be one the provider's own transcript still names under this agent's pre-rename
     // workspace root. The rebased twin is just another candidate, so it goes through the same containment
     // and symlink checks below as the original.

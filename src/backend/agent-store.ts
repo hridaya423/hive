@@ -16,6 +16,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { APP_FOLDER_NAME } from "@openbot/contracts/app-url-scheme";
 import { avatarFileExtension, isAvatarMimeType, isValidAvatarImage } from "@openbot/contracts/avatar-images";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type { AgentProfileDraft } from "@openbot/contracts/ipc";
@@ -206,7 +207,7 @@ export class AgentStore {
     database = new OpenBotDatabase(userDataPath),
     agentDefaults: () => AgentDefaults = () => DEFAULT_AGENT_DEFAULTS,
     /** The folder of the agents, shared files and downloads. A local server has its own. */
-    openbotRoot = join(homePath, "OpenBot"),
+    openbotRoot = join(homePath, APP_FOLDER_NAME),
   ) {
     this.#statePath = join(userDataPath, LEGACY_AGENTS_STATE_FILE);
     this.#agentsRoot = join(openbotRoot, "Agents");

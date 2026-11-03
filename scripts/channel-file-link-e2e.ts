@@ -48,7 +48,7 @@ const sharedText = `Shared spec ${id}`;
 const workspaceName = `e2e-channel-workspace-${id}.md`;
 const workspaceText = `Workspace spec ${id}`;
 // The dev profile uses the real ~/OpenBot folder, so the script removes only the files it wrote.
-const sharedFile = join(homedir(), "OpenBot", "Shared", sharedName);
+const sharedFile = join(homedir(), "Hive", "Shared", sharedName);
 let workspaceFile: string | null = null;
 mkdirSync(OUT, { recursive: true });
 
@@ -75,7 +75,7 @@ async function shot(label: string): Promise<void> {
 try {
   const [agent] = await client.agents();
   assert.ok(agent, "This check needs one visible agent.");
-  mkdirSync(join(homedir(), "OpenBot", "Shared"), { recursive: true });
+  mkdirSync(join(homedir(), "Hive", "Shared"), { recursive: true });
   writeFileSync(sharedFile, `# ${sharedText}\n\n[inner spec](${workspaceName})\n`);
   workspaceFile = join(agent.workspacePath, workspaceName);
   writeFileSync(workspaceFile, `# ${workspaceText}\n`);

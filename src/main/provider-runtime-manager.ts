@@ -20,6 +20,7 @@ import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { finished } from "node:stream/promises";
 import { promisify } from "node:util";
+import { APP_FOLDER_NAME } from "@openbot/contracts/app-url-scheme";
 import {
   type AgentProviderId,
   type AgentProviderRef,
@@ -204,9 +205,8 @@ export interface ProviderRuntimeManagerOptions {
 /**
  * Where the downloaded provider CLIs live: one store for the whole computer, not one per profile.
  *
- * `appData/OpenBot` is exactly what Electron gives the packaged app as `userData` on macOS, Windows
- * and Linux, so this is the path released builds already use and nothing has to be migrated. What
- * it changes is development, where every renderer port and every `--isolated` worktree gets a
+ * `appData/Hive` is exactly what Electron gives the packaged app as `userData` on macOS, Windows
+ * and Linux. What it changes is development, where every renderer port and every `--isolated` worktree gets a
  * profile of its own: each one used to start with an empty store, resolve the user's own CLI
  * instead, and offer -- and download -- the pinned copy again.
  *
@@ -217,7 +217,7 @@ export interface ProviderRuntimeManagerOptions {
 export function providerRuntimeRoot(input: { appData: string; userDataOverride: string }): string {
   const override = input.userDataOverride.trim();
   if (override) return join(resolve(override), "provider-runtimes");
-  return join(input.appData, "OpenBot", "provider-runtimes");
+  return join(input.appData, APP_FOLDER_NAME, "provider-runtimes");
 }
 
 export class ProviderRuntimeManager extends EventEmitter<ProviderRuntimeManagerEvents> {

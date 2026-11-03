@@ -1,4 +1,5 @@
 import { isManagedRuntimeProvider } from "@openbot/contracts/agent-providers";
+import { APP_FOLDER_NAME } from "@openbot/contracts/app-url-scheme";
 import { ANALYTICS_GENERATIONS, openPanelTransport, ReportQueue } from "@openbot/telemetry";
 import { fileReportStorage } from "@openbot/telemetry/node";
 import { Effect, Fiber } from "effect";
@@ -2991,7 +2992,7 @@ export async function createApplicationServices({
       : new LocalServers({
           registryPath: join(app.getPath("userData"), LOCAL_SERVERS_FILE),
           userDataRoot: join(app.getPath("userData"), "local-servers"),
-          agentRoot: join(homedir(), "OpenBot", "Servers"),
+          agentRoot: join(homedir(), APP_FOLDER_NAME, "Servers"),
           runtimeRoot: providerRuntimesRoot,
           cipher: safeStorageCipher("error.app.macSecureStorageUnavailable"),
           remoteServers,
