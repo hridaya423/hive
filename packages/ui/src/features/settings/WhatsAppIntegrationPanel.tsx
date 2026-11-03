@@ -128,6 +128,8 @@ export function whatsappIntegrationState(
   const attention = connections.filter(
     (connection) => channelRowKind(connection) === "attention" || !whatsappOrchestrator([connection], agents),
   ).length;
+  if (connections.some((connection) => connection.state === "connecting"))
+    return { status: "idle", label: "connector.whatsapp.statusLinking", attention: 0 };
   if (attention > 0) return { status: "attention", label: "connector.whatsapp.statusAttention", attention };
   if (connections.length === 0) return { status: "idle", label: "marketplace.app.notConnected", attention };
   return { status: "connected", label: "connector.whatsapp.statusConnected", attention };
@@ -208,7 +210,7 @@ export function WhatsAppIntegrationPanel(props: WhatsAppIntegrationPanelProps) {
               <Show when={linking()}>
                 <Item class="settings-modal-row">
                   <ItemContent>
-                    <ItemDescription>{t("connector.whatsapp.linkingNote")}</ItemDescription>
+                    <ItemDescription>{t("connector.whatsapp.qrRotates")}</ItemDescription>
                   </ItemContent>
                   <ItemActions>
                     <Button type="button" size="sm" variant="outline" onClick={() => openDialog("phone")}>

@@ -363,6 +363,8 @@ export const messages = defineMessages("connector", {
     "Link your own WhatsApp account as a device, and choose the chats that can reach an agent. The WhatsApp Orchestrator asks the right agent and answers.",
   "connector.whatsapp.statusConnected": "Connected",
   "connector.whatsapp.statusAttention": "Needs attention",
+  "connector.whatsapp.statusLinking": "Waiting for scan",
+  "connector.whatsapp.qrRotates": "The code changes every minute. Show it again if you closed the dialog.",
   "connector.whatsapp.summaryConnected": {
     one: "{count} allowed chat · WhatsApp Orchestrator answers",
     other: "{count} allowed chats · WhatsApp Orchestrator answers",
