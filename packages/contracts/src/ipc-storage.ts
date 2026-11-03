@@ -10,7 +10,8 @@
 import { MANAGED_RUNTIME_PROVIDERS, type ManagedProviderId } from "./agent-providers";
 import { type AttachmentSummary, isAttachmentSummary } from "./ipc-attachments";
 import { isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
-import { isBoolean, isDynamicRecord, isNumber, isOneOf, isString } from "./runtime-values";
+import { decodeRecord, nonNegativeInteger } from "./ipc-decoding";
+import { isBoolean, isOneOf, isString } from "./runtime-values";
 
 /**
  * Additive, optional Team API behaviour: a host that does not advertise this string has no storage
@@ -168,11 +169,6 @@ function invalid(label: string): never {
   throw new Error(`Invalid ${label}.`);
 }
 
-function record(value: unknown, label: string) {
-  if (!isDynamicRecord(value)) invalid(label);
-  return value;
-}
-
 function identifier(value: unknown, label: string): string {
   if (!isIdentifier(value)) invalid(label);
   return value;
@@ -182,18 +178,13 @@ function optionalIdentifier(value: unknown, label: string): string | undefined {
   return value === undefined ? undefined : identifier(value, label);
 }
 
-function byteCount(value: unknown, label: string): number {
-  if (!isNumber(value) || !Number.isSafeInteger(value) || value < 0) invalid(label);
-  return value;
-}
-
 function list<T>(value: unknown, maximum: number, decode: (item: unknown) => T, label: string): T[] {
   if (!Array.isArray(value) || value.length > maximum) invalid(label);
   return value.map(decode);
 }
 
 export function parseGetStorageUsageInput(value: unknown): GetStorageUsageInput {
-  const input = record(value, "storage request");
+  const input = decodeRecord(value, "storage request");
   if (!isOneOf(STORAGE_SCOPES, input.scope)) invalid("storage scope");
   if (input.force !== undefined && !isBoolean(input.force)) invalid("storage refresh flag");
   const agentId = optionalIdentifier(input.agentId, "storage agent");
@@ -209,55 +200,59 @@ export function parseGetStorageUsageInput(value: unknown): GetStorageUsageInput 
 }
 
 export function parseDeleteStoredFileInput(value: unknown): DeleteStoredFileInput {
-  return { fileId: identifier(record(value, "file request").fileId, "file") };
+  return { fileId: identifier(decodeRecord(value, "file request").fileId, "file") };
 }
 
 export function parseClearStorageInput(value: unknown): ClearStorageInput {
-  const input = record(value, "clear request");
+  const input = decodeRecord(value, "clear request");
   if (!isOneOf(CLEARABLE_STORAGE_CATEGORIES, input.category)) invalid("storage category");
   return { category: input.category };
 }
 
 export function parseOpenStoredFileInput(value: unknown): OpenStoredFileInput {
-  const input = record(value, "file request");
+  const input = decodeRecord(value, "file request");
   if (!isOneOf(["open", "reveal", "download"] as const, input.action)) invalid("file action");
   return { fileId: identifier(input.fileId, "file"), action: input.action };
 }
 
 export function parseOpenStorageLocationInput(value: unknown): OpenStorageLocationInput {
-  return { agentId: identifier(record(value, "location request").agentId, "agent") };
+  return { agentId: identifier(decodeRecord(value, "location request").agentId, "agent") };
 }
 
 export function decodeRemovableRuntimes(value: unknown): RemovableRuntimes {
-  const runtimes = record(value, "removable runtimes");
+  const runtimes = decodeRecord(value, "removable runtimes");
   const providers = runtimes.providers ?? [];
   if (!Array.isArray(providers) || !providers.every((provider) => isOneOf(MANAGED_RUNTIME_PROVIDERS, provider)))
     invalid("removable runtimes");
-  return { bytes: byteCount(runtimes.bytes, "removable runtimes"), providers };
+  return { bytes: nonNegativeInteger(runtimes.bytes, "removable runtimes"), providers };
 }
 
 export function decodeProviderRuntimeDownload(value: unknown): ProviderRuntimeDownload {
-  const download = record(value, "provider runtime download");
+  const download = decodeRecord(value, "provider runtime download");
   return {
-    bytes: byteCount(download.bytes, "provider runtime download"),
-    versions: byteCount(download.versions, "provider runtime download"),
+    bytes: nonNegativeInteger(download.bytes, "provider runtime download"),
+    versions: nonNegativeInteger(download.versions, "provider runtime download"),
   };
 }
 
 function decodeBreakdown(value: unknown): StorageBreakdown {
-  const entry = record(value, "storage category");
+  const entry = decodeRecord(value, "storage category");
   if (!isOneOf(STORAGE_CATEGORIES, entry.category)) invalid("storage category");
   if (!isBoolean(entry.removable)) invalid("storage category");
-  return { category: entry.category, bytes: byteCount(entry.bytes, "storage size"), removable: entry.removable };
+  return {
+    category: entry.category,
+    bytes: nonNegativeInteger(entry.bytes, "storage size"),
+    removable: entry.removable,
+  };
 }
 
 function decodeAgentRow(value: unknown): AgentStorageRow {
-  const row = record(value, "agent storage");
+  const row = decodeRecord(value, "agent storage");
   return {
     agentId: identifier(row.agentId, "agent storage"),
-    bytes: byteCount(row.bytes, "agent storage"),
-    fileCount: byteCount(row.fileCount, "agent storage"),
-    conversationCount: byteCount(row.conversationCount, "agent storage"),
+    bytes: nonNegativeInteger(row.bytes, "agent storage"),
+    fileCount: nonNegativeInteger(row.fileCount, "agent storage"),
+    conversationCount: nonNegativeInteger(row.conversationCount, "agent storage"),
   };
 }
 
@@ -267,19 +262,19 @@ function title(value: unknown, label: string): string {
 }
 
 function decodeConversationRow(value: unknown): ConversationStorageRow {
-  const row = record(value, "chat storage");
+  const row = decodeRecord(value, "chat storage");
   return {
     id: identifier(row.id, "chat storage"),
     title: title(row.title, "chat storage"),
     agentId: identifier(row.agentId, "chat storage"),
-    bytes: byteCount(row.bytes, "chat storage"),
-    fileCount: byteCount(row.fileCount, "chat storage"),
-    messageCount: byteCount(row.messageCount, "chat storage"),
+    bytes: nonNegativeInteger(row.bytes, "chat storage"),
+    fileCount: nonNegativeInteger(row.fileCount, "chat storage"),
+    messageCount: nonNegativeInteger(row.messageCount, "chat storage"),
   };
 }
 
 function decodeFileRow(value: unknown): StoredFileRow {
-  const row = record(value, "stored file");
+  const row = decodeRecord(value, "stored file");
   if (!isAttachmentSummary(row)) invalid("stored file");
   if (!isOneOf(STORED_FILE_SOURCES, row.source)) invalid("stored file source");
   if (!isOneOf(STORED_FILE_STATUSES, row.status)) invalid("stored file status");
@@ -288,7 +283,7 @@ function decodeFileRow(value: unknown): StoredFileRow {
   if (row.messageId !== null && !isIdentifier(row.messageId)) invalid("stored file message");
   let conversation: StoredFileConversation | null = null;
   if (row.conversation !== null) {
-    const entry = record(row.conversation, "stored file chat");
+    const entry = decodeRecord(row.conversation, "stored file chat");
     conversation = { id: identifier(entry.id, "stored file chat"), title: title(entry.title, "stored file chat") };
   }
   return {
@@ -310,7 +305,7 @@ function decodeFileRow(value: unknown): StoredFileRow {
 }
 
 export function decodeStorageUsage(value: unknown): StorageUsage {
-  const usage = record(value, "storage usage");
+  const usage = decodeRecord(value, "storage usage");
   if (!isOneOf(STORAGE_SCOPES, usage.scope)) invalid("storage scope");
   if (!isNullableBoundedString(usage.agentId, 128) || !isNullableBoundedString(usage.conversationId, 128))
     invalid("storage scope");
@@ -320,7 +315,7 @@ export function decodeStorageUsage(value: unknown): StorageUsage {
     agentId: usage.agentId,
     conversationId: usage.conversationId,
     scannedAt: usage.scannedAt,
-    freeBytes: usage.freeBytes === null ? null : byteCount(usage.freeBytes, "free space"),
+    freeBytes: usage.freeBytes === null ? null : nonNegativeInteger(usage.freeBytes, "free space"),
     breakdown: list(usage.breakdown, STORAGE_CATEGORIES.length, decodeBreakdown, "storage breakdown"),
     agents: list(usage.agents, STORAGE_LIMITS.agents, decodeAgentRow, "agent storage"),
     conversations: list(usage.conversations, STORAGE_LIMITS.conversations, decodeConversationRow, "chat storage"),
@@ -335,10 +330,10 @@ export function decodeOptionalStorageUsage(value: unknown): StorageUsage | null 
 }
 
 export function decodeStorageDisk(value: unknown): StorageDisk {
-  const disk = record(value, "disk space");
+  const disk = decodeRecord(value, "disk space");
   return {
-    freeBytes: disk.freeBytes === null ? null : byteCount(disk.freeBytes, "free space"),
-    totalBytes: disk.totalBytes === null ? null : byteCount(disk.totalBytes, "disk size"),
+    freeBytes: disk.freeBytes === null ? null : nonNegativeInteger(disk.freeBytes, "free space"),
+    totalBytes: disk.totalBytes === null ? null : nonNegativeInteger(disk.totalBytes, "disk size"),
   };
 }
 

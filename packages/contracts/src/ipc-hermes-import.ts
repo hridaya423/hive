@@ -16,7 +16,8 @@ import {
 } from "./ipc-agent-import";
 import { isAgentSummary } from "./ipc-agents";
 import { isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
-import { isDynamicRecord, isNumber, isString } from "./runtime-values";
+import { decodeRecord } from "./ipc-decoding";
+import { isNumber, isString } from "./runtime-values";
 
 export const HERMES_IMPORT_LIMITS = {
   profiles: 64,
@@ -111,11 +112,6 @@ function invalid(label: string): never {
   throw new Error(`Invalid ${label}.`);
 }
 
-function record(value: unknown, label: string) {
-  if (!isDynamicRecord(value)) invalid(label);
-  return value;
-}
-
 export function isHermesProfileKey(value: unknown): value is string {
   return isString(value) && HERMES_PROFILE_KEY.test(value);
 }
@@ -139,7 +135,7 @@ function names(value: unknown): string[] {
 }
 
 function decodeItem(value: unknown): HermesImportItem {
-  const item = record(value, "Hermes item");
+  const item = decodeRecord(value, "Hermes item");
   if (
     !isItemId(item.id) ||
     !isOneOf(HERMES_IMPORT_ITEM_KINDS, item.kind) ||
@@ -161,7 +157,7 @@ function decodeItem(value: unknown): HermesImportItem {
 }
 
 function decodeProfile(value: unknown): HermesImportProfile {
-  const profile = record(value, "Hermes profile");
+  const profile = decodeRecord(value, "Hermes profile");
   if (
     !isHermesProfileKey(profile.key) ||
     !isBoundedString(profile.name, INPUT_LIMITS.agentName) ||
@@ -173,7 +169,7 @@ function decodeProfile(value: unknown): HermesImportProfile {
     invalid("Hermes profile");
   let agent: HermesImportProfile["agent"] = null;
   if (profile.agent !== null) {
-    const linked = record(profile.agent, "Hermes profile");
+    const linked = decodeRecord(profile.agent, "Hermes profile");
     if (!isIdentifier(linked.id) || !isBoundedString(linked.name, INPUT_LIMITS.agentName)) invalid("Hermes profile");
     agent = { id: linked.id, name: linked.name };
   }
@@ -189,7 +185,7 @@ function decodeProfile(value: unknown): HermesImportProfile {
 
 export function decodeHermesImportPreview(value: unknown): HermesImportPreview | null {
   if (value === null) return null;
-  const preview = record(value, "Hermes preview");
+  const preview = decodeRecord(value, "Hermes preview");
   if (
     !isIdentifier(preview.token) ||
     !isBoundedString(preview.home, HERMES_IMPORT_LIMITS.path) ||
@@ -201,7 +197,7 @@ export function decodeHermesImportPreview(value: unknown): HermesImportPreview |
 }
 
 export function parseApplyHermesImportInput(value: unknown): ApplyHermesImportInput {
-  const input = record(value, "Hermes import request");
+  const input = decodeRecord(value, "Hermes import request");
   if (!isIdentifier(input.token)) invalid("Hermes import token");
   if (
     !Array.isArray(input.profiles) ||
@@ -210,7 +206,7 @@ export function parseApplyHermesImportInput(value: unknown): ApplyHermesImportIn
   )
     invalid("Hermes profile selection");
   const profiles = input.profiles.map((value) => {
-    const entry = record(value, "Hermes profile selection");
+    const entry = decodeRecord(value, "Hermes profile selection");
     if (
       !isHermesProfileKey(entry.key) ||
       !Array.isArray(entry.allow) ||
@@ -227,7 +223,7 @@ export function parseApplyHermesImportInput(value: unknown): ApplyHermesImportIn
 
 /** The result of a Hermes import, in the shape of an agent import. A skipped entry names a profile key. */
 export function decodeHermesImportResult(value: unknown): AgentImportResult {
-  const result = record(value, "Hermes import result");
+  const result = decodeRecord(value, "Hermes import result");
   if (!Array.isArray(result.agents) || !result.agents.every(isAgentSummary)) invalid("Hermes import result");
   if (
     !Array.isArray(result.skipped) ||
@@ -237,7 +233,7 @@ export function decodeHermesImportResult(value: unknown): AgentImportResult {
   )
     invalid("Hermes import result");
   const skipped = result.skipped.map((item): AgentImportSkipped => {
-    const entry = record(item, "skipped Hermes profile");
+    const entry = decodeRecord(item, "skipped Hermes profile");
     if (
       !isHermesProfileKey(entry.key) ||
       !isBoundedString(entry.name, INPUT_LIMITS.agentName) ||
