@@ -3,7 +3,6 @@ import { Typography } from "heroui-native";
 import { useState } from "react";
 import { Linking } from "react-native";
 import { useUniwind } from "uniwind";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { NotificationMatrix } from "@/features/push-notifications/components/notification-matrix";
 import { pushNotificationsNative } from "@/features/push-notifications/push-notifications-native";
 import { SettingsContent, SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
@@ -40,15 +39,6 @@ export function NotificationsSettingsScreen() {
 
   function save(change: Parameters<typeof savePushNotificationPreference>[0]) {
     setError(null);
-    if (change.enabled !== undefined) {
-      mobileAnalytics.track("notification_settings_action", {
-        action: change.enabled ? "enabled" : "disabled",
-        enabled: change.enabled,
-      });
-    }
-    if (change.preview !== undefined) {
-      mobileAnalytics.track("notification_settings_action", { action: "preview_toggled", enabled: change.preview });
-    }
     void savePushNotificationPreference(change).catch(() => {
       setError(t("mobile.settings.saveFailed"));
       void haptics.notification("error");
@@ -115,10 +105,7 @@ export function NotificationsSettingsScreen() {
               disabled={!liveActivities.ready || liveActivities.saving}
               label={t("mobile.settings.liveActivities.toggle")}
               dark={dark}
-              onValueChange={(enabled) => {
-                mobileAnalytics.track("notification_settings_action", { action: "live_activities_toggled", enabled });
-                saveLiveActivities(enabled);
-              }}
+              onValueChange={saveLiveActivities}
             />
           </SettingsRow>
           {liveActivitiesError ? (

@@ -8,7 +8,7 @@ import Play from "lucide-react-native/icons/play";
 import VideoOff from "lucide-react-native/icons/video-off";
 import { useEffect, useState } from "react";
 import { Pressable, useWindowDimensions, View } from "react-native";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { type MobileText, useText } from "@/shared/lib/text";
 import { attachmentFrame, FILL, FRAME_RADIUS, MAX_FRAME_WIDTH } from "../model/attachment-frame";
@@ -112,7 +112,6 @@ export async function runFileAction(action: () => Promise<void>, title: string, 
     void haptics.notification("error");
     showFailureAlert(
       error,
-      "turn",
       title,
       error instanceof Error ? text.sourceText(error.message) : text.t("mobile.chat.tryAgain"),
     );

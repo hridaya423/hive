@@ -14,7 +14,6 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ReducedMotionConfig, ReduceMotion } from "react-native-reanimated";
 import { useCSSVariable, useUniwind, withUniwind } from "uniwind";
 
-import { MobileAnalyticsLifecycle } from "@/features/analytics/lifecycle";
 import { AppLockOverlay } from "@/features/app-lock/components/app-lock-overlay";
 import { installAppLock } from "@/features/app-lock/model/app-lock";
 import { DevelopmentConnectLinkHandler } from "@/features/auth/components/development-connect-link-handler";
@@ -235,7 +234,6 @@ export default function RootLayout() {
               <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
               <BloubStageProvider>
                 <MobileSessionProvider>
-                  <MobileAnalyticsLifecycle />
                   {__DEV__ ? <DevelopmentConnectLinkHandler /> : null}
                   <AppLoadingOverlayProvider>
                     <RootNavigator />

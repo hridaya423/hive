@@ -60,7 +60,6 @@ import { useCSSVariable } from "uniwind";
 import { BloubAvatar } from "@/features/agents/components/bloub-avatar";
 import { openChatFromPane, useChatListPane } from "@/features/agents/components/chat-list-pane-context";
 import { getBloubAvatarColor } from "@/features/agents/model/bloub-activity";
-import { reportMobileNotification } from "@/features/analytics/failure-reports";
 import { MobileSearchResults, SearchCaption } from "@/features/search/components/mobile-search-results";
 import { setHomeSearchOpener } from "@/features/search/model/home-search-request";
 import { useAppDrawerShown } from "@/features/servers/components/app-drawer-activity";
@@ -318,9 +317,7 @@ export function useHomeSearch(): HomeSearch {
             closeSearch();
             setResult({ id: Date.now(), agent, text: task, ok: true });
           },
-          (error: unknown) => {
-            // The field says that the task failed, so the failure is reported without an alert.
-            reportMobileNotification(error, "agent", "banner");
+          () => {
             void haptics.notification("error");
             closeSearch();
             setResult({ id: Date.now(), agent, text: task, ok: false });

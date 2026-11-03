@@ -14,14 +14,13 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { AppUpdateNotes } from "@/features/app-update/components/app-update-notes";
 import { type AppUpdate, dismissAppUpdate, installAppUpdate } from "@/features/app-update/model/app-update";
 import { BloubEyes, EYES_HEIGHT, EYES_WIDTH } from "@/shared/components/bloub-stage/bloub-eyes";
 import { BLOUB_MOVE, BLOUB_RADIUS, bloubGradient, useBloubColors } from "@/shared/components/bloub-stage/bloub-look";
 import type { BloubMood } from "@/shared/components/bloub-stage/bloub-stage-store";
 import type { LargeTitleScroll } from "@/shared/components/large-title";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { useReducedMotion } from "@/shared/lib/motion";
 import { useBarTop } from "@/shared/lib/native-bar";
@@ -243,7 +242,6 @@ export function AppUpdateBlock({
       const { t: text } = currentText();
       showFailureAlert(
         error,
-        "update",
         text("mobile.app.update.failedTitle"),
         text(ready ? "mobile.app.update.restartFailed" : "mobile.app.update.storeFailed"),
       );

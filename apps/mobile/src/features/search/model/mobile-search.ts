@@ -31,7 +31,6 @@ export type MobileSearchSettingId =
   | "haptics"
   | "notifications"
   | "liveActivities"
-  | "privacy"
   | "hiddenChats"
   | "deletedChannels"
   | "support"

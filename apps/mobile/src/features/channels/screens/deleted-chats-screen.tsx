@@ -6,10 +6,10 @@ import { useThemeColor } from "heroui-native/hooks";
 import RotateCcw from "lucide-react-native/icons/rotate-ccw";
 import { useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { useMobileWorkspaceSelector } from "@/features/workspace/context/mobile-workspace-context";
 import { showsOnline } from "@/features/workspace/model/server-status";
 import { SheetScrollView } from "@/shared/components/sheet-scroll-view";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { currentText, useText } from "@/shared/lib/text";
 import { ChannelAvatar } from "../components/channel-avatar";
@@ -44,7 +44,6 @@ export function DeletedChatsScreen() {
         const text = currentText();
         showFailureAlert(
           cause,
-          "team",
           text.t("mobile.channel.deleted.restoreFailed"),
           text.errorMessage(cause, text.t("mobile.channel.deleted.restoreFailedBody")),
         );

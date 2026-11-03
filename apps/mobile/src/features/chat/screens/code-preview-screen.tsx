@@ -17,7 +17,6 @@ import { ScrollView, View, type ViewStyle } from "react-native";
 import Animated, { cubicBezier, Easing, Keyframe } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUniwind } from "uniwind";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { shareLocalAttachment } from "@/features/chat/components/attachment-preview";
 import { ChatGlassIconButton } from "@/features/chat/components/chat-glass-icon-button";
 import { ChatMarkdown } from "@/features/chat/components/chat-markdown";
@@ -33,6 +32,7 @@ import { useMermaidDiagram } from "@/features/chat/model/mermaid-diagrams";
 import { type MenuAction, MenuView } from "@/shared/components/menu-view";
 import { SheetScrollEdgeEffect } from "@/shared/components/sheet-scroll-edge-effect";
 import { expoGoDomOptions } from "@/shared/lib/expo-go-dom";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { useReducedMotion } from "@/shared/lib/motion";
 import { useText } from "@/shared/lib/text";
@@ -139,7 +139,7 @@ function PreviewContent({ entry }: { entry: CodePreviewEntry }) {
       void haptics.notification("success");
     } catch (error) {
       void haptics.notification("error");
-      showFailureAlert(error, "turn", t("mobile.chat.code.copyFailed"), t("mobile.chat.copyFailedMessage"));
+      showFailureAlert(error, t("mobile.chat.code.copyFailed"), t("mobile.chat.copyFailedMessage"));
     }
   };
   const wrapAction: MenuAction = {

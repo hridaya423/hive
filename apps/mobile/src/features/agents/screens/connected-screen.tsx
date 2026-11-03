@@ -54,7 +54,6 @@ import { ChatListRail } from "@/features/agents/components/chat-list-rail";
 import { EmptyAgentsScene, type WelcomeHandOff } from "@/features/agents/components/empty-agents-scene";
 import { PinnedAgentsGrid } from "@/features/agents/components/pinned-agents-grid";
 import { SidebarSectionHeader } from "@/features/agents/components/sidebar-section-header";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import {
   AppUpdateBlock,
   AppUpdateSpacer,
@@ -99,6 +98,7 @@ import { ChromeGlassSheen } from "@/shared/components/chrome-glass-sheen";
 import { LargeTitle, LargeTitleBar, useLargeTitleScroll } from "@/shared/components/large-title";
 import { type MenuAction, MenuView } from "@/shared/components/menu-view";
 import { useChromeGlass } from "@/shared/lib/chrome-glass";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { BAR_BUTTON_SIZE, NATIVE_BAR_HEIGHT, useBarTop } from "@/shared/lib/native-bar";
 import { isAndroid, isIOS } from "@/shared/lib/platform";
@@ -261,7 +261,6 @@ function applyChatDrop(workspace: MobileWorkspaceActions, serverId: string, chan
     const text = currentText();
     showFailureAlert(
       error,
-      "turn",
       text.t("mobile.agent.section.moveFailed"),
       text.errorMessage(error, text.t("mobile.agent.section.tryAgain")),
     );
@@ -470,7 +469,6 @@ export function ConnectedScreen({ variant = "screen" }: { variant?: "screen" | "
       .catch((error: unknown) =>
         showFailureAlert(
           error,
-          "settings",
           currentText().t("mobile.workspace.alert.markAllReadTitle"),
           currentText().t("mobile.workspace.alert.markAllReadBody"),
         ),

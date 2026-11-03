@@ -2,7 +2,6 @@ import { referenceFrom } from "@openbot/user-errors";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { type SharedValue, useSharedValue, withTiming } from "react-native-reanimated";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { AUTOMATIC_DICTATION_LANGUAGE, useDictationLanguage } from "@/features/settings/model/dictation-language";
 import { parakeetSupported, useParakeetModel } from "@/features/voice/model/parakeet-model";
 import { speechNative } from "@/features/voice/model/speech-native";
@@ -47,33 +46,6 @@ interface DictationSession {
   heard: boolean;
   /** `pending` restarts with the system service when the failed session ends. */
   fallback: "none" | "pending" | "used";
-  /** For analytics: when the recognizer started to listen, and when the user stopped it. */
-  listeningAt: number | null;
-  stoppingAt: number | null;
-  /** For analytics: why the session ended without text, when it did not end normally. */
-  ending: "cancelled" | "permission_denied" | "operation_failed" | null;
-}
-
-/** One analytics event for each dictation session. It has no words of the transcript. */
-function trackTurn(current: DictationSession): void {
-  const now = performance.now();
-  const failed = current.ending === "permission_denied" || current.ending === "operation_failed";
-  const options = current.options;
-  mobileAnalytics.track("voice_turn", {
-    server_kind: "remote",
-    // iOS can use Apple's service where on-device recognition is not available, so iOS does not say which ran.
-    transcription: !options ? undefined : !options.requiresOnDeviceRecognition ? "cloud" : isIOS ? undefined : "local",
-    result: failed ? "failed" : current.ending === "cancelled" || !current.heard ? "cancelled" : "succeeded",
-    failure_code: !failed
-      ? undefined
-      : current.ending === "permission_denied"
-        ? "permission_denied"
-        : "operation_failed",
-    audio_duration_seconds:
-      current.listeningAt === null ? 0 : ((current.stoppingAt ?? now) - current.listeningAt) / 1_000,
-    // The time from the stop to the final text.
-    duration_ms: current.stoppingAt === null ? undefined : now - current.stoppingAt,
-  });
 }
 
 // The recognizer is one native session for the whole app, and every mounted
@@ -203,7 +175,6 @@ function useSystemDictation({
   }, []);
 
   const settle = useCallback(() => {
-    if (session.current) trackTurn(session.current);
     if (owner === id) owner = null;
     session.current = null;
     if (stopTimer.current) clearTimeout(stopTimer.current);
@@ -218,7 +189,6 @@ function useSystemDictation({
     const subscriptions = [
       speechRecognition.addListener("start", () => {
         if (owner !== id || !session.current?.native || phaseRef.current !== "starting") return;
-        session.current.listeningAt ??= performance.now();
         // The recognizer's session silences haptics, and a hold on the mic ticks while the user speaks.
         speechNative?.allowHapticsWhileRecording?.();
         update("listening");
@@ -251,7 +221,6 @@ function useSystemDictation({
         // and with nothing said any error there loses nothing. No message.
         if (phaseRef.current === "stopping" && (!current.heard || event.error === "client")) return;
         const notice = dictationNotice(event.error);
-        if (notice) current.ending = event.error === "not-allowed" ? "permission_denied" : "operation_failed";
         // The recognizer's error name is a fixed identifier, so it can be the code of the failure.
         if (notice) showDictationNotice(notice, { reference: referenceFrom("speech", event.error) });
       }),
@@ -289,9 +258,6 @@ function useSystemDictation({
         native: false,
         heard: false,
         fallback: "none",
-        listeningAt: null,
-        stoppingAt: null,
-        ending: null,
       };
       session.current = current;
       update("starting");
@@ -303,7 +269,6 @@ function useSystemDictation({
           const permission = await module.requestPermissionsAsync();
           if (!stillCurrent()) return;
           if (!permission.granted) {
-            current.ending = "permission_denied";
             settle();
             showDictationNotice(microphoneOffNotice);
             return;
@@ -323,7 +288,6 @@ function useSystemDictation({
           module.start(current.options);
         } catch (error) {
           if (session.current !== current) return;
-          current.ending = "operation_failed";
           settle();
           showDictationNotice(dictationFailedNotice, error);
         }
@@ -345,7 +309,6 @@ function useSystemDictation({
     return new Promise((resolve) => {
       finished.current.push(resolve);
       if (phaseRef.current === "stopping") return;
-      if (session.current) session.current.stoppingAt = performance.now();
       update("stopping");
       void haptics.selection();
       module.stop();
@@ -360,7 +323,6 @@ function useSystemDictation({
   const cancel = useCallback(() => {
     const current = session.current;
     if (owner !== id || !current) return;
-    current.ending = "cancelled";
     speechRecognition?.abort();
     onDraftRef.current(current.base);
     void haptics.selection();

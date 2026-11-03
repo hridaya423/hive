@@ -17,7 +17,6 @@ import type { WelcomeHandOff } from "@/features/agents/components/empty-agents-s
 import { InstructionsLimit, instructionsTooLong } from "@/features/agents/components/instructions-limit";
 import { agentInitialMessage } from "@/features/agents/model/agent-initial-message";
 import { getBloubAvatarColor } from "@/features/agents/model/bloub-activity";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { useMobileSession } from "@/features/auth/context/mobile-session-context";
 import { AgentStep } from "@/features/onboarding/components/agent-step";
 import { ConversationStep } from "@/features/onboarding/components/conversation-step";
@@ -215,7 +214,6 @@ export function OnboardingFlow({
   const stepRef = useRef<Step>("hello");
   useEffect(() => {
     stepRef.current = step;
-    mobileAnalytics.track("onboarding_step", { step, action: "viewed" });
   }, [step]);
 
   // The hero: where each step wants it, where its layer is, and the swipe of the look step.
@@ -296,10 +294,6 @@ export function OnboardingFlow({
     (next: Step, nextDirection: 1 | -1) => {
       void KeyboardController.dismiss();
       heroDrag.set(0);
-      mobileAnalytics.track("onboarding_step", {
-        step: stepRef.current,
-        action: nextDirection === 1 ? "next" : "back",
-      });
       setDirection(nextDirection);
       setStep(next);
     },
@@ -380,8 +374,6 @@ export function OnboardingFlow({
   const skip = () => {
     if (finishing.current) return;
     finishing.current = true;
-    mobileAnalytics.track("onboarding_step", { step, action: "skipped" });
-    mobileAnalytics.track("onboarding_completed", { skipped: true });
     void haptics.selection();
     void KeyboardController.dismiss();
     const place = step === "hello" ? primaryPlace.current : null;
@@ -437,8 +429,6 @@ export function OnboardingFlow({
   const openChat = () => {
     if (!created || openingChat) return;
     setOpeningChat(true);
-    mobileAnalytics.track("onboarding_step", { step: "ready", action: "next" });
-    mobileAnalytics.track("onboarding_completed", { skipped: false });
     router.push({ pathname: "/chat/[agentId]", params: { agentId: created.agentId } });
   };
 
@@ -499,9 +489,7 @@ export function OnboardingFlow({
         motion={motion}
         connecting={connecting}
         onComputer={connectComputer}
-        onCloud={
-          showsPlans ? () => router.push({ pathname: "/hosted-server", params: { entryPoint: "onboarding" } }) : null
-        }
+        onCloud={showsPlans ? () => router.push("/hosted-server") : null}
         onInvitation={() => router.push("/add-server")}
         onBack={previous !== null ? back : null}
         onSkip={skip}

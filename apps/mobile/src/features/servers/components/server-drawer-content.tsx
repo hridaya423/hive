@@ -26,7 +26,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { useCSSVariable, useUniwind } from "uniwind";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import type { MobileSession } from "@/features/auth/api/mobile-auth";
 import { mobileUserName } from "@/features/auth/api/mobile-user-name";
 import { hostedServerCalls } from "@/features/servers/api/hosted-servers";
@@ -41,6 +40,7 @@ import { serverStatusLabel, showsOnline } from "@/features/workspace/model/serve
 import { type MenuAction, type MenuComponentRef, MenuView } from "@/shared/components/menu-view";
 import { ProfileAvatar } from "@/shared/components/profile-avatar";
 import { devFeatureOverride } from "@/shared/lib/dev-feature-overrides";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { refreshMobileFeatures, useMobileFeature } from "@/shared/lib/mobile-features";
 import { useReducedMotion } from "@/shared/lib/motion";
@@ -229,7 +229,6 @@ export const ServerDrawerContent = memo(function ServerDrawerContent({
       // The account service explains a refusal, such as a hosted server that Billing deletes.
       showFailureAlert(
         error,
-        "team",
         text.t(EXIT_TEXT[exit].failed, { name: server.name }),
         text.errorMessage(error, text.t("mobile.server.drawer.actionFailed")),
       );
@@ -453,11 +452,7 @@ export const ServerDrawerContent = memo(function ServerDrawerContent({
                 color={mutedColor}
                 fallbackVariant="filled"
                 systemName="plus"
-                onPress={() =>
-                  onNavigate(
-                    showsPlans ? { pathname: "/hosted-server", params: { entryPoint: "drawer" } } : "/add-server",
-                  )
-                }
+                onPress={() => onNavigate(showsPlans ? "/hosted-server" : "/add-server")}
               >
                 <Plus color={mutedColor} size={18} strokeWidth={2} />
               </ServerDrawerIconButton>

@@ -24,7 +24,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { type MobileSession, redeemMobileConnectUrl } from "@/features/auth/api/mobile-auth";
 import type { EmailCodeInputHandle } from "@/features/auth/components/email-code-input";
 import { QrScanner, type ScannerMode, type ScanStatus } from "@/features/auth/components/qr-scanner";
@@ -482,11 +481,7 @@ export function SignInScreen({ notice }: { notice?: SignInNotice }) {
               ) : null
             }
             onScan={async (data) => {
-              const session = await mobileAnalytics.operation(
-                "mobile_pairing_action",
-                { action: "redeem", entry_point: "qr" },
-                () => redeemMobileConnectUrl(data),
-              );
+              const session = await redeemMobileConnectUrl(data);
               setFinished(session);
             }}
           />

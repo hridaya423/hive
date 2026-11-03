@@ -3,9 +3,8 @@ import { useThemeColor } from "heroui-native/hooks";
 import Folder from "lucide-react-native/icons/folder";
 import ShieldAlert from "lucide-react-native/icons/shield-alert";
 import { useState } from "react";
-import { View } from "react-native";
+import { Alert, View } from "react-native";
 import { useCSSVariable } from "uniwind";
-import { showWarningAlert } from "@/features/analytics/failure-reports";
 import {
   approvalIsPartial,
   InactiveRequestError,
@@ -97,7 +96,7 @@ export function ChatApprovalCard({
       void haptics.notification("error");
       if (error instanceof InactiveRequestError) {
         // The card is gone with its request. The alert says why the answer did not count.
-        showWarningAlert("turn", t("mobile.chat.approval.inactiveTitle"), error.message);
+        Alert.alert(t("mobile.chat.approval.inactiveTitle"), error.message);
         return;
       }
       setFailed(errorMessage(error, t("mobile.chat.approval.sendFailed")));

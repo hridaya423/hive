@@ -10,9 +10,9 @@ import { useThemeColor } from "heroui-native/hooks";
 import FileText from "lucide-react-native/icons/file-text";
 import { useMemo, useState } from "react";
 import { View } from "react-native";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
 import { queryKeys } from "@/features/workspace/model/query-keys";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { currentText, useText } from "@/shared/lib/text";
 import { createImageDimensionCache } from "../model/image-dimension-cache";
@@ -214,7 +214,6 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       void haptics.notification("error");
       showFailureAlert(
         error,
-        "turn",
         t("mobile.chat.attachment.openFailed"),
         error instanceof Error ? sourceText(error.message) : t("mobile.chat.tryAgain"),
       );
@@ -247,7 +246,6 @@ export function useAttachmentFile(serverId: string, attachment: AttachmentSummar
       void haptics.notification("error");
       showFailureAlert(
         error,
-        "turn",
         t("mobile.chat.attachment.saveImageFailed"),
         error instanceof Error ? sourceText(error.message) : t("mobile.chat.tryAgain"),
       );
@@ -285,12 +283,7 @@ export function useAttachmentFiles(serverId: string, attachments: readonly Attac
     );
   const fail = (error: unknown, title: string) => {
     void haptics.notification("error");
-    showFailureAlert(
-      error,
-      "turn",
-      title,
-      error instanceof Error ? sourceText(error.message) : t("mobile.chat.tryAgain"),
-    );
+    showFailureAlert(error, title, error instanceof Error ? sourceText(error.message) : t("mobile.chat.tryAgain"));
   };
 
   /** Saves every image that the photo library takes. It reports its own failure and returns whether all of them saved. */
@@ -366,7 +359,6 @@ export async function shareLocalAttachment(file: { name: string; mimeType: strin
     void haptics.notification("error");
     showFailureAlert(
       error,
-      "turn",
       t("mobile.chat.attachment.openFailed"),
       error instanceof Error ? sourceText(error.message) : t("mobile.chat.tryAgain"),
     );

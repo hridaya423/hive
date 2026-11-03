@@ -146,11 +146,6 @@ export const messages = defineMessages("mobile.settings", {
     "Your choices apply on all your devices. Mute applies to this phone only.",
   "mobile.settings.notifications.channel": "Agent notifications ({sound})",
   "mobile.settings.notifications.channelSilent": "Agent notifications (no sound)",
-  "mobile.settings.privacy.title": "Privacy",
-  "mobile.settings.privacy.footer":
-    "Feature use and connection results from this phone always go to OpenBot’s analytics. On: with your account ID and email. Off: with a random install ID only. Message contents and files are not sent.",
-  "mobile.settings.privacy.analytics": "Link analytics to my account",
-  "mobile.settings.privacy.retry": "Retry saving privacy setting",
   "mobile.settings.conversations.title": "Conversations",
   "mobile.settings.conversations.hiddenChats": "Hidden chats",
   "mobile.settings.profile.nameUnsafe": "Remove line breaks and control characters from your name.",

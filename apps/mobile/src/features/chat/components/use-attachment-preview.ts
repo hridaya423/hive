@@ -3,7 +3,7 @@ import { MOBILE_ATTACHMENT_BYTES } from "@openbot/team-client/remote-peer";
 import { File } from "expo-file-system";
 import { router } from "expo-router";
 import { useState } from "react";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { useText } from "@/shared/lib/text";
 import { attachmentCodeLanguage, attachmentPreviewKind, PREVIEW_TEXT_LIMIT } from "../model/attachment-file-preview";
@@ -45,7 +45,6 @@ export function useAttachmentPreview(serverId: string, attachment: AttachmentSum
       void haptics.notification("error");
       showFailureAlert(
         error,
-        "turn",
         t("mobile.chat.attachment.openFailed"),
         error instanceof Error ? sourceText(error.message) : t("mobile.chat.tryAgain"),
       );

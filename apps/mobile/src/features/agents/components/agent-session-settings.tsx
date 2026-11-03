@@ -3,12 +3,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Typography } from "heroui-native";
 import { Fragment, useState } from "react";
 import { useUniwind } from "uniwind";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
 import { SettingsPicker, SettingsSwitch } from "@/features/settings/components/settings-controls";
 import { type MobileAgent, useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
 import { queryKeys } from "@/features/workspace/model/query-keys";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { currentText, useText } from "@/shared/lib/text";
 
 export function AgentSessionSettingsSection({ agent, available }: { agent: MobileAgent; available: boolean }) {
@@ -44,7 +44,6 @@ export function AgentSessionSettingsSection({ agent, available }: { agent: Mobil
       const text = currentText();
       showFailureAlert(
         cause,
-        "agent",
         text.t("mobile.agent.session.failed"),
         text.errorMessage(cause, text.t("mobile.agent.session.failed")),
       );

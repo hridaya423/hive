@@ -1,4 +1,3 @@
-import { classifyFailure } from "@openbot/telemetry";
 import * as Crypto from "expo-crypto";
 import {
   createContext,
@@ -9,7 +8,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { reportMobileNotification } from "@/features/analytics/failure-reports";
 import { useMobileSession } from "@/features/auth/context/mobile-session-context";
 import { ChannelHistoryRefreshError } from "@/features/channels/model/channel-store";
 import { donateShareTarget } from "@/features/share/model/share-extension";
@@ -51,7 +49,6 @@ function createAccountOutbox(scope: string | null): AccountOutbox {
       const { t, errorMessage } = currentText();
       return errorMessage(error, t("mobile.chat.outbox.failed"));
     },
-    reportFailure: (error) => reportMobileNotification({ code: classifyFailure(error) }, "turn", "banner"),
     randomId: Crypto.randomUUID,
   });
   return { store, workspace };

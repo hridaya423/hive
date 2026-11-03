@@ -6,7 +6,6 @@ import Check from "lucide-react-native/icons/check";
 import { useEffect, useRef, useState } from "react";
 import { useCSSVariable } from "uniwind";
 import { AvatarThumbnail } from "@/features/agents/components/bloub-avatar";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { useMobileSession, useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { SettingsNote, SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
 import {
@@ -73,12 +72,10 @@ export function MarketplaceSkillAgentsScreen() {
     setError(null);
     const added: string[] = [];
     try {
-      await mobileAnalytics.operation("marketplace_action", { entity: "skill", action: "install" }, async () => {
-        for (const agentId of chosen) {
-          await installAgentSkill({ agentId, skillId: detail.id, versionId: detail.versionId }, serverId);
-          added.push(agentId);
-        }
-      });
+      for (const agentId of chosen) {
+        await installAgentSkill({ agentId, skillId: detail.id, versionId: detail.versionId }, serverId);
+        added.push(agentId);
+      }
       void haptics.notification("success");
       setPending(false);
       setLeaving(true);

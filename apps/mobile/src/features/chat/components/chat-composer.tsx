@@ -42,7 +42,6 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
 import { BloubAvatar } from "@/features/agents/components/bloub-avatar";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import type { ChatBubbleMessage } from "@/features/chat/model/chat-messages";
 import type { MobileAgent } from "@/features/workspace/model/workspace-types";
 import { useColumnWidth } from "@/shared/components/adaptive-split";
@@ -52,6 +51,7 @@ import {
   composerBottomGap,
   restingComposerHeight,
 } from "@/shared/lib/composer-metrics";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { useMotionPreference, useReducedMotion } from "@/shared/lib/motion";
 import { isAndroid } from "@/shared/lib/platform";
@@ -383,12 +383,7 @@ export const ChatComposer = memo(function ChatComposer({
         deleteComposerFiles(pasted);
         if (failed === 0) return;
         void haptics.notification("error");
-        showFailureAlert(
-          undefined,
-          "turn",
-          t("mobile.chat.attachment.addFailed"),
-          t("mobile.chat.attachment.unavailable"),
-        );
+        showFailureAlert(undefined, t("mobile.chat.attachment.addFailed"), t("mobile.chat.attachment.unavailable"));
       });
   };
   const pendingCursor = useRef<number | null>(null);
@@ -1265,7 +1260,6 @@ export const ChatComposer = memo(function ChatComposer({
                               void haptics.notification("error");
                               showFailureAlert(
                                 error,
-                                "turn",
                                 t("mobile.chat.composer.pasteFailed"),
                                 error instanceof Error ? sourceText(error.message) : t("mobile.chat.tryAgain"),
                               );

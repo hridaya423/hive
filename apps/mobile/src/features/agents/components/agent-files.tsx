@@ -5,11 +5,11 @@ import { useThemeColor } from "heroui-native/hooks";
 import Trash2 from "lucide-react-native/icons/trash";
 import { useState } from "react";
 import { Alert, Pressable } from "react-native";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { AttachmentThumbnail, showsAsImage, useAttachmentFile } from "@/features/chat/components/attachment-preview";
 import { useAttachmentPreview } from "@/features/chat/components/use-attachment-preview";
 import { SettingsNote, SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
 import { type MobileAgent, useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { currentText, useText } from "@/shared/lib/text";
 
@@ -140,7 +140,6 @@ export function StoredFile({
                 const text = currentText();
                 showFailureAlert(
                   cause,
-                  "agent",
                   text.t("mobile.agent.files.deleteFailed"),
                   text.errorMessage(cause, text.t("mobile.agent.files.deleteFailedBody")),
                 );

@@ -10,13 +10,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
-import {
-  followAccountAnalytics,
-  loadAnalyticsPreference,
-  type SendAnalyticsChoice,
-  sendAnalyticsChoice,
-} from "@/features/analytics/preference";
 import {
   logoutMobileSession,
   type MobileProfileChange,
@@ -45,8 +38,6 @@ interface MobileSessionContextValue {
   connect: (session: MobileSession) => void;
   signOut: () => Promise<void>;
   updateProfile: (change: MobileProfileChange) => Promise<MobileSession>;
-  /** Sends this phone's unsent analytics choice to the account. */
-  sendAnalyticsChoice: () => Promise<void>;
 }
 
 const MobileSessionContext = createContext<MobileSessionContextValue | null>(null);
@@ -71,7 +62,6 @@ export function MobileSessionProvider({ children }: PropsWithChildren) {
     }
     // Sign-out, and a session that the account service refused or that expired, delete the phone's copy.
     if (sessionRef.current && !session) void deleteWorkspaceCaches();
-    mobileAnalytics.setUser(session?.user ?? null);
     sessionRef.current = session;
     setSessionState(session);
   }, []);
@@ -91,7 +81,6 @@ export function MobileSessionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let active = true;
     const scope = sessionScope.current;
-    void untilForeground().then(loadAnalyticsPreference);
     const read = () =>
       readMobileSession().then((stored) => {
         if (active && scope === sessionScope.current) setCurrentSession(stored);
@@ -146,7 +135,7 @@ export function MobileSessionProvider({ children }: PropsWithChildren) {
   const signOut = useCallback(async () => {
     const current = sessionRef.current;
     if (!current) return;
-    await mobileAnalytics.operation("account_sign_out", {}, () => logoutMobileSession(current));
+    await logoutMobileSession(current);
     deleteAgentAvatars();
     if (sessionRef.current?.sessionToken === current.sessionToken && sessionRef.current?.apiUrl === current.apiUrl) {
       setCurrentSession(null);
@@ -170,21 +159,6 @@ export function MobileSessionProvider({ children }: PropsWithChildren) {
     [handleSessionError, setCurrentSession],
   );
 
-  const sendAnalytics = useCallback<SendAnalyticsChoice>(
-    async (enabled, ageMs) => (await updateProfile({ analyticsEnabled: enabled, ageMs })).user.analyticsEnabled ?? null,
-    [updateProfile],
-  );
-  const sendUnsentAnalytics = useCallback(() => sendAnalyticsChoice(sendAnalytics), [sendAnalytics]);
-
-  // The account keeps the user's latest analytics answer. This phone sends its unsent choice, or
-  // follows the account. A failed send stays marked for the next profile refresh.
-  const accountAnalytics = sessionState?.user.analyticsEnabled;
-  const signedIn = Boolean(sessionState);
-  useEffect(() => {
-    if (!signedIn) return;
-    void followAccountAnalytics(accountAnalytics, sendAnalytics).catch(() => undefined);
-  }, [signedIn, accountAnalytics, sendAnalytics]);
-
   const value = useMemo<MobileSessionContextValue>(
     () => ({
       loading: sessionState === undefined,
@@ -195,9 +169,8 @@ export function MobileSessionProvider({ children }: PropsWithChildren) {
       connect: setCurrentSession,
       signOut,
       updateProfile,
-      sendAnalyticsChoice: sendUnsentAnalytics,
     }),
-    [sessionState, setCurrentSession, signOut, updateProfile, sendUnsentAnalytics, handleSessionError, refreshProfile],
+    [sessionState, setCurrentSession, signOut, updateProfile, handleSessionError, refreshProfile],
   );
 
   return <MobileSessionContext.Provider value={value}>{children}</MobileSessionContext.Provider>;

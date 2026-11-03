@@ -14,7 +14,6 @@ import { Alert, View } from "react-native";
 import { useCSSVariable } from "uniwind";
 import { Size, StoredFile } from "@/features/agents/components/agent-files";
 import { BloubAvatar } from "@/features/agents/components/bloub-avatar";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { StorageRing } from "@/features/servers/components/storage-ring";
 import { TrailingValue } from "@/features/servers/components/trailing-value";
 import { useServerStorage } from "@/features/servers/model/use-server-storage";
@@ -26,6 +25,7 @@ import {
 } from "@/features/settings/components/settings-content";
 import { useMobileWorkspace, useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
 import { AndroidHeaderButton } from "@/shared/components/android-header-button";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { isAndroid, isIOS } from "@/shared/lib/platform";
 import { currentText, useText } from "@/shared/lib/text";
@@ -116,7 +116,6 @@ export function ServerStorageScreen() {
               const text = currentText();
               showFailureAlert(
                 cause,
-                "maintenance",
                 text.t("mobile.server.storage.clearFailed"),
                 text.errorMessage(cause, text.t("mobile.server.storage.clearFailedBody")),
               );

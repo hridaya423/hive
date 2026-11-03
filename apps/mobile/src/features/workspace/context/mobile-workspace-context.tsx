@@ -108,9 +108,6 @@ import { Effect } from "effect";
 import * as Crypto from "expo-crypto";
 import { type PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
-import { trackWorkspaceActions } from "@/features/analytics/workspace-actions";
 import { useMobileSession } from "@/features/auth/context/mobile-session-context";
 import { decodeMobileBrowserTabs } from "@/features/browser/model/browser-tabs";
 import { MobileChannelStore } from "@/features/channels/model/channel-store";
@@ -218,6 +215,7 @@ import type {
   MobileWorkspaceContextValue,
   MobileWorkspaceState,
 } from "@/features/workspace/model/workspace-types";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import * as LockedKeychain from "@/shared/lib/locked-keychain";
 import { isAndroid } from "@/shared/lib/platform";
 import { currentText } from "@/shared/lib/text";
@@ -759,7 +757,6 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
         } catch (error) {
           showFailureAlert(
             error,
-            "settings",
             currentText().t("mobile.workspace.alert.preferencesTitle"),
             currentText().t("mobile.workspace.alert.preferencesBody"),
           );
@@ -786,7 +783,6 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       } catch (error) {
         showFailureAlert(
           error,
-          "settings",
           currentText().t("mobile.workspace.alert.preferencesTitle"),
           currentText().t("mobile.workspace.alert.preferencesBody"),
         );
@@ -1508,7 +1504,6 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
       } catch (error) {
         showFailureAlert(
           error,
-          "settings",
           currentText().t("mobile.workspace.alert.preferencesTitle"),
           currentText().t("mobile.workspace.alert.preferencesBody"),
         );
@@ -1529,19 +1524,15 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
         return { ...current, [serverId]: hide ? [...ids, agentId] : ids.filter((id) => id !== agentId) };
       };
       setHostHidden((current) => change(current, hidden));
-      const action = hidden ? "hide" : "unhide";
       void writeHostAgentHidden(teamApi(serverId), { agentId, hidden }).then(
         (agents) => {
           applyHostHidden(serverId, agents);
-          mobileAnalytics.track("conversation_action", { action, result: "succeeded" });
         },
         (error: unknown) => {
           if (!removedServers.current.has(serverId)) setHostHidden((current) => change(current, !hidden));
-          mobileAnalytics.track("conversation_action", { action, result: "failed" });
           const text = currentText();
           showFailureAlert(
             error,
-            "agent",
             text.t(hidden ? "mobile.agent.menu.hideFailed" : "mobile.agent.hidden.showFailed"),
             text.errorMessage(error, text.t("mobile.agent.menu.actionFailed")),
           );
@@ -1967,17 +1958,16 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
           if (!hostHiddenRef.current[serverId]?.includes(agentId)) changeHostHidden(serverId, agentId, true);
           return;
         }
-        const saved = updatePreferences(serverId, (current) => ({
+        updatePreferences(serverId, (current) => ({
           ...current,
           hidden: [...new Set([...current.hidden, agentId])],
           pinned: current.pinned.filter((id) => id !== agentId),
         }));
-        mobileAnalytics.track("conversation_action", { action: "hide", result: saved ? "succeeded" : "failed" });
       },
       unhideAgent: (agentId) => {
         const serverId = currentActiveServer().id;
         // Restore removes the local hide too, so the agent shows again on this phone.
-        const saved = updatePreferences(serverId, (current) => ({
+        updatePreferences(serverId, (current) => ({
           ...current,
           hidden: current.hidden.filter((id) => id !== agentId),
         }));
@@ -1988,7 +1978,6 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
           changeHostHidden(serverId, agentId, false);
           return;
         }
-        mobileAnalytics.track("conversation_action", { action: "unhide", result: saved ? "succeeded" : "failed" });
       },
       markAgentRead,
       markAllRead: async () => {
@@ -2070,10 +2059,7 @@ export function MobileWorkspaceProvider({ children }: PropsWithChildren) {
           : "error";
       },
     };
-    return trackWorkspaceActions(workspace, () => ({
-      agents: agentsRef.current,
-      pinnedAgentIds: currentPinnedAgentIds(),
-    }));
+    return workspace;
   }, [
     linkLocalServers,
     browser,

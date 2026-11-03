@@ -8,7 +8,6 @@ import { AgentProviderAvatar } from "@/features/agents/components/agent-provider
 import { AgentUsageReport, type UsageAgentRow } from "@/features/agents/components/agent-usage-report";
 import { UsageLoading } from "@/features/agents/components/usage-motion";
 import { lastUsageDays, UsageRangePicker } from "@/features/agents/components/usage-range-picker";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { PlanLimitsSummary } from "@/features/servers/components/plan-limits-summary";
 import { SettingsNote } from "@/features/settings/components/settings-content";
@@ -29,9 +28,7 @@ export function ServerUsageScreen() {
   const online = server?.state === "online";
   const serverAgents = agents.filter((agent) => agent.serverId === serverId);
   const [range, setRange] = useState(() => lastUsageDays());
-  useEffect(() => {
-    mobileAnalytics.track("usage_viewed", { scope: "server" });
-  }, []);
+  useEffect(() => {}, []);
   const usage = useQuery({
     queryKey: queryKeys.serverUsage(queryScope, serverId, range),
     queryFn: () => loadHostAnalytics(range, serverId),

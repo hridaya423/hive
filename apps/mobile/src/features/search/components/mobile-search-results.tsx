@@ -1,10 +1,9 @@
 import type { MobileTextKey } from "@openbot/i18n/mobile";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Button, Typography } from "heroui-native";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import Animated, { LayoutAnimationConfig } from "react-native-reanimated";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { useMobileSession, useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { useChannels } from "@/features/channels/components/use-channels";
 import { MobileSearchResultRow } from "@/features/search/components/search-result-row";
@@ -69,7 +68,6 @@ function useSearchSettings(channelsSupported: boolean): MobileSearchSetting[] {
         { id: "liveActivities", title: t("mobile.settings.liveActivities.title"), detail: app },
       );
     pages.push(
-      { id: "privacy", title: t("mobile.settings.privacy.title"), detail: app },
       { id: "hiddenChats", title: t("mobile.settings.conversations.hiddenChats"), detail: app },
       ...(channelsSupported
         ? [{ id: "deletedChannels" as const, title: t("mobile.app.route.deletedChannels"), detail: serverName }]
@@ -283,7 +281,6 @@ export function MobileSearchResults({
     void haptics.selection();
     setFilter(next);
   };
-  const resultCount = view.sections.reduce((count, section) => count + section.results.length, 0);
   const item = swapItemMotion(motion);
   const showsIdle = filter === "all" && !normalizeMobileSearchQuery(query);
   // Under the results: a host search that still loads, a failed one, or its next page.
@@ -297,20 +294,6 @@ export function MobileSearchResults({
           : view.canLoadMore
             ? "more"
             : "none";
-
-  const searchSummary = useRef({ used: false, count: 0 });
-  if (query.trim()) searchSummary.current = { used: true, count: resultCount };
-  useEffect(() => {
-    const scope = mobileAnalytics.scope();
-    return () => {
-      if (searchSummary.current.used)
-        scope.track("search_action", {
-          scope: "global",
-          result: "succeeded",
-          result_count: searchSummary.current.count,
-        });
-    };
-  }, []);
 
   return (
     <>

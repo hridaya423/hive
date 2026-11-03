@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import {
   decodeDefaultServer,
   decodeServerOrder,
@@ -8,13 +7,13 @@ import {
   sortServers,
 } from "@/features/workspace/model/server-order";
 import type { MobileServer } from "@/features/workspace/model/workspace-types";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import * as LockedKeychain from "@/shared/lib/locked-keychain";
 import { currentText } from "@/shared/lib/text";
 
 function showOrderFailure(error: unknown): void {
   showFailureAlert(
     error,
-    "settings",
     currentText().t("mobile.workspace.alert.serverOrderTitle"),
     currentText().t("mobile.workspace.alert.serverOrderBody"),
   );
