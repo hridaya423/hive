@@ -87,6 +87,11 @@ interface StoredMessage {
    * sender's own chat does not show it. Never sent to a client.
    */
   senderTaskId?: string;
+  /**
+   * The turn of the sending agent that sent this request. The answers to all requests of one turn
+   * start together in one turn of the sender. Absent on answers, on information, and on older messages.
+   */
+  requestTurnId?: string;
   id: string;
   sender:
     | { kind: "user" }
@@ -190,6 +195,7 @@ interface EnqueueInput {
   messagingReturn?: MessagingOrigin;
   taskId?: string;
   senderTaskId?: string;
+  requestTurnId?: string;
   sender: StoredMessage["sender"];
   senderMember?: ConversationMessageSender;
   recipientAgentIds: string[];
@@ -587,6 +593,12 @@ export class MailboxStore {
         ...(input.messagingReturn ? { messagingReturn: input.messagingReturn } : {}),
         ...(input.taskId ? { taskId: input.taskId } : {}),
         ...(input.senderTaskId ? { senderTaskId: input.senderTaskId } : {}),
+        ...(input.requestTurnId &&
+        input.sender.kind === "agent" &&
+        !input.replyToMessageId &&
+        input.expectsReply !== false
+          ? { requestTurnId: input.requestTurnId }
+          : {}),
         id: messageId,
         sender: input.sender,
         ...(input.sender.kind === "user" && input.senderMember ? { senderMember: input.senderMember } : {}),
@@ -1378,13 +1390,14 @@ export class MailboxStore {
     // One turn runs in one lane: the agent's own chat, or the side thread that sent the request.
     const lane = message.taskId ?? null;
     const messages = this.#messagesById();
+    const requests = new Set(requestId ? this.#requestGroup(requestId).map((request) => request.id) : []);
     return this.#contexts(
       this.#queuedFor(next.recipientAgentId).filter((candidate) => {
         if (candidate.id === next.id || !this.#mayStart(candidate) || this.#taskIdOf(candidate, messages) !== lane)
           return false;
         if (!requestId) return this.#isHeldReply(candidate);
         const reply = this.#requireMessage(candidate.messageId, messages);
-        return isAnswer(reply) && reply.replyToMessageId === requestId;
+        return isAnswer(reply) && reply.replyToMessageId !== null && requests.has(reply.replyToMessageId);
       }),
     );
   }
@@ -1441,17 +1454,18 @@ export class MailboxStore {
 
   /** The agents that were sent a request and whose delivery ended with no answer. */
   unansweredRecipients(requestId: string): string[] {
+    const requests = new Set(this.#requestGroup(requestId).map((request) => request.id));
     return this.#state.deliveries
       .filter(
         (delivery) =>
-          delivery.messageId === requestId &&
+          requests.has(delivery.messageId) &&
           (delivery.status === "failed" || delivery.status === "interrupted" || delivery.status === "cancelled") &&
           // A linked question from this agent is not an answer.
           !this.#state.messages.some(
             (message) =>
               isAnswer(message) &&
               message.sender.agentId === delivery.recipientAgentId &&
-              message.replyToMessageId === requestId,
+              message.replyToMessageId === delivery.messageId,
           ),
       )
       .map((delivery) => delivery.recipientAgentId);
@@ -1468,9 +1482,9 @@ export class MailboxStore {
   }
 
   /**
-   * An answer to a request that its recipient sent to several teammates waits while another of them
-   * has the request still queued or running. So the requester reads all the answers in one turn,
-   * not one turn for each answer.
+   * An answer waits while another teammate still has a request of the same group queued or
+   * running: the same request sent to several teammates, or the requests one turn sent. So the
+   * requester reads all the answers in one turn, not one turn for each answer.
    */
   #isHeldReply(delivery: StoredDelivery): boolean {
     const reply = this.#requireMessage(delivery.messageId);
@@ -1483,11 +1497,30 @@ export class MailboxStore {
     )
       return false;
     const answeredBy = reply.sender.agentId;
+    const requests = new Set(this.#requestGroup(request.id).map((item) => item.id));
     return this.#state.deliveries.some(
       (candidate) =>
-        candidate.messageId === request.id &&
-        candidate.recipientAgentId !== answeredBy &&
+        requests.has(candidate.messageId) &&
+        !(candidate.messageId === request.id && candidate.recipientAgentId === answeredBy) &&
         (candidate.status === "queued" || candidate.status === "starting" || candidate.status === "running"),
+    );
+  }
+
+  #groupDeliveryCount(requestId: string): number {
+    const requests = new Set(this.#requestGroup(requestId).map((request) => request.id));
+    return this.#state.deliveries.filter((delivery) => requests.has(delivery.messageId)).length;
+  }
+
+  #requestGroup(requestId: string): StoredMessage[] {
+    const request = this.#state.messages.find((message) => message.id === requestId);
+    if (!request) return [];
+    if (request.sender.kind !== "agent" || !request.requestTurnId) return [request];
+    const { agentId } = request.sender;
+    return this.#state.messages.filter(
+      (message) =>
+        message.requestTurnId === request.requestTurnId &&
+        message.sender.kind === "agent" &&
+        message.sender.agentId === agentId,
     );
   }
 
@@ -1501,10 +1534,7 @@ export class MailboxStore {
     if (delivery?.status !== "queued") return false;
     const message = this.#requireMessage(delivery.messageId);
     if (message.channelId || message.messaging || message.taskId) return false;
-    return (
-      !isAnswer(message) ||
-      this.#state.deliveries.filter((candidate) => candidate.messageId === message.replyToMessageId).length < 2
-    );
+    return !isAnswer(message) || this.#groupDeliveryCount(message.replyToMessageId) < 2;
   }
 
   queuedDeliveryIds(agentId: string): string[] {
@@ -3143,6 +3173,7 @@ function isStoredMessage(value: unknown): value is StoredMessage {
     (value.messagingReturn === undefined || isMessagingOrigin(value.messagingReturn)) &&
     (value.taskId === undefined || isString(value.taskId)) &&
     (value.senderTaskId === undefined || isString(value.senderTaskId)) &&
+    (value.requestTurnId === undefined || isString(value.requestTurnId)) &&
     isString(value.id) &&
     isRecord(value.sender) &&
     (value.sender.kind === "user" ||

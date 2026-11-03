@@ -783,7 +783,7 @@ export class DrainScheduler {
               ...(executionText === undefined ? {} : { executionText }),
             });
           }),
-          [...requestIds].flatMap((requestId) => this.#mailbox.unansweredRecipients(requestId)),
+          [...new Set([...requestIds].flatMap((requestId) => this.#mailbox.unansweredRecipients(requestId)))],
           agentNames,
         );
       };

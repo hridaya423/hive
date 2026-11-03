@@ -1807,6 +1807,7 @@ export class OpenBotToolRouter {
           ...(messagingReturn ? { messagingReturn } : {}),
           ...(senderTaskId ? { senderTaskId } : {}),
           ...(taskId ? { taskId } : {}),
+          ...(params.turnId ? { requestTurnId: params.turnId } : {}),
           idempotencyKey: toolCallIdempotencyKey(params),
         })
         .pipe(toToolOperationFailed);
