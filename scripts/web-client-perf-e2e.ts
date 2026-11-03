@@ -65,8 +65,6 @@ function record(samples: Samples, key: string, value: number): void {
   samples[key] = values;
 }
 
-// ---------------------------------------------------------------- bundle
-
 interface ManifestChunk {
   file: string;
   imports?: string[];
@@ -142,8 +140,6 @@ function measureBundle(samples: Samples): void {
     }
   }
 }
-
-// ---------------------------------------------------------------- load
 
 async function listen(server: Server): Promise<number> {
   await new Promise<void>((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
@@ -340,8 +336,6 @@ async function measureLoad(browser: Browser, samples: Samples): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------- runtime
-
 const STREAM_TOKENS = 2000;
 const OTHER_STREAM_TOKENS = 200;
 const STORY = "web-workspace--long-conversation";
@@ -433,8 +427,6 @@ declare global {
   // The driver that `src/renderer/src/preview/bench-web-runtime.ts` installs in the story.
   var openbotWebBench: { stream(tokens: number, marker: string, other?: boolean): Promise<void> };
 }
-
-// ---------------------------------------------------------------- report
 
 function parseReport(path: string): Report {
   const parsed = JSON.parse(readFileSync(path, "utf8"));
