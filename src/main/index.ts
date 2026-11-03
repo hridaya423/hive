@@ -260,6 +260,8 @@ if (commandLineUserDataDirectory) {
   );
 }
 app.setName("Hive");
+// Unpackaged Electron binaries differ per worktree, so each would ask the macOS keychain again.
+if (!app.isPackaged && process.platform === "darwin") app.commandLine.appendSwitch("use-mock-keychain");
 app.enableSandbox();
 if (process.platform === "win32") app.setAppUserModelId("app.openbot.desktop");
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
