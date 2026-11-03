@@ -17,6 +17,7 @@ import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { haptics } from "@/shared/lib/haptics";
 import { readFileBase64 } from "@/shared/lib/read-file-base64";
 import { useText } from "@/shared/lib/text";
+import { bytesBase64 } from "../model/base64-bytes";
 import { type ImageDimensions, imageDimensions } from "../model/image-dimensions";
 
 /**
@@ -41,12 +42,6 @@ export interface ChatAttachment extends RemoteFileUpload {
 
 /** Longer pasted or shared text goes in as a text file, not into the composer. */
 const LARGE_TEXT_LENGTH = 4_000;
-
-function base64(bytes: Uint8Array) {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
 
 export function useChatAttachments(
   initialItems: ChatAttachment[] = [],
@@ -231,7 +226,7 @@ export function useChatAttachments(
       return add({
         name: "pasted-text.txt",
         mimeType: "text/plain",
-        base64: base64(new TextEncoder().encode(text)),
+        base64: bytesBase64(new TextEncoder().encode(text)),
       });
     onText(text);
   }
@@ -270,7 +265,7 @@ export function useChatAttachments(
           await add({
             name: "shared-text.txt",
             mimeType: "text/plain",
-            base64: base64(new TextEncoder().encode(text)),
+            base64: bytesBase64(new TextEncoder().encode(text)),
           });
         } catch (error) {
           failures.push(error);

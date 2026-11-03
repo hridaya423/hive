@@ -1,8 +1,7 @@
 import { referenceFrom } from "@openbot/user-errors";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Linking } from "react-native";
+import { AppState } from "react-native";
 import { type SharedValue, useSharedValue, withTiming } from "react-native-reanimated";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { AUTOMATIC_DICTATION_LANGUAGE, useDictationLanguage } from "@/features/settings/model/dictation-language";
 import { parakeetSupported, useParakeetModel } from "@/features/voice/model/parakeet-model";
@@ -12,11 +11,9 @@ import { haptics } from "@/shared/lib/haptics";
 import { phoneLanguages } from "@/shared/lib/phone-languages";
 import { isIOS } from "@/shared/lib/platform";
 import { speechRecognition } from "@/shared/lib/speech-recognition";
-import { currentText } from "@/shared/lib/text";
 import { useAppForeground } from "@/shared/lib/use-app-foreground";
 import {
   applyDictationResult,
-  type DictationNotice,
   type DictationPhase,
   type DictationTranscript,
   dictationDraft,
@@ -29,6 +26,7 @@ import {
   retriesWithSystemService,
   spokenText,
 } from "../model/voice-dictation";
+import { showNotice } from "./dictation-notice";
 import { type ModelRecognition, modelCaptureAvailable, useModelDictation } from "./use-model-dictation";
 
 type Recognizer = NonNullable<typeof speechRecognition>;
@@ -144,23 +142,6 @@ async function recognitionOptions(module: Recognizer, supported: Promise<Support
   const requiresOnDeviceRecognition =
     isIOS || (module.supportsOnDeviceRecognition() && hasRecognitionLocale(lang, locales.installedLocales));
   return { lang, requiresOnDeviceRecognition };
-}
-
-function showNotice(notice: DictationNotice, error?: unknown): void {
-  void haptics.notification("error");
-  const { t } = currentText();
-  showFailureAlert(
-    error,
-    "voice",
-    t(notice.title),
-    t(notice.message),
-    notice.openSettings
-      ? [
-          { text: t("common.cancel"), style: "cancel" },
-          { text: t("mobile.chat.dictation.openSettings"), onPress: () => void Linking.openSettings() },
-        ]
-      : undefined,
-  );
 }
 
 export interface VoiceDictation {

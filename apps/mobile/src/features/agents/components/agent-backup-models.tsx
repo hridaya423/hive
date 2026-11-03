@@ -19,7 +19,11 @@ import Trash2 from "lucide-react-native/icons/trash";
 import { type ReactNode, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useCSSVariable, useUniwind } from "uniwind";
-import { type AgentHostFieldsProps, useAgentHostRecord } from "@/features/agents/components/agent-host-fields";
+import {
+  type AgentHostFieldsProps,
+  SaveError,
+  useAgentHostRecord,
+} from "@/features/agents/components/agent-host-fields";
 import { useProviderAccountName, useProviderAccounts } from "@/features/agents/components/agent-runtime-fields";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { ProviderMark } from "@/features/servers/components/provider-mark";
@@ -247,14 +251,6 @@ function EditorStatus({
       {t(canManage ? "mobile.agent.edit.loading" : "mobile.agent.host.unsupported")}
     </Typography.Paragraph>
   );
-}
-
-function SaveError({ error }: { error: string | null }) {
-  return error ? (
-    <Typography.Paragraph accessibilityRole="alert" className="text-danger-text">
-      {error}
-    </Typography.Paragraph>
-  ) : null;
 }
 
 /** Agent info > Backup models: what the agent does when a usage limit holds a message. */

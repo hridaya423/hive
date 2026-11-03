@@ -137,7 +137,7 @@ function useAgentHostSettings(props: AgentHostFieldsProps) {
   );
 }
 
-function SaveError({ error }: { error: string | null }) {
+export function SaveError({ error }: { error: string | null }) {
   return error ? (
     <Typography.Paragraph accessibilityRole="alert" className="text-danger-text">
       {error}

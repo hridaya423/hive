@@ -1,9 +1,7 @@
 import { referenceFrom } from "@openbot/user-errors";
 import { CodedError } from "expo";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Linking } from "react-native";
 import { useSharedValue, withTiming } from "react-native-reanimated";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { ElevenLabsError, scribeToken } from "@/features/voice/model/elevenlabs";
 import { parakeetModel } from "@/features/voice/model/parakeet-model";
@@ -12,7 +10,6 @@ import { speechNative } from "@/features/voice/model/speech-native";
 import { readElevenLabsKey } from "@/features/voice/model/voice-settings";
 import { haptics } from "@/shared/lib/haptics";
 import { speechRecognition } from "@/shared/lib/speech-recognition";
-import { currentText } from "@/shared/lib/text";
 import { useAppForeground } from "@/shared/lib/use-app-foreground";
 import {
   applyDictationResult,
@@ -25,6 +22,7 @@ import {
   microphoneOffNotice,
   spokenText,
 } from "../model/voice-dictation";
+import { showNotice } from "./dictation-notice";
 import type { VoiceDictation } from "./use-voice-dictation";
 
 /** The engines that capture the microphone in the speech module, not in the phone's recognizer. */
@@ -78,23 +76,6 @@ interface CaptureSession {
   listeningAt: number | null;
   stoppingAt: number | null;
   ending: "cancelled" | "permission_denied" | "operation_failed" | null;
-}
-
-function showNotice(notice: DictationNotice, error?: unknown): void {
-  void haptics.notification("error");
-  const { t } = currentText();
-  showFailureAlert(
-    error,
-    "voice",
-    t(notice.title),
-    t(notice.message),
-    notice.openSettings
-      ? [
-          { text: t("common.cancel"), style: "cancel" },
-          { text: t("mobile.chat.dictation.openSettings"), onPress: () => void Linking.openSettings() },
-        ]
-      : undefined,
-  );
 }
 
 /** One analytics event for each session. It has no words of the transcript. */

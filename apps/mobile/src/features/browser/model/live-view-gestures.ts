@@ -1,5 +1,5 @@
+import { clamp } from "@/features/chat/model/image-viewer-geometry";
 import {
-  clamp,
   clampFraction,
   clampZoom,
   MAX_ZOOM,

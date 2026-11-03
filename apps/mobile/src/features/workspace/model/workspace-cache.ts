@@ -4,6 +4,7 @@ import type { RemoteTeamHost } from "@openbot/team-client";
 import * as Crypto from "expo-crypto";
 import * as FileSystem from "expo-file-system/legacy";
 import * as LockedKeychain from "@/shared/lib/locked-keychain";
+import { segment } from "./agent-avatar-cache";
 import { decodeConversationPage } from "./conversation";
 import { type DrawerSnapshot, decodeDrawerSnapshot } from "./drawer-snapshot";
 import { decodeAgentSummaries, decodeSidebarLayout, type RemoteAgent } from "./workspace-records";
@@ -46,7 +47,6 @@ const HOSTS_NAME = "~hosts";
  */
 const MAX_JSON_LENGTH = 3 * 1024 * 1024;
 
-const segment = (value: string) => value.replace(/[^A-Za-z0-9._-]/gu, "_").replace(/^\.+/u, "_");
 const rootDirectory = () => (FileSystem.cacheDirectory ? `${FileSystem.cacheDirectory}${ROOT}` : null);
 
 let keyLoad: Promise<Crypto.AESEncryptionKey | null> | null = null;
