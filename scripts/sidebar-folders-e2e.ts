@@ -38,7 +38,6 @@ import { TEAM_PROTOCOL_V9 } from "@openbot/contracts/team-protocol/v9";
 import { sourceText } from "@openbot/i18n/source";
 import { plugin } from "bun";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
@@ -46,6 +45,7 @@ import { MailboxStore } from "../src/backend/mailbox-store";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import type { TeamApiBrowser } from "../src/main/team-api/dependencies";
+import { inertBrowserHost, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/sidebar-folders-e2e");
 const HOST_VERSION = "0.0.0-e2e";
@@ -146,24 +146,6 @@ function text(value: unknown, label: string): string {
   assert.equal(typeof value, "string", `${label} is not text.`);
   return String(value);
 }
-
-const unused = () => Effect.die(new Error("Not used by this check."));
-const agentBrowser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
 const teamBrowser: TeamApiBrowser = {
   listTabs: () => [],
   getControlState: () => ({ sessions: [] }),
@@ -219,7 +201,7 @@ async function startHost(): Promise<Host> {
   await runCauseEffect(team.initialize());
   assert.equal(await runCauseEffect(access.load()), true, "The roles file did not load.");
   if (!team.getIdentity()) await runCauseEffect(team.configure("E2E Host", OWNER.username, OWNER.password));
-  const agents = new AgentService({ store: agentStore, mailbox, browser: agentBrowser, sidebarLayout: sidebar });
+  const agents = new AgentService({ store: agentStore, mailbox, browser: inertBrowserHost, sidebarLayout: sidebar });
   const server = new TeamApiServer({
     store: team,
     agents,

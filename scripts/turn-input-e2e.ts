@@ -13,9 +13,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AGENT_PROVIDERS } from "@openbot/contracts/ipc";
-import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { getString, isRecord } from "../src/backend/protocol";
+import { inertBrowserHost, waitFor } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/turn-input-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-turn-input-"));
@@ -133,24 +132,6 @@ const report: {
   error?: string;
 } = { passed: false };
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
 function turnStarts(): TurnStart[] {
   let lines: string[];
   try {
@@ -168,17 +149,6 @@ function turnStarts(): TurnStart[] {
   });
 }
 
-/** Waits for a state of the service or of the fake Codex. */
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = read();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}.`);
-    await new Promise((done) => setTimeout(done, 25));
-  }
-}
-
 await writeFile(fakeCodex, FAKE_CODEX, { mode: 0o755 });
 const database = new OpenBotDatabase(userData);
 const store = new AgentStore(userData, home, database);
@@ -186,7 +156,7 @@ const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 const agents = new AgentService({
   store,
   mailbox,
-  browser,
+  browser: inertBrowserHost,
   preferredProvider: "codex",
   offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "codex"),
 });

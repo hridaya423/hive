@@ -14,13 +14,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AGENT_PROVIDERS } from "@openbot/contracts/ipc";
-import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
+import { inertBrowserHost } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/token-usage-e2e");
 const MODEL = "claude-haiku-5-5";
@@ -57,24 +56,6 @@ const report: {
   error?: string;
 } = { model: MODEL, chatTurns: CHAT_TURNS, turns: [], passed: false };
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
 /** Waits for a state of the service. */
 async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 180_000): Promise<T> {
   const deadline = Date.now() + timeoutMs;
@@ -92,7 +73,7 @@ const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 const agents = new AgentService({
   store,
   mailbox,
-  browser,
+  browser: inertBrowserHost,
   preferredProvider: "claude",
   offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "claude"),
 });

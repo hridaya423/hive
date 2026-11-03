@@ -77,7 +77,6 @@ import {
 import { sourceText } from "@openbot/i18n/source";
 import { plugin } from "bun";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
@@ -86,6 +85,7 @@ import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import type { TeamApiBrowser } from "../src/main/team-api/dependencies";
 import type { TeamWebRtcChannel } from "../src/main/team-webrtc-bridge";
+import { inertBrowserHost, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/team-api-legacy-clients-e2e");
 const FIXTURES = resolve(import.meta.dirname, "../packages/contracts/src/team-protocol/fixtures");
@@ -190,23 +190,6 @@ function text(value: unknown, label: string): string {
 }
 
 /** No check needs the browser: a call to it is a failure. */
-const unused = () => Effect.die(new Error("Not used by this check."));
-const agentBrowser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
 /** The owners of each tab that the Team API asked the browser to open. */
 const openedTabOwners: { ownerThreadId: string | null; ownerAgentId: string | null }[] = [];
 const teamBrowser: TeamApiBrowser = {
@@ -386,7 +369,7 @@ try {
   await runCauseEffect(agentStore.initialize());
   await runCauseEffect(mailbox.initialize());
   await runCauseEffect(team.initialize());
-  agents = new AgentService({ store: agentStore, mailbox, browser: agentBrowser, sidebarLayout: sidebar });
+  agents = new AgentService({ store: agentStore, mailbox, browser: inertBrowserHost, sidebarLayout: sidebar });
   const identity = await runCauseEffect(team.configure("E2E Host", OWNER.username, OWNER.password));
   const source = await runCauseEffect(
     agents.createAgentProfile({

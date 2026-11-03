@@ -41,7 +41,6 @@ import { teamSideRouteCodec } from "@openbot/contracts/team-protocol/side-routes
 import { createFormat, translateFor } from "@openbot/i18n";
 import { plugin } from "bun";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
@@ -49,6 +48,7 @@ import { MailboxStore } from "../src/backend/mailbox-store";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import type { TeamApiBrowser } from "../src/main/team-api/dependencies";
+import { inertBrowserHost, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/channel-notifications-e2e");
 const APP_VERSION = "0.0.0-e2e";
@@ -222,23 +222,6 @@ function lastOpened(): NotificationOpenedEvent {
 
 const root = await mkdtemp(join(tmpdir(), "openbot-channel-notifications-"));
 const userData = join(root, "user-data");
-const unused = () => Effect.die(new Error("Not used by this check."));
-const agentBrowser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
 const teamBrowser: TeamApiBrowser = {
   listTabs: () => [],
   getControlState: () => ({ sessions: [] }),
@@ -365,7 +348,7 @@ try {
           avatarHue: null,
         }),
       );
-      agents = new AgentService({ store: agentStore, mailbox, browser: agentBrowser, sidebarLayout: sidebar });
+      agents = new AgentService({ store: agentStore, mailbox, browser: inertBrowserHost, sidebarLayout: sidebar });
       await runCauseEffect(manager.initialize());
       await runCauseEffect(manager.setNotificationLevel(LOCAL_SERVER_ID, "all"));
       const host = new HostService({

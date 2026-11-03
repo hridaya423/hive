@@ -22,14 +22,13 @@ import {
   defaultProviderModel,
   type McpServerConfig,
 } from "@openbot/contracts/ipc";
-import { Effect } from "effect";
 import type { AgentClientFactory } from "../src/backend/agent/provider-runtime";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import type { AgentClient, DiagnosticOrigin } from "../src/backend/agent-client";
 import type { ClaudeCliInfo } from "../src/backend/cli";
 import type { AppServerNotification, AppServerRequest, RequestId, ResponseDecoder } from "../src/backend/protocol";
 import { providerSync } from "../src/backend/provider-client-effects";
 import type { ReadProviderHistory } from "../src/backend/provider-history";
+import { inertBrowserHost, waitFor } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/provider-session-reuse-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-session-reuse-"));
@@ -336,35 +335,6 @@ interface CaseReport {
 
 const report: { cases: CaseReport[]; passed: boolean } = { cases: [], passed: false };
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
-/** Waits for a state of the service, of its database, or of a stand-in log. */
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = read();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}.`);
-    await new Promise((done) => setTimeout(done, 25));
-  }
-}
-
 /** The entries of a JSON-lines log that a stand-in writes. */
 function entries<T>(path: string): T[] {
   try {
@@ -403,7 +373,7 @@ async function runCase(
   const agents = new AgentService({
     store,
     mailbox,
-    browser,
+    browser: inertBrowserHost,
     preferredProvider: provider,
     offProviders: AGENT_PROVIDERS.filter((candidate) => candidate !== provider),
     timezone: () => "UTC",

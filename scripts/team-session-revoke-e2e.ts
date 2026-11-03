@@ -24,7 +24,6 @@ import {
 } from "@openbot/contracts/team-protocol";
 import { plugin } from "bun";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
@@ -32,6 +31,7 @@ import { MailboxStore } from "../src/backend/mailbox-store";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
 import type { TeamApiBrowser, TeamApiOptions } from "../src/main/team-api/dependencies";
+import { inertBrowserHost, unused } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/team-session-revoke-e2e");
 const HOST_VERSION = "0.0.0-e2e";
@@ -83,24 +83,6 @@ async function runHost(root: string, configure: boolean): Promise<void> {
   });
   const { TeamApiServer } = await import("../src/main/team-api-server");
   const { TeamStore } = await import("../src/main/team-store");
-
-  const unused = () => Effect.die(new Error("Not used by this check."));
-  const agentBrowser: AgentBrowserHost = {
-    listTabs: () => [],
-    beginTakeover: unused,
-    endTakeover: () => {},
-    userControlTabFor: () => null,
-    awaitUserControlRelease: unused,
-    resolveUploadTarget: unused,
-    handleDynamicTool: unused,
-    onChanged: () => () => {},
-    onControlChanged: () => () => {},
-    onDocumentChanged: () => () => {},
-    clearControls: () => {},
-    endControl: () => {},
-    close: () => Effect.void,
-    clearAgentSession: () => Effect.void,
-  };
   const teamBrowser: TeamApiBrowser = {
     listTabs: () => [],
     getControlState: () => ({ sessions: [] }),
@@ -139,7 +121,7 @@ async function runHost(root: string, configure: boolean): Promise<void> {
   await runCauseEffect(mailbox.initialize());
   await runCauseEffect(team.initialize());
   if (configure) await runCauseEffect(team.configure("E2E Host", OWNER.username, OWNER.password));
-  const agents = new AgentService({ store: agentStore, mailbox, browser: agentBrowser, sidebarLayout: sidebar });
+  const agents = new AgentService({ store: agentStore, mailbox, browser: inertBrowserHost, sidebarLayout: sidebar });
   let port = 0;
   // The local-development host path of `HostService.createInvite`: a link to this host's own API.
   const createInvite: TeamApiOptions["createInvite"] = (input) =>

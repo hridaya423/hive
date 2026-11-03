@@ -18,8 +18,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AGENT_PROVIDERS, type AgentEvent } from "@openbot/contracts/ipc";
 import { Effect } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { getRecord, getString, isRecord } from "../src/backend/protocol";
+import { inertBrowserHost } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/stuck-running-deliveries-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-stuck-deliveries-"));
@@ -187,24 +187,6 @@ const report: {
   error?: string;
 } = { cases: [], codexStarts: 0, errorEvents: [], passed: false };
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
 function codexStarts(): number {
   try {
     return readFileSync(logPath, "utf8")
@@ -252,7 +234,7 @@ async function start(): Promise<Instance> {
   const agents = new AgentService({
     store,
     mailbox,
-    browser,
+    browser: inertBrowserHost,
     preferredProvider: "codex",
     offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "codex"),
     busyMessageMode: () => "queue",

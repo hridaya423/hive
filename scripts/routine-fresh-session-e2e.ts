@@ -18,6 +18,7 @@ import { AGENT_PROVIDERS, type AgentEvent, type BrowserTab, decodeUsageTokens } 
 import { Effect } from "effect";
 import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { getRecord, getString } from "../src/backend/protocol";
+import { unused, waitFor } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/routine-fresh-session-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-routine-session-"));
@@ -211,8 +212,6 @@ const report: {
   passed: boolean;
   error?: string;
 } = { threadStarts: [], closedThreads: [], turns: [], routineAnswersInChat: [], checks: [], passed: false };
-
-const unused = () => Effect.die(new Error("Not used by this check."));
 let tab: BrowserTab | undefined;
 const fills: string[] = [];
 let takeoverRequests = 0;
@@ -263,17 +262,6 @@ const browser: AgentBrowserHost = {
   close: () => Effect.void,
   clearAgentSession: () => Effect.void,
 };
-
-/** Waits for a state of the service, its database or the fake's log. */
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = read();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}.`);
-    await new Promise((done) => setTimeout(done, 25));
-  }
-}
 
 function fakeEntries(): LogEntry[] {
   let text = "";

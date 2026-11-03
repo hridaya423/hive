@@ -14,7 +14,7 @@ import { join, resolve } from "node:path";
 import { AGENT_PROVIDERS, type McpServerConfig } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { Effect, Result } from "effect";
-import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
+import { inertBrowserHost, waitFor } from "./agent-service-support";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/codex-hung-app-server-e2e");
 const root = await mkdtemp(join(tmpdir(), "openbot-codex-hung-"));
@@ -143,24 +143,6 @@ const setMode = (pid: number, mode: string) => {
   writeFileSync(modesPath, JSON.stringify(modes));
 };
 
-const unused = () => Effect.die(new Error("Not used by this check."));
-const browser: AgentBrowserHost = {
-  listTabs: () => [],
-  beginTakeover: unused,
-  endTakeover: () => {},
-  userControlTabFor: () => null,
-  awaitUserControlRelease: unused,
-  resolveUploadTarget: unused,
-  handleDynamicTool: unused,
-  onChanged: () => () => {},
-  onControlChanged: () => () => {},
-  onDocumentChanged: () => () => {},
-  clearControls: () => {},
-  endControl: () => {},
-  close: () => Effect.void,
-  clearAgentSession: () => Effect.void,
-};
-
 // One server, so the thread start registers it in the Codex file as the issue's agents did.
 const MCP_SERVER: McpServerConfig = {
   id: "e2e-mcp",
@@ -196,17 +178,6 @@ function alive(pid: number): boolean {
   }
 }
 
-/** Waits for a state of the service or of the fake Codex. */
-async function waitFor<T>(label: string, read: () => T | null | undefined | false, timeoutMs = 20_000): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = read();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${label}.`);
-    await new Promise((done) => setTimeout(done, 25));
-  }
-}
-
 const lastStartPid = () => protocol().findLast((line) => line.start)?.pid ?? 0;
 
 await writeFile(fakeCodex, FAKE_CODEX, { mode: 0o755 });
@@ -216,7 +187,7 @@ const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
 const agents = new AgentService({
   store,
   mailbox,
-  browser,
+  browser: inertBrowserHost,
   requestTimeoutMs: REQUEST_TIMEOUT_MS,
   preferredProvider: "codex",
   offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "codex"),
