@@ -9,14 +9,6 @@
     "url": "https://x.com/norbertbodziony"
   },
   "license": "PolyForm-Noncommercial-1.0.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nightly-labs/openbot.git"
-  },
-  "bugs": {
-    "url": "https://github.com/nightly-labs/openbot/issues"
-  },
-  "homepage": "https://github.com/nightly-labs/openbot#readme",
   "keywords": [
     "ai-agents",
     "bun",

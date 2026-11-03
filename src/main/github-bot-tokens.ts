@@ -33,7 +33,7 @@ export interface GitHubBotToken {
 }
 
 export interface GitHubBotTokensOptions {
-  /** The origin of the OpenBot API, such as `https://api.openbot.run`. */
+  /** The origin of the OpenBot API, such as `https://api.example.com`. */
   apiUrl: string;
   fetch: GitHubFetch;
   now: () => number;

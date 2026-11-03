@@ -2,7 +2,7 @@ import type { MobileReleaseNoteGroup, MobileReleaseNotes } from "@openbot/contra
 import { Button, Spinner, Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
 import { type PropsWithChildren, type ReactNode, useState } from "react";
-import { Linking, Pressable, View } from "react-native";
+import { View } from "react-native";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -13,7 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { MOBILE_CHANGELOG_URL, useAppUpdateNotes } from "@/features/app-update/model/app-update";
+import { useAppUpdateNotes } from "@/features/app-update/model/app-update";
 import { BLOUB_RADIUS } from "@/shared/components/bloub-stage/bloub-look";
 import { SheetScrollEdgeEffect } from "@/shared/components/sheet-scroll-edge-effect";
 import { useReducedMotion } from "@/shared/lib/motion";
@@ -237,7 +237,6 @@ export function AppUpdateNotes({
     opacity: open.get() > 0 ? 1 : 0,
     transform: [{ translateY: -(1 - open.get()) * height }],
   }));
-  const openChangelog = () => void Linking.openURL(MOBILE_CHANGELOG_URL).catch(() => undefined);
 
   return (
     <Animated.View
@@ -279,18 +278,6 @@ export function AppUpdateNotes({
         ) : (
           releaseRows(notes.data, scroll, String(foreground), { t, format })
         )}
-        <ScrollRow scroll={scroll} className="mt-6 items-center">
-          <Pressable
-            accessibilityRole="link"
-            hitSlop={8}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-            onPress={openChangelog}
-          >
-            <Typography.Paragraph type="body-sm" className="font-medium text-muted">
-              {t("mobile.app.update.fullChangelog")}
-            </Typography.Paragraph>
-          </Pressable>
-        </ScrollRow>
       </Animated.ScrollView>
       {/* The rows blur as they go under the block's edge, as the list does under the bar. */}
       <SheetScrollEdgeEffect

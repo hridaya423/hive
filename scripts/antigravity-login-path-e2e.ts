@@ -1,5 +1,5 @@
-// Adapted from the report in nightly-labs/openbot#3418: "Gemini MCP servers cannot find commands on
-// the login-shell PATH". OpenBot started the way Finder, the Dock or a login item starts it:
+// Gemini MCP servers must find commands on the login-shell PATH.
+// OpenBot started the way Finder, the Dock or a login item starts it:
 // PATH=/usr/bin:/bin:/usr/sbin:/sbin. The Antigravity server starts by its absolute path, but the
 // stdio MCP servers that it starts are commands such as bare `node`, which must be found on the
 // login shell's PATH. The stand-in server runs a stand-in MCP command that is only in that folder.

@@ -128,8 +128,6 @@ export interface MarketplacePluginSummary {
 }
 
 export interface MarketplacePluginDetail extends MarketplacePluginSummary {
-  /** The listing address "Copy link" writes out, not the developer's own site. */
-  shareUrl: string;
   prompts: MarketplacePluginPrompt[];
   apps: MarketplacePluginApp[];
   skills: MarketplacePluginSkill[];

@@ -9,7 +9,7 @@ const tabs = [
   {
     id: "docs",
     title: "OpenBot documentation",
-    url: "https://openbot.run/docs",
+    url: "https://example.com/docs",
     loading: false,
     ownerThreadId: "chief",
     ownerAgentId: "chief",

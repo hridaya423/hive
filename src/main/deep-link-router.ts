@@ -1,5 +1,5 @@
 /**
- * What an `dev.hridaya.hive://` or `https://openbot.run/...` link means.
+ * What an `dev.hridaya.hive://` or account service `https://.../...` link means.
  *
  * The scheme carries more than one kind of link now, so the decision of which kind a URL is has one
  * home rather than one `try` per entry point. `src/main/index.ts` has four ways a link arrives -

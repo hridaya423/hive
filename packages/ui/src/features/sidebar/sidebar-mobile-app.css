@@ -1,7 +1,4 @@
-/* The mobile app announcement at the bottom of the sidebar. It is a quiet
- * surface card rather than an accent one: an announcement is not an action. The body text and the
- * button use the full card width, so a narrow sidebar wraps the text instead of making a thin
- * column beside the icon. */
+/* The quiet surface card at the bottom of the sidebar, shared by the storage and machine cards. */
 .sidebar-mobile-app {
   display: flex;
   flex: 0 0 auto;
@@ -15,26 +12,6 @@
   color: var(--openbot-text-primary);
   font-size: var(--openbot-text-sm);
   line-height: var(--openbot-leading-sm);
-}
-
-.sidebar-mobile-app-header {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--openbot-space-2);
-}
-
-.sidebar-mobile-app-header > strong {
-  overflow: hidden;
-  font-weight: var(--openbot-weight-semibold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar-mobile-app-icon {
-  width: var(--openbot-icon-md);
-  height: var(--openbot-icon-md);
-  color: var(--openbot-text-secondary);
 }
 
 .sidebar-mobile-app-dismiss {
@@ -52,23 +29,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* The community invitation uses the same card. Discord takes the free width; X is an icon button. */
-.sidebar-community-actions {
-  display: flex;
-  gap: var(--openbot-space-1-5);
-}
-
-.sidebar-community-actions > .ui-button:first-child {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.sidebar-community-mark {
-  flex: 0 0 auto;
-  width: var(--openbot-icon-sm);
-  height: var(--openbot-icon-sm);
 }
 
 /* The storage card uses the same card. At "full" the card uses the danger tone, and the ring follows the level. */

@@ -1,5 +1,3 @@
-import { OPENBOT_LINKS } from "../lib/landing-links";
-
 // HTML and plain-text bodies for account email. Mail clients render HTML very differently, so the
 // markup keeps to what all of them share:
 // - Tables and inline styles only. Gmail and Outlook drop or limit `<style>`, so that block holds
@@ -32,13 +30,6 @@ export interface TeamInviteEmailInput {
   role: "admin" | "member";
 }
 
-const SITE_URL = "https://openbot.run";
-const LOGO_URL = `${SITE_URL}/icon-192x192.png`;
-const FOOTER_LINKS = [
-  { label: "openbot.run", href: SITE_URL },
-  { label: "X", href: OPENBOT_LINKS.x },
-  { label: "GitHub", href: OPENBOT_LINKS.repository },
-] as const;
 const FONT_STACK = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, Helvetica, Arial, sans-serif";
 const MONO_STACK = "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace";
 // Filler after the preheader, so a client's inbox preview does not continue into the body text.
@@ -126,17 +117,7 @@ export function renderTeamInviteEmail(input: TeamInviteEmailInput): RenderedEmai
 }
 
 function textBody(lines: string[], footer: string): string {
-  return [
-    ...lines,
-    "",
-    footer,
-    "",
-    "-- ",
-    `Hive · ${SITE_URL}`,
-    FOOTER_LINKS.slice(1)
-      .map((link) => `${link.label}: ${link.href}`)
-      .join(" · "),
-  ].join("\r\n");
+  return [...lines, "", footer, ""].join("\r\n");
 }
 
 interface LayoutInput {
@@ -196,21 +177,13 @@ function renderLayout(input: LayoutInput): string {
       <!--[if mso]><table role="presentation" width="480" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;margin:0 auto;">
         <tr>
-          <td style="padding:0 4px 20px;">
-            <a href="${SITE_URL}" style="text-decoration:none;">
-              <img src="${LOGO_URL}" width="32" height="32" alt="Hive" style="display:block;border:0;outline:none;border-radius:8px;font-family:${FONT_STACK};font-size:15px;font-weight:600;line-height:32px;color:${COLOR.text};">
-            </a>
-          </td>
-        </tr>
-        <tr>
           <td class="ob-card" style="background:${COLOR.card};border:1px solid ${COLOR.border};border-radius:16px;padding:36px 36px 32px;font-family:${FONT_STACK};word-break:break-word;overflow-wrap:anywhere;">
             ${input.body}
           </td>
         </tr>
         <tr>
           <td class="ob-faint" style="padding:20px 4px 0;font-family:${FONT_STACK};font-size:12px;line-height:18px;color:${COLOR.faint};">
-            <p style="margin:0 0 12px;">${escapeHtml(input.footer)}</p>
-            <p style="margin:0;">${footerLinks()}</p>
+            <p style="margin:0;">${escapeHtml(input.footer)}</p>
           </td>
         </tr>
       </table>
@@ -221,13 +194,6 @@ function renderLayout(input: LayoutInput): string {
 </div>
 </body>
 </html>`;
-}
-
-function footerLinks(): string {
-  return FOOTER_LINKS.map(
-    (link) =>
-      `<a href="${link.href}" style="color:${COLOR.faint};text-decoration:underline;">${escapeHtml(link.label)}</a>`,
-  ).join(`<span aria-hidden="true">&nbsp;&nbsp;·&nbsp;&nbsp;</span>`);
 }
 
 function heading(html: string, options: { gap?: number } = {}): string {

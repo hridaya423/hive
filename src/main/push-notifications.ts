@@ -72,7 +72,7 @@ export type NotificationRelayRequest =
   | { platform: "android"; push: AndroidNotificationRelayPush };
 
 /** The plain text of one notification for an ntfy topic. `click` opens the agent in the app. */
-export interface NtfyNotice {
+interface NtfyNotice {
   title: string;
   body: string;
   click: string;

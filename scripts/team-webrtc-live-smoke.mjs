@@ -4,15 +4,15 @@ app.setName("OpenBot");
 app.exit(await main());
 
 async function main() {
-  const signalUrl = process.env.OPENBOT_REMOTE_SIGNAL_URL ?? "wss://signal.openbot.run/v1/signal";
+  const signalUrl = process.env.OPENBOT_REMOTE_SIGNAL_URL;
   const hostTicket = process.env.OPENBOT_REMOTE_SMOKE_HOST_TICKET;
   const clientTicket = process.env.OPENBOT_REMOTE_SMOKE_CLIENT_TICKET;
   const iceTransportPolicy = process.env.OPENBOT_REMOTE_SMOKE_ICE_POLICY ?? "all";
   const payloadBytes = Number(process.env.OPENBOT_REMOTE_SMOKE_BYTES ?? 100 * 1024 * 1024);
 
-  if (!hostTicket || !clientTicket) {
+  if (!signalUrl || !hostTicket || !clientTicket) {
     console.error(
-      "Set OPENBOT_REMOTE_SMOKE_HOST_TICKET and OPENBOT_REMOTE_SMOKE_CLIENT_TICKET to fresh tickets for the same host and session.",
+      "Set OPENBOT_REMOTE_SIGNAL_URL, OPENBOT_REMOTE_SMOKE_HOST_TICKET and OPENBOT_REMOTE_SMOKE_CLIENT_TICKET to the Signal URL and fresh tickets for the same host and session.",
     );
     return 2;
   }

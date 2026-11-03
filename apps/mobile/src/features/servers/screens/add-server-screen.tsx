@@ -1,3 +1,4 @@
+import { APP_URL_SCHEME } from "@openbot/contracts/app-url-scheme";
 import { type InviteLinkOptions, parseInviteUrl, selfHostedApiOrigin } from "@openbot/contracts/invite-links";
 import type { AppFormat, MobileTranslate } from "@openbot/i18n/mobile";
 import { runTeamEffect } from "@openbot/team-client";
@@ -28,7 +29,7 @@ import { haptics } from "@/shared/lib/haptics";
 import { isIOS } from "@/shared/lib/platform";
 import { currentText, useText } from "@/shared/lib/text";
 
-const INVITE_PLACEHOLDER = "https://openbot.run/join?…";
+const INVITE_PLACEHOLDER = `${APP_URL_SCHEME}://join?…`;
 
 function normalizeInviteUrl(value: string, options: InviteLinkOptions): string | null {
   const invite = value.trim();

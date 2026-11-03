@@ -465,7 +465,7 @@ export const messages = defineMessages("server", {
   "server.update.path.container":
     "On the Docker host, pull the new Hive image and create the container again with the same data volumes. Wait for active work to finish first. Keep the existing volumes to preserve your data.",
   "server.update.path.manual":
-    "This installation cannot replace itself. Ask the host administrator to install the compatible release from github.com/nightly-labs/openbot/releases. Keep the existing Hive data.",
+    "This installation cannot replace itself. Ask the host administrator to install the compatible release. Keep the existing Hive data.",
   "server.update.path.unavailable": "This is a development build. Use an installed Hive release to check for updates.",
   "server.update.check": "Check for updates",
   "server.update.start": "Update when idle",

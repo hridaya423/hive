@@ -3,8 +3,8 @@
  * the app, and the browser client's entry for it.
  *
  * ```
- * https://openbot.run/agents/<id>    the link a person shares and the app copies
- * dev.hridaya.hive://agents/<id>              the link the page button opens
+ * <account origin>/agents/<id>      the link a person shares and the app copies
+ * dev.hridaya.hive://agents/<id>      the link the page button opens
  * /app?agent=<id>                    the page's link to the browser client, on the same origin
  * ```
  *
@@ -14,8 +14,9 @@
  */
 
 import { APP_URL_PROTOCOL, APP_URL_SCHEME } from "./app-url-scheme";
+import { OPENBOT_CONTROL_PLANE_ORIGIN } from "./invite-links";
 
-export const OPENBOT_AGENT_TEMPLATE_ORIGIN = "https://openbot.run";
+export const OPENBOT_AGENT_TEMPLATE_ORIGIN = OPENBOT_CONTROL_PLANE_ORIGIN;
 export const OPENBOT_AGENT_TEMPLATE_PATH_PREFIX = "/agents/";
 export const OPENBOT_AGENT_TEMPLATE_HOST = "agents";
 export const WEB_APP_AGENT_TEMPLATE_PARAM = "agent";
@@ -28,7 +29,7 @@ export function isAgentTemplateId(value: string): boolean {
 }
 
 /**
- * The site a share link names: `openbot.run`, or a loopback origin while a developer runs the Account
+ * The site a share link names: the account service of this build, or a loopback origin while a developer runs the Account
  * Worker on this computer. Nothing else passes, so a configured address cannot turn the copied link
  * into another site.
  */
@@ -46,7 +47,7 @@ export function isAgentTemplateShareOrigin(origin: string): boolean {
   }
 }
 
-/** The share origin for an Account Worker: the local Worker in development, `openbot.run` otherwise. */
+/** The share origin for an Account Worker: the local Worker in development, the account service otherwise. */
 export function agentTemplateShareOrigin(apiOrigin: string): string {
   return apiOrigin !== OPENBOT_AGENT_TEMPLATE_ORIGIN && isAgentTemplateShareOrigin(apiOrigin)
     ? apiOrigin
@@ -88,7 +89,7 @@ export function parseAgentTemplateUrl(value: string): string {
     throw new Error("The OpenBot agent link is invalid.");
   }
 
-  // The origin is compared as one string, so `openbot.run.example.com` does not pass.
+  // The origin is compared as one string, so a longer host name that starts with the same labels does not pass.
   const canonical =
     url.protocol === "https:" &&
     url.origin === OPENBOT_AGENT_TEMPLATE_ORIGIN &&
@@ -98,7 +99,7 @@ export function parseAgentTemplateUrl(value: string): string {
     (!canonical && !customScheme) ||
     url.username !== "" ||
     url.password !== "" ||
-    url.port !== "" ||
+    (!canonical && url.port !== "") ||
     url.search !== "" ||
     url.hash !== ""
   ) {

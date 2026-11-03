@@ -2,7 +2,7 @@
 Description=Watch OpenBot Remote TLS certificate
 
 [Path]
-PathChanged=/var/lib/docker/volumes/openbot-remote_acme-data/_data/certificates/signal.openbot.run.crt
+PathChanged=/var/lib/docker/volumes/openbot-remote_acme-data/_data/certificates/signal.example.com.crt
 Unit=openbot-remote-nginx-reload.service
 
 [Install]

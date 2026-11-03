@@ -1,6 +1,6 @@
 import { Effect, Result } from "effect";
 import { type AuthRetentionResult, pruneExpiredAuthData } from "./auth-data-retention";
-import { canonicalHostRedirect, permanentTrailingSlashRedirect } from "./canonical-redirect";
+import { permanentTrailingSlashRedirect } from "./canonical-redirect";
 import { runApiEffect } from "./effect-runtime";
 import { enforceMarketplaceIngress, MarketplaceRateLimitError } from "./marketplace-request-policy";
 import { deliverPendingRemoteAuthEvents, type RemoteAuthEventBindings } from "./remote-control-plane";
@@ -25,8 +25,6 @@ export function createWorkerHandler(
       bindings: Pick<WorkerBindings, "MARKETPLACE_INGRESS_RATE_LIMITER">,
       context?: WorkerExecutionContext,
     ) {
-      const hostRedirect = canonicalHostRedirect(request);
-      if (hostRedirect) return hostRedirect;
       const rateLimited = await runApiEffect(
         enforceMarketplaceIngress(request, bindings).pipe(
           Effect.as(null),

@@ -89,7 +89,6 @@ import {
 import { ServerRail } from "@openbot/ui/features/servers/ServerRail";
 import type { SettingsPagePlacement } from "@openbot/ui/features/settings/SettingsDialogShell";
 import { Sidebar } from "@openbot/ui/features/sidebar/Sidebar";
-import { SidebarCommunityCard } from "@openbot/ui/features/sidebar/SidebarCommunityCard";
 import { sidebarAgentOrder } from "@openbot/ui/features/sidebar/sidebar-agent-order";
 import {
   computeSidebarAgentStates,
@@ -189,11 +188,9 @@ import {
   showServerUpdate,
 } from "../servers/server-update-flow";
 import type { HostPromptCacheTtlCalls } from "../settings/provider-prompt-cache";
-import { createCommunityCardVisibility } from "../sidebar/community-card";
 import { isReaderAuthor } from "../team/reader-identity";
 import type { ServerVaultOptions } from "../vault/ServerVaultPanel";
 import { createVaultStore } from "../vault/stores/vault-store";
-import { RailHelpMenu } from "../window/RailHelpMenu";
 import { ServerSettingsPageTitle, SettingsPageFrame } from "../window/SettingsPageFrame";
 import type { SettingsKind, WindowPage } from "../window/window-page-context";
 import { WebAgentSettings } from "./WebAgentSettings";
@@ -220,7 +217,7 @@ import { createWebNotificationRouting } from "./web-notification-routing";
 import { createWebNotificationSettings } from "./web-notification-settings";
 import { requestWebNotificationPermission } from "./web-notifications";
 import { webOnePasswordConnectorPort } from "./web-onepassword-connector";
-import { createWebProviderSettings, openWebDestination } from "./web-provider-admin";
+import { createWebProviderSettings } from "./web-provider-admin";
 import { webRoutineFlowsHost } from "./web-routine-flows";
 import { webScheduleSource } from "./web-schedule";
 import { createWebServerSettings } from "./web-server-settings";
@@ -629,7 +626,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
       hiddenAgentIds: hiddenAgentIds(),
     }),
   );
-  const communityCard = createCommunityCardVisibility();
   const [messageFocusRequest, setMessageFocusRequest] = createSignal<{
     agentId: string;
     messageId: string;
@@ -1714,13 +1710,7 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
               }}
               onMarketplace={workspace.state.status === "online" ? openMarketplace : undefined}
               onSettings={openAccountSettings}
-              help={
-                <RailHelpMenu
-                  version={null}
-                  onOpenWhatsNew={() => void openWebDestination("changelog")}
-                  onOpenLink={(destination) => void openWebDestination(destination)}
-                />
-              }
+              help={null}
             />
             <WorkspaceFrame
               class="web-app-frame"
@@ -1990,15 +1980,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                     onExpand={layout.expandSidebar}
                     onOpenSearch={() => setSearchOpen(true)}
                     onOpenMarketplace={openMarketplace}
-                    footer={
-                      <Show when={!communityCard.dismissed()}>
-                        <SidebarCommunityCard
-                          onJoinDiscord={() => void openWebDestination("discord")}
-                          onFollowX={() => void openWebDestination("x")}
-                          onDismiss={communityCard.dismiss}
-                        />
-                      </Show>
-                    }
                     emptyAction={
                       firstAgent()
                         ? {

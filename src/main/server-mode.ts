@@ -1,5 +1,5 @@
 /**
- * A self-hosted server: the packaged Linux build that `install-server.sh` installs on a computer
+ * A self-hosted server: the packaged Linux build that runs on a computer
  * with no screen. systemd starts it with `OPENBOT_SERVER=1` under a virtual display, and it is a
  * normal Remote host after its owner signs in.
  *

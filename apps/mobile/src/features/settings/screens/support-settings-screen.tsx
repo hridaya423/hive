@@ -2,7 +2,7 @@ import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Typography } from "heroui-native";
 import { useState, useSyncExternalStore } from "react";
-import { Alert, Linking, ScrollView } from "react-native";
+import { Alert, ScrollView } from "react-native";
 import {
   SettingsContent,
   SettingsNote,
@@ -13,10 +13,6 @@ import { formatSupportLogEntry, type SupportLogLevel, supportLog } from "@/featu
 import { clearSupportLog, supportLogFileText } from "@/features/support/model/support-log-capture";
 import { useText } from "@/shared/lib/text";
 
-/** The OpenBot account, the same contact as the website. */
-const SUPPORT_X_HANDLE = "@OpenBot_";
-const SUPPORT_X_URL = "https://x.com/OpenBot_";
-const ISSUES_URL = "https://github.com/nightly-labs/openbot/issues/new";
 /** The screen shows the newest events. The saved file has all of them. */
 const SHOWN_ENTRIES = 100;
 const LEVEL_CLASS = {
@@ -28,14 +24,8 @@ const LEVEL_CLASS = {
 export function SupportSettingsScreen() {
   const { t } = useText();
   const entries = useSyncExternalStore(supportLog.subscribe, supportLog.entries);
-  const [linkError, setLinkError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  function open(url: string) {
-    setLinkError(null);
-    void Linking.openURL(url).catch(() => setLinkError(t("mobile.settings.about.openFailed")));
-  }
 
   async function save() {
     setSaveError(null);
@@ -69,15 +59,6 @@ export function SupportSettingsScreen() {
 
   return (
     <SettingsContent>
-      <SettingsSection title={t("mobile.settings.support.help")} footer={t("mobile.settings.support.helpFooter")}>
-        <SettingsRow onPress={() => open(ISSUES_URL)}>
-          <Typography.Paragraph>{t("mobile.settings.support.issues")}</Typography.Paragraph>
-        </SettingsRow>
-        <SettingsRow onPress={() => open(SUPPORT_X_URL)} supportingText={SUPPORT_X_HANDLE}>
-          <Typography.Paragraph>{t("mobile.settings.support.message")}</Typography.Paragraph>
-        </SettingsRow>
-        {linkError ? <SettingsNote>{linkError}</SettingsNote> : null}
-      </SettingsSection>
       <SettingsSection title={t("mobile.settings.support.log")} footer={t("mobile.settings.support.logFooter")}>
         <SettingsRow
           onPress={() => void save()}

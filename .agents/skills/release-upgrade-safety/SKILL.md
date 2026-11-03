@@ -39,11 +39,9 @@ git diff --name-status <tag>..HEAD
 
 **Stop if the tree is not clean.** The audit is over the commit range, not the working tree, and
 that is only sound if the working tree is empty — otherwise the range you audit and the range that
-ships are different sets. Nothing upstream of you enforces this: `scripts/prepare-release.ts` writes
-the version bump without looking at `git status`, and its closing instruction is "Review, commit,
-push, run preflight, then tag it", so following it sweeps whatever was uncommitted into the release.
-`scripts/release-preflight.ts` does check `git status --porcelain`, but it runs *after* that commit,
-by which point the tree is clean and the unaudited work is inside the tag. Commit or stash first.
+ships are different sets. Nothing enforces this: a version bump made by hand and committed with
+`git commit -a` sweeps whatever was uncommitted into the release, and the unaudited work is then
+inside the tag. Commit or stash first.
 
 State the tag and the changed-file count up front, and run every gate's `git diff` over that same
 range. A hazard three commits back is in scope; the file you have open is not, unless it is
@@ -116,23 +114,20 @@ a gate can be selected without opening anything:
   handler or an `invoke` breaks a live channel without touching the list at all.
 - **E. Account Worker** → [gate-e-account-worker.md](references/gate-e-account-worker.md)
   any change under `apps/auth-api/migrations/`, any non-UI file under `apps/auth-api/src/`, and the
-  four files that decide deploy order: `.github/workflows/ci.yml`, `scripts/deploy-auth-api.ts`,
-  `apps/auth-api/package.json`, `apps/auth-api/wrangler.jsonc`.
+  files that decide how the Worker runs: `apps/auth-api/package.json`, `apps/auth-api/wrangler.jsonc`
+  and `ops/mini/`.
 - **F. The updater itself** → [gate-f-updater.md](references/gate-f-updater.md)
-  `electron-builder.yml`, `src/main/update-service.ts`, `package.json` (including its dependencies),
-  and the two files that enforce the gate at release time: `scripts/verify-update-artifacts.ts` and
-  `.github/workflows/release.yml`. Weakening a size limit or a manifest check lives only in those
-  two, so omitting them makes the weakening read as "not triggered".
+  `electron-builder.yml`, `src/main/update-service.ts` and `package.json` (including its dependencies).
 - **G. Reverse states and the changelog** → [gate-g-reverse-states.md](references/gate-g-reverse-states.md)
   always triggered; no path exempts a release.
 - **H. Signal** — no reference file.
   always triggered: an earlier release can have left Signal behind, so a range with no `remote/`
-  change does not prove that Signal is current. Signal is not deployed by CI or by the release
-  workflow. Read `commit` from `curl -fsS https://signal.openbot.run/health/live`; if it is missing,
+  change does not prove that Signal is current. Signal runs on the Mac mini (`ops/mini/README.md`)
+  and nothing deploys it. Read `commit` from the Signal health route on the mini; if it is missing,
   `unknown`, or not a commit in this repository, the verdict is **needs a human**. Pass when
   `git diff --quiet <running commit> HEAD -- remote packages/contracts/src/signal-protocol`
-  succeeds. Otherwise the verdict is **deploy Signal from the new tag** before the tag is pushed
-  (`docs/RELEASING.md` preflight item 16); this is not a stop for the version bump. #1661 is the
+  succeeds. Otherwise the verdict is **restart Signal on the mini from the new tag** before the tag
+  is pushed; this is not a stop for the version bump. #1661 is the
   failure this catches: v0.33.0 clients sent webhook routes to a Signal older than #1520.
 
 `references/surfaces.md` holds the exhaustive path inventory. Load it when a gate fires and you

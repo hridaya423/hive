@@ -1,5 +1,5 @@
-// Adapted from the report in nightly-labs/openbot#3824: "Gemini shows MCP errors for cloudflare and
-// higgsfield servers". An agent saved an http MCP server that asks for a sign-in OpenBot does not
+// Gemini must not show MCP errors for servers that need a sign-in.
+// An agent saved an http MCP server that asks for a sign-in OpenBot does not
 // hold. OpenBot gives such a row to the provider as written, the server answers 401, and Antigravity
 // ends every turn with "The MCP server 'higgsfield' failed to initialize". Other providers start
 // without that server. Runs the real Antigravity driver over a fake server that acts as 1.4.4 does.

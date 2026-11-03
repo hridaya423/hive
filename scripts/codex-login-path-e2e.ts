@@ -1,4 +1,4 @@
-// Adapted from the report in nightly-labs/openbot#2686: "Codex CLI reports 'not found'".
+// Codex CLI must not report 'not found'.
 // OpenBot started the way Finder, the Dock or a login item starts it: PATH=/usr/bin:/bin:/usr/sbin:/sbin.
 // An npm Codex is a `#!/usr/bin/env node` script, so `codex --version` and the app-server process
 // must run with the login shell's folders, or with the folder that Codex was found in.

@@ -3,8 +3,8 @@
  * in the app, and the browser client's entry for it.
  *
  * ```
- * https://openbot.run/plugins/<slug>    the link a person shares and the app copies
- * dev.hridaya.hive://plugins/<slug>              the link the page button opens
+ * <account origin>/plugins/<slug>      the link a person shares and the app copies
+ * dev.hridaya.hive://plugins/<slug>      the link the page button opens
  * /app?plugin=<slug>                    the page's link to the browser client, on the same origin
  * ```
  *
@@ -21,8 +21,9 @@
  */
 
 import { APP_URL_PROTOCOL, APP_URL_SCHEME } from "./app-url-scheme";
+import { OPENBOT_CONTROL_PLANE_ORIGIN } from "./invite-links";
 
-export const OPENBOT_PLUGIN_ORIGIN = "https://openbot.run";
+export const OPENBOT_PLUGIN_ORIGIN = OPENBOT_CONTROL_PLANE_ORIGIN;
 export const OPENBOT_PLUGIN_PATH_PREFIX = "/plugins/";
 export const OPENBOT_PLUGIN_HOST = "plugins";
 export const WEB_APP_PLUGIN_PARAM = "plugin";
@@ -91,7 +92,7 @@ export function parsePluginUrl(value: string): string {
   }
 
   /* The origin is compared as one string. An `endsWith` or a host expression here is what lets
-     `openbot.run.example.com` through. */
+     a longer host name that starts with the same labels through. */
   const canonical =
     url.protocol === "https:" &&
     url.origin === OPENBOT_PLUGIN_ORIGIN &&
@@ -101,7 +102,7 @@ export function parsePluginUrl(value: string): string {
     (!canonical && !customScheme) ||
     url.username !== "" ||
     url.password !== "" ||
-    url.port !== "" ||
+    (!canonical && url.port !== "") ||
     url.search !== "" ||
     url.hash !== ""
   ) {

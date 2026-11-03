@@ -7,10 +7,6 @@ import type { MobileFeatureConfig, MobileLatestVersions } from "@openbot/contrac
  * Change it with a Worker deploy.
  */
 export const MOBILE_FEATURE_CONFIG: MobileFeatureConfig = {
-  cloudServers: {
-    ios: { upTo: "1.4.5" },
-    android: { upTo: "1.4.4" },
-  },
   browser: {
     ios: { upTo: "1.4.5" },
     android: { upTo: "1.4.4" },

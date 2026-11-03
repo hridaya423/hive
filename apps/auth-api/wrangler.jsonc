@@ -22,21 +22,7 @@
     // The second cron runs only the Signal entry check (`signal-entry-failover.ts`), each minute.
     "crons": ["*/5 * * * *", "*/1 * * * *"]
   },
-  "routes": [
-    {
-      "pattern": "openbot.run/*",
-      "zone_id": "bac5e044ba951c390229f0e93673ebd3"
-    },
-    // `www` has no origin. The Worker answers it only with a redirect to openbot.run.
-    {
-      "pattern": "www.openbot.run/*",
-      "zone_id": "bac5e044ba951c390229f0e93673ebd3"
-    },
-    {
-      "pattern": "api.openbot.run",
-      "custom_domain": true
-    }
-  ],
+  "routes": [],
   "secrets": {
     "required": [
       "EMAIL_SMTP_PASSWORD",
@@ -48,10 +34,10 @@
   },
   "vars": {
     "AUTH_EXPOSE_DEVELOPMENT_CODE": "false",
-    "EMAIL_SMTP_HOST": "mail.privateemail.com",
-    "EMAIL_SMTP_PORT": "465",
-    "EMAIL_SMTP_USERNAME": "hello@openbot.run",
-    "EMAIL_FROM": "hello@openbot.run",
+    "EMAIL_SMTP_HOST": "",
+    "EMAIL_SMTP_PORT": "",
+    "EMAIL_SMTP_USERNAME": "",
+    "EMAIL_FROM": "",
     "REMOTE_TICKET_KEY_ID": "openbot-remote-1",
     "REMOTE_SIGNAL_URL": "",
     "REMOTE_SIGNAL_HOMES": "",
@@ -134,10 +120,10 @@
       },
       "vars": {
         "AUTH_EXPOSE_DEVELOPMENT_CODE": "false",
-        "EMAIL_SMTP_HOST": "mail.privateemail.com",
-        "EMAIL_SMTP_PORT": "465",
-        "EMAIL_SMTP_USERNAME": "hello@openbot.run",
-        "EMAIL_FROM": "hello@openbot.run",
+        "EMAIL_SMTP_HOST": "",
+        "EMAIL_SMTP_PORT": "",
+        "EMAIL_SMTP_USERNAME": "",
+        "EMAIL_FROM": "",
         "REMOTE_TICKET_KEY_ID": "openbot-remote-1",
         "REMOTE_SIGNAL_URL": "ws://127.0.0.1:8081/v1/signal",
         "REMOTE_SIGNAL_HOMES": "",
@@ -210,14 +196,14 @@
       },
       "vars": {
         "AUTH_EXPOSE_DEVELOPMENT_CODE": "false",
-        "EMAIL_SMTP_HOST": "mail.privateemail.com",
-        "EMAIL_SMTP_PORT": "465",
-        "EMAIL_SMTP_USERNAME": "hello@openbot.run",
-        "EMAIL_FROM": "hello@openbot.run",
+        "EMAIL_SMTP_HOST": "",
+        "EMAIL_SMTP_PORT": "",
+        "EMAIL_SMTP_USERNAME": "",
+        "EMAIL_FROM": "",
         "REMOTE_TICKET_KEY_ID": "openbot-remote-1",
-        "REMOTE_SIGNAL_URL": "wss://signal.openbot.run/v1/signal",
+        "REMOTE_SIGNAL_URL": "",
         "REMOTE_SIGNAL_HOMES": "",
-        "REMOTE_AUTH_WEBHOOK_URL": "https://signal.openbot.run/internal/auth-events",
+        "REMOTE_AUTH_WEBHOOK_URL": "",
         "REMOTE_AUTH_WEBHOOK_URLS": "",
         // The test Worker never moves the production entry name.
         "SIGNAL_ENTRY_ZONE_ID": "",

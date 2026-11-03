@@ -2,11 +2,6 @@ import { isBoolean, isDynamicRecord, isString } from "./runtime-values";
 
 /** The mobile features that the account server can turn on and off for each platform and app version. */
 export const MOBILE_FEATURES = [
-  /**
-   * The plans of a hosted server and the account's hosted servers. App versions up to 1.2.0 also
-   * take the Stripe payment; newer versions sell nothing.
-   */
-  "cloudServers",
   /** The live view of an agent's browser tab on its host, and the controls of the tab. */
   "browser",
 ] as const;
@@ -31,7 +26,7 @@ export const MOBILE_FEATURES_PATH = "/v1/mobile/features";
 
 /** Every feature off: the answer for an unknown platform or version, and when the app cannot read the flags. */
 export function mobileFeaturesOff(): MobileFeatureFlags {
-  return { cloudServers: false, browser: false };
+  return { browser: false };
 }
 
 function versionParts(value: string): number[] | null {

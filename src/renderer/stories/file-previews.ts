@@ -27,7 +27,7 @@ OpenBot keeps workspaces, conversations, and attachments on **your** computer.
 
 - A file preview panel for markdown, text, images, and PDFs
 - Resizable panels that remember their width
-- Links that open in the embedded browser: [openbot.run](https://openbot.run)
+- Links that open in the embedded browser: [example.com](https://example.com)
 
 ## Configuration
 

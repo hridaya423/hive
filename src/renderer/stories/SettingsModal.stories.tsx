@@ -129,7 +129,7 @@ function SettingsModalStory(props: {
     }, 6_000);
     return {
       qrData:
-        "dev.hridaya.hive://mobile-connect?api=https%3A%2F%2Fapi.openbot.run&ticket=storybook-mobile-ticket_1234567890abcdef",
+        "dev.hridaya.hive://mobile-connect?api=https%3A%2F%2Fapi.example.com&ticket=storybook-mobile-ticket_1234567890abcdef",
       expiresAt: Date.now() + 120_000,
     };
   }
@@ -215,7 +215,7 @@ const meta = {
     onUpdateAccountAvatar: fn(async () => undefined),
     onCreateMobileConnect: fn(async () => ({
       qrData:
-        "dev.hridaya.hive://mobile-connect?api=https%3A%2F%2Fapi.openbot.run&ticket=storybook-mobile-ticket_1234567890abcdef",
+        "dev.hridaya.hive://mobile-connect?api=https%3A%2F%2Fapi.example.com&ticket=storybook-mobile-ticket_1234567890abcdef",
       expiresAt: Date.now() + 120_000,
     })),
   },

@@ -1,9 +1,9 @@
 {
   "name": "OpenBotGit",
-  "url": "https://github.com/nightly-labs/openbot",
+  "url": "https://github.com",
   "description": "Gives OpenBot agents your repositories, issues and pull requests, through the GitHub MCP server, gh and git. The sign-in stays on the computer that runs OpenBot.",
   "public": true,
-  "hook_attributes": { "url": "https://signal.openbot.run/v1/github/events", "active": true },
+  "hook_attributes": { "url": "https://example.com/v1/github/events", "active": false },
   "request_oauth_on_install": false,
   "setup_on_update": false,
   "default_permissions": {

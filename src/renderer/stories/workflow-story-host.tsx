@@ -210,17 +210,7 @@ export function WorkflowInAppStory(props: { workflows: readonly StoryWorkflow[];
         onUsage={() => setPage("usage")}
         onMarketplace={fn()}
         onSettings={() => setPage("settings")}
-        help={
-          <HelpMenu
-            news={[]}
-            triggerClass="window-rail-button"
-            onOpenWhatsNew={fn()}
-            onOpenChangelog={fn()}
-            onOpenGuides={fn()}
-            onOpenDiscord={fn()}
-            onSendFeedback={fn()}
-          />
-        }
+        help={<HelpMenu news={[]} triggerClass="window-rail-button" onOpenWhatsNew={fn()} />}
       />
       <div
         class="app-frame app-frame-edge app-frame-platform-darwin"

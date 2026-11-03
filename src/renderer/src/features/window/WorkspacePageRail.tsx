@@ -3,7 +3,6 @@ import { AGENT_TASKS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-t
 import type { SidebarView } from "@openbot/ui/features/sidebar/sidebar-types";
 import { PageRail, type PageRailPage } from "@openbot/ui/features/window/PageRail";
 import { useText } from "@openbot/ui/text";
-import { appPort } from "../../app-port";
 import { useLayout } from "../../layout";
 import { usePlatform } from "../../platform";
 import { useChannels } from "../channels/channels-context";
@@ -82,13 +81,7 @@ export function WorkspacePageRail(props: { hidden: boolean }) {
       onSettings={(button) => (updateNotice() ? openAppSettings(button, "updates") : windowPage.openSettings(button))}
       settingsNotice={updateNotice()}
       logo={logo()}
-      help={
-        <RailHelpMenu
-          version={whatsNew.state.version}
-          onOpenWhatsNew={whatsNew.reopen}
-          onOpenLink={(destination) => void appPort().openExternal(destination)}
-        />
-      }
+      help={<RailHelpMenu version={whatsNew.state.version} onOpenWhatsNew={whatsNew.reopen} />}
     />
   );
 }
