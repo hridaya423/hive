@@ -273,7 +273,7 @@ const connect = async (dir: string): Promise<WhatsAppClient> => {
   writeFileSync(join(dir, "creds.json"), "{}");
   const socket = new FakeSocket();
   sockets.push(socket);
-  return { socket, downloadMedia: async () => new Uint8Array() };
+  return { socket, downloadMedia: async () => new Uint8Array(), stopCreds: async () => {} };
 };
 
 const host = await startComputer("host", [
