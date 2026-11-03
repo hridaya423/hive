@@ -30,6 +30,12 @@ Hridya does all sign-ins and phone steps at the end, after all code is finished,
 ## Answered
 - Phone is Android; iOS out of scope. Copilot plan: Pro via GitHub Education. Name: Hive.
 
+## Lead notes (2026-11-03)
+- Token baseline (GUI, mini, Phase 0 build): first request 49,022 uncached with the 58 Computer Use tools (26,443 tok), 26,750 without them. Both read from `agent_usage_records` in the mini's Hive `openbot.db`. Details under "Mini checks". Phase 1's headless harness cross-checks it.
+- Folder leak found by the mini checks and fixed in 737b8a44e: Hive used `appData/OpenBot/provider-runtimes`, `~/OpenBot` (agent workspaces) and `~/OpenBot/Servers`, which are upstream's folders. Now `APP_FOLDER_NAME` (`Hive`). Test `scripts/hive-folders-e2e.ts`: FAIL before ("The agents folder is not under ~/Hive."), PASS after; `typecheck:node`, `typecheck:contracts` exit 0. Side effect already on the mini: the Phase 0 Hive ran Codex from the mini's `~/Library/Application Support/OpenBot/provider-runtimes/codex/.../0.166.0` and put the `Probe` workspace under the mini's `~/OpenBot/Agents`. Not checked whether Hive downloaded that runtime or upstream already had it. Nothing was read or changed there by agents. Rebuild Hive on the mini after the phase merges, then confirm Codex runs from `Hive/provider-runtimes`.
+- `bun run dev` on the mini: the Electron window never opens and CDP does not answer (seen by Phase 0 and the mini checks). Cause unknown. Visual checks use Storybook until it is found.
+- Shared check lock (`~/.hive-locks/one.sh`) now has two slots, and token measures and tool-choice evals bypass it (network-bound).
+
 ## Slop cut (2026-11-03, merged as d1e92e4d7)
 Hridya asked to cut slop across the whole codebase before the plan. Eight Sonnet 5.5 delegates, one per area (main, backend, renderer, ui, contracts+preload+small packages, mobile, auth-api+remote, scripts+tools), behavior unchanged. They skipped Phase 2 deletion targets, provider-facing prompt and tool text, migrations, Team API protocols, the trust boundary and Dynamic Island code.
 - Result: 179 files, +900 -3545. Most of it is duplicated e2e helpers (about 2,080 lines in `scripts/`). knip found almost no dead code: upstream's lint rules keep it lean. Most remaining bulk is Phase 2's commercial code.
