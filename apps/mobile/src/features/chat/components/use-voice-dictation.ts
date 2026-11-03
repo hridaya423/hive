@@ -26,7 +26,7 @@ import {
   retriesWithSystemService,
   spokenText,
 } from "../model/voice-dictation";
-import { showNotice } from "./dictation-notice";
+import { showDictationNotice } from "./dictation-notice";
 import { type ModelRecognition, modelCaptureAvailable, useModelDictation } from "./use-model-dictation";
 
 type Recognizer = NonNullable<typeof speechRecognition>;
@@ -253,7 +253,7 @@ function useSystemDictation({
         const notice = dictationNotice(event.error);
         if (notice) current.ending = event.error === "not-allowed" ? "permission_denied" : "operation_failed";
         // The recognizer's error name is a fixed identifier, so it can be the code of the failure.
-        if (notice) showNotice(notice, { reference: referenceFrom("speech", event.error) });
+        if (notice) showDictationNotice(notice, { reference: referenceFrom("speech", event.error) });
       }),
       speechRecognition.addListener("end", () => {
         const current = session.current;
@@ -305,7 +305,7 @@ function useSystemDictation({
           if (!permission.granted) {
             current.ending = "permission_denied";
             settle();
-            showNotice(microphoneOffNotice);
+            showDictationNotice(microphoneOffNotice);
             return;
           }
           locales.current ??= supportedLocales(module);
@@ -325,7 +325,7 @@ function useSystemDictation({
           if (session.current !== current) return;
           current.ending = "operation_failed";
           settle();
-          showNotice(dictationFailedNotice, error);
+          showDictationNotice(dictationFailedNotice, error);
         }
       })();
       return true;

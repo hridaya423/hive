@@ -4,7 +4,7 @@ import { haptics } from "@/shared/lib/haptics";
 import { currentText } from "@/shared/lib/text";
 import type { DictationNotice } from "../model/voice-dictation";
 
-export function showNotice(notice: DictationNotice, error?: unknown): void {
+export function showDictationNotice(notice: DictationNotice, error?: unknown): void {
   void haptics.notification("error");
   const { t } = currentText();
   showFailureAlert(

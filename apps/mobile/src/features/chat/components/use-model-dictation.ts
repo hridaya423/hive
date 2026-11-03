@@ -22,7 +22,7 @@ import {
   microphoneOffNotice,
   spokenText,
 } from "../model/voice-dictation";
-import { showNotice } from "./dictation-notice";
+import { showDictationNotice } from "./dictation-notice";
 import type { VoiceDictation } from "./use-voice-dictation";
 
 /** The engines that capture the microphone in the speech module, not in the phone's recognizer. */
@@ -162,7 +162,7 @@ export function useModelDictation({
       speechNative?.cancelCapture?.();
       current.scribe?.cancel();
       settle();
-      showNotice(notice, error);
+      showDictationNotice(notice, error);
     },
     [settle],
   );
@@ -246,7 +246,7 @@ export function useModelDictation({
           if (!permission.granted) {
             current.ending = "permission_denied";
             settle();
-            showNotice(microphoneOffNotice);
+            showDictationNotice(microphoneOffNotice);
             return;
           }
           if (engine === "parakeet") {
@@ -259,7 +259,7 @@ export function useModelDictation({
               if (!stillCurrent()) return;
               current.ending = "operation_failed";
               settle();
-              showNotice(modelLoadNotice, error);
+              showDictationNotice(modelLoadNotice, error);
               return;
             }
           } else {
@@ -293,10 +293,10 @@ export function useModelDictation({
           current.ending = "operation_failed";
           settle();
           if (error instanceof ElevenLabsError)
-            showNotice(SCRIBE_NOTICES[error.code], { reference: referenceFrom("speech", error.code) });
+            showDictationNotice(SCRIBE_NOTICES[error.code], { reference: referenceFrom("speech", error.code) });
           else if (error instanceof CodedError && error.code === "ERR_CAPTURE_PERMISSION")
-            showNotice(microphoneOffNotice);
-          else showNotice(dictationFailedNotice, error);
+            showDictationNotice(microphoneOffNotice);
+          else showDictationNotice(dictationFailedNotice, error);
         }
       })();
       return true;

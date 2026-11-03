@@ -124,7 +124,7 @@ function note(target: ServerUpdateTarget, status: HostUpdateStatus): void {
 }
 
 /** Reads the update status of a joined server for the header, with no dialog. */
-export async function readStatus(target: ServerUpdateTarget): Promise<HostUpdateStatus | null> {
+export async function readServerUpdateStatus(target: ServerUpdateTarget): Promise<HostUpdateStatus | null> {
   try {
     const status = await target.calls.getUpdateStatus(target.serverId);
     note(target, status);
@@ -153,7 +153,7 @@ export async function offerServerUpdate(target: ServerUpdateTarget | null): Prom
   const id = target.serverId;
   // A running update keeps its notice and the header button.
   if (runtimes.has(id)) return;
-  const status = await readStatus(target);
+  const status = await readServerUpdateStatus(target);
   if (!status || entered !== id || runtimes.has(id) || !offerable(status)) return;
   begin(target, status);
 }
@@ -177,7 +177,7 @@ export async function showServerUpdate(serverId: string): Promise<void> {
   }
   const entry = known.get(serverId);
   if (!entry) return;
-  const status = await readStatus(entry.target);
+  const status = await readServerUpdateStatus(entry.target);
   if (status && updatable(status) && !runtimes.has(serverId)) begin(entry.target, status);
 }
 
