@@ -5,7 +5,7 @@ import { createEffect, createStore, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
 import { desktopAnalytics } from "../../analytics";
 import { createScopeGuard } from "../../scope-lifetime";
-import type { TaskEvent } from "../tasks/tasks-port";
+import { appendTaskDelta, type TaskDeltaEvent, type TaskEvent } from "../tasks/tasks-port";
 import type { AgentTasksPort } from "./agent-tasks-port";
 
 interface AgentTasksState {
@@ -97,28 +97,14 @@ export function createAgentTasks(options: AgentTasksOptions) {
     });
   }
 
-  function applyDelta(event: Extract<TaskEvent, { type: "agent-task-conversation-delta" }>): void {
+  function applyDelta(event: TaskDeltaEvent): void {
     const stored = state.conversations[event.taskId];
     // A task that did not load its conversation reads it whole when it opens.
     if (!stored || event.revision <= stored.revision) return;
     setState((current) => {
       const conversation = current.conversations[event.taskId];
       if (!conversation) return;
-      conversation.revision = event.revision;
-      const existing = conversation.messages.find((message) => message.id === event.messageId);
-      if (existing) {
-        existing.text += event.delta;
-        existing.status = "streaming";
-        return;
-      }
-      conversation.messages.push({
-        id: event.messageId,
-        turnId: event.turnId,
-        author: "assistant",
-        text: event.delta,
-        createdAt: event.createdAt,
-        status: "streaming",
-      });
+      appendTaskDelta(conversation, event);
     });
   }
 

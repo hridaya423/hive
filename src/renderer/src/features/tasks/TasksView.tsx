@@ -44,7 +44,7 @@ import { insertAtSelection, rowAttachments } from "../conversation/composer-draf
 import { latestVisibleAgentMessageId } from "../conversation/conversation-read-state";
 import { importPastedFiles, type PastePreview, pastePreviewTracker } from "../conversation/stores/composer-actions";
 import { createTurnSteps } from "../conversation/turn-steps";
-import type { TaskEvent, TasksSource } from "./tasks-port";
+import { appendTaskDelta, type TaskEvent, type TasksSource } from "./tasks-port";
 
 /** How long a start waits before it reaches the agent. Undo cancels it in this time. */
 const UNDO_MS = 6_000;
@@ -322,21 +322,7 @@ export function TasksView(props: TasksViewProps) {
     setState((draft) => {
       const conversation = draft.conversations[event.taskId];
       if (!conversation) return;
-      conversation.revision = event.revision;
-      const existing = conversation.messages.find((message) => message.id === event.messageId);
-      if (existing) {
-        existing.text += event.delta;
-        existing.status = "streaming";
-        return;
-      }
-      conversation.messages.push({
-        id: event.messageId,
-        turnId: event.turnId,
-        author: "assistant",
-        text: event.delta,
-        createdAt: event.createdAt,
-        status: "streaming",
-      });
+      appendTaskDelta(conversation, event);
     });
   }
 

@@ -21,6 +21,27 @@ export function isTaskEvent(event: { type: string }): event is TaskEvent {
   );
 }
 
+export type TaskDeltaEvent = Extract<TaskEvent, { type: "agent-task-conversation-delta" }>;
+
+/** Adds the streamed text of a delta to its message, or starts the message. */
+export function appendTaskDelta(conversation: ConversationSnapshot, event: TaskDeltaEvent): void {
+  conversation.revision = event.revision;
+  const existing = conversation.messages.find((message) => message.id === event.messageId);
+  if (existing) {
+    existing.text += event.delta;
+    existing.status = "streaming";
+    return;
+  }
+  conversation.messages.push({
+    id: event.messageId,
+    turnId: event.turnId,
+    author: "assistant",
+    text: event.delta,
+    createdAt: event.createdAt,
+    status: "streaming",
+  });
+}
+
 /** What the Tasks page reads and changes on a server: the task lists, the task conversations and the task actions. */
 export interface TasksSource {
   list(agentId: string, serverId: string): Promise<AgentTasksSnapshot>;
