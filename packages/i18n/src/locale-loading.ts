@@ -1,8 +1,7 @@
 import type { TranslatedLocale } from "./locale";
 
 /**
- * True when the catalogs of `locale` are loaded. This build holds every language, so it always is.
- * The public web build replaces this module with `lazy-catalogs.ts`.
+ * True when the catalogs of `locale` are loaded. English is the only catalog and is part of the build.
  */
 export function localeLoaded(_locale: TranslatedLocale): boolean {
   return true;

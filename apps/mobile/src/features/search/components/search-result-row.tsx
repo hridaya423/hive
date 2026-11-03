@@ -10,7 +10,6 @@ import FileIcon from "lucide-react-native/icons/file";
 import FileImage from "lucide-react-native/icons/file-image";
 import FileText from "lucide-react-native/icons/file-text";
 import Info from "lucide-react-native/icons/info";
-import Languages from "lucide-react-native/icons/languages";
 import LifeBuoy from "lucide-react-native/icons/life-buoy";
 import MonitorSmartphone from "lucide-react-native/icons/monitor-smartphone";
 import Palette from "lucide-react-native/icons/palette";
@@ -136,7 +135,6 @@ const SETTING_ICON = {
   sessions: MonitorSmartphone,
   appearance: Palette,
   animations: Sparkles,
-  language: Languages,
   haptics: Vibrate,
   notifications: Bell,
   liveActivities: Radio,
@@ -162,8 +160,6 @@ function openSetting(id: MobileSearchSettingId, serverId: string) {
       return router.push("/settings/appearance");
     case "animations":
       return router.push("/settings/animations");
-    case "language":
-      return router.push("/settings/language");
     case "haptics":
       return router.push("/settings/haptics");
     // One page has the notification and the Live Activity settings.

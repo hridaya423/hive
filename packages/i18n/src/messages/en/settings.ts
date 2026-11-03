@@ -4,7 +4,6 @@ export const messages = defineMessages("settings", {
   // The language setting itself.
   "settings.language.title": "Language",
   "settings.language.description": "OpenBot shows menus, buttons and messages in this language.",
-  "settings.language.system": "System default",
   // The logo color setting, General tab.
   "settings.appearance.title": "Appearance",
   "settings.appearance.theme.title": "Theme",

@@ -16,7 +16,6 @@ import {
 } from "@openbot/ui";
 import { AppearanceSelect } from "@openbot/ui/features/settings/AppearanceSelect";
 import type { GeneralSettingsValue } from "@openbot/ui/features/settings/app-settings";
-import { LanguageSelect } from "@openbot/ui/features/settings/LanguageSelect";
 import { LogoColorPicker } from "@openbot/ui/features/settings/LogoColorPicker";
 import { SendShortcutSelect } from "@openbot/ui/features/settings/SendShortcutSelect";
 import { useText } from "@openbot/ui/text";
@@ -81,15 +80,6 @@ export function SettingsGeneralTab(props: SettingsGeneralTabProps) {
               description={i18n.t("settings.appearance.transparentWindow.description")}
             />
           </Show>
-          <Item data-settings-row="settings.language.title" class="settings-modal-row">
-            <ItemContent>
-              <ItemTitle>{i18n.t("settings.language.title")}</ItemTitle>
-              <ItemDescription>{i18n.t("settings.language.description")}</ItemDescription>
-            </ItemContent>
-            <ItemActions>
-              <LanguageSelect value={i18n.language()} onChange={i18n.changeLanguage} mount={props.selectMount} />
-            </ItemActions>
-          </Item>
           <Item data-settings-row="settings.interfaceSize.title" class="settings-modal-row">
             <ItemContent>
               <ItemTitle>{i18n.t("settings.interfaceSize.title")}</ItemTitle>

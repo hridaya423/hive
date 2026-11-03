@@ -23,7 +23,6 @@ import { loadOnboardingProgress } from "@/features/onboarding/model/onboarding-p
 import { resetNotificationAvatars } from "@/features/push-notifications/notification-avatars";
 import { installNotificationHandler } from "@/features/push-notifications/use-notification-taps";
 import { installQuickActions, resetQuickActions } from "@/features/quick-actions/quick-actions-native";
-import { loadAppLanguage } from "@/features/settings/model/app-language";
 import { loadAppearance, useAppearance } from "@/features/settings/model/appearance";
 import { loadDictationLanguage } from "@/features/settings/model/dictation-language";
 import { loadHapticsPreference } from "@/features/settings/model/haptics";
@@ -214,7 +213,6 @@ export default function RootLayout() {
       void loadVoiceSettings().catch(() => undefined);
       supertonicModel.check();
       parakeetModel.check();
-      void loadAppLanguage().catch(() => undefined);
       void loadOnboardingProgress().catch(() => undefined);
     });
   }, []);

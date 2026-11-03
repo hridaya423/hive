@@ -2,9 +2,7 @@ import { AppLogo } from "@openbot/brand";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type { AppVariant, CentralAuthIssue, CentralAuthState } from "@openbot/contracts/ipc";
 import { normalizeEmailAddress, normalizeOneTimeCode } from "@openbot/contracts/validation";
-import type { TranslatedLocale } from "@openbot/i18n";
-import { appLanguageOption } from "@openbot/i18n/languages";
-import { ArrowLeft, Button, ErrorReference, Globe2, Input, Lock, RefreshCw } from "@openbot/ui";
+import { ArrowLeft, Button, ErrorReference, Input, Lock, RefreshCw } from "@openbot/ui";
 import { errorReference, type UserErrorDetails } from "@openbot/user-errors";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
@@ -22,10 +20,6 @@ interface AccountLoginProps {
   consent?: JSX.Element;
   /** Fine print under the lock line, such as the Terms of Service notice of the web app. */
   notice?: JSX.Element;
-  /** The language the screen is in. The button that opens the language choice again shows its name. */
-  language?: TranslatedLocale;
-  /** Opens the language choice again, so a reader who chose a language they cannot read can leave it. */
-  onChangeLanguage?: () => void;
 }
 
 type PendingAction = "retry" | "send" | "check" | "verify" | "resend" | "reset";
@@ -150,9 +144,6 @@ export function AccountLogin(props: AccountLoginProps) {
     const [before = "", after = ""] = t("account.login.codeSent", { email: EMAIL_MARKER }).split(EMAIL_MARKER);
     return [before, after] as const;
   };
-  // Only on a settled email step: a code in flight belongs to the screen that sent it.
-  const languageButtonShown = () =>
-    (props.state.status === "signed_out" || props.state.status === "error") && pendingAction() === null;
   const otpStatus = (): OtpInputStatus => {
     if (verified()) return "success";
     if (codeBusy()) return "verifying";
@@ -647,24 +638,6 @@ export function AccountLogin(props: AccountLoginProps) {
             </Show>
           </Show>
         </section>
-
-        <Show when={languageButtonShown() && props.onChangeLanguage && props.language}>
-          {(language) => (
-            <Button
-              type="button"
-              class="account-login-language"
-              variant="ghost"
-              size="sm"
-              lang={appLanguageOption(language()).lang}
-              title={t("account.language.change")}
-              data-cuelume-tap="navigate"
-              onClick={() => props.onChangeLanguage?.()}
-            >
-              <Globe2 size={14} aria-hidden="true" />
-              {appLanguageOption(language()).label}
-            </Button>
-          )}
-        </Show>
       </div>
     </main>
   );

@@ -33,7 +33,6 @@ export default function SettingsLayout() {
       <Stack.Screen name="profile" options={{ title: t("mobile.app.route.profile") }} />
       <Stack.Screen name="appearance" options={{ title: t("mobile.settings.appearance.title") }} />
       <Stack.Screen name="animations" options={{ title: t("mobile.settings.animations.title") }} />
-      <Stack.Screen name="language" options={{ title: t("mobile.settings.language.title") }} />
       <Stack.Screen name="voice" options={{ title: t("mobile.settings.voice.title") }} />
       <Stack.Screen name="voice-choice" options={{ title: t("mobile.settings.voice.voice") }} />
       <Stack.Screen name="elevenlabs-key" options={{ title: t("mobile.settings.voice.elevenLabs.key") }} />

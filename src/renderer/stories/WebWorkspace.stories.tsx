@@ -35,8 +35,6 @@ const meta = {
     onSessionCheck: async () => {},
     onLogout: async () => {},
     createRuntime: createMockWebRuntime,
-    language: "system",
-    onChangeLanguage: () => {},
   },
   render: (args) => (
     <div class="web-app">

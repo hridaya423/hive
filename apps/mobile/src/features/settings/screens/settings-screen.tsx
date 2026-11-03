@@ -35,9 +35,6 @@ export function SettingsScreen() {
         <SettingsRow onPress={() => router.push("/settings/animations")}>
           <Typography.Paragraph>{t("mobile.settings.animations.title")}</Typography.Paragraph>
         </SettingsRow>
-        <SettingsRow onPress={() => router.push("/settings/language")}>
-          <Typography.Paragraph>{t("mobile.settings.language.title")}</Typography.Paragraph>
-        </SettingsRow>
         <SettingsRow onPress={() => router.push("/settings/voice")}>
           <Typography.Paragraph>{t("mobile.settings.voice.title")}</Typography.Paragraph>
         </SettingsRow>

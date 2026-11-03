@@ -1,4 +1,5 @@
 import { agentTemplateIdFromWebAppSearch, WEB_APP_AGENT_TEMPLATE_PARAM } from "@openbot/contracts/agent-template-links";
+import { DEFAULT_APP_LANGUAGE } from "@openbot/contracts/app-language";
 import { type FirstTouch, readFirstTouch } from "@openbot/contracts/first-touch";
 import { inviteUrlFromWebAppSearch, WEB_APP_INVITE_FIELDS } from "@openbot/contracts/invite-links";
 import type { AppVariant, CentralAuthState, CentralAuthUser } from "@openbot/contracts/ipc";
@@ -41,10 +42,8 @@ import { createWebAppearancePreference } from "./web-appearance-preference";
 import { takeWebAppStart, WEB_APP_BILLING_PARAM, type WebAppStart } from "./web-billing";
 import type { WebRuntimeFactory } from "./web-client-context";
 import { takeHostingReturn } from "./web-hosted-servers";
-import { createWebLanguagePreference } from "./web-language-preference";
 
 // The site loads this before it mounts `WebApp` (`apps/auth-api/src/routes/app.lazy.tsx`).
-export { loadSavedLanguage } from "./web-language-preference";
 
 /**
  * The workspace is its own chunk, so the sign-in screen does not wait for it. Each session check
@@ -438,12 +437,11 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
   });
   const variant: AppVariant = import.meta.env.DEV ? "dev" : "production";
   const consentAgents = createOnboardingTeam(onboardingSessionSeed(), 3);
-  const languagePreference = createWebLanguagePreference();
   const appearancePreference = createWebAppearancePreference();
   return (
     <StaticI18nProvider
-      locale={resolveLocale(languagePreference.language(), navigator.language)}
-      formatLocale={formatLocale(languagePreference.language(), navigator.language)}
+      locale={resolveLocale(DEFAULT_APP_LANGUAGE, navigator.language)}
+      formatLocale={formatLocale(DEFAULT_APP_LANGUAGE, navigator.language)}
     >
       <NotificationObserver onShown={reportNotification}>
         <div class="web-app">
@@ -513,8 +511,6 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
                   onBillingReturnConsumed={() => setBillingReturn(false)}
                   hostingReturn={hostingReturn()}
                   onHostingReturnConsumed={() => setHostingReturn(null)}
-                  language={languagePreference.language()}
-                  onChangeLanguage={languagePreference.setLanguage}
                   appearance={appearancePreference.appearance()}
                   onChangeAppearance={appearancePreference.setAppearance}
                 />

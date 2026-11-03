@@ -1,6 +1,5 @@
 import { isKnownAgentProvider } from "@openbot/contracts/agent-providers";
 import type { AppAppearance } from "@openbot/contracts/app-appearance";
-import type { AppLanguage } from "@openbot/contracts/app-language";
 import { HOSTED_SERVER_CONTACT_URL } from "@openbot/contracts/hosted-servers";
 import {
   type AddedAgent,
@@ -320,9 +319,6 @@ type WebWorkspaceProps = {
   /** The server of a return from Stripe Checkout. The add server dialog opens on its progress. */
   hostingReturn?: AddServerResume | null;
   onHostingReturnConsumed?: () => void;
-  /** The interface language this browser keeps. Account settings change it. */
-  language: AppLanguage;
-  onChangeLanguage: (language: AppLanguage) => void;
   /** The theme this browser keeps. Account settings change it. */
   appearance: AppAppearance;
   onChangeAppearance: (appearance: AppAppearance) => void;
@@ -2223,8 +2219,6 @@ function WebWorkspaceFrame(props: WebWorkspaceProps) {
                         onOpenChange={setAccountSettingsOpen}
                         account={account()}
                         calls={accountCalls}
-                        language={props.language}
-                        onChangeLanguage={props.onChangeLanguage}
                         appearance={props.appearance}
                         onChangeAppearance={props.onChangeAppearance}
                         onOpenBilling={() => setBillingOpen(true)}

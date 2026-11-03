@@ -28,7 +28,6 @@ export type MobileSearchSettingId =
   | "sessions"
   | "appearance"
   | "animations"
-  | "language"
   | "haptics"
   | "notifications"
   | "liveActivities"

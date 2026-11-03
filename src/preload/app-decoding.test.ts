@@ -149,7 +149,7 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
       autoApproveOverrides: { "agent-1": false },
     } satisfies ApprovalAutomationPreference,
   ],
-  ["language preference", decodeAppLanguagePreference, { language: "fr" }],
+  ["language preference", decodeAppLanguagePreference, { language: "en" }],
   [
     "appearance preference",
     decodeAppAppearancePreference,

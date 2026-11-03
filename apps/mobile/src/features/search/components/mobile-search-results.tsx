@@ -61,7 +61,6 @@ function useSearchSettings(channelsSupported: boolean): MobileSearchSetting[] {
       { id: "sessions", title: t("mobile.app.route.accountSessions"), detail: app },
       { id: "appearance", title: t("mobile.settings.appearance.title"), detail: app },
       { id: "animations", title: t("mobile.settings.animations.title"), detail: app },
-      { id: "language", title: t("mobile.settings.language.title"), detail: app },
       { id: "haptics", title: t("mobile.settings.feedback.haptics"), detail: app },
     ];
     if (isIOS)
