@@ -54,18 +54,18 @@ export const LOCAL_SKILL_TOOL_DEFINITIONS = [
   {
     name: "create_skill",
     description:
-      "Create a reusable local skill from a folder inside your workspace after the user asks to create a skill. Follow openbot-skill-creator. Saves to the shared local library and installs for you. Does not publish or execute scripts.",
+      "Create a local skill from a folder in your workspace when the user asks. Follow openbot-skill-creator. It saves to the shared local library and installs for you; it runs no scripts.",
     shape: createSkillSchema.shape,
   },
   {
     name: "revise_skill",
     description:
-      "Publish a new local skill revision from a workspace folder when the user asks to revise it. Read first and supply expectedRevision. Installed copies stay unchanged until explicitly updated.",
+      "Publish a new local skill revision from a workspace folder when the user asks. Read first and supply expectedRevision. Installed copies stay unchanged until updated.",
     shape: reviseSkillSchema.shape,
   },
   {
     name: "list_local_skills",
-    description: "List shared skills stored on this computer, including their current revisions.",
+    description: "List the shared local skills and their current revisions.",
     shape: {},
   },
   {
@@ -76,19 +76,19 @@ export const LOCAL_SKILL_TOOL_DEFINITIONS = [
   {
     name: "install_local_skill",
     description:
-      "Install a selected local skill revision for yourself or another local agent when the user asks to add or update it. Omit agentId for yourself. Preserves disabled state and refuses to overwrite modified files.",
+      "Install a local skill revision for yourself or agentId when the user asks to add or update it. Keeps the disabled state; refuses to overwrite modified files.",
     shape: installLocalSkillSchema.shape,
   },
   {
     name: "set_skill_enabled",
     description:
-      "Turn an installed skill on or off for yourself or another local agent. Omit agentId for yourself. Get the skillId from read_agent. Refuses to turn off a skill whose files were changed.",
+      "Turn an installed skill on or off for yourself or agentId. Get skillId from read_agent. Refuses to turn off a skill whose files were changed.",
     shape: setSkillEnabledSchema.shape,
   },
   {
     name: "uninstall_skill",
     description:
-      "Remove an installed skill from yourself or another local agent when the user asks. Omit agentId for yourself. Get the skillId from read_agent. Refuses to remove a skill whose files were changed; only the user can remove those. Cannot remove a workspace folder skill. The local library keeps the skill.",
+      "Remove an installed skill from yourself or agentId when the user asks. Get skillId from read_agent. Refuses a skill whose files were changed, and a workspace folder skill. The local library keeps the skill.",
     shape: uninstallSkillSchema.shape,
   },
 ];

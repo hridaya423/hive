@@ -7,6 +7,9 @@ interface JsonObject {
 }
 type ObjectBranch = JsonObject & { properties: JsonObject };
 
+/** String length bounds are the same noise on most fields. Calls are still decoded with the Zod schema, which rejects a long value. */
+const LENGTH_BOUNDS = new Set(["minLength", "maxLength"]);
+
 /** The keys of a union branch that a merge can keep. A branch with any other key stays a union. */
 const MERGEABLE_KEYS = new Set(["type", "properties", "required", "additionalProperties"]);
 
@@ -85,7 +88,7 @@ function compact(schema: unknown): JsonValue | undefined {
   if (!isDynamicRecord(schema)) return undefined;
   let result: JsonObject = {};
   for (const [key, value] of Object.entries(schema)) {
-    if (key === "$schema" || isSafeIntegerBound(key, value)) continue;
+    if (key === "$schema" || LENGTH_BOUNDS.has(key) || isSafeIntegerBound(key, value)) continue;
     const compacted = compact(value);
     if (compacted !== undefined) result[key] = compacted;
   }
@@ -108,7 +111,7 @@ function compact(schema: unknown): JsonValue | undefined {
 
 /**
  * The input schema that OpenBot advertises for a tool. It leaves out JSON that each request pays for
- * and that tells the model nothing: `$schema`, safe-integer bounds and nested `anyOf`. A union of
+ * and that tells the model nothing: `$schema`, safe-integer bounds, string length bounds and nested `anyOf`. A union of
  * objects that a tag tells apart becomes one object. Calls are still decoded with the Zod schema, so
  * the rules of each branch still apply. `null` branches stay: a `null` value can mean "clear".
  */

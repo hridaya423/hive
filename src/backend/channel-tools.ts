@@ -21,8 +21,7 @@ const handoff = {
   dependencies: z.array(z.string()).optional(),
 };
 
-const PERSON_ONLY =
-  "It changes only this channel, and only in a task that a person's message started, not a routine run.";
+const PERSON_ONLY = "Works only in a task that a person's message started.";
 
 export const CHANNEL_TOOL_DEFINITIONS: readonly { name: string; description: string; shape: z.ZodRawShape }[] = [
   {
@@ -38,7 +37,7 @@ export const CHANNEL_TOOL_DEFINITIONS: readonly { name: string; description: str
   {
     name: "channel_assign",
     description:
-      "Assign one specific subtask to another channel member. You stay the owner: integrate the result and report to the user. End your turn while waiting for required results. Use only inside a channel task; for direct teammate work outside a channel use openbot.send_message.",
+      "Assign one subtask to another channel member. You stay the owner: integrate the result and report to the user. End your turn while you wait. Use only in a channel task; otherwise use openbot.send_message.",
     shape: handoff,
   },
   {
@@ -82,13 +81,12 @@ export const CHANNEL_TOOL_DEFINITIONS: readonly { name: string; description: str
   },
   {
     name: "channel_list_routines",
-    description:
-      "List the scheduled routines of this channel. Use it before you change or delete one. It works only in a task that a person's message started.",
+    description: `List the scheduled routines of this channel. Call it before you change or delete one. ${PERSON_ONLY}`,
     shape: {},
   },
   {
     name: "channel_create_routine",
-    description: `Create a scheduled routine that sends its instruction to this channel. It is active by default. Without a timezone, it uses the server timezone. Interval, advanced-every, and custom schedules must not run more often than every 3 minutes. ${PERSON_ONLY}`,
+    description: `Create a scheduled routine that sends its instruction to this channel. ${PERSON_ONLY}`,
     shape: {
       name: z.string().min(1).max(INPUT_LIMITS.routineName),
       instruction: routineInstructionZodSchema,
@@ -101,7 +99,7 @@ export const CHANNEL_TOOL_DEFINITIONS: readonly { name: string; description: str
   },
   {
     name: "channel_update_routine",
-    description: `Change, pause, or resume a scheduled routine of this channel. Fields you leave out keep their saved values. ${PERSON_ONLY}`,
+    description: `Change, pause or resume a channel routine. Omitted fields keep their values. ${PERSON_ONLY}`,
     shape: {
       routineId: z.string().min(1).max(INPUT_LIMITS.identifier),
       name: z.string().min(1).max(INPUT_LIMITS.routineName).optional(),
