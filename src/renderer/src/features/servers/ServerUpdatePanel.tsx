@@ -4,7 +4,6 @@ import type {
   HostUpdateStatus,
   OpenBotDesktopApi,
 } from "@openbot/contracts/ipc";
-import { classifyFailure } from "@openbot/telemetry";
 import {
   Alert,
   AlertActions,
@@ -143,7 +142,6 @@ export function ServerUpdatePanel(
         ...{
           description: errorMessage(error, t("server.settings.actionFailed")),
         },
-        report: { operation: "update", source: "action", cause_code: classifyFailure(error) },
       });
     } finally {
       if (current === generation) setBusy(null);

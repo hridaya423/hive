@@ -1,7 +1,6 @@
-import { formatLocale, resolveLocale, type TranslatedLocale } from "@openbot/i18n/mobile";
+import { DEFAULT_APP_LANGUAGE, formatLocale, resolveLocale, type TranslatedLocale } from "@openbot/i18n/mobile";
 import { useSyncExternalStore } from "react";
 import { AppState } from "react-native";
-import { useAppLanguage } from "@/features/settings/model/app-language";
 import { phoneLanguages } from "./phone-languages";
 import { type MobileText, textFor } from "./text-value";
 
@@ -53,18 +52,16 @@ function sharedText(locale: TranslatedLocale, numbers: string): MobileText {
 }
 
 export function currentText(): MobileText {
-  const language = useAppLanguage.getState().value;
   const locale = systemLocaleNow();
-  return sharedText(resolveLocale(language, locale), formatLocale(language, locale));
+  return sharedText(resolveLocale(DEFAULT_APP_LANGUAGE, locale), formatLocale(DEFAULT_APP_LANGUAGE, locale));
 }
 
 /** The interface language now, for text that the phone asks another computer to write. */
 export function currentLocale(): TranslatedLocale {
-  return resolveLocale(useAppLanguage.getState().value, systemLocaleNow());
+  return resolveLocale(DEFAULT_APP_LANGUAGE, systemLocaleNow());
 }
 
 export function useText(): MobileText {
-  const language = useAppLanguage((state) => state.value);
   const locale = useSyncExternalStore(subscribeSystemLocale, systemLocaleNow);
-  return sharedText(resolveLocale(language, locale), formatLocale(language, locale));
+  return sharedText(resolveLocale(DEFAULT_APP_LANGUAGE, locale), formatLocale(DEFAULT_APP_LANGUAGE, locale));
 }

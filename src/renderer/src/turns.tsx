@@ -9,7 +9,6 @@ import type {
 } from "@openbot/contracts/ipc";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, untrack } from "solid-js";
-import { desktopAnalytics } from "./analytics";
 import { useAnsweredPrompts } from "./answered-prompts";
 import {
   attentionKey,
@@ -289,7 +288,6 @@ const Turns = createSimpleContext({
       options?: PromptAnswerOptions,
     ): Promise<boolean> {
       const serverId = activeServerId();
-      const analytics = desktopAnalytics.scope();
       setSubmittedPromptRequests((current) => ({
         ...current,
         [mark]: promptRequestKey(prompt.turnId, prompt.requestId) ?? undefined,
@@ -299,20 +297,9 @@ const Turns = createSimpleContext({
           requestId: prompt.requestId,
           answers,
         });
-        analytics.track("agent_input_action", {
-          kind: "prompt",
-          decision: "answered",
-          result: "succeeded",
-        });
         return true;
       } catch (error) {
         setSubmittedPromptRequests((current) => ({ ...current, [mark]: undefined }));
-        analytics.track("agent_input_action", {
-          kind: "prompt",
-          decision: "answered",
-          result: "failed",
-          failure_code: "response_failed",
-        });
         if (options?.onError) options.onError(error);
         else appendUiError(agentId, error, currentText().t("app.errorStatus.answer"), serverId);
         return false;
@@ -330,22 +317,14 @@ const Turns = createSimpleContext({
         (item) => item.agentId === agentId && String(item.requestId) === String(requestId),
       );
       if (!approval) return false;
-      const analytics = desktopAnalytics.scope();
       try {
         await turnsPort().agent.respondToApproval({
           requestId: approval.requestId,
           decision,
         });
         forgetApproval(agentId, approval.requestId);
-        analytics.track("agent_input_action", { kind: "approval", decision, result: "succeeded" });
         return true;
       } catch (error) {
-        analytics.track("agent_input_action", {
-          kind: "approval",
-          decision,
-          result: "failed",
-          failure_code: "response_failed",
-        });
         if (options?.onError) options.onError(error);
         else appendUiError(agentId, error, currentText().t("app.errorStatus.approval"), serverId);
         return false;
@@ -385,12 +364,9 @@ const Turns = createSimpleContext({
       const agent = activeAgent();
       if (!agent) return;
       const serverId = activeServerId();
-      const analytics = desktopAnalytics.scope();
       void turnsPort()
         .agent.cancelQueuedMessage({ agentId: agent.id, deliveryId })
-        .then(() => analytics.track("queue_action", { action: "cancel", result: "succeeded" }))
         .catch((error) => {
-          analytics.track("queue_action", { action: "cancel", result: "failed", failure_code: "cancel_failed" });
           appendUiError(agent.id, error, currentText().t("app.errorStatus.cancel"), serverId);
         });
     }
@@ -409,12 +385,9 @@ const Turns = createSimpleContext({
       const turnId = agent ? activeTurns()[agent.id] : null;
       if (!agent || !turnId) return;
       const serverId = activeServerId();
-      const analytics = desktopAnalytics.scope();
       void turnsPort()
         .agent.steerQueuedMessage({ agentId: agent.id, deliveryId, expectedTurnId: turnId })
-        .then(() => analytics.track("queue_action", { action: "steer", result: "succeeded" }))
         .catch((error) => {
-          analytics.track("queue_action", { action: "steer", result: "failed", failure_code: "steer_failed" });
           // After the turn ended, the message runs as the next turn. The refusal is old news (#3206).
           if (activeTurns()[agent.id] !== turnId) return;
           // A message that left the queue is in the turn already: an agent that steers each message
@@ -435,7 +408,6 @@ const Turns = createSimpleContext({
       const agentId = target?.agentId ?? activeAgent()?.id;
       const serverId = target?.serverId ?? activeServerId();
       if (!agentId) return false;
-      const analytics = desktopAnalytics.scope();
       try {
         const input = {
           agentId,
@@ -445,10 +417,8 @@ const Turns = createSimpleContext({
           attachmentDraftIds,
         };
         await turnsPort().agent.updateQueuedMessage(input, serverId);
-        analytics.track("queue_action", { action: "edit", result: "succeeded" });
         return true;
       } catch (error) {
-        analytics.track("queue_action", { action: "edit", result: "failed", failure_code: "edit_failed" });
         appendUiError(agentId, error, currentText().t("app.errorStatus.edit"), serverId);
         return false;
       }
@@ -458,12 +428,9 @@ const Turns = createSimpleContext({
       const agent = activeAgent();
       if (!agent) return;
       const serverId = activeServerId();
-      const analytics = desktopAnalytics.scope();
       void turnsPort()
         .agent.reorderQueue({ agentId: agent.id, deliveryIds })
-        .then(() => analytics.track("queue_action", { action: "reorder", result: "succeeded" }))
         .catch((error) => {
-          analytics.track("queue_action", { action: "reorder", result: "failed", failure_code: "reorder_failed" });
           appendUiError(agent.id, error, currentText().t("app.errorStatus.reorder"), serverId);
         });
     }
@@ -473,16 +440,9 @@ const Turns = createSimpleContext({
       const turnId = agent ? activeTurns()[agent.id] : null;
       if (!agent || !turnId) return;
       const serverId = activeServerId();
-      const analytics = desktopAnalytics.scope();
       void turnsPort()
         .agent.interrupt({ agentId: agent.id, turnId })
-        .then(() => analytics.track("queue_action", { action: "interrupt", result: "succeeded" }))
         .catch((error) => {
-          analytics.track("queue_action", {
-            action: "interrupt",
-            result: "failed",
-            failure_code: "interrupt_failed",
-          });
           appendUiError(agent.id, error, currentText().t("app.errorStatus.stop"), serverId);
         });
     }

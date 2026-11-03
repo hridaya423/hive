@@ -6,7 +6,7 @@ describe("buildContentSecurityPolicy", () => {
     const policy = buildContentSecurityPolicy(true);
 
     expect(policy).toContain(
-      "connect-src 'self' openbot-attachment: openbot-remote-attachment: https://analytics.openbot.run ws://127.0.0.1:* wss://*.openbot.run",
+      "connect-src 'self' openbot-attachment: openbot-remote-attachment: ws://127.0.0.1:* wss://*.openbot.run",
     );
     expect(policy.split("; ").find((directive) => directive.startsWith("connect-src "))).not.toContain("localhost");
   });

@@ -15,9 +15,9 @@ import RefreshCw from "lucide-react-native/icons/refresh-cw";
 import { type ReactNode, useState } from "react";
 import { Alert, View } from "react-native";
 import { useCSSVariable } from "uniwind";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
 import { SheetFormField } from "@/shared/components/sheet-form-field";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { useText } from "@/shared/lib/text";
 
@@ -49,7 +49,7 @@ function useCopy() {
       })
       .catch((error: unknown) => {
         void haptics.notification("error");
-        showFailureAlert(error, "agent", t("mobile.agent.webhook.copyFailed"));
+        showFailureAlert(error, t("mobile.agent.webhook.copyFailed"));
       });
   }
   return { copied, copy };

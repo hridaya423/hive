@@ -1,6 +1,5 @@
 import { DEFAULT_TEAM_MEMBER_LIMIT, INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { canAdministerServer } from "@openbot/contracts/ipc";
-import { WAKE_RECONNECT_STATES } from "@openbot/team-client/hosted-server-wake";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
@@ -12,7 +11,6 @@ import { Alert, Pressable, View } from "react-native";
 import { useUniwind } from "uniwind";
 import { confirmOwner } from "@/features/app-lock/model/app-lock";
 import { useMobileSession, useQueryScope } from "@/features/auth/context/mobile-session-context";
-import { hostedServerCalls } from "@/features/servers/api/hosted-servers";
 import { SERVER_AVATAR_CORNER_RATIO, ServerAvatar } from "@/features/servers/components/server-avatar";
 import { ServerStatusLabel } from "@/features/servers/components/server-status-label";
 import { TrailingValue } from "@/features/servers/components/trailing-value";
@@ -21,7 +19,6 @@ import { timeZoneLabel } from "@/features/servers/model/time-zones";
 import { useServerBrowserProfiles } from "@/features/servers/model/use-server-browser-profiles";
 import { useMcpServerList } from "@/features/servers/model/use-server-mcp";
 import { useServerProviders } from "@/features/servers/model/use-server-providers";
-import { useServerSites } from "@/features/servers/model/use-server-sites";
 import { useServerTimezone } from "@/features/servers/model/use-server-timezone";
 import { updateAvailable, useServerUpdate } from "@/features/servers/model/use-server-update";
 import {
@@ -52,7 +49,6 @@ export function ServerSettingsScreen() {
     deleteLocalServer,
     localServerKind,
     refreshServer,
-    hostedServerStarting,
     canManageConnectors,
     canManageOnePasswordConnector,
     canManageBitwardenConnector,
@@ -61,7 +57,6 @@ export function ServerSettingsScreen() {
     canReadServerStorage,
     canManageProviders,
     canManageMcpServers,
-    canViewHostedSites,
     canManageServerRoles,
     canReadServerAudit,
     canImportAgents,
@@ -72,38 +67,13 @@ export function ServerSettingsScreen() {
   const locked = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [restarting, setRestarting] = useState(false);
-  const [restarted, setRestarted] = useState<string | null>(null);
   const { session } = useMobileSession();
   const owner = server?.role === "owner";
-  // Billing deletes a hosted server, so Remove shows only after the owner's hosted servers are known.
-  const [hostedServerIds, setHostedServerIds] = useState<ReadonlySet<string> | null>(null);
-  // The same rule as the Restart item of the desktop server menu.
-  const canRestart =
-    server?.kind === "remote" &&
-    (owner || server.role === "admin") &&
-    (server.hosted === true || Boolean(hostedServerIds?.has(serverId)));
-  useEffect(() => {
-    if (!session || !owner) return;
-    let current = true;
-    hostedServerCalls(session)
-      .list()
-      .then(
-        (list) => {
-          if (current) setHostedServerIds(new Set(list.servers.map((item) => item.serverId)));
-        },
-        () => undefined,
-      );
-    return () => {
-      current = false;
-    };
-  }, [session, owner]);
   async function perform(operation: () => Promise<void>, failure?: (error: unknown) => string) {
     if (locked.current) return;
     locked.current = true;
     setBusy(true);
     setError(null);
-    setRestarted(null);
     try {
       await operation();
       void haptics.notification("success");
@@ -181,7 +151,6 @@ export function ServerSettingsScreen() {
       ) : null}
       {canManageVault(serverId) ||
       canManageBrowserProfiles(serverId) ||
-      canViewHostedSites(serverId) ||
       canReadServerStorage(serverId) ||
       canImportAgents(serverId) ||
       canTransferServer(serverId) ? (
@@ -192,7 +161,6 @@ export function ServerSettingsScreen() {
             </SettingsRow>
           ) : null}
           {canManageBrowserProfiles(serverId) ? <ServerBrowserProfilesRow serverId={serverId} /> : null}
-          {canViewHostedSites(serverId) ? <ServerSitesRow serverId={serverId} /> : null}
           {canReadServerStorage(serverId) ? (
             <SettingsRow onPress={() => router.push({ pathname: "/server-settings/storage", params: { serverId } })}>
               <Typography.Paragraph>{t("mobile.server.settings.storage")}</Typography.Paragraph>
@@ -210,56 +178,13 @@ export function ServerSettingsScreen() {
           ) : null}
         </SettingsSection>
       ) : null}
-      <SettingsSection title={t("mobile.server.settings.maintenanceSection")} footer={error ?? restarted}>
+      <SettingsSection title={t("mobile.server.settings.maintenanceSection")} footer={error}>
         {update.access || update.query.data ? <ServerUpdatesRow serverId={serverId} update={update} /> : null}
         <SettingsRow disclosure={false} disabled={busy} onPress={() => void perform(() => refreshServer(serverId))}>
           <Typography.Paragraph className="text-accent">
-            {busy && !restarting ? t("mobile.server.settings.refreshing") : t("mobile.server.settings.refresh")}
+            {busy ? t("mobile.server.settings.refreshing") : t("mobile.server.settings.refresh")}
           </Typography.Paragraph>
         </SettingsRow>
-        {canRestart ? (
-          // The account server stops the hosted server and starts it again. The app connects again after it.
-          <SettingsRow
-            disclosure={false}
-            disabled={busy}
-            onPress={() =>
-              Alert.alert(
-                t("mobile.server.settings.restartTitle", { name: server.name }),
-                t("mobile.server.settings.restartBody"),
-                [
-                  { text: t("common.cancel"), style: "cancel" },
-                  {
-                    text: t("mobile.server.settings.restartConfirm"),
-                    onPress: () =>
-                      void perform(
-                        async () => {
-                          if (!session) throw new Error(currentText().t("mobile.server.hosted.restartFailed"));
-                          setRestarting(true);
-                          try {
-                            const hosted = await hostedServerCalls(session).restart(serverId);
-                            // The connection drops when the server stops. The app connects again, as after a wake.
-                            if (WAKE_RECONNECT_STATES.has(hosted.state)) hostedServerStarting(serverId);
-                          } finally {
-                            setRestarting(false);
-                          }
-                          setRestarted(currentText().t("mobile.server.settings.restarted", { name: server.name }));
-                        },
-                        // The account server explains a refusal, such as a server that cannot restart now.
-                        (caught) => {
-                          const text = currentText();
-                          return text.errorMessage(caught, text.t("mobile.server.hosted.restartFailed"));
-                        },
-                      ),
-                  },
-                ],
-              )
-            }
-          >
-            <Typography.Paragraph className="text-accent">
-              {restarting ? t("mobile.server.settings.restarting") : t("mobile.server.settings.restart")}
-            </Typography.Paragraph>
-          </SettingsRow>
-        ) : null}
       </SettingsSection>
       {server.role !== "owner" ? (
         <SettingsSection>
@@ -324,7 +249,7 @@ export function ServerSettingsScreen() {
             </Typography.Paragraph>
           </SettingsRow>
         </SettingsSection>
-      ) : hostedServerIds && !hostedServerIds.has(serverId) ? (
+      ) : (
         // The owner removes the server from the account. The host does not need to be online.
         <SettingsSection>
           <SettingsRow
@@ -358,7 +283,7 @@ export function ServerSettingsScreen() {
             </Typography.Paragraph>
           </SettingsRow>
         </SettingsSection>
-      ) : null}
+      )}
     </SettingsContent>
   );
 }
@@ -645,25 +570,6 @@ function ServerBrowserProfilesRow({ serverId }: { serverId: string }) {
       onPress={() => router.push({ pathname: "/server-settings/browser-profiles", params: { serverId } })}
     >
       <Typography.Paragraph>{t("mobile.server.route.browserProfiles")}</Typography.Paragraph>
-    </SettingsRow>
-  );
-}
-
-/** The Sites row, for every member of a host that serves `hosted-sites-v1`. */
-function ServerSitesRow({ serverId }: { serverId: string }) {
-  const { t } = useText();
-  const { query } = useServerSites(serverId);
-  const list = query.data;
-  return (
-    <SettingsRow
-      trailing={
-        list ? (
-          <TrailingValue value={t("mobile.server.settings.siteCount", { count: list.used, limit: list.limit })} />
-        ) : undefined
-      }
-      onPress={() => router.push({ pathname: "/server-settings/sites", params: { serverId } })}
-    >
-      <Typography.Paragraph>{t("mobile.server.settings.sites")}</Typography.Paragraph>
     </SettingsRow>
   );
 }

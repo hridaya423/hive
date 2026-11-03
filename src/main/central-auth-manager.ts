@@ -3,7 +3,6 @@ import { EventEmitter } from "node:events";
 import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { HostKeyHandover } from "@openbot/contracts/host-key-handover";
-import { parseHostedServerClaim } from "@openbot/contracts/hosted-servers";
 import type {
   AvatarImageInput,
   CentralAuthIssue,
@@ -269,8 +268,7 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
       if (
         resolved.name === state.user.name &&
         resolved.email === state.user.email &&
-        resolved.avatarUrl === state.user.avatarUrl &&
-        resolved.analyticsEnabled === state.user.analyticsEnabled
+        resolved.avatarUrl === state.user.avatarUrl
       )
         return this.getState();
       return this.#setState({ status: "signed_in", user: resolved });
@@ -1599,36 +1597,6 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
   }
 
   /**
-   * Signs a new hosted server in with the claim that the account server put in its VM.
-   * The result names the host ID that the account server reserved for this account.
-   */
-
-  readonly redeemHostedServerClaim = Effect.fn("CentralAuth.redeemHostedServerClaim")(
-    function* (
-      this: CentralAuthManager,
-      claim: string,
-    ): Effect.fn.Return<
-      { hostId: string; name: string; user: CentralAuthUser },
-      CentralAuthOperationError,
-      CentralAuthTransport
-    > {
-      const redeemed = yield* this.#requestEffect(
-        "/v2/hosting/claims/redeem",
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ claim }) },
-        (value) => {
-          const parsed = parseHostedServerClaim(value);
-          if (!parsed) throw new Error("Invalid hosted server claim.");
-          return parsed;
-        },
-      );
-      // The start retry redeems the claim again in its retry window when the session is not stored.
-      const user = yield* this.#applyClaimedSession(redeemed);
-      return { hostId: redeemed.hostId, name: redeemed.name, user };
-    },
-    (operation) => this.#owned(operation),
-  ).bind(this);
-
-  /**
    * Signs a self-hosted server in with a one-time claim that an operator made for the owner's email.
    * The answer is null when it signed in. A failure leaves the state as it was and gives the issue.
    * The caller checks that the session can be stored first: the claim works only once.
@@ -1760,39 +1728,6 @@ export class CentralAuthManager extends EventEmitter<CentralAuthEvents> {
       return this.#setState({
         status: "signed_in",
         user: { ...this.#state.user, name: user.name },
-      });
-    },
-    (operation) => this.#owned(operation),
-  ).bind(this);
-
-  /**
-   * Saves the user's analytics answer on the account, so their other devices follow it. `ageMs` is
-   * the age of the choice; the account keeps a newer answer from another device.
-   */
-  readonly updateAnalytics = Effect.fn("CentralAuth.updateAnalytics")(
-    function* (
-      this: CentralAuthManager,
-      enabled: boolean,
-      ageMs: number,
-    ): Effect.fn.Return<CentralAuthState, CentralAuthOperationError, CentralAuthTransport> {
-      const sessionToken = this.#sessionToken;
-      if (!sessionToken)
-        return yield* new CentralAuthOperationError({
-          cause: new AuthApiError(401, "unauthorized", sourceText("error.auth.signInRequired")),
-        });
-      const user = yield* this.#authorizedRequestEffect(
-        "/v1/me/analytics",
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled, ageMs }),
-        },
-        decodeCentralAuthUser,
-      );
-      if (this.#sessionToken !== sessionToken || this.#state.status !== "signed_in") return this.getState();
-      return this.#setState({
-        status: "signed_in",
-        user: { ...this.#state.user, analyticsEnabled: user.analyticsEnabled ?? null },
       });
     },
     (operation) => this.#owned(operation),

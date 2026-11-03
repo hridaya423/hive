@@ -19,13 +19,10 @@ long-job; curl -sS -X POST "$(cat "$OPENBOT_AUTOMATION/url")/v1/agents/<agentId>
 `openbot-cli` uses this API, so you do not write the requests yourself. It needs Node 18 or later.
 OpenBot puts it in its resources folder:
 
-- macOS: `/Applications/OpenBot.app/Contents/Resources/cli/openbot-cli.mjs`
-- Linux: `resources/cli/openbot-cli.mjs` in the install folder (for an AppImage, copy it out of the image)
-- Windows: `resources\cli\openbot-cli.mjs` in the install folder. The default folder is
-  `%LOCALAPPDATA%\Programs\OpenBot`.
+- macOS: `/Applications/Hive.app/Contents/Resources/cli/openbot-cli.mjs`
 
 ```sh
-alias openbot-cli='node "/Applications/OpenBot.app/Contents/Resources/cli/openbot-cli.mjs"'
+alias openbot-cli='node "/Applications/Hive.app/Contents/Resources/cli/openbot-cli.mjs"'
 openbot-cli list                                    # the agents with Local scripts on
 openbot-cli run "Ada" "Run the tests and tell me what failed" --wait
 openbot-cli run "Ada" - --wait --json < task.md     # the task from standard input, one JSON answer

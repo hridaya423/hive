@@ -1,6 +1,5 @@
 import { canPreviewAttachment } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import { classifyFailure } from "@openbot/telemetry";
 import type { AgentMessage } from "@openbot/ui/data";
 import { contextUsageView } from "@openbot/ui/features/conversation/ContextUsage";
 import { AgentThreadView } from "@openbot/ui/features/conversation/threads/AgentThreadView";
@@ -41,9 +40,7 @@ export function ConversationSideThread(props: { threadId: string }) {
   const { t, errorMessage } = useText();
   const failureToast = (fallback: AppTextKey) => ({
     onError: (error: unknown) => {
-      actionToast.error(errorMessage(error, t(fallback)), {
-        report: { operation: "turn", source: "action", cause_code: classifyFailure(error) },
-      });
+      actionToast.error(errorMessage(error, t(fallback)));
     },
   });
   const thread = (): SideThread | undefined => view.threads?.side.thread(props.threadId);

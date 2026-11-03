@@ -1,49 +1,20 @@
 // The release notes, read from the repository's own CHANGELOG.md and from apps/mobile/CHANGELOG.md
 // for the iPhone app. The files are written for people already, in the Keep a Changelog shape, so
-// the page reads them rather than asking a release to be written twice. No JSX and no Vite imports here, so the parser runs in a plain
-// Node test; the file itself is imported in `changelog-releases.ts`, which only the page and
-// the sitemap read.
+// the Worker reads them rather than asking a release to be written twice. No JSX and no Vite imports here, so the parser runs in
+// plain Node; the file itself is imported in `changelog-releases.ts`, which only the mobile
+// changelog route reads.
 //
 // The parser covers the Markdown the file uses and nothing more: `## [x.y.z] - date` headings,
 // the store dates of a mobile heading,
 // `### Added` style groups, `-` bullets with indented continuation lines, plain paragraphs
 // under a heading, and inline `**bold**`, `code` and [links](url).
 
-import { isDynamicRecord } from "@openbot/contracts/runtime-values";
-import {
-  OPENBOT_SITE_URL,
-  OPENBOT_SOCIAL_IMAGE_ALT,
-  OPENBOT_SOCIAL_IMAGE_URL,
-  OPENBOT_X_HANDLE,
-} from "./site-metadata";
-
-export const CHANGELOG_ROUTE = "/changelog";
-const CHANGELOG_TITLE = "OpenBot Changelog: Release Notes for Every Version";
-export const CHANGELOG_DESCRIPTION =
-  "Every OpenBot release, newest first: new features, improvements and fixes, with what to do after you upgrade.";
-
 /** The app a changelog covers. The web client ships with the desktop app, so it has no own list. */
 export type ChangelogPlatform = "desktop" | "mobile";
 
-/** In the order of the page's tabs, which is the direction a change of tab moves in. */
-export const CHANGELOG_PLATFORMS: readonly ChangelogPlatform[] = ["desktop", "mobile"];
+type ChangelogGroupType = "added" | "changed" | "fixed" | "removed" | "security" | "deprecated" | "other";
 
-export interface ChangelogSearch {
-  /** Absent for the desktop list, so `/changelog` stays the address of the page. */
-  platform?: "mobile" | undefined;
-}
-
-/**
- * Always sets `platform`: the router lays the validated search over the raw one, so a key left
- * out keeps a value such as `?platform=tablet` that the page has no list for.
- */
-export function changelogSearch(value: unknown): ChangelogSearch {
-  return { platform: isDynamicRecord(value) && value.platform === "mobile" ? "mobile" : undefined };
-}
-
-export type ChangelogGroupType = "added" | "changed" | "fixed" | "removed" | "security" | "deprecated" | "other";
-
-export interface ChangelogGroup {
+interface ChangelogGroup {
   type: ChangelogGroupType;
   /** The heading as the file writes it, for a group this parser has no name for. */
   heading: string;
@@ -51,9 +22,9 @@ export interface ChangelogGroup {
 }
 
 /** A store of the mobile app. Each one reviews a build on its own. */
-export type MobileStore = "ios" | "android";
+type MobileStore = "ios" | "android";
 
-export interface StoreAvailability {
+interface StoreAvailability {
   store: MobileStore;
   /** `YYYY-MM-DD`, the day the store made the version available. Empty while it reviews it. */
   date: string;
@@ -240,36 +211,4 @@ export function parseInline(text: string): InlineSegment[] {
   }
   if (last < text.length) segments.push({ kind: "text", text: text.slice(last) });
   return segments;
-}
-
-export function changelogUrl(siteUrl: string = OPENBOT_SITE_URL, platform: ChangelogPlatform = "desktop"): string {
-  const url = new URL(CHANGELOG_ROUTE, siteUrl);
-  if (platform === "mobile") url.searchParams.set("platform", platform);
-  return url.toString();
-}
-
-export function changelogHead(siteUrl: string, platform: ChangelogPlatform = "desktop") {
-  const url = changelogUrl(siteUrl, platform);
-
-  return {
-    meta: [
-      { title: CHANGELOG_TITLE },
-      { name: "description", content: CHANGELOG_DESCRIPTION },
-      { property: "og:type", content: "website" },
-      { property: "og:site_name", content: "OpenBot" },
-      { property: "og:locale", content: "en_US" },
-      { property: "og:url", content: url },
-      { property: "og:title", content: CHANGELOG_TITLE },
-      { property: "og:description", content: CHANGELOG_DESCRIPTION },
-      { property: "og:image", content: OPENBOT_SOCIAL_IMAGE_URL },
-      { property: "og:image:alt", content: OPENBOT_SOCIAL_IMAGE_ALT },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: OPENBOT_X_HANDLE },
-      { name: "twitter:title", content: CHANGELOG_TITLE },
-      { name: "twitter:description", content: CHANGELOG_DESCRIPTION },
-      { name: "twitter:image", content: OPENBOT_SOCIAL_IMAGE_URL },
-      { name: "twitter:image:alt", content: OPENBOT_SOCIAL_IMAGE_ALT },
-    ],
-    links: [{ rel: "canonical", href: url }],
-  };
 }

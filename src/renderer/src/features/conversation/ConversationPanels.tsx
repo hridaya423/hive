@@ -1,7 +1,6 @@
 import type { ServerSummary } from "@openbot/contracts/ipc";
 import { AGENT_NOTIFICATION_LEVELS_CAPABILITY } from "@openbot/contracts/team-protocol/agent-notification-levels-v1";
 import { BROWSER_PROFILES_CAPABILITY } from "@openbot/contracts/team-protocol/browser-profiles-v1";
-import { classifyFailure } from "@openbot/telemetry";
 import { SETTINGS_PANEL_DEFAULT, SETTINGS_PANEL_MAX } from "@openbot/ui/components/SettingsPanel";
 import { BROWSER_NEW_TAB_URL } from "@openbot/ui/features/browser/browser-suggestions";
 import { SidePanelHeader, SidePanelLauncher, type SidePanelPane } from "@openbot/ui/features/conversation/SidePanel";
@@ -295,7 +294,6 @@ export function ConversationPanels(panelProps: { onOpenUsage?: ((trigger: HTMLBu
                     ...{
                       description: errorMessage(error, t("conversation.panels.tryAgain")),
                     },
-                    report: { operation: "turn", source: "action", cause_code: classifyFailure(error) },
                   }),
                 )
           : undefined,

@@ -1,5 +1,4 @@
 import type { AgentTemplateDetail } from "@openbot/contracts/ipc";
-import { classifyFailure } from "@openbot/telemetry";
 import { Button, Dialog, Heading, IconButton, Text, toast, X } from "@openbot/ui";
 import { createSignal, Show } from "solid-js";
 import { useText } from "../../text";
@@ -30,9 +29,7 @@ export function AgentTemplateInstallDialog(props: AgentTemplateInstallDialogProp
     try {
       await props.onInstall();
     } catch (error) {
-      toast.error(errorMessage(error, t("agentTemplate.install.failed")), {
-        report: { operation: "agent", source: "system", cause_code: classifyFailure(error) },
-      });
+      toast.error(errorMessage(error, t("agentTemplate.install.failed")));
     } finally {
       setInstalling(false);
     }

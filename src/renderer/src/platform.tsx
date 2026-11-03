@@ -27,7 +27,7 @@ const Platform = createSimpleContext({
     const [appInfo, setAppInfo] = createSignal<AppInfo | null>(props.appInfo ?? null);
     const [appFocused, setAppFocused] = createSignal(document.hasFocus());
     // Whether `appInfo` is what main reported, as opposed to the fallback below.
-    // Analytics attribution is only honest about the former.
+    // What's New shows release notes only for the former.
     let infoFromHost = false;
     let appFrame: HTMLDivElement | undefined;
 

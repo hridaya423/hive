@@ -104,7 +104,6 @@ import { HOST_MEMBER_UPDATE_CAPABILITY } from "@openbot/contracts/team-protocol/
 import { HOST_RELEASE_CAPABILITY } from "@openbot/contracts/team-protocol/host-release-v1";
 import { HOST_TIMEZONE_CAPABILITY } from "@openbot/contracts/team-protocol/host-timezone-v1";
 import { HOST_UPDATE_CAPABILITY } from "@openbot/contracts/team-protocol/host-update-v1";
-import { HOSTED_SITES_CAPABILITY } from "@openbot/contracts/team-protocol/hosted-sites-v1";
 import { INSTANCE_TRANSFER_CAPABILITY } from "@openbot/contracts/team-protocol/instance-transfer-v1";
 import { MCP_SIGN_IN_CAPABILITY } from "@openbot/contracts/team-protocol/mcp-sign-in-v1";
 import { ONEPASSWORD_CONNECTOR_CAPABILITY } from "@openbot/contracts/team-protocol/onepassword-connector-v1";
@@ -142,7 +141,6 @@ import {
   createHostBrowserProfile,
   deleteEventRoutine,
   deleteHostBrowserProfile,
-  deleteHostedSite,
   deleteHostVaultItem,
   deleteSharedTable,
   excludeAgentFolder,
@@ -167,7 +165,6 @@ import {
   listEventRoutines,
   listHiddenAgents,
   listHostBrowserProfiles,
-  listHostedSites,
   listHostVault,
   listMcpServers,
   listMcpSignIns,
@@ -400,8 +397,6 @@ type HostRequestActions = Pick<
   | "setServerUpdateSettings"
   | "loadServerRelease"
   | "checkServerRelease"
-  | "loadHostedSites"
-  | "deleteHostedSite"
   | "providerAdmin"
   | "listMcpServers"
   | "saveMcpServer"
@@ -566,9 +561,6 @@ export function createHostRequestActions({
   const updateAdmin = (serverId: string) => updateApi(serverId, "admin");
   const releaseApi = (serverId: string) =>
     capabilityApi(serverId, HOST_RELEASE_CAPABILITY, "mobile.server.update.unavailable");
-  /** The sites are an optional route set. Every member lists them; the host deletes for an owner or admin only. */
-  const sitesApi = (serverId: string) =>
-    capabilityApi(serverId, HOSTED_SITES_CAPABILITY, "mobile.server.sites.unsupported");
   /** The MCP servers are an optional admin route set. */
   const mcpAdmin = (serverId: string) =>
     capabilityApi(serverId, MCP_SERVERS_CAPABILITY, "mobile.server.mcp.unsupported");
@@ -698,8 +690,6 @@ export function createHostRequestActions({
       runTeamRequest(setHostUpdateSettings(updateAdmin(serverId), settings)),
     loadServerRelease: async (serverId) => runTeamRequest(getHostReleaseStatus(releaseApi(serverId))),
     checkServerRelease: async (serverId) => runTeamRequest(checkHostRelease(releaseApi(serverId))),
-    loadHostedSites: async (serverId) => runTeamRequest(listHostedSites(sitesApi(serverId))),
-    deleteHostedSite: async (siteId, serverId) => runTeamRequest(deleteHostedSite(sitesApi(serverId), siteId)),
     providerAdmin: (serverId) =>
       createProviderAdmin(
         capabilityApi(serverId, PROVIDERS_ADMIN_CAPABILITY, "mobile.server.providers.unsupported"),

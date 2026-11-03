@@ -40,7 +40,6 @@ import { requestNotificationPermission, showRetainedNotification } from "./deskt
 import { guardDevelopmentOutput } from "./development-output";
 import {
   developmentUserDataName,
-  readAnalyticsCaptureUrl,
   readDevelopmentInstanceId,
   readDevelopmentProfile,
   readDevelopmentRemoteDebuggingPort,
@@ -49,8 +48,6 @@ import {
 import { stopStuckExitAfterLimit } from "./exit-watchdog";
 import { filePreviewPages } from "./file-preview-pages";
 import { hostAllowsTenantLaunch } from "./host-update-coordinator";
-import { takeHostedServerEnvironment } from "./hosted-server-bootstrap";
-import { takeHostingDeveloperKey } from "./hosted-server-service";
 import { accountIpcHandlers } from "./ipc/account-handlers";
 import { acpRegistryIpcHandlers } from "./ipc/acp-registry-handlers";
 import { agentAdminIpcHandlers } from "./ipc/agent-admin-handlers";
@@ -62,7 +59,6 @@ import { agentTemplateIpcHandlers } from "./ipc/agent-template-handlers";
 import { appIpcHandlers } from "./ipc/app-handlers";
 import { attachmentIpcHandlers } from "./ipc/attachment-handlers";
 import { backgroundProcessIpcHandlers } from "./ipc/background-process-handlers";
-import { billingIpcHandlers } from "./ipc/billing-handlers";
 import { bitwardenConnectorIpcHandlers } from "./ipc/bitwarden-connector-handlers";
 import { browserDockIpcHandlers } from "./ipc/browser-dock-handlers";
 import { browserIpcHandlers } from "./ipc/browser-handlers";
@@ -76,10 +72,7 @@ import { dynamicIslandIpcHandlers } from "./ipc/dynamic-island-handlers";
 import { eventsIpcHandlers } from "./ipc/events-handlers";
 import { githubConnectorIpcHandlers } from "./ipc/github-connector-handlers";
 import { hostAdminIpcHandlers } from "./ipc/host-admin-handlers";
-import { hostedServerIpcHandlers } from "./ipc/hosted-server-handlers";
-import { hostedSiteIpcHandlers } from "./ipc/hosted-site-handlers";
 import { instanceTransferIpcHandlers } from "./ipc/instance-transfer-handlers";
-import { licenseIpcHandlers } from "./ipc/license-handlers";
 import { linkAccountIpcHandlers } from "./ipc/link-account-handlers";
 import { localServerIpcHandlers } from "./ipc/local-server-handlers";
 import { macAutomationIpcHandlers } from "./ipc/mac-automation-handlers";
@@ -216,15 +209,12 @@ const developmentRemoteRole =
 const developmentTestClientEnabled = !app.isPackaged && process.env.OPENBOT_DEV_TEST_CLIENT_ENABLED === "1";
 // Before any child process starts: agents must not run as part of a Claude Code session that started OpenBot.
 removeClaudeCodeSessionEnvironment(process.env);
-// Before any child process starts: this removes the single-use claim from the environment they inherit.
-const hostedServer = takeHostedServerEnvironment(process.env, app.isPackaged, process.platform);
-const hostingDeveloperKey = takeHostingDeveloperKey(process.env, app.isPackaged);
 const serverMode = takeServerModeEnvironment(process.env, app.isPackaged, process.platform);
 // Always taken, so the owner password leaves the environment also when the flag is refused.
 const localServerChildEnvironment = takeLocalServerChildEnvironment(process.env, commandLineUserDataDirectory);
-const localServerChild = serverMode || hostedServer ? null : localServerChildEnvironment;
-if (serverMode || hostedServer || localServerChild) hideExceptionErrorBox();
-if (serverMode || hostedServer) keepWindowsHidden();
+const localServerChild = serverMode ? null : localServerChildEnvironment;
+if (serverMode || localServerChild) hideExceptionErrorBox();
+if (serverMode) keepWindowsHidden();
 // A local server has no window, so it has no Dock tile either.
 if (localServerChild && process.platform === "darwin") app.dock?.hide();
 const inviteLinkOptions = {
@@ -234,7 +224,6 @@ const inviteLinkOptions = {
 const developmentRemoteDebuggingPort = !app.isPackaged
   ? readDevelopmentRemoteDebuggingPort(process.env.OPENBOT_DEV_REMOTE_DEBUGGING_PORT)
   : null;
-const analyticsCaptureUrl = !app.isPackaged ? readAnalyticsCaptureUrl(process.env.OPENBOT_ANALYTICS_CAPTURE_URL) : null;
 // Electron exposes FedCM without an account chooser, so every request fails with a NetworkError.
 // Sites such as Google Sign-In use FedCM when it exists and fall back to their popup when it does not.
 app.commandLine.appendSwitch("disable-features", "FedCm");
@@ -280,7 +269,7 @@ if (hasSingleInstanceLock) {
 configureLinuxGpu({
   userDataPath: app.getPath("userData"),
   ownsInstance: hasSingleInstanceLock,
-  server: hostedServer !== null || serverMode !== null,
+  server: serverMode !== null,
 });
 const appVariant = readAppVariant(process.env.OPENBOT_APP_VARIANT, app.isPackaged);
 if (!app.isPackaged) guardDevelopmentOutput([process.stdout, process.stderr], () => app.quit());
@@ -342,7 +331,6 @@ let services: ApplicationServices | null = null;
 let activeRemotePrincipalId: string | null = null;
 /** Counts account transitions, so queued work for a superseded one is dropped rather than applied. */
 let centralAuthGeneration = 0;
-let activeAnalyticsPrincipalId: string | null = null;
 const remoteAccountGate = Semaphore.makeUnsafe(1);
 const macHapticFeedback = new MacHapticFeedback();
 let isQuitting = false;
@@ -374,9 +362,8 @@ let deepLinkReceiverReady = false;
 const MAIN_WINDOW_STATE_FILE = "openbot-main-window-state-v1.json";
 
 // A server is stopped with SIGTERM (systemd, Docker). Without a handler, Electron ends at once and its
-// services do not stop. A hosted server's boat pre-stop hook stops it this way before the disk save
-// (`scripts/hosting/openbot-boat-pre-stop`). The desktop app quits the same way, so a `kill` from a
-// terminal or another app also stops its services and leaves a "Quitting: signal." line (#4149).
+// services do not stop. The desktop app quits the same way, so a `kill` from a terminal or another
+// app also stops its services and leaves a "Quitting: signal." line (#4149).
 {
   const quitAfterSignal = () => {
     // Before `app.quit()`: the same signal can stop the Computer Use driver first.
@@ -437,7 +424,6 @@ const {
   getChatWindows: () => windows.getChatWindows(),
   getAgentService: () => services?.service ?? null,
   getHostService: () => services?.host ?? null,
-  getHostAnalytics: () => services?.analytics ?? null,
   getRemoteServerManager: () => services?.remoteServers ?? null,
   showMainWindow,
   // An agent event cannot arrive before the services that raise it, so the fallback stands only so
@@ -597,8 +583,6 @@ function registerIpcHandlers({
   browserView,
   updater,
   setupFile,
-  analyticsPreferences,
-  analyticsInstallId,
   updatePreferenceFile,
   requestedUpdate,
   idleRestart,
@@ -637,15 +621,11 @@ function registerIpcHandlers({
   remoteServers,
   centralAuth,
   skills,
-  hostedSites,
   githubConnector,
   linkAccount,
   onePasswordConnector,
   bitwardenConnector,
   vault,
-  billing,
-  license,
-  hostedServers,
   localServers,
   routineFeed,
   events,
@@ -690,7 +670,6 @@ function registerIpcHandlers({
       browser,
       updater,
       setupFile,
-      analyticsPreferences,
       approvalAutomation,
       busyMessageMode,
       agentDefaults,
@@ -709,8 +688,6 @@ function registerIpcHandlers({
       interfaceSize,
       initializeAgent: () => runCauseEffect(agentInitialization.start()),
       appVariant,
-      analyticsCaptureUrl,
-      analyticsInstallId,
       getMainWindow: getDialogParent,
       openChatWindow: windows.openChatWindow,
       chatWindowTargets: windows.chatWindowTargets,
@@ -737,22 +714,13 @@ function registerIpcHandlers({
       translate: language.translate,
     }),
     ...agentInstructionsIpcHandlers({ files: agentInstructions, remoteServers }),
-    ...hostedSiteIpcHandlers({
-      hostedSites,
-      remoteServers,
-      getMainWindow: getDialogParent,
-      translate: language.translate,
-    }),
     ...githubConnectorIpcHandlers({ githubConnector, remoteServers, openExternal: openLink }),
     ...linkAccountIpcHandlers({ linkAccount }),
     ...onePasswordConnectorIpcHandlers({ onePasswordConnector, remoteServers }),
     ...bitwardenConnectorIpcHandlers({ bitwardenConnector, remoteServers }),
     ...vaultIpcHandlers({ vault, getMainWindow: getDialogParent, translate: language.translate, remoteServers }),
-    ...billingIpcHandlers({ billing }),
-    ...licenseIpcHandlers({ license }),
     ...routineFeedIpcHandlers({ routineFeed }),
     ...eventsIpcHandlers({ events, remoteServers }),
-    ...hostedServerIpcHandlers({ hostedServers }),
     ...localServerIpcHandlers({ localServers }),
     ...customProviderIpcHandlers(customProviderChanges),
     ...customAgentIpcHandlers(customAgentChanges),
@@ -945,15 +913,6 @@ function centralAuthPrincipalId(state: CentralAuthState): string | null {
 function forwardCentralAuth(state: CentralAuthState): void {
   // A local server has no account: its owner is a password member that a sign-out must not unbind.
   if (localServerChild) return;
-  if (state.status === "signed_in") {
-    if (activeAnalyticsPrincipalId && activeAnalyticsPrincipalId !== state.user.id) services?.analytics.clear();
-    activeAnalyticsPrincipalId = state.user.id;
-    // Started before the renderer is told, so its next read of the answer waits for this one.
-    services?.analyticsPreferences.followAccount(state.user);
-  } else if (state.status === "signed_out") {
-    if (activeAnalyticsPrincipalId) services?.analytics.clear();
-    activeAnalyticsPrincipalId = null;
-  }
   // The renderer is told about the new account at the end of this function, before the
   // queued work below can finish, so the host stops answering for the previous account now.
   // The file is left alone until `applySignedInAccount` records the switch.
@@ -1013,7 +972,6 @@ function forwardCentralAuth(state: CentralAuthState): void {
             host.unbindChangedAccount(null);
             return;
           }
-          services?.analytics.flushPending();
         }
         if (services)
           yield* services.remoteServers
@@ -1219,12 +1177,9 @@ if (!hasSingleInstanceLock) {
         windows,
         appIconPath,
         appVariant,
-        analyticsCaptureUrl,
         developmentRemoteRole,
         developmentTestClientEnabled,
-        hostedServer,
         serverMode,
-        hostingDeveloperKey,
         localServerChild,
         macHapticFeedback,
         teardown,
@@ -1242,17 +1197,16 @@ if (!hasSingleInstanceLock) {
       services = built;
       performance.mark("openbot:services-built");
       // A server has nobody to read the warning; a development build runs no `app.asar`.
-      if (app.isPackaged && !serverMode && !hostedServer && !localServerChild) {
+      if (app.isPackaged && !serverMode && !localServerChild) {
         teardown.push(0, "app archive watch", watchAppArchive(process.resourcesPath, built.language.translate));
       }
-      // `forwardCentralAuth` reaches the host, the remote servers and analytics only through
+      // `forwardCentralAuth` reaches the host and the remote servers only through
       // `services`, so every account change announced during construction was dropped.
-      // `createApplicationServices` bound the local host to the one state it read and attributed the
-      // queued analytics to it, so adopt that as the active principal; then apply the current state
+      // `createApplicationServices` bound the local host to the one state it read, so adopt that as
+      // the active principal; then apply the current state
       // if the account moved on after that read - a sign-in settling while `remoteServers.initialize()`
       // awaits would otherwise leave the previous account's host selected, with nothing to replay it.
       const appliedAccount = built.appliedAccount;
-      activeAnalyticsPrincipalId = centralAuthPrincipalId(appliedAccount);
       activeRemotePrincipalId = centralAuthPrincipalId(appliedAccount);
       const currentAccount = built.centralAuth.getState();
       if (
@@ -1260,8 +1214,6 @@ if (!hasSingleInstanceLock) {
         centralAuthPrincipalId(currentAccount) !== centralAuthPrincipalId(appliedAccount)
       ) {
         forwardCentralAuth(currentAccount);
-      } else if (currentAccount.status === "signed_in") {
-        built.analyticsPreferences.followAccount(currentAccount.user);
       }
       const {
         service,
@@ -1333,11 +1285,6 @@ if (!hasSingleInstanceLock) {
         built.centralAuth.off("changed", refreshWebhookRoutes);
         host.off("changed", onHostChanged);
       });
-      // Internal usage signals for analytics only. They are not agent events, so the renderer and
-      // Team API clients never receive them.
-      service.on("toolUsage", (usage) => built.analytics.handleToolUsage(usage));
-      service.on("workflowRun", (end) => built.analytics.handleWorkflowRun(end));
-      built.browser.onSiteVisited((visit) => built.analytics.handleSiteVisit(visit));
       sidebarLayout.on("changed", (layout) => forwardAgentEvent("local", { type: "sidebar-layout-changed", layout }));
       // A pin from the owner's phone shows at once in the sidebar of this computer.
       built.sidebarPins.subscribe((key) => {
@@ -1626,7 +1573,7 @@ if (!hasSingleInstanceLock) {
       logger.error("OpenBot failed to start:", toLogValue(error));
       // A server has nobody at its virtual display to close the box, and the box blocks the quit. A
       // server on this computer has no window: the app that started it reports the failed start.
-      if (!serverMode && !hostedServer && !localServerChild) {
+      if (!serverMode && !localServerChild) {
         // The services, and with them the saved language, may not exist yet. Then the system language applies.
         const locale = services?.language.locale ?? resolveLocale("system", app.getLocale());
         const translate = services?.language.translate ?? translateFor(locale);

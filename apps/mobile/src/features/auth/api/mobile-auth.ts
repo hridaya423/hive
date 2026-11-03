@@ -10,7 +10,7 @@ import {
   parseMobileConnectUrl,
   validateMobileConnectHostBinding,
 } from "@openbot/contracts/mobile-connect";
-import { type DynamicRecord, isBoolean, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
+import { type DynamicRecord, isDynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import { normalizeEmailAddress, normalizeOneTimeCode, validateProfileName } from "@openbot/contracts/validation";
 import type { MobileTextKey } from "@openbot/i18n/mobile";
 import * as Crypto from "expo-crypto";
@@ -374,12 +374,7 @@ export async function revokeMobileAccountSession(session: MobileSession, target:
   });
 }
 
-type MobileProfileFieldChange = { name: string } | { avatar: { bytes: Uint8Array; mimeType: AvatarMimeType } | null };
-/**
- * `analyticsEnabled` saves the user's analytics answer on the account, so their other devices follow
- * it. `ageMs` is the age of the choice; the account keeps a newer answer from another device.
- */
-export type MobileProfileChange = MobileProfileFieldChange | { analyticsEnabled: boolean; ageMs: number };
+export type MobileProfileChange = { name: string } | { avatar: { bytes: Uint8Array; mimeType: AvatarMimeType } | null };
 
 export function updateMobileProfile(
   session: MobileSession,
@@ -387,38 +382,13 @@ export function updateMobileProfile(
   onUpdated?: (updated: MobileSession) => void,
 ): Promise<MobileSession> {
   return serializeMobileProfile(async () => {
-    const updated =
-      "analyticsEnabled" in change
-        ? await writeMobileAnalytics(session, change.analyticsEnabled, change.ageMs)
-        : await writeMobileProfile(session, change);
+    const updated = await writeMobileProfile(session, change);
     onUpdated?.(updated);
     return updated;
   });
 }
 
-async function writeMobileAnalytics(session: MobileSession, enabled: boolean, ageMs: number): Promise<MobileSession> {
-  const { response, body } = await withMobileAuthRequestTimeout(async (signal) => {
-    const request = await fetch(new URL("/v1/me/analytics", session.apiUrl).toString(), {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${session.sessionToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled, ageMs }),
-      signal,
-    });
-    return { response: request, body: await readResponseBody(request, signal) };
-  });
-  await checkMobileAuthorization(response, session);
-  if (!response.ok) {
-    if (response.status === 429) throw new Error(currentText().t("mobile.auth.error.tooManyChanges"));
-    throw new Error(currentText().t("mobile.auth.error.profileSaveFailed"));
-  }
-  const user = decodeUser(body);
-  if (user.id !== session.user.id) throw new Error("The account service returned an invalid user.");
-  const updated = { ...session, user };
-  await saveMobileSessionIfCurrent(updated);
-  return updated;
-}
-
-async function writeMobileProfile(session: MobileSession, change: MobileProfileFieldChange): Promise<MobileSession> {
+async function writeMobileProfile(session: MobileSession, change: MobileProfileChange): Promise<MobileSession> {
   if ("name" in change && validateProfileName(change.name).error) {
     throw new Error(currentText().t("mobile.auth.error.nameLength"));
   }
@@ -576,47 +546,6 @@ function serializeMobileProfile<T>(operation: () => Promise<T>): Promise<T> {
   return result;
 }
 
-/**
- * One signed-in request to the account server. A 401 ends the session. A failed request throws the
- * account server's message, or `failure`. A body that `decode` refuses throws `failure` too.
- */
-export async function requestMobileAccount<T>(
-  session: MobileSession,
-  path: string,
-  init: { method?: "GET" | "POST"; body?: string; headers?: Record<string, string> },
-  decode: (value: unknown) => T | null,
-  failure: string,
-  timeoutMs?: number,
-): Promise<T> {
-  return withMobileAuthRequestTimeout(
-    async (signal) => {
-      let response: Response;
-      try {
-        response = await fetch(new URL(path, session.apiUrl).toString(), {
-          method: init.method ?? "GET",
-          headers: {
-            Authorization: `Bearer ${session.sessionToken}`,
-            ...(init.body === undefined ? {} : { "Content-Type": "application/json" }),
-            ...init.headers,
-          },
-          ...(init.body === undefined ? {} : { body: init.body }),
-          signal,
-        });
-      } catch {
-        throw new Error(failure);
-      }
-      await checkMobileAuthorization(response, session);
-      const body = await readResponseBody(response, signal).catch(() => null);
-      if (!response.ok) throw new Error(apiErrorMessage(body) ?? failure);
-      const value = decode(body);
-      if (value === null) throw new Error(failure);
-      return value;
-    },
-    undefined,
-    timeoutMs,
-  );
-}
-
 async function checkMobileAuthorization(response: Response, session: MobileSession): Promise<void> {
   if (response.status !== 401) return;
   await deleteMobileSessionIfCurrent(session.sessionToken);
@@ -759,21 +688,12 @@ function decodeUser(value: unknown): CentralAuthUser {
   if (value.avatarUrl !== null && !isString(value.avatarUrl)) {
     throw new Error("The account service returned an invalid user.");
   }
-  // An older account service sends no answer; null means the user never answered.
-  const analyticsEnabled = value.analyticsEnabled ?? null;
-  if (analyticsEnabled !== null && !isBoolean(analyticsEnabled)) {
-    throw new Error("The account service returned an invalid user.");
-  }
-  return { id: value.id, email: value.email, name: value.name, avatarUrl: value.avatarUrl, analyticsEnabled };
+  return { id: value.id, email: value.email, name: value.name, avatarUrl: value.avatarUrl };
 }
 
 function sameUser(left: CentralAuthUser, right: CentralAuthUser): boolean {
   return (
-    left.id === right.id &&
-    left.email === right.email &&
-    left.name === right.name &&
-    left.avatarUrl === right.avatarUrl &&
-    (left.analyticsEnabled ?? null) === (right.analyticsEnabled ?? null)
+    left.id === right.id && left.email === right.email && left.name === right.name && left.avatarUrl === right.avatarUrl
   );
 }
 

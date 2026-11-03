@@ -6,7 +6,6 @@ import {
   type WorkflowGitHubHistory,
   type WorkflowGitHubRepositoryOptions,
   type WorkflowGraph,
-  type WorkflowNodeKind,
   type WorkflowSaveResult,
   type WorkflowSummary,
   type WorkflowVersion,
@@ -23,7 +22,6 @@ import type { WorkflowDiscordServer, WorkflowPlace } from "@openbot/ui/features/
 import { EMPTY_WORKFLOW_RUN_VIEW, type WorkflowRunView } from "@openbot/ui/features/workflows/workflow-run-view";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, onSettled, untrack } from "solid-js";
-import type { DesktopAnalyticsScope, WorkflowAnalyticsAction } from "../../analytics";
 import { createGitHubConnector } from "../connectors/github-connector";
 import type { WorkflowHost } from "./workflows-port";
 
@@ -34,21 +32,6 @@ const SAVE_DELAY_MS = 400;
 /** The options of a repository that the host could not read. */
 const NO_OPTIONS: WorkflowGitHubRepositoryOptions = { labels: [], people: [] };
 
-const FAILURE_CODES = {
-  create: "create_failed",
-  rename: "update_failed",
-  delete: "delete_failed",
-  run: "request_failed",
-  run_step: "request_failed",
-  stop_step: "cancel_failed",
-  stop_run: "cancel_failed",
-  retry_step: "request_failed",
-  approve: "response_failed",
-  reject: "response_failed",
-  restore_version: "update_failed",
-  rotate_webhook_secret: "update_failed",
-} as const satisfies Record<WorkflowAnalyticsAction, string>;
-
 type WorkflowsControllerProps = Omit<WorkflowCanvasProps, "workflow" | "features" | "frame" | "readOnly" | "catalogs">;
 
 /**
@@ -56,36 +39,9 @@ type WorkflowsControllerProps = Omit<WorkflowCanvasProps, "workflow" | "features
  * them after a pause, one save at a time, each on the revision of the one before. A change from
  * another device or a restore loads the graph again. The first workflow of the host opens; a host
  * with none gets a new one, as the canvas needs a workflow.
- *
- * `analytics` gives the scope of the account that acts. Stories give none.
  */
-export function createWorkflowsController(host: WorkflowHost, analytics?: () => DesktopAnalyticsScope) {
+export function createWorkflowsController(host: WorkflowHost) {
   const { t, errorMessage } = useText();
-  /** Reports how a user action ended. No title, text or ID leaves the app. */
-  const tracked = async <T>(
-    action: WorkflowAnalyticsAction,
-    call: () => Promise<T>,
-    nodeKind?: WorkflowNodeKind,
-  ): Promise<T> => {
-    const scope = analytics?.();
-    const startedAt = performance.now();
-    const send = (result: "succeeded" | "failed") =>
-      scope?.track("workflow_action", {
-        action,
-        ...(nodeKind ? { node_kind: nodeKind } : {}),
-        duration_ms: Math.max(0, Math.round(performance.now() - startedAt)),
-        result,
-        ...(result === "failed" ? { failure_code: FAILURE_CODES[action] } : {}),
-      });
-    try {
-      const value = await call();
-      send("succeeded");
-      return value;
-    } catch (error) {
-      send("failed");
-      throw error;
-    }
-  };
   const report = (error: unknown) => {
     toast.error(errorMessage(error, t("workflow.page.failed")));
   };
@@ -360,14 +316,10 @@ export function createWorkflowsController(host: WorkflowHost, analytics?: () => 
   });
 
   /** Starts a run of the open workflow after the save of its edits. */
-  const start = (
-    action: WorkflowAnalyticsAction,
-    call: (workflowId: string) => Promise<unknown>,
-    nodeKind?: WorkflowNodeKind,
-  ) => {
+  const start = (call: (workflowId: string) => Promise<unknown>) => {
     flush();
     const workflowId = current;
-    write(() => tracked(action, () => call(workflowId), nodeKind));
+    write(() => call(workflowId));
   };
 
   const github: WorkflowGitHubCanvas = {
@@ -404,9 +356,7 @@ export function createWorkflowsController(host: WorkflowHost, analytics?: () => 
       host.openUrl(githubItemUrl(item)).catch(report);
     },
     runLastEvent: (nodeId) => {
-      start("run", (workflowId) =>
-        host.workflows.githubRunLastEvent({ workflowId, nodeId, requestId: crypto.randomUUID() }),
-      );
+      start((workflowId) => host.workflows.githubRunLastEvent({ workflowId, nodeId, requestId: crypto.randomUUID() }));
     },
   };
 
@@ -433,7 +383,7 @@ export function createWorkflowsController(host: WorkflowHost, analytics?: () => 
       timer = setTimeout(flush, SAVE_DELAY_MS);
     },
     onRun: (input) => {
-      start("run", (workflowId) =>
+      start((workflowId) =>
         host.workflows.startRun({
           workflowId,
           requestId: crypto.randomUUID(),
@@ -442,32 +392,23 @@ export function createWorkflowsController(host: WorkflowHost, analytics?: () => 
       );
     },
     onRunStep: (nodeId) => {
-      // The kind as the host has it: a node that is not saved yet has none.
-      const kind = stored()?.detail.graph.nodes.find((node) => node.id === nodeId)?.kind;
-      start(
-        "run_step",
-        (workflowId) => host.workflows.runStep({ workflowId, nodeId, requestId: crypto.randomUUID() }),
-        kind,
-      );
+      start((workflowId) => host.workflows.runStep({ workflowId, nodeId, requestId: crypto.randomUUID() }));
     },
     onStopStep: (stepId) => {
-      tracked("stop_step", () => host.workflows.stopStep(stepId)).catch(report);
+      host.workflows.stopStep(stepId).catch(report);
     },
     onStopRun: (runId) => {
-      tracked("stop_run", () => host.workflows.stopRun(runId)).catch(report);
+      host.workflows.stopRun(runId).catch(report);
     },
     onRetry: (stepId) => {
-      tracked("retry_step", () => host.workflows.retryStep({ stepId, requestId: crypto.randomUUID() })).catch(report);
+      host.workflows.retryStep({ stepId, requestId: crypto.randomUUID() }).catch(report);
     },
-    onDecide: (stepId, approved) =>
-      reported(tracked(approved ? "approve" : "reject", () => host.workflows.decide({ stepId, approved }))),
+    onDecide: (stepId, approved) => reported(host.workflows.decide({ stepId, approved })),
     // The host makes the address of a trigger that it has, so the secret waits for the save before it.
     onRotateWebhookSecret: (nodeId) => {
       flush();
       const workflowId = current;
-      return queued(() =>
-        tracked("rotate_webhook_secret", () => host.workflows.rotateWebhookSecret({ workflowId, nodeId })),
-      ).then((result) => result.secret);
+      return queued(() => host.workflows.rotateWebhookSecret({ workflowId, nodeId })).then((result) => result.secret);
     },
     onLoadOlderRuns: () => {
       limit += RUN_PAGE;
@@ -478,7 +419,7 @@ export function createWorkflowsController(host: WorkflowHost, analytics?: () => 
       flush();
       const workflowId = current;
       write(async () => {
-        reset(await tracked("restore_version", () => host.workflows.restoreVersion({ workflowId, versionId })));
+        reset(await host.workflows.restoreVersion({ workflowId, versionId }));
       });
     },
     onPreviewVersion: (versionId) => {
@@ -496,19 +437,19 @@ export function createWorkflowsController(host: WorkflowHost, analytics?: () => 
     onCreate: (input) => {
       flush();
       write(async () => {
-        const created = await tracked("create", () => host.workflows.create(input));
+        const created = await host.workflows.create(input);
         await load(created.summary.id);
       });
     },
     onRename: (workflowId, title) => {
-      tracked("rename", () => host.workflows.rename({ workflowId, title })).catch(report);
+      host.workflows.rename({ workflowId, title }).catch(report);
     },
     onDelete: (workflowId) => {
       flush();
       return queued(async () => {
         const before = await host.workflows.list();
         const index = before.findIndex((summary) => summary.id === workflowId);
-        await tracked("delete", () => host.workflows.delete(workflowId));
+        await host.workflows.delete(workflowId);
         if (disposed || workflowId !== current) return;
         const rest = before.filter((summary) => summary.id !== workflowId);
         const next = rest[Math.min(Math.max(index, 0), rest.length - 1)];

@@ -1,6 +1,6 @@
 ## Linked issue
 
-<!-- `Closes #123`. A new feature or a change to how OpenBot works needs an issue with the `approved` label first: see https://github.com/nightly-labs/openbot/blob/main/CONTRIBUTING.md#what-you-can-send -->
+<!-- `Closes #123`, if an issue exists. -->
 
 ## Type of change
 
@@ -8,7 +8,7 @@
 - [ ] Small improvement or alignment, with no change to how a feature works
 - [ ] New provider, MCP app, or connector
 - [ ] Translation or documentation
-- [ ] New feature or change to existing behavior (needs an approved issue)
+- [ ] New feature or change to existing behavior
 
 ## What changed
 

@@ -24,8 +24,6 @@ import { encodeLiveActivityBytes } from "@openbot/team-client/live-activity-seal
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { getBloubAvatarColor } from "@/features/agents/model/bloub-activity";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { useLiveActivitiesPreference } from "@/features/settings/model/live-activities";
 import {
   effectiveServerNotificationSetting,
@@ -38,6 +36,7 @@ import {
 } from "@/features/settings/model/push-notifications";
 import type { LiveWorkspaceStore } from "@/features/workspace/model/live-workspace-store";
 import type { MobileAgent, MobileServer } from "@/features/workspace/model/workspace-types";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { usePushEnvironment } from "@/shared/lib/push-environment";
 import { currentLocale, currentText } from "@/shared/lib/text";
 import { agentLiveActivity } from "./agent-live-activity";
@@ -170,15 +169,11 @@ export function useLiveActivity({
   }, []);
 
   const syncFor = useCallback((native: AgentLiveActivityNative) => {
-    sync.current ??= new LiveActivitySync(
-      native.starter,
-      (token, startedAt) => {
-        if (disposed.current) return;
-        setPushToken(token);
-        setActivityStartedAt(startedAt);
-      },
-      (action) => mobileAnalytics.track("live_activity_action", { action }),
-    );
+    sync.current ??= new LiveActivitySync(native.starter, (token, startedAt) => {
+      if (disposed.current) return;
+      setPushToken(token);
+      setActivityStartedAt(startedAt);
+    });
     return sync.current;
   }, []);
 
@@ -445,7 +440,7 @@ export function useLiveActivity({
           if (disposed.current) return;
           const { t, errorMessage } = currentText();
           const [title, fallback] = ACTION_FAILURES[action.type];
-          showFailureAlert(error, "other", t(title), errorMessage(error, t(fallback)));
+          showFailureAlert(error, t(title), errorMessage(error, t(fallback)));
         },
       );
     if (action.type !== "respond-approval" || action.decision !== "accept") {
@@ -456,12 +451,7 @@ export function useLiveActivity({
     // So the user sees the command here before the host runs it. The signed link carries it.
     const { t } = currentText();
     if (!command) {
-      showFailureAlert(
-        undefined,
-        "other",
-        t("mobile.liveActivity.error.decision"),
-        t("mobile.liveActivity.requestChanged"),
-      );
+      showFailureAlert(undefined, t("mobile.liveActivity.error.decision"), t("mobile.liveActivity.requestChanged"));
       return;
     }
     Alert.alert(t("mobile.liveActivity.confirm.title"), command, [

@@ -1,13 +1,13 @@
 import { SIDEBAR_UNASSIGNED_SECTION_ID, sidebarFolderParents, sidebarFolderPath } from "@openbot/contracts/ipc";
 import { Link, router } from "expo-router";
 import { useRef, useState } from "react";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import {
   useMobileWorkspaceReader,
   useMobileWorkspaceSelector,
 } from "@/features/workspace/context/mobile-workspace-context";
 import { showsOnline } from "@/features/workspace/model/server-status";
 import type { MenuAction } from "@/shared/components/menu-view";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { currentText, useText } from "@/shared/lib/text";
 
@@ -48,7 +48,6 @@ export function useChatSectionMenu(serverId: string, chatId: string) {
       const text = currentText();
       showFailureAlert(
         error,
-        "turn",
         text.t("mobile.agent.section.moveFailed"),
         text.errorMessage(error, text.t("mobile.agent.section.tryAgain")),
       );

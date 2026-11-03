@@ -31,7 +31,6 @@ import {
   type AgentTask,
   type AgentTasksSnapshot,
   type AgentTemplatePublication,
-  type AnalyticsPreference,
   type AppAppearancePreference,
   type AppBehaviorPreference,
   type AppInfo,
@@ -99,7 +98,6 @@ import {
   type ExternalLinkPreference,
   type FilePreview,
   folderInside,
-  type HostedSiteSummary,
   type HostStatus,
   hostAgentMemoryLimit,
   hostMemoryReview,
@@ -178,7 +176,6 @@ import {
   STORY_FOREIGN_AGENT,
   STORY_FOREIGN_MODEL,
   STORY_FOREIGN_SERVER_ID,
-  STORY_HOSTED_SITES,
   STORY_MARKETPLACE_AGENT_DETAILS,
   STORY_MARKETPLACE_AGENTS,
   STORY_MCP_SERVERS,
@@ -194,7 +191,6 @@ import {
 } from "./fixtures";
 import { mockAgentAnalytics, mockHostAnalytics } from "./mock-agent-analytics";
 import { createMockAuth, type MockAuthOptions } from "./mock-auth";
-import { createMockBilling, previewBillingServers } from "./mock-billing";
 import { createMockBitwardenConnector } from "./mock-bitwarden-connector";
 import { createMockBrowser, type MockBrowserOptions } from "./mock-browser";
 import { createMockChannels, type MockChannelSeed } from "./mock-channels";
@@ -202,8 +198,6 @@ import { createMockEvents } from "./mock-events";
 import { createMockGitHubConnector } from "./mock-github-connector";
 import { createMockHostTimezone } from "./mock-host-timezone";
 import { createMockHostUpdate, type MockHostUpdateOptions } from "./mock-host-update";
-import { createMockHostedServers } from "./mock-hosted-servers";
-import { createMockLicense } from "./mock-license";
 import { createMockLinkAccount } from "./mock-link-account";
 import { createMockMessaging } from "./mock-messaging";
 import { createMockOnePasswordConnector } from "./mock-onepassword-connector";
@@ -231,9 +225,6 @@ export interface MockOpenBotOptions
     MockHostUpdateOptions,
     MockRoutineResultsOptions {
   appInfo?: AppInfo;
-  analyticsPreference?: AnalyticsPreference;
-  /** The first value of the first-run analytics box. Clear, as in a region that asks for consent. */
-  analyticsDefault?: boolean;
   languagePreference?: AppLanguagePreference;
   setupState?: AppSetupState;
   agentStatus?: AgentStatus;
@@ -446,7 +437,6 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       message: null,
     };
   };
-  let analyticsPreference = clone<AnalyticsPreference>(options.analyticsPreference ?? { enabled: true });
   let approvalAutomation = clone<ApprovalAutomationPreference>(DEFAULT_APPROVAL_AUTOMATION_PREFERENCE);
   let busyMessageMode: BusyMessageModePreference = { mode: DEFAULT_BUSY_MESSAGE_MODE };
   let agentDefaults: AgentDefaults = { ...DEFAULT_AGENT_DEFAULTS };
@@ -620,7 +610,6 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   /** The usage resets left on each provider account after the preview spent one. */
   const usageResets = new Map<string, number>();
   let agentCounter = agents.length;
-  let hostedSites = clone(STORY_HOSTED_SITES);
   let detectionSettings: ProviderDetectionSettings = clone(DEFAULT_PROVIDER_DETECTION_SETTINGS);
   let customAgents: CustomAgentSummary[] = [];
   const registryEntry: AcpRegistryEntry = {
@@ -1089,7 +1078,6 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
       ? Promise.resolve(clone((routineRuns.get(routineId) ?? []).slice(0, limit)))
       : mockChannels.listChannelRoutineRuns({ channelId: owner.id, routineId, limit }),
   );
-  const billingPlans = previewBillingServers();
 
   const api: OpenBotDesktopApi = {
     getAppInfo: async () => clone(appInfo),
@@ -1100,13 +1088,6 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     },
     // Only a joined admin changes the setup from outside the window, and the preview has none.
     onSetupState: () => () => undefined,
-    getAnalyticsPreference: async () => clone(analyticsPreference),
-    getAnalyticsDefault: async () => ({ enabled: options.analyticsDefault ?? false }),
-    setAnalyticsPreference: async ({ enabled }) => {
-      analyticsPreference = { enabled };
-      return clone(analyticsPreference);
-    },
-    onAnalyticsPreference: () => () => undefined,
     getApprovalAutomation: async () => clone(approvalAutomation),
     onApprovalAutomation: (listener) => {
       approvalAutomationListeners.add(listener);
@@ -1428,58 +1409,12 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     ),
     auth: mockAuth.auth,
     skills: mockSkills.skills,
-    hostedSites: {
-      // The preview server is on the Starter plan.
-      list: async () => ({
-        sites: clone(hostedSites),
-        limit: 3,
-        used: hostedSites.filter((site) => site.status === "active").length,
-      }),
-      chooseDirectory: async () => "/mock/OpenBot/Sites/launch-notes",
-      publish: async (input) => {
-        const hostname = `${input.title.toLowerCase().replaceAll(/[^a-z0-9]+/gu, "-")}.openbot.site`;
-        const site: HostedSiteSummary = {
-          id: `site-${hostedSites.length + 1}`,
-          hostname,
-          url: `https://${hostname}`,
-          title: input.title,
-          description: input.description,
-          framework: "vanilla",
-          status: "active",
-          fileCount: 12,
-          size: 786_432,
-          expiresAt: null,
-          updatedAt: new Date().toISOString(),
-          serverId: "host-preview",
-        };
-        hostedSites = [site, ...hostedSites];
-        return clone(site);
-      },
-      replace: async (input) => {
-        const existing = hostedSites.find((site) => site.id === input.siteId);
-        if (!existing) throw new Error("Site not found");
-        const replaced: HostedSiteSummary = {
-          ...existing,
-          title: input.title,
-          description: input.description,
-          updatedAt: new Date().toISOString(),
-        };
-        hostedSites = hostedSites.map((site) => (site.id === input.siteId ? replaced : site));
-        return clone(replaced);
-      },
-      delete: async ({ siteId }) => {
-        hostedSites = hostedSites.filter((site) => site.id !== siteId);
-      },
-    },
     githubConnector: createMockGitHubConnector(),
     linkAccount: createMockLinkAccount(),
     onePasswordConnector: createMockOnePasswordConnector(),
     bitwardenConnector: createMockBitwardenConnector(),
     vault: createMockVault(),
-    billing: createMockBilling(billingPlans),
-    license: createMockLicense(),
     routineFeed: createMockRoutineFeed(),
-    hostedServers: createMockHostedServers(billingPlans),
     customProviders: {
       list: async () => clone(customProviders),
       /**

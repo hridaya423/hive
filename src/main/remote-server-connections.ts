@@ -36,12 +36,7 @@ interface MutableStatus {
   issue: ServerConnectionIssue | null;
   connectionSequence: number;
   hostRestart: ServerSummary["hostRestart"];
-  hostedSleep: HostedSleep;
-  hostedIssue: ServerSummary["hostedIssue"];
-  hostedStart: ServerSummary["hostedStart"];
 }
-
-type HostedSleep = NonNullable<ServerSummary["hostedSleep"]> | null;
 
 export class RemoteServerConnections {
   readonly #appVersion: string | null;
@@ -65,34 +60,7 @@ export class RemoteServerConnections {
       issue: status?.issue ?? null,
       connectionSequence: status?.connectionSequence ?? 0,
       hostRestart: status?.hostRestart ?? null,
-      hostedSleep: status?.hostedSleep ?? null,
-      hostedIssue: status?.hostedIssue ?? null,
-      hostedStart: status?.hostedStart ?? null,
     };
-  }
-
-  setHostedIssue(serverId: string, issue: ServerSummary["hostedIssue"]): void {
-    this.#mutable(serverId).hostedIssue = issue;
-  }
-
-  /** The step of a hosted start in progress. Answers whether it changed. */
-  setHostedStart(serverId: string, start: ServerSummary["hostedStart"]): boolean {
-    const status = this.#mutable(serverId);
-    if (status.hostedStart?.step === start?.step && status.hostedStart?.startedAt === start?.startedAt) return false;
-    status.hostedStart = start;
-    return true;
-  }
-
-  hostedSleepFor(serverId: string): HostedSleep {
-    return this.#statuses.get(serverId)?.hostedSleep ?? null;
-  }
-
-  /** Whether the account service stopped this hosted server for no use, or starts it now. Answers whether it changed. */
-  setHostedSleep(serverId: string, hostedSleep: HostedSleep): boolean {
-    const status = this.#mutable(serverId);
-    if (status.hostedSleep === hostedSleep) return false;
-    status.hostedSleep = hostedSleep;
-    return true;
   }
 
   // Raw, unlike `statusFor`: negotiation has to be able to tell "never asked the host" from "asked
@@ -165,9 +133,6 @@ export class RemoteServerConnections {
     status.compatibility = null;
     status.issue = null;
     status.hostRestart = null;
-    status.hostedSleep = null;
-    status.hostedIssue = null;
-    status.hostedStart = null;
     status.connectionSequence += 1;
   }
 
@@ -240,9 +205,6 @@ export class RemoteServerConnections {
       issue: null,
       connectionSequence: 0,
       hostRestart: null,
-      hostedSleep: null,
-      hostedIssue: null,
-      hostedStart: null,
     };
     this.#statuses.set(serverId, status);
     return status;

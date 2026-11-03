@@ -133,7 +133,7 @@ and the separate Node and Bun type environments. Read them when changing checks 
 State which surfaces a change touches. Check all affected consumers and reverse actions.
 
 - Desktop renderer (`src/renderer`), mobile (`apps/mobile`), public web (`apps/auth-api`; no separate
-  landing app), hosted-site routing (`apps/site-router`), and Signal (`remote/api`).
+  landing app), and Signal (`remote/api`).
 - IPC contracts (`packages/contracts`) and their preview implementation
   (`src/renderer/src/preview/mock-openbot.ts`).
 - Reverse actions: snooze/unsnooze, pause/resume, revoke/reconnect, mute/unmute.
@@ -263,10 +263,7 @@ They describe the enforced syntax, fixture behavior, and reasons for removed rul
 ## Pull requests
 
 - Open a PR only when asked.
-- Write the PR body from `.github/PULL_REQUEST_TEMPLATE.md`. Do not add the Contributor Assignment
-  Agreement box: organization members and users with write access do not sign. The `CLA` workflow
-  adds the box only for an author who must sign. Only the human author can sign it: tick that box
-  only after their explicit approval in this conversation.
+- Write the PR body from `.github/PULL_REQUEST_TEMPLATE.md`.
 - For UI changes, show before and after. State the model and harness in the PR body.
   Do not commit screenshots or other PR review image assets to the repository.
 - Do not run wider checks locally before a PR. Report focused checks and leave broad checks to CI.

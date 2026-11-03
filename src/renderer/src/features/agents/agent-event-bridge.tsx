@@ -2,7 +2,6 @@ import { providerDisplayName } from "@openbot/contracts/agent-providers";
 import type { AgentEvent, AgentRuntimeSnapshot } from "@openbot/contracts/ipc";
 import { cleanAgentMessageText } from "@openbot/team-client/agent-message-text";
 import { reconcileQueuesWithRuntimeWork } from "@openbot/team-client/dynamic-island-coordinator";
-import { classifyFailure } from "@openbot/telemetry";
 import { toast } from "@openbot/ui";
 import { currentText } from "@openbot/ui/text";
 import { classifyUserError } from "@openbot/user-errors";
@@ -373,7 +372,6 @@ export function AgentEventBridge() {
             event.code === "mcp_server_not_started" ? t("agent.error.mcpNotStarted") : providerErrorTitle(event.code);
           toast.error(title, {
             ...{ description: toastKey },
-            report: { operation: "provider", source: "provider", cause_code: classifyFailure(event.message) },
           });
         }
       }

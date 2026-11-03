@@ -4,11 +4,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { Alert } from "react-native";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { useMobileWorkspace } from "@/features/workspace/context/mobile-workspace-context";
 import { queryKeys } from "@/features/workspace/model/query-keys";
 import type { MenuAction } from "@/shared/components/menu-view";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { currentText, useText } from "@/shared/lib/text";
 
@@ -63,7 +63,7 @@ export function useThreadActions(serverId: string, onDeleted?: (task: AgentTask)
       void haptics.notification("error");
       const text = currentText();
       const title = text.t(error);
-      showFailureAlert(cause, "team", title, text.errorMessage(cause, title));
+      showFailureAlert(cause, title, text.errorMessage(cause, title));
       return false;
     } finally {
       pending.current.delete(task.id);

@@ -1,4 +1,4 @@
-# Servers, storage, and billing
+# Servers and storage
 
 ## Storage and files
 
@@ -468,7 +468,7 @@ main process, the web client and the mobile app each give it their own focus sig
 The host keeps the focus period of each session apart from `#sessionUse`, so a focused desktop does
 not stop the phone's push notifications. A ping moves `lastClientUseAt` only for 30 minutes after the
 later of the last user action of its session and the start of its focus period. The route is in `PASSIVE_ROUTES`, so the generic client use path
-does not count it. See [hosted servers](../hosted-servers.md) step 5.
+does not count it.
 
 ### Computer activity
 
@@ -817,158 +817,6 @@ has its own level and mute for each server, which the host applies to the notifi
 that phone (see [iPhone notifications](channels-and-messaging.md#iphone-notifications)). Mute
 settings are not synchronized between devices.
 
-## Billing
-
-Billing is per server. One account can pay for several servers; each server has its own Stripe
-subscription. The Account Worker (`apps/auth-api/src/server/billing-service.ts`) talks to the Stripe
-REST API with `fetch`; there is no Stripe SDK. The plan catalog in `packages/contracts/src/billing.ts`
-holds the plan IDs, storage, member and site limits, relative speed and lookup keys, and no amounts. The amounts are six Stripe Prices with the lookup
-keys `openbot_{plan}_{interval}`. `bun run api:stripe:bootstrap` (`scripts/stripe-bootstrap.ts`)
-creates them and the Customer Portal settings.
-
-- The add server dialog starts a plan. The hosting service
-  (`apps/auth-api/src/server/hosted-billing.ts`) makes the Stripe customer before the Checkout, so
-  two open Checkouts use one customer. The Checkout sets the subscription metadata
-  `openbot_user_id` and `openbot_server_id` (`BILLING_METADATA`). The billing service calls the
-  `onSubscriptionSynced` hook after each subscription sync; the hosting side uses it to provision,
-  stop and resume servers, so billing does not know about boat. See
-  [hosted servers](../hosted-servers.md#lifecycle). The webhook links a new Stripe customer to the
-  account from `openbot_user_id`. It never moves a known
-  customer to another account, and it skips a subscription that names no account.
-- Desktop Settings → Billing and the web Billing dialog render `@openbot/ui/features/billing`: one
-  row for each open plan, with the server name, the plan, its price, and its renewal controls.
-  Hosted plans support cancellation that keeps data, Keep server, and explicit deletion now or
-  after the paid period. A stored deletion date and subscription ID drive the cron; a fresh
-  terminal Stripe state and a per-server operation lease guard deletion. See
-  [server deletion](../hosted-servers.md#billing-and-server-deletion). The price is the list price of the Stripe Price in the subscription's currency (from
-  `currency_options` when that is not the Price's base currency), before discounts and tax. The
-  webhook stores it with the subscription. The
-  account button opens the Customer Portal for the payment method and invoices.
-- Desktop calls the `billing` IPC group; the main process gets a Customer Portal URL from the Worker,
-  checks that it is a `billing.stripe.com` page, and opens it with `shell.openExternal`. The IPC takes
-  no URL. The web client does the same check before `location.assign`. Checkout URLs get the same
-  check for `checkout.stripe.com` (`isStripeCheckoutUrl`).
-- The change and cancel actions open the Portal flow of one subscription. The Worker first checks
-  that the subscription belongs to the account.
-- The server name comes only from a `remote_hosts` row that the same account owns. A plan whose
-  server was removed stays in the list, because Stripe bills it until the account cancels it.
-- The webhook (`/v1/stripe/webhook`) checks the Stripe signature, records the event ID to ignore a
-  repeat, and gets the subscription from Stripe again before it writes the D1 row. So the order of
-  events has no effect.
-- Without `STRIPE_SECRET_KEY` billing is off: the state is `available: false`, and the Portal route
-  and the webhook answer 503.
-
-Rule: plan limits read `getServerEntitlement` (`apps/auth-api/src/server/billing-entitlement.ts`)
-only. It decides which statuses and grace periods give a server a plan, and it counts a plan only
-for a server that the paying account owns. Do not read `billing_subscriptions` or a Stripe status in
-another place.
-
-### Commercial license
-
-The license is a second Stripe product next to the server plans
-(`packages/contracts/src/license.ts`). One account has at most one open license. Its subscription
-quantity is the number of users. There are two tiers, Starter and Team. Each tier has a monthly and a
-yearly price, and each of these has a bundle price for an account that pays for a hosted server. That
-gives 8 Stripe prices (`LICENSE_PLANS`):
-
-| Plan | Lookup key | Month (EUR) | Year (EUR) | Users |
-| --- | --- | --- | --- | --- |
-| Starter | `openbot_license_starter_{month,year}` | 10 | 96 | 1 |
-| Starter bundle | `openbot_license_starter_bundle_{month,year}` | 9 | 86.40 | 1 |
-| Team | `openbot_license_{month,year}` | 25 for 2 users, + 15 for each extra user | 240, + 144 | 2–10 |
-| Team bundle | `openbot_license_bundle_{month,year}` | 22.50, + 13.50 | 216, + 129.60 | 2–10 |
-
-A year is 12 months less 20% (`LICENSE_YEAR_DISCOUNT_PERCENT`). The bundle discount
-(`LICENSE_BUNDLE_DISCOUNT_PERCENT`: 10%) comes off after it. The amounts are
-in `LICENSE_PLAN_PRICES` (EUR is the base currency; USD and PLN are `currency_options` with their own
-amounts). Team prices are graduated; the 1-user prices are flat. `stripe-bootstrap.ts` creates each
-price with the metadata `openbot_license_tier`, `openbot_license_interval` and
-`openbot_license_bundle`, and `licensePlanFromPrice` reads them. A price with no metadata is Team monthly: the license from before
-the tiers used the same lookup key. The license terms allow 3 devices for each user
-(`LICENSE_DEVICES_PER_USER`); the app shows this and does not count devices.
-
-- A checkout names `tier: "starter" | "team"` and `interval`. A request with no tier is Team monthly,
-  as an app before the tiers sends. The Worker sells the bundle price when the account pays for any
-  hosted server plan (`accountHasServerPlan`: active, trialing, or past due in the grace period). The
-  `licenses` row stores `bundle`. After each server plan sync, `LicenseService.alignBundlePrice` moves
-  an open license to the price of its tier and interval with the bundle that the account now has, with
-  `proration: none`, so the change starts at the next renewal. It logs a Stripe failure and does not
-  fail the sync.
-- A server create can order a license (`license: {tier, users}` in `POST /v2/hosting/servers`). The
-  Worker refuses a Team license on a Starter server, and more Team users than the server plan has
-  members (400 `invalid_hosted_server_request`). An account with an open license gets 409
-  `license_exists`. Fewer users than the people in use get 409
-  `license_users_in_use`, as a license checkout does. One Checkout page then has 2 line items: the server price, and the license bundle
-  price for the same interval and currency, with the users as its quantity. The customer pays one
-  invoice. On the first sync of the paid subscription, `LicenseService.splitOrder` makes a license
-  subscription with the metadata `openbot_order_subscription` (the server subscription), anchored at
-  the server period end with `proration_behavior=none`, so its first invoice is 0. Then it deletes the
-  license item from the server subscription, also with no proration. Each later sync runs the split
-  again until it is done, and the metadata stops a second license subscription. The sales ledger
-  divides the order invoice into a server fact and a license fact, and ignores the 0 invoice of the
-  split. The Checkout session metadata keeps the order, so "Open the payment page again" makes a page
-  with the same license, unless the account has a license by then.
-- Promotion: the Worker setting `LICENSE_TRIAL_END` (ISO 8601, in `wrangler.jsonc`; empty turns it
-  off) makes each new license free until that time. `LicenseService.trialEnd()` gives it while it is
-  at least 49 hours away, because Stripe Checkout needs a `trial_end` 48 hours ahead; after that the
-  license sells at full price. `GET /v1/me/license` then has `trialEnd` (ms), and the app shows
-  "Free until" with the date in UTC. A license checkout sets `subscription_data[trial_end]`, so the
-  license is `trialing` and the first charge is on the trial end. A server order during the promotion
-  has no license item: the server is the only line, and the session and subscription metadata keep
-  the order (`openbot_order_license_{tier,users,interval,trial_end}`). `splitOrder` then makes the
-  license subscription at the bundle price with `trial_end` (at least 1 hour ahead, for a late
-  webhook) and removes the order metadata from the server subscription. The 0 trial invoice is a
-  `first_purchase` sales fact of 0, and the charge on the trial end is a `renewal`. Apps before the
-  promotion ignore `trialEnd`; Stripe Checkout still shows the trial.
-- The 1-user tier refuses `POST /v1/me/license/users` with 409 `license_one_user`.
-  `POST /v1/me/license/plan` sells upgrades only: Starter to Team monthly or yearly, and
-  Team monthly to yearly. It bills the difference now (`always_invoice`,
-  `payment_behavior=error_if_incomplete`). Any other change is 409 `license_plan_change`: to go down,
-  the owner cancels at the period end and buys again.
-- The `licenses` table stores `tier`, `billing_interval` and `bundle` (migration `0041`). NULL is Team
-  monthly.
-- Users are people, not servers or computers: the owner, plus each distinct account that is an
-  active member (`remote_memberships`) of a server that the owner owns. AI agents and chat-app
-  participants do not count.
-- While the license is open, it is a hard limit. `RemoteControlPlane` adds
-  `LICENSE_SEAT_AVAILABLE_SQL` to the member seat check of an invite accept and a reactivation, in the
-  same statement as the server plan limit. A full license refuses a new person with 409
-  `license_users_full`. A person that the license already counts can join another server of the
-  owner. Members who joined before are never removed. Without an open license, only the server plan
-  limit (`getServerEntitlement`) applies.
-- `apps/auth-api/src/server/license-service.ts` owns the `licenses` D1 table (migration `0038`).
-  The billing webhook gives a subscription with the license lookup key to `LicenseService.sync` and
-  writes nothing to `billing_subscriptions`. A Worker before the license sees an unknown plan and
-  skips the event, so an old Worker keeps working.
-- Routes: `GET /v1/me/license`, and `POST /v1/me/license/checkout`, `/users`, `/plan` and `/renewal`. The
-  state is `available: false` only when the Worker has no billing, and the app then shows nothing.
-  When Stripe has no active license price (it is archived to pause sales), checkout returns 503
-  `license_unavailable`, and the app shows a toast with the sales address. An app on a Worker
-  without these routes gets 404 and also shows nothing.
-- A Stripe customer pays in one currency, so a new license uses the currency of the account's open
-  subscriptions, and a server checkout in another currency gets 409 `billing_currency`. Add server
-  opens in that currency and does not let the user change it. Checkout cannot buy fewer users than are in use. An increase is charged at once
-  (`always_invoice`). A decrease starts at the next invoice and cannot go below the users in use or
-  below 5. The subscription metadata `openbot_paid_users` and `openbot_paid_period_end` keep the
-  users paid in the current period, so an increase after a decrease charges only the users above
-  that number.
-- Checkout keeps one open page that sells a license for each account: a license page, or a server
-  order page with a license. After it makes a page, it closes the older pages of the customer that
-  sell a license, so two requests at the same time return the same page. When a newer page sells a
-  license, the new page closes with `license_exists`. It then reads the customer's subscriptions in
-  Stripe, not only D1, so a license paid before its webhook, or a paid order before its split, stops
-  the new page with `license_exists`. A second open license can still come from the
-  Stripe Dashboard; `sync` logs a warning, and a person refunds it.
-- Refunds are by email only; the app and the Worker have no refund action. A customer emails
-  licenses@openbot.run within 24 hours of the first payment for a refund less a €3 / $3.60 /
-  13.20 zł fee, once per account. There are no refunds for later changes.
-- When the owner of a full license creates an invite, the members section asks to add 1 user and
-  shows the extra price, then adds the user and creates the invite. A 1-user license changes to Team
-  monthly for 5 users in place of the added user. At 25 users it shows "Contact
-  us" and creates no invite. Admins get no step; the join tells the person that the license is full.
-- Desktop calls the `license` IPC group; the web client calls the browser routes. Both render
-  `@openbot/ui/features/billing/LicenseSection` in the license slot of `BillingPanel`.
-
 ## Servers on this computer
 
 The desktop can run more servers on the same computer. Each one is a separate workspace: its own
@@ -1051,9 +899,8 @@ The Host PKG installs this as `create-tenants`, alongside the standalone `openbo
 `openbot-host-service.ts` owns setup/verification sequencing; `openbot-host-macos.ts` owns OS
 operations. Passwords cross only the native helper's captured pipe and the administrator's tty,
 not the host protocol. The root-only recovery file is removed after successful presentation.
-`build-host-installer.ts` and `verify-host-installer.ts` own release packaging and the exact
-payload manifest. Package installation preserves host registration and state; only the application
-is automatically updated. A Host Manager upgrade requires an administrator-installed signed PKG.
+Package installation preserves host registration and state; only the application is automatically
+updated. A Host Manager upgrade requires an administrator-installed signed PKG.
 
 The optional standalone root helper (`scripts/host-manager.ts`) uses the lifecycle in
 `src/main/host-manager.ts` and fixed macOS operations in `scripts/host-manager-macos.ts`.
@@ -1065,29 +912,8 @@ The tenant process owns an in-memory activity generation in `src/backend/restart
 Backend work and main-process sessions advance it, so work between status polls resets the idle
 grace. This counter contains no user data and is never sent to the host. Health and restart
 readiness remain false until agent initialization succeeds.
-See [multi-tenant hosting](../multi-tenant-hosting.md) for installation, permissions, and acceptance.
 
-## Hosted servers
-
-A hosted server is one [boat](https://boat.dev) sandbox for one account. It runs the Linux
-OpenBot build under Xvfb and is a normal Remote host after its first start. The account Worker
-owns the sandbox lifecycle: it creates, resumes and deletes sandboxes, and D1 keeps the desired
-and observed state. A server reports each minute while it is in use, and the Worker stops it after
-15 minutes with no report. boat also stops each sandbox at the end of a 2-hour lease that activity
-extends. When boat stops a server in use, the Worker resumes it, and clients ask the Worker to
-start a stopped server when a connection fails. No message
-waits in the Worker while a server is stopped; the client keeps it and connects again. The Worker's boat key cannot read files or run commands in a
-sandbox. On a hosted server only, main reads the memory of the machine, and the backend holds new
-turns while it is low and limits the turns that run at the same time. See
-[hosted servers](../hosted-servers.md) for the flow, the configuration, the memory guards and the template.
-
-A self-hosted server uses the same Linux build, scripts and units on the owner's own computer, with
-`/opt/OpenBot/hosted/mode` set to `self`. It has no claim: main starts in server mode
-(`src/main/server-mode.ts`, `OPENBOT_SERVER=1`), and the `openbot` terminal command signs it in over
-a Unix socket in the 0700 runtime directory of the service user. Main publishes the host after each
-sign-in. See [self-hosted servers](../self-hosted-server.md).
-
-### Remote release checks
+## Remote release checks
 
 `host-release-v1` adds release status and check routes for all signed-in server members. It does not change
 `host-update-v1`, which still refuses installation requests and checks when updates are managed
@@ -1095,14 +921,11 @@ or disabled. The new check reads only the official stable release manifest for t
 and architecture. It never installs files, restarts the host, or changes update preferences.
 The host checks that the manifest contains a compatible asset and returns only version, phase,
 and installation method. Feed errors return a safe status and can be retried.
-The method is `self-update` when the host's updater can install, also in a container of
-`docker/instances`, whose host pulls the image on request
-([Updates from the app](../docker.md#updates-from-the-app)). Other containers report `container`.
+The method is `self-update` when the host's updater can install. A container reports `container`.
 
 `HostReleaseService` owns release discovery. `RequestedUpdate` still owns idle restarts and
 `UpdateService` still owns app updates. Desktop and web use the new capability when available;
-older hosts keep their existing update controls. The status poll is passive and does not keep a
-hosted server awake. Mobile shares the protocol codecs but has no new update screen.
+older hosts keep their existing update controls. The status poll is passive. Mobile shares the protocol codecs but has no new update screen.
 
 `host-member-update-v1` adds `/v1/host/update/status`, `/check`, and `/start` for all active,
 signed-in server members. It reuses the released update snapshot. The start body is empty:

@@ -5,7 +5,6 @@ import { Alert, StyleSheet, View } from "react-native";
 import { useUniwind } from "uniwind";
 import { useAgentPinTransition } from "@/features/agents/components/agent-pin-transition";
 import { useChatSectionMenu } from "@/features/agents/components/use-chat-section-menu";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { useAgentUnread } from "@/features/workspace/components/use-live-workspace";
 import {
   type MobileAgent,
@@ -14,6 +13,7 @@ import {
 } from "@/features/workspace/context/mobile-workspace-context";
 import { canToggleAgentPin } from "@/features/workspace/model/agent-pins";
 import { type MenuAction, type MenuComponentRef, MenuView } from "@/shared/components/menu-view";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { currentText, useText } from "@/shared/lib/text";
 
@@ -41,7 +41,6 @@ function useAgentMenuActions(agent: MobileAgent) {
       const text = currentText();
       showFailureAlert(
         error,
-        "agent",
         text.t(action === "delete" ? "mobile.agent.menu.deleteFailed" : "mobile.agent.menu.duplicateFailed"),
         text.errorMessage(error, text.t("mobile.agent.menu.actionFailed")),
       );

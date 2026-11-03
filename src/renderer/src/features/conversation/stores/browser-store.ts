@@ -1,13 +1,11 @@
 import type { BrowserControlSession, BrowserPreview, BrowserTab } from "@openbot/contracts/ipc";
 import { TEAM_BROWSER_NAVIGATION_CAPABILITY } from "@openbot/contracts/team-protocol/current";
-import { classifyFailure } from "@openbot/telemetry";
 import { toast } from "@openbot/ui";
 import type { AgentProfile } from "@openbot/ui/data";
 import { browserAddressUrl } from "@openbot/ui/features/browser/browser-suggestions";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, untrack } from "solid-js";
 import { actionToast } from "../../../action-toast";
-import { desktopAnalytics } from "../../../analytics";
 import { serverSupportsCapability } from "../../servers/server-capabilities";
 import { conversationPort } from "../conversation-port";
 import { conversationRuntime } from "../conversation-runtime";
@@ -230,9 +228,7 @@ export function createBrowserStore(deps: BrowserStoreDeps) {
         ? {
             onError: (error) => {
               const { t, errorMessage } = currentText();
-              actionToast.error(errorMessage(error, t("app.errorStatus.browserTakeover")), {
-                report: { operation: "turn", source: "action", cause_code: classifyFailure(error) },
-              });
+              actionToast.error(errorMessage(error, t("app.errorStatus.browserTakeover")));
             },
           }
         : undefined,
@@ -436,7 +432,6 @@ export function createBrowserStore(deps: BrowserStoreDeps) {
     if (!value) return;
     const targetAgentId = deps.props.agent?.id;
     const target = targetAgentId ? { agentId: targetAgentId, serverId: deps.props.server?.id ?? "local" } : undefined;
-    const analytics = desktopAnalytics.scope();
     const url = browserAddressUrl(value);
     // A host that cannot move an existing tab to an address gets a new tab for it instead: the
     // released navigate route carries a direction only.
@@ -466,15 +461,9 @@ export function createBrowserStore(deps: BrowserStoreDeps) {
           focus: true,
         });
         deps.setBrowserAddress(tab.url);
-        analytics.track("browser_action", { action: "open", result: "succeeded" });
         return tab;
       } catch {
         deps.setBrowserAddress(url);
-        analytics.track("browser_action", {
-          action: "open",
-          result: "failed",
-          failure_code: "browser_open_failed",
-        });
         return undefined;
       }
     })();
@@ -548,17 +537,10 @@ export function createBrowserStore(deps: BrowserStoreDeps) {
     }
     const agentId = deps.props.agent?.id;
     const target = agentId ? { agentId, serverId: deps.props.server?.id ?? "local" } : undefined;
-    const analytics = desktopAnalytics.scope();
     try {
       await conversationRuntime(deps.props).browser.reload(tabId);
-      analytics.track("browser_action", { action: "reload", result: "succeeded" });
     } catch (error) {
       deps.setComposerError(currentText().t("browser.error.reloadTab"), target, error);
-      analytics.track("browser_action", {
-        action: "reload",
-        result: "failed",
-        failure_code: "browser_reload_failed",
-      });
     }
   }
 

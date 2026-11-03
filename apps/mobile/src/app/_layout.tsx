@@ -14,7 +14,6 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ReducedMotionConfig, ReduceMotion } from "react-native-reanimated";
 import { useCSSVariable, useUniwind, withUniwind } from "uniwind";
 
-import { MobileAnalyticsLifecycle } from "@/features/analytics/lifecycle";
 import { AppLockOverlay } from "@/features/app-lock/components/app-lock-overlay";
 import { installAppLock } from "@/features/app-lock/model/app-lock";
 import { DevelopmentConnectLinkHandler } from "@/features/auth/components/development-connect-link-handler";
@@ -23,7 +22,6 @@ import { loadOnboardingProgress } from "@/features/onboarding/model/onboarding-p
 import { resetNotificationAvatars } from "@/features/push-notifications/notification-avatars";
 import { installNotificationHandler } from "@/features/push-notifications/use-notification-taps";
 import { installQuickActions, resetQuickActions } from "@/features/quick-actions/quick-actions-native";
-import { loadAppLanguage } from "@/features/settings/model/app-language";
 import { loadAppearance, useAppearance } from "@/features/settings/model/appearance";
 import { loadDictationLanguage } from "@/features/settings/model/dictation-language";
 import { loadHapticsPreference } from "@/features/settings/model/haptics";
@@ -214,7 +212,6 @@ export default function RootLayout() {
       void loadVoiceSettings().catch(() => undefined);
       supertonicModel.check();
       parakeetModel.check();
-      void loadAppLanguage().catch(() => undefined);
       void loadOnboardingProgress().catch(() => undefined);
     });
   }, []);
@@ -237,7 +234,6 @@ export default function RootLayout() {
               <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
               <BloubStageProvider>
                 <MobileSessionProvider>
-                  <MobileAnalyticsLifecycle />
                   {__DEV__ ? <DevelopmentConnectLinkHandler /> : null}
                   <AppLoadingOverlayProvider>
                     <RootNavigator />

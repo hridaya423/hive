@@ -366,7 +366,6 @@ EAS CLI prompts for signing credentials when needed.
 
 The build loads `Plain text` and `Sensitive` variables from the EAS `production` environment.
 Variables with `Secret` visibility must be supplied in the local environment.
-See [OpenPanel configuration](#openpanel-product-analytics) for the required analytics variables.
 
 To upload, open Apple's Transporter app, sign in, add the `.ipa`, and select **Deliver**.
 After Apple processes the build, select it in App Store Connect under **TestFlight** and assign
@@ -399,9 +398,7 @@ One-time setup:
    Each extension needs the App Group `group.run.openbot.mobile`. When a release adds a
    target, set up its profile interactively once (`bunx eas-cli credentials -p ios`) before CI builds
    it. Keep the saved push key; do not let EAS make a new one.
-4. Keep the OpenPanel variables in EAS `production` with `Plain text` or `Sensitive` visibility.
-   `Secret` variables are unavailable to this local build. Do not copy these values into source.
-5. Ensure App Store Connect has the app `run.openbot.mobile` and the intended TestFlight group.
+4. Ensure App Store Connect has the app `run.openbot.mobile` and the intended TestFlight group.
 
 After this workflow is merged into `main`, authenticate GitHub CLI with `gh auth login`, then run
 from the repository root:
@@ -468,13 +465,12 @@ One-time setup:
    access to `run.openbot.mobile` with the release permissions for testing tracks.
 4. Keep the Android upload keystore configured in EAS as the default build credentials. CI downloads
    it. Play App Signing keeps the app signing key; the EAS keystore is the upload key.
-5. Keep the OpenPanel variables in EAS `production`, as for iOS.
-6. Google Play accepts API uploads only after the app has one bundle. For the first release, dispatch
+5. Google Play accepts API uploads only after the app has one bundle. For the first release, dispatch
    the workflow with `upload` cleared, download the `android-*` artifact, and upload the `.aab` in
    Play Console under **Test and release → Testing → Internal testing**. Until the app has a
    published release, Play accepts only draft releases: dispatch with `release_status` set to `draft`
    and roll out the release in Play Console.
-7. Commit `apps/mobile/google-services.json`, the Firebase file of the Android app
+6. Commit `apps/mobile/google-services.json`, the Firebase file of the Android app
    `run.openbot.mobile`. `app.config.js` adds it when it exists. Without it the build has no Firebase,
    and Android gets no notifications. The file has public identifiers only. The account service has
    the key that sends (`FCM_SERVICE_ACCOUNT` in [the account service](../auth-api/README.md)).
@@ -544,128 +540,3 @@ A failed post does not change the release: re-run the `Post on Discord` job. A r
 successful post posts the message again. To post a version again, or one that a push did not post,
 run `gh workflow run mobile-release-announcement.yml --ref main -f version=x.y.z`. Both stores must
 have the version in `apps/mobile/CHANGELOG.md`, and the file must be for that version.
-
-## OpenPanel product analytics
-
-The app uses the official [`@openpanel/react-native` SDK](https://openpanel.dev/docs/sdks/react-native)
-and `expo-application`, following the [React Native guide](https://openpanel.dev/guides/react-native-analytics).
-The endpoint is fixed to `https://analytics.openbot.run/api`. No analytics credentials are committed.
-
-### Production configuration
-
-1. In the self-hosted OpenPanel dashboard, open the existing **Openbot** project used by desktop and the website.
-   Do not create or select a separate **Openbot Mobile** project.
-   Create a separate client for OpenBot Mobile with **write** access only. Copy its Client ID and
-   Client Secret. Do not use an organization/root client or a client with read access.
-2. In the Expo dashboard, open the **openbot** project → **Environment variables**, select the
-   **production** environment, and add:
-
-   | Variable | Value |
-   | --- | --- |
-   | `EXPO_PUBLIC_OPENPANEL_CLIENT_ID` | The mobile client's Client ID |
-   | `EXPO_PUBLIC_OPENPANEL_CLIENT_SECRET` | The mobile client's write-only Client Secret |
-   | `EXPO_PUBLIC_APP_ENV` | `production` |
-
-   The production build profile also sets `EXPO_PUBLIC_APP_ENV=production`. Development and preview
-   profiles set their own environment and never send events. Set the variable in the EAS environment
-   too, so production OTA updates use the same gate. Keep the credentials out of development/preview.
-3. Generate the next production native build through the usual approved release process. The new
-   `expo-application` native dependency requires a new binary; do not send this change as an OTA
-   update to a binary that lacks it. Build and deployment are separate operations, not part of setup.
-4. In that build, leave **Settings → General → Privacy → Share product analytics** enabled.
-   Before pairing, events stay in memory and do not appear in OpenPanel. Pair the phone.
-   OpenPanel's Real-time view should then show `mobile_app_opened` and pairing events with
-   `surface=mobile`, the account ID, and the email on its profile. Open a conversation and send
-   a message. Confirm connection and message events, then disable the setting and confirm that new actions do not send events. Repeat on iOS and Android.
-
-React Native requires a Client Secret according to OpenPanel's native SDK guide. In this direct
-native integration it is an **embedded write credential**, not a confidential server secret.
-Expo's `EXPO_PUBLIC_` values are visible in the shipped bundle. Use only a dedicated write client;
-never embed a key for Export, Insights, Manage, or an OpenBot account/session. EAS visibility can hide
-values in its UI but does not hide them in the app. See [OpenPanel client access levels](https://openpanel.dev/docs/api/authentication)
-and [Expo environment variables](https://docs.expo.dev/guides/environment-variables/).
-
-For a local production configuration, put the same variables in the ignored
-`apps/mobile/.env.local`. Ordinary development mode still disables analytics. A missing Client ID,
-missing Client Secret, non-production environment, or web runtime disables the client without
-blocking the app. Tests replace native modules and the HTTP transport; they do not contact OpenPanel.
-
-SDK 1.4.1 declares old peer ranges (`expo-application` 5–7 and `expo-constants` 14–18).
-Expo SDK 58 uses the SDK number for these package versions. Keep the Expo-compatible versions
-installed by `expo install`; do not downgrade them to silence that peer warning. Native verification
-of both platforms is required before release.
-
-### Event catalog
-
-Every event has `surface=mobile`, `platform=ios|android`, `environment=production`,
-`event_schema_version=3`, `app_version` and `build_number`. Operation outcomes use `result` and,
-where available, `duration_ms`. Failure codes are fixed categories, never raw error text.
-
-| Event | Meaning |
-| --- | --- |
-| `mobile_app_opened` | Cold start or return from background, with `signed_in`; iOS inactive overlays do not count as a new visit |
-| `mobile_pairing_action` | Sign-in scanner opened, camera permission result, QR redemption result, scanner cancelled; `entry_point` is `qr` or `link` (a pairing link) |
-| `mobile_connection_action` | Initial connection attempt, reconnection attempt, or connection lost; result, duration and bounded loading stage |
-| `conversation_opened` | One visible-visit outcome and time to readable conversation, including cached/offline reads; failures when no readable conversation is available |
-| `message_send` | Host receipt or failure, attachment count, reply flag, provider/model/reasoning metadata when known |
-| `agent_input_action` | Submission of a structured prompt answer or an approval decision (`accept` or `decline`); no answer contents, command or path |
-| `attachment_action` | Local file selection, upload, removal; result, count and coarse size bucket when known |
-| `agent_action` | Create, update, duplicate or delete |
-| `routine_action` | Create, update or delete, including enabling/disabling through update |
-| `memory_action` | Create, update or delete |
-| `search_action` | One summary when a search screen closes after using a query/filter; final result count, no query |
-| `team_action` | Select, join or leave a server |
-| `conversation_action` | Pin/unpin or hide/unhide, including preference-save failures |
-| `usage_viewed` | Open the agent Usage section or the server Usage page; `scope` is `agent` or `server` |
-| `account_sign_out` | Sign-out result under the initiating account |
-| `account_sign_in_started` | Email sign-in code request (also a resend); `method=email`, `result` is `code_sent` or `failed`, duration |
-| `account_sign_in_completed` | Email sign-in code check; `method=email`, result, duration |
-| `hosted_server_plans_action` | Hosted server plans sheet `viewed` and `closed`, or a server in setup opened (`setup_opened`); `entry_point` is `drawer` or `onboarding` when known. The mobile sheet has no purchase |
-| `onboarding_step` | First-run `step` (`hello`, `server`, `agent`, `look`, `name`, `role`, `task`, `ready`) with `action` `viewed`, `next`, `back` or `skipped` |
-| `onboarding_completed` | First run ended; `skipped` is true when the user skipped it |
-| `notification_settings_action` | Notifications turned on or off, preview or Live Activities switched (`enabled`), or the phone's permission prompt answered (`permission` is `granted`, `denied` or `undetermined`) |
-| `live_activity_action` | The app started or ended a Live Activity; updates are not counted |
-| `voice_conversation_action` | Voice mode `start`, or `end` with its duration and `turn_count`; `server_kind=remote` |
-| `voice_turn` | One dictation session: result, listening time in `audio_duration_seconds`, time from stop to final text in `duration_ms`, and `transcription` (`local` or `cloud`) when known; no words |
-| `agent_template_action` | Agent template install from a link; `action=installed`, `entry_point=deep_link`, result, duration |
-| `analytics_preference_changed` | `enabled=false`, sent once before collection stops when the user turns analytics off; the app waits at most 2 seconds for it |
-
-Use a mobile activation funnel from open → successful QR redemption → successful connection →
-conversation load or message send. Measure signed-in D1/D7 retention by OpenBot account ID. Eligible
-pre-session events join that account after sign-in. Unclaimed and expired attempts are not sent, so
-this funnel does not measure all abandoned pairing attempts.
-A message receipt means the host accepted the message, not that the agent finished its work.
-Connection retries are separate attempts; countdown ticks and background suspension are not failures.
-
-The app does not emit host `system_turn_*` events again. Host lifecycle remains attributed to the
-host owner and does not identify which client started the work. Analytics does not change Team API.
-
-The local phone-wide preference is loaded before SDK creation. If it cannot be read, collection
-stays off. Opt-out clears pending events and blocks later sends; it cannot retract a request already
-sent. Account changes reset identity in order, and late results from an old account are discarded.
-Error notifications and failed-action diagnostics use a persistent local queue. Other product
-events still have no disk queue. Transport failures can lose those product events, and collection
-never blocks product actions. Session replay, automatic screen capture, route IDs, QR values, tokens,
-file names, contents, URLs and raw errors are excluded. The SDK's Android referrer and path metadata
-are removed again at the final send filter. Account ID and normalized email identify the profile;
-email is not an event property. The phone preference is independent of desktop/host analytics.
-
-Pre-session events stay in memory for at most 30 minutes from the first buffered event, with a
-limit of 100 events (the oldest is removed when full). Session creation sends eligible events once,
-with their original timestamps, after identifying the account. Reconnects do not replay them.
-Opt-out and process exit discard the buffer. Sign-out ends the previous account's operation scopes;
-new signed-out activity can be claimed by the next sign-in. There is no disk queue.
-Existing anonymous events already sent by older builds are not reassigned by this fix.
-If mobile credentials belong to another project, replace both production variables with credentials
-for a write-only client in **Openbot**, then ship a build or compatible update with those values.
-
-Mobile schema generation 2 adds safe error diagnostics. Native error alerts and chat send errors
-emit `notification_shown`; existing failed actions emit a separate `client_operation_failed`.
-Only fixed cause, source, operation, and provider/model fields are sent. No alert text is sent.
-
-Mobile schema generation 3 adds sign-in, hosted server plans, first-run, notification settings,
-Live Activity, voice, agent template and opt-out events, `entry_point` on pairing, and `scope` on
-`usage_viewed`. The generation comes from `ANALYTICS_GENERATIONS.mobile` in `@openbot/telemetry`.
-The file queue holds at most 1,000 reports, 1 MiB, and seven days, and sends only after a local
-write succeeds. Foreground and host reconnection trigger retries. Opt-out and account changes
-clear this queue. See [the analytics contract](../../ANALYTICS.md#reliable-error-reports).

@@ -80,8 +80,6 @@ interface OutboxStoreOptions {
   deliver: OutboxDeliverer;
   /** The text of a failed attempt, in the reader's language. */
   describeError: (error: unknown) => string;
-  /** Reports a failed attempt. A stopped upload is not a failure. */
-  reportFailure?: (error: unknown, message: OutboxMessage) => void;
   now?: () => number;
   randomId: () => string;
 }
@@ -520,7 +518,6 @@ export class OutboxStore {
       // The connection went: the message waits for it and goes again on its own.
       this.update(clientMessageId, { state: "waiting", error: null });
     } else {
-      this.options.reportFailure?.(error, message);
       this.update(clientMessageId, { state: "failed", error: this.options.describeError(error) });
     }
     void this.persist();

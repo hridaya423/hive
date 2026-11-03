@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { SERVER_MEMBER_LIMIT_SQL } from "../src/server/billing-entitlement";
+import { SERVER_MEMBER_LIMIT_SQL } from "../src/server/remote-control-plane";
 import { migratedDatabase, migration } from "./sqlite-d1";
 
 const databases: DatabaseSync[] = [];

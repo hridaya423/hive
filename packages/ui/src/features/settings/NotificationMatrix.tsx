@@ -1,6 +1,5 @@
 import { SERVER_NOTIFICATION_LEVELS, type ServerNotificationLevel } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import { classifyFailure } from "@openbot/telemetry";
 import {
   Badge,
   Bell,
@@ -131,7 +130,6 @@ export function NotificationMatrix(props: NotificationMatrixProps) {
     toast.error(t("server.notifications.changeFailedTitle"), {
       error,
       fallback: t("server.notifications.changeFailedDescription"),
-      report: { operation: "settings", source: "action", cause_code: classifyFailure(error) },
     });
   }
 

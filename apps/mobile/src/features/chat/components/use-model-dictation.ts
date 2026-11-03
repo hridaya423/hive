@@ -2,7 +2,6 @@ import { referenceFrom } from "@openbot/user-errors";
 import { CodedError } from "expo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSharedValue, withTiming } from "react-native-reanimated";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { ElevenLabsError, scribeToken } from "@/features/voice/model/elevenlabs";
 import { parakeetModel } from "@/features/voice/model/parakeet-model";
 import { type ScribeFailure, ScribeRealtimeSession } from "@/features/voice/model/scribe-realtime";
@@ -73,28 +72,6 @@ interface CaptureSession {
   /** The microphone is open for this session. Events before that belong to an earlier one. */
   native: boolean;
   heard: boolean;
-  listeningAt: number | null;
-  stoppingAt: number | null;
-  ending: "cancelled" | "permission_denied" | "operation_failed" | null;
-}
-
-/** One analytics event for each session. It has no words of the transcript. */
-function trackTurn(current: CaptureSession): void {
-  const now = performance.now();
-  const failed = current.ending === "permission_denied" || current.ending === "operation_failed";
-  mobileAnalytics.track("voice_turn", {
-    server_kind: "remote",
-    transcription: current.engine === "parakeet" ? "local" : "cloud",
-    result: failed ? "failed" : current.ending === "cancelled" || !current.heard ? "cancelled" : "succeeded",
-    failure_code: !failed
-      ? undefined
-      : current.ending === "permission_denied"
-        ? "permission_denied"
-        : "operation_failed",
-    audio_duration_seconds:
-      current.listeningAt === null ? 0 : ((current.stoppingAt ?? now) - current.listeningAt) / 1_000,
-    duration_ms: current.stoppingAt === null ? undefined : now - current.stoppingAt,
-  });
 }
 
 /** The speech module has the microphone and the recognizer: an app binary from before them does not. */
@@ -144,7 +121,6 @@ export function useModelDictation({
   }, []);
 
   const settle = useCallback(() => {
-    if (session.current) trackTurn(session.current);
     if (owner === id) owner = null;
     session.current = null;
     if (stopTimer.current) clearTimeout(stopTimer.current);
@@ -158,7 +134,6 @@ export function useModelDictation({
   const fail = useCallback(
     (current: CaptureSession, notice: DictationNotice, error?: unknown) => {
       if (session.current !== current) return;
-      current.ending = "operation_failed";
       speechNative?.cancelCapture?.();
       current.scribe?.cancel();
       settle();
@@ -231,9 +206,6 @@ export function useModelDictation({
         abort: new AbortController(),
         native: false,
         heard: false,
-        listeningAt: null,
-        stoppingAt: null,
-        ending: null,
       };
       session.current = current;
       update("starting");
@@ -244,7 +216,6 @@ export function useModelDictation({
           const permission = await recognizer.requestMicrophonePermissionsAsync();
           if (!stillCurrent()) return;
           if (!permission.granted) {
-            current.ending = "permission_denied";
             settle();
             showDictationNotice(microphoneOffNotice);
             return;
@@ -257,7 +228,6 @@ export function useModelDictation({
               await module.loadRecognizer(directory, PARAKEET_THREADS);
             } catch (error) {
               if (!stillCurrent()) return;
-              current.ending = "operation_failed";
               settle();
               showDictationNotice(modelLoadNotice, error);
               return;
@@ -283,14 +253,12 @@ export function useModelDictation({
           current.native = true;
           await module.startCapture?.(engine === "parakeet" ? "transcribe" : "stream");
           if (!stillCurrent()) return;
-          current.listeningAt = performance.now();
           update("listening");
           void haptics.impact("light");
         } catch (error) {
           if (session.current !== current) return;
           current.native = false;
           current.scribe?.cancel();
-          current.ending = "operation_failed";
           settle();
           if (error instanceof ElevenLabsError)
             showDictationNotice(SCRIBE_NOTICES[error.code], { reference: referenceFrom("speech", error.code) });
@@ -323,7 +291,6 @@ export function useModelDictation({
     return new Promise((resolve) => {
       finished.current.push(resolve);
       if (phaseRef.current === "stopping") return;
-      current.stoppingAt = performance.now();
       update("stopping");
       void haptics.selection();
       speechNative?.finishCapture?.();
@@ -338,7 +305,6 @@ export function useModelDictation({
   const cancel = useCallback(() => {
     const current = session.current;
     if (owner !== id || !current) return;
-    current.ending = "cancelled";
     cancelNative(current);
     onDraftRef.current(current.base);
     void haptics.selection();

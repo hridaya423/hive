@@ -190,7 +190,6 @@ export const messages = defineMessages("error.remote", {
   "error.remote.hostRefused": "The host refused the request ({status}).",
   // Channel actions on mobile.
   "error.remote.formUnavailable": "This form is no longer available.",
-  "error.remote.hostedServerRemoval": "Use Billing to delete a hosted server.",
   "error.remote.channelsUnsupported": "Update this desktop server to use channels.",
   "error.remote.channelDeleteUnsupported": "Update this desktop server to delete channels.",
   "error.remote.historyRefreshFailed": "The message was sent, but chat history could not refresh.",

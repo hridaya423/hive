@@ -1,6 +1,6 @@
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useRef, useState } from "react";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { useText } from "@/shared/lib/text";
 
@@ -22,7 +22,7 @@ export function useCopyMessage(text: string) {
       return true;
     } catch (error) {
       void haptics.notification("error");
-      showFailureAlert(error, "turn", t("mobile.chat.message.copyFailed"), t("mobile.chat.copyFailedMessage"));
+      showFailureAlert(error, t("mobile.chat.message.copyFailed"), t("mobile.chat.copyFailedMessage"));
       return false;
     }
   }

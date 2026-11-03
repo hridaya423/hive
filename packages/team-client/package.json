@@ -25,7 +25,6 @@
     "./team-api-requests": "./src/team-api-requests.ts",
     "./team-admin-requests": "./src/team-admin-requests.ts",
     "./marketplace-catalog": "./src/marketplace-catalog.ts",
-    "./hosted-server-wake": "./src/hosted-server-wake.ts",
     "./focus-use": "./src/focus-use.ts",
     "./agent-message-text": "./src/agent-message-text.ts",
     "./base64": "./src/base64.ts",

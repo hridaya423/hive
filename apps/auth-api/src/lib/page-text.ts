@@ -13,17 +13,11 @@ export interface PageText<Text> {
 /**
  * Builds the text of a page in `locale`. A route loader calls it, so the server renders the text,
  * and hydration reads the same text from the loader data.
- *
- * The import is dynamic, so the catalogs are not in the site's main browser chunk. The browser loads
- * them only when it navigates to one of these pages. When a language does not load, the page shows
- * English.
  */
 export async function loadPageText<Text>(
   locale: TranslatedLocale,
   build: (t: AppTranslate) => Text,
 ): Promise<PageText<Text>> {
-  const { loadLocale, localeLoaded, translateFor } = await import("@openbot/i18n");
-  await loadLocale(locale).catch(() => undefined);
-  const shown = localeLoaded(locale) ? locale : "en";
-  return { lang: appLanguageOption(shown).lang ?? shown, locale: shown, text: build(translateFor(shown)) };
+  const { translateFor } = await import("@openbot/i18n");
+  return { lang: appLanguageOption(locale).lang ?? locale, locale, text: build(translateFor(locale)) };
 }

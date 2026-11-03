@@ -5,11 +5,11 @@ import { useThemeColor } from "heroui-native/hooks";
 import Trash2 from "lucide-react-native/icons/trash";
 import { useState } from "react";
 import { Alert, Pressable, View } from "react-native";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { SettingsNote, SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
 import { type MobileAgent, useMobileWorkspace } from "@/features/workspace/context/mobile-workspace-context";
 import { queryKeys } from "@/features/workspace/model/query-keys";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { currentText, useText } from "@/shared/lib/text";
 
@@ -106,7 +106,6 @@ function SharedTableRow({
               const text = currentText();
               showFailureAlert(
                 cause,
-                "agent",
                 text.t("mobile.agent.tables.deleteFailed"),
                 text.errorMessage(cause, text.t("mobile.agent.tables.deleteFailedBody")),
               );

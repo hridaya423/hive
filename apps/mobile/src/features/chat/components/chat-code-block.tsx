@@ -7,7 +7,7 @@ import Copy from "lucide-react-native/icons/copy";
 import { memo, useEffect, useRef, useState } from "react";
 import { type ColorValue, View } from "react-native";
 import { useCSSVariable } from "uniwind";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { useText } from "@/shared/lib/text";
 import { type CodeToken, cachedHighlight, codeLanguageLabel, highlightCode } from "../model/code-highlight";
@@ -88,7 +88,7 @@ const CodeBlockBody = memo(function CodeBlockBody({
       void haptics.notification("success");
     } catch (error) {
       void haptics.notification("error");
-      showFailureAlert(error, "turn", t("mobile.chat.code.copyFailed"), t("mobile.chat.copyFailedMessage"));
+      showFailureAlert(error, t("mobile.chat.code.copyFailed"), t("mobile.chat.copyFailedMessage"));
     }
   }
   return (

@@ -11,10 +11,9 @@ export const SOUND_PREVIEW_KEY = "openbotSoundPreview";
  */
 export interface PushNotificationsNative {
   /**
-   * Reads the permission, and asks once when the phone has not asked yet. `asked` receives the answer
-   * only when the phone showed its prompt.
+   * Reads the permission, and asks once when the phone has not asked yet.
    */
-  permission(asked?: (answer: NotificationPermission) => void): Promise<NotificationPermission>;
+  permission(): Promise<NotificationPermission>;
   /**
    * The push token of the app, or `null` when the phone gives none: the APNs token as lowercase hex on
    * iOS, the Firebase Cloud Messaging token on Android.

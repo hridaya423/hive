@@ -3,12 +3,12 @@ import { router } from "expo-router";
 import { Typography } from "heroui-native";
 import { useState } from "react";
 import { Alert } from "react-native";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { NOTIFICATION_LEVEL_KEYS } from "@/features/push-notifications/components/server-notification-settings";
 import { SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
 import { effectiveServerLevel, useSyncedNotificationLevels } from "@/features/settings/model/notification-levels";
 import { serverNotificationSetting, usePushNotificationPreference } from "@/features/settings/model/push-notifications";
 import { type MobileAgent, useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { currentText, useText } from "@/shared/lib/text";
 
@@ -70,7 +70,6 @@ export function AgentNewChatSection({ agent, available }: { agent: MobileAgent; 
         const text = currentText();
         showFailureAlert(
           cause,
-          "agent",
           text.t("mobile.agent.newChat.failed"),
           text.errorMessage(cause, text.t("mobile.agent.newChat.failedBody")),
         );
@@ -127,7 +126,6 @@ export function AgentCompactSection({ agent, available }: { agent: MobileAgent; 
         const text = currentText();
         showFailureAlert(
           cause,
-          "agent",
           text.t("mobile.agent.compact.failed"),
           text.errorMessage(cause, text.t("mobile.agent.compact.failedBody")),
         );

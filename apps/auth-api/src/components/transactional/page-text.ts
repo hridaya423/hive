@@ -108,55 +108,6 @@ function openAppFallbackText(t: AppTranslate, body: string) {
 
 export type OpenAppFallbackText = ReturnType<typeof openAppFallbackText>;
 
-export function billingReturnText(t: AppTranslate) {
-  return {
-    pageTitle: t("sitePage.billing.pageTitle"),
-    updatedTitle: t("sitePage.billing.updatedTitle"),
-    updatedBody: t("sitePage.billing.updatedBody"),
-    cancelledTitle: t("sitePage.billing.cancelledTitle"),
-    cancelledBody: t("sitePage.billing.cancelledBody"),
-  };
-}
-
-/** A private-use character that marks where the contact link goes in `writeTo`. */
-const EMAIL_MARKER = "";
-
-export function reportSiteText(t: AppTranslate) {
-  const [writeToBefore = "", writeToAfter = ""] = t("sitePage.report.writeTo", { email: EMAIL_MARKER }).split(
-    EMAIL_MARKER,
-  );
-  return {
-    pageTitle: t("sitePage.report.pageTitle"),
-    title: t("sitePage.report.title"),
-    intro: t("sitePage.report.intro"),
-    hostnameLabel: t("sitePage.report.hostnameLabel"),
-    hostnameMissing: t("sitePage.report.hostnameMissing"),
-    reasonLabel: t("sitePage.report.reasonLabel"),
-    /** The labels of the reasons that `/v1/sites/reports` accepts, by reason ID. */
-    reasons: {
-      phishing: t("sitePage.report.reason.phishing"),
-      malware: t("sitePage.report.reason.malware"),
-      abuse: t("sitePage.report.reason.abuse"),
-      copyright: t("sitePage.report.reason.copyright"),
-      other: t("sitePage.report.reason.other"),
-    },
-    detailsLabel: t("sitePage.report.detailsLabel"),
-    optional: t("sitePage.report.optional"),
-    detailsPlaceholder: t("sitePage.report.detailsPlaceholder"),
-    send: t("sitePage.report.send"),
-    sending: t("sitePage.report.sending"),
-    tooMany: t("sitePage.report.tooMany"),
-    sendFailed: t("sitePage.report.sendFailed"),
-    /** The sentence around the contact link: the text before the link and the text after it. */
-    writeTo: { before: writeToBefore, after: writeToAfter },
-    sentTitle: t("sitePage.report.sentTitle"),
-    sentBody: t("sitePage.report.sentBody"),
-    home: t("sitePage.report.home"),
-  };
-}
-
-export type ReportSiteText = ReturnType<typeof reportSiteText>;
-
 function pageErrorText(t: AppTranslate) {
   return {
     title: t("sitePage.error.title"),

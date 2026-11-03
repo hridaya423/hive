@@ -50,9 +50,7 @@ export function SettingsNotificationsTab(props: SettingsNotificationsTabProps) {
   ) => {
     void Promise.resolve()
       .then(action)
-      .catch(() =>
-        toast.error(i18n.t(failed), { report: { operation: "settings", source: "system", cause_code: "unknown" } }),
-      );
+      .catch(() => toast.error(i18n.t(failed)));
   };
   return (
     <>

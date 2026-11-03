@@ -23,9 +23,9 @@ publishes.
   page in your browser. You can also run `claude auth login` in a terminal. The CLI stores the
   credentials; OpenBot does not read, copy or store them. OpenBot runs `claude auth status` to show
   whether Claude is ready.
-- On a Linux host with no browser, a host admin can sign in Claude from another computer: the host
+- On a host with no browser, a host admin can sign in Claude from another computer: the host
   runs `claude auth login --claudeai`, and OpenBot sends the code that Anthropic's page shows to the
-  CLI on the host. See [hosted servers](hosted-servers.md).
+  CLI on the host.
 - Team members can send messages to the Claude agents on your computer or host. These turns use your
   Claude sign-in.
 

@@ -49,12 +49,6 @@ export function routineToolPolicies(args: DynamicRecord): {
   };
 }
 
-export function siteToolString(value: unknown, field: string, limit: number): string {
-  if (!isString(value) || !value.trim()) throw new Error(`${field} is required.`);
-  if (value.length > limit) throw new Error(`${field} is too long.`);
-  return value.trim();
-}
-
 export function routineToolSchedule(value: unknown): RoutineSchedule {
   if (!isRoutineSchedule(value)) throw new RoutineInputError("The routine schedule is invalid.");
   // Validate the polling floor before the store runs so the provider gets a clear,

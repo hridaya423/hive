@@ -1,10 +1,7 @@
 import { isManagedRuntimeProvider } from "@openbot/contracts/agent-providers";
 import { APP_FOLDER_NAME } from "@openbot/contracts/app-url-scheme";
-import { ANALYTICS_GENERATIONS, openPanelTransport, ReportQueue } from "@openbot/telemetry";
-import { fileReportStorage } from "@openbot/telemetry/node";
 import { Effect, Fiber } from "effect";
 import { toAgentRemovalFailed } from "../backend/agent/agent-removal";
-import { toHostedSiteOperationFailed } from "../backend/agent/hosted-site-coordinator";
 import { AgentApiKeys } from "../backend/agent-api-keys";
 import { AgentDatabaseSupervisor } from "../backend/agent-data/agent-database-supervisor";
 import { AgentTables } from "../backend/agent-data/agent-tables";
@@ -29,18 +26,12 @@ import { type AgentFolders, createAgentFolders } from "./agent-folders";
 import { type AgentHostSettingsService, createAgentHostSettings } from "./agent-host-settings";
 import { type AgentInstructionsFiles, createAgentInstructionsFiles } from "./agent-instructions-files";
 import { type BrowserProfileService, createBrowserProfileService } from "./browser-profile-service";
-import { HostReleaseService, readInstallationMode } from "./host-release-service";
-import {
-  CONTAINER_UPDATE_PATHS,
-  CONTAINER_UPDATE_TRIGGER,
-  HOSTED_UPDATE_TRIGGER,
-  HostedUpdateAdapter,
-} from "./hosted-update-adapter";
-import { LicenseDesktopService } from "./license-service";
+import { HostReleaseService } from "./host-release-service";
 import { LocalSignInWindows } from "./local-sign-in-window";
 import { LocalSkillLibrary } from "./local-skill-library";
 import { localSkillTools } from "./local-skill-tools";
 import { MAC_PERMISSION_URLS } from "./mac-permission-urls";
+import { catalogPluginSlug, loadCatalogPluginServers } from "./plugin-catalog-servers";
 import { PushNotificationStore } from "./push-notification-store";
 import { DESKTOP_USE_MS } from "./push-notifications";
 import { RemoteWorkflowError, toRemoteWorkflowError } from "./remote-service-effects";
@@ -146,18 +137,10 @@ import {
 } from "./agent-memory-limit-preference-store";
 import { AgentNotificationLevelStore, OWNER_NOTIFICATION_KEY } from "./agent-notification-level-store";
 import { AgentTemplateService } from "./agent-template-service";
-import { HostAnalytics } from "./analytics";
-import { readAnalyticsInstallId } from "./analytics-install-id";
-import { analyticsInventoryDayStore, collectAnalyticsInventory } from "./analytics-inventory";
-import { catalogPluginSlug, isReportedMcpServerName, loadCatalogPluginServers } from "./analytics-plugin-catalog";
-import { AnalyticsPreferenceService } from "./analytics-preference-service";
-import { readAnalyticsPreference, saveAnalyticsDefault } from "./analytics-preference-store";
-import { providerAuthKind } from "./analytics-provider-auth";
 import { AppBehaviorService } from "./app-behavior-service";
 import { AppearanceService } from "./appearance-service";
 import { ApprovalAutomation, readApprovalAutomation } from "./approval-automation-store";
 import { AutomationServer } from "./automation-server";
-import { BillingDesktopService } from "./billing-service";
 import { managedBitwardenCli } from "./bitwarden-cli-installer";
 import { BitwardenConnectorService } from "./bitwarden-connector-service";
 import { BitwardenConnectorStore } from "./bitwarden-connector-store";
@@ -213,12 +196,8 @@ import { HermesImportService } from "./hermes-import-service";
 import { HostEventsRuntime } from "./host-events-runtime";
 import { agentWebhookRoutineWriter, HostEventsService } from "./host-events-service";
 import { HostService } from "./host-service";
+import { HostStartRetry } from "./host-start-retry";
 import { HostUpdateCoordinator } from "./host-update-coordinator";
-import { CLIENT_USE_WINDOW_MS, HostedServerActivity } from "./hosted-server-activity";
-import { applyHostedServerAccount, type HostedServerEnvironment } from "./hosted-server-bootstrap";
-import { HostedServerDesktopService, withHostingDeveloperKey } from "./hosted-server-service";
-import { HostedServerStartRetry } from "./hosted-server-start-retry";
-import { HostedSiteDesktopService } from "./hosted-site-service";
 import { IdleRestart } from "./idle-restart";
 import { loadIngressQueueKey } from "./ingress-queue-key";
 import { InstanceTransferService } from "./instance-transfer-service";
@@ -358,9 +337,6 @@ import { WebhookRelay } from "./webhook-relay";
 
 const logger = createOpenBotLogger("application-services");
 const SETUP_FILE = "openbot-setup-v2.json";
-const ANALYTICS_PREFERENCE_FILE = "openbot-analytics-preference-v1.json";
-const ANALYTICS_INVENTORY_FILE = "openbot-analytics-inventory-v1.json";
-const ANALYTICS_INSTALL_ID_FILE = "openbot-analytics-install-id-v1.json";
 const APPROVAL_AUTOMATION_FILE = "openbot-approval-automation-v3.json";
 const V2_APPROVAL_AUTOMATION_FILE = "openbot-approval-automation-v2.json";
 const ROUTINE_FEED_FILE = "openbot-routine-feed-v1.json";
@@ -437,9 +413,7 @@ const TEARDOWN_ORDER = {
   idleRestart: 11,
   hostUpdateCoordinator: 12,
   requestedUpdate: 13,
-  hostedServerStartRetry: 14,
   launchPublishRetry: 14.5,
-  hostedServerActivity: 15,
   serverMemory: 16,
   serverMode: 17,
   computerUseHighlight: 18,
@@ -493,7 +467,6 @@ const TEARDOWN_ORDER = {
   storageUsage: 109,
   service: 110,
   mcpOAuth: 111,
-  analytics: 112,
   // After all account consumers have stopped.
   centralAuth: 115,
   // After the service, so the turns that end while the services stop are still written.
@@ -518,16 +491,12 @@ export interface ApplicationServiceContext {
   windows: MainWindowController;
   appIconPath: string;
   appVariant: AppVariant;
-  /** A local server that receives analytics in an unpackaged build. See `readAnalyticsCaptureUrl`. */
-  analyticsCaptureUrl: string | null;
   developmentRemoteRole: DevelopmentRemoteRole | null;
   developmentTestClientEnabled: boolean;
   /** Set only in a hosted server VM. */
-  hostedServer: HostedServerEnvironment | null;
   /** Set only in a self-hosted server that `install-server.sh` installed. */
   serverMode: ServerModeEnvironment | null;
   /** Set only by `bun run dev --hosting=test`. */
-  hostingDeveloperKey: string | null;
   /** Set only in a local server that the desktop app started as its child. See `local-server-child.ts`. */
   localServerChild: LocalServerChildEnvironment | null;
   macHapticFeedback: MacHapticFeedback;
@@ -587,10 +556,6 @@ export interface ApplicationServices {
   /** The restart that the user of this computer asked for, when no work runs. */
   idleRestart: IdleRestart;
   setupFile: string;
-  /** The analytics answer of this computer, kept the same as the account's latest answer. */
-  analyticsPreferences: AnalyticsPreferenceService;
-  /** The random analytics ID of this install. Null when analytics is not built in or it cannot be saved. */
-  analyticsInstallId: string | null;
   updatePreferenceFile: string;
   approvalAutomation: ApprovalAutomation;
   agentAdminSettings: AgentAdminSettingsService;
@@ -632,10 +597,6 @@ export interface ApplicationServices {
   localServers: LocalServers | null;
   centralAuth: CentralAuthManager;
   skills: SkillMarketplaceService;
-  hostedSites: HostedSiteDesktopService;
-  billing: BillingDesktopService;
-  license: LicenseDesktopService;
-  hostedServers: HostedServerDesktopService;
   routineFeed: RoutineFeedServer;
   events: HostEventsService;
   eventsRuntime: HostEventsRuntime;
@@ -659,7 +620,6 @@ export interface ApplicationServices {
   cuaDriver: CuaDriverRuntime;
   computerUseHighlight: ComputerUseHighlightController;
   computerUsePermissionHelp: ComputerUsePermissionHelpWindowController;
-  analytics: HostAnalytics;
   trace: TraceFile;
   resourceMonitor: ResourceMonitor;
   machineAlerts: MachineAlertMonitor;
@@ -912,12 +872,9 @@ export async function createApplicationServices({
   windows,
   appIconPath,
   appVariant,
-  analyticsCaptureUrl,
   developmentRemoteRole,
   developmentTestClientEnabled,
-  hostedServer,
   serverMode: serverModeEnvironment,
-  hostingDeveloperKey,
   localServerChild,
   macHapticFeedback,
   teardown,
@@ -1067,11 +1024,6 @@ export async function createApplicationServices({
   // Closing copies the write-ahead log into the database file and removes it. A step that passed its
   // limit, such as a slow agent stop, still writes, so the close waits a short time for it.
   teardown.push(TEARDOWN_ORDER.database, "the database", () => store.database.close(), { afterAbandonedSteps: true });
-  const managedSkills = new ManagedSkillService(
-    app.isPackaged
-      ? join(process.resourcesPath, "managed-skills", "openbot-site-hosting", "SKILL.md")
-      : resolve(__dirname, "../../resources/managed-skills/openbot-site-hosting/SKILL.md"),
-  );
   const skillCreator = new ManagedSkillService(
     app.isPackaged
       ? join(process.resourcesPath, "managed-skills", "openbot-skill-creator", "SKILL.md")
@@ -1088,28 +1040,9 @@ export async function createApplicationServices({
     undefined,
     DATA_SKILL_SLUG,
   );
-  await Effect.runPromise(managedSkills.syncAll(store.list()));
   await Effect.runPromise(skillCreator.syncAll(store.list()));
   await Effect.runPromise(dataSkill.syncAll(store.list()));
   performance.mark("openbot:services.skills");
-  const hostedSites = new HostedSiteDesktopService(centralAuth, () => {
-    // Read at request time: the team store is created later, and the server can register after launch.
-    const hostId = teamStore.getIdentity()?.serverId;
-    return hostId ? centralAuth.hostSiteCredential(hostId) : null;
-  });
-  const billing = new BillingDesktopService(centralAuth, openLink);
-  const license = new LicenseDesktopService(centralAuth, openLink);
-  const hostedServers = new HostedServerDesktopService(
-    withHostingDeveloperKey(centralAuth, hostingDeveloperKey),
-    openLink,
-    Date.now,
-    // A new server is running, but the joined list has no entry for it yet: read the list again.
-    (serverId) => {
-      if (!remoteServers.list().some((server) => server.id === serverId))
-        void Effect.runPromise(remoteServers.invalidateDirectory());
-    },
-    (serverId, server) => remoteServers.hostedServerStarting(serverId, server),
-  );
   const sidebarLayout = new SidebarLayoutStore(join(app.getPath("userData"), SIDEBAR_LAYOUT_FILE));
   await runCauseEffect(sidebarLayout.initialize());
   const mailbox = new MailboxStore(app.getPath("userData"), store.sharedRoot, store.database);
@@ -1124,17 +1057,16 @@ export async function createApplicationServices({
   teardown.push(TEARDOWN_ORDER.teamWebRtcBridge, "the team WebRTC bridge", () =>
     runCauseEffect(teamWebRtcBridge.stop()),
   );
-  // Only a hosted, self-hosted or container server: one unit or container holds OpenBot and every
+  // Only a self-hosted or container server: one unit or container holds OpenBot and every
   // agent process. The desktop app does not hold turns for memory.
-  const hostMemory =
-    hostedServer || serverModeEnvironment
-      ? new ServerMemory({
-          hostedPlan: hostedServer !== null,
-          onError: (message, error) => logger.warn(message, toLogValue(error)),
-          onAgentProcessStopped: (stopped) =>
-            logger.warn("Stopped a leftover agent process to free memory.", { ...stopped }),
-        })
-      : null;
+  const hostMemory = serverModeEnvironment
+    ? new ServerMemory({
+        hostedPlan: false,
+        onError: (message, error) => logger.warn(message, toLogValue(error)),
+        onAgentProcessStopped: (stopped) =>
+          logger.warn("Stopped a leftover agent process to free memory.", { ...stopped }),
+      })
+    : null;
   // Every provider process on a server gets the marker of leftover agent processes and the CPU limit
   // module for Node. The module must exist: Node does not start when a `--require` file is missing.
   // On the desktop it gets the marker only, so Settings › Agents can list what agents left running.
@@ -1193,13 +1125,9 @@ export async function createApplicationServices({
   });
   browser.onChanged((tabs, activeTabId) => forwardBrowserDisplayState(LOCAL_SERVER_ID, { tabs, activeTabId }));
   const setupFile = join(app.getPath("userData"), SETUP_FILE);
-  const analyticsPreferenceFile = join(app.getPath("userData"), ANALYTICS_PREFERENCE_FILE);
   const updatePreferenceFile = join(app.getPath("userData"), UPDATE_PREFERENCE_FILE);
   const routineHoldFile = join(app.getPath("userData"), ROUTINE_HOLD_FILE);
   const setupState = await runCauseEffect(readSetupState(setupFile));
-  const analyticsPreference = await Effect.runPromise(
-    readAnalyticsPreference(analyticsPreferenceFile, setupState.completed),
-  );
   // Loaded before the first window and before the application menu is built, so every native
   // surface draws in the saved language on the first frame rather than switching after startup.
   const language = new LanguageService({
@@ -1278,11 +1206,11 @@ export async function createApplicationServices({
     path: join(app.getPath("userData"), APP_BEHAVIOR_PREFERENCE_FILE),
     loginItem: createLoginItem({
       appVariant,
-      server: Boolean(hostedServer || serverModeEnvironment || localServerChild),
+      server: Boolean(serverModeEnvironment || localServerChild),
     }),
-    offersBackground: !hostedServer && !serverModeEnvironment && !localServerChild,
+    offersBackground: !serverModeEnvironment && !localServerChild,
     menuBar: process.platform === "darwin",
-    offersKeepAwake: process.platform !== "linux" && !hostedServer && !serverModeEnvironment && !localServerChild,
+    offersKeepAwake: process.platform !== "linux" && !serverModeEnvironment && !localServerChild,
   });
   await runCauseEffect(appBehavior.load());
   void Effect.runPromise(appBehavior.refreshLoginItem()).catch((error) =>
@@ -1575,7 +1503,7 @@ export async function createApplicationServices({
   teardown.push(TEARDOWN_ORDER.onePasswordConnector, "the 1Password connection", () =>
     runCauseEffect(onePasswordConnector.dispose()),
   );
-  // Read by the resource monitor, which starts after the analytics that needs the services.
+  // Read by the resource monitor.
   const statementTimings = new StatementTimings();
   const tables = new AgentTables({
     sharedRoot: store.sharedRoot,
@@ -1729,8 +1657,7 @@ export async function createApplicationServices({
   await Effect.runPromise(agentApiKeys.syncVault().pipe(Effect.ignore));
   // The schedule triggers of workflows share the routine timer; built after the workflows below.
   let workflowTriggers: WorkflowTriggers | null = null;
-  // Load the local catalog before telemetry starts so tool steps and inventory use the same names.
-  // Agents read it too, for the state of a Marketplace app they suggest.
+  // Agents read the local catalog for the state of a Marketplace app they suggest.
   const catalogPluginServers = await Effect.runPromise(
     loadCatalogPluginServers(
       app.isPackaged
@@ -1782,16 +1709,9 @@ export async function createApplicationServices({
     bundledExecutables: providerRuntimes.bundledExecutables(),
     prepareAgentWorkspace: (agent) =>
       Effect.gen(function* () {
-        yield* managedSkills.syncAgent(agent);
         yield* skillCreator.syncAgent(agent);
         yield* dataSkill.syncAgent(agent);
       }),
-    hostedSites: {
-      list: () => hostedSites.list().pipe(toHostedSiteOperationFailed),
-      publish: (input, roots) => hostedSites.publish(input, roots).pipe(toHostedSiteOperationFailed),
-      replace: (input, roots) => hostedSites.replace(input, roots).pipe(toHostedSiteOperationFailed),
-      delete: (siteId) => hostedSites.delete(siteId).pipe(toHostedSiteOperationFailed),
-    },
     sidebarLayout,
     preferredModel: setupState.preferredModel,
     // Only a dev build leads with the OpenCode development model; a packaged app keeps the
@@ -1972,7 +1892,6 @@ export async function createApplicationServices({
       changed: (workflowId) => service.notifyWorkflowsChanged(workflowId),
       rearm: () => service.armRoutines(),
       timezone: () => serverTimezone.effective(),
-      runEnded: (end) => service.notifyWorkflowRunEnded(end),
     }),
   );
   workflowTriggers = new WorkflowTriggers({
@@ -2292,26 +2211,6 @@ export async function createApplicationServices({
       }),
     );
   }
-  // At the same position. A failure leaves the host unconfigured and the app running, so the log
-  // shows why; a throw here would make systemd restart the app with a claim that may be spent.
-  let hostedServerSignedIn = false;
-  const signInHostedServer = (
-    environment: HostedServerEnvironment,
-    initialization: Effect.Effect<CentralAuthState, RemoteWorkflowError>,
-  ) =>
-    applyHostedServerAccount({ environment, centralAuth, centralAuthInitialization: initialization, teamStore }).pipe(
-      Effect.tap(() =>
-        Effect.sync(() => {
-          hostedServerSignedIn = true;
-        }),
-      ),
-    );
-  if (hostedServer) {
-    await runCauseEffect(signInHostedServer(hostedServer, centralAuthInitialization)).catch((error) =>
-      logger.error("The hosted server could not sign in:", toLogValue(error)),
-    );
-  }
-
   const teamChatStore = new TeamChatStore(store.database);
   performance.mark("openbot:services.hosted");
   const remoteDesktopRuntime = await Effect.runPromise(
@@ -2358,15 +2257,9 @@ export async function createApplicationServices({
   // The host comes before the updater, and the restart readiness reads the host. The routes reach
   // the schedule through this, and a request that arrives before it exists is refused.
   let requestedUpdate: RequestedUpdate | undefined;
-  const installationMode =
-    app.isPackaged && process.platform === "linux" ? await runCauseEffect(readInstallationMode()) : null;
   const hostRelease = new HostReleaseService({
     currentVersion: app.getVersion(),
     packaged: app.isPackaged,
-    platform: process.platform,
-    arch: process.arch,
-    environment: process.env,
-    installationMode,
     updateStatus: () => ({
       phase: requestedUpdate?.snapshot().phase ?? "unsupported",
       managedByHost: requestedUpdate?.snapshot().remoteUpdates === "managed",
@@ -2518,8 +2411,6 @@ export async function createApplicationServices({
     storage: storageUsage,
     // Present, so the host advertises `machine-resources-v1`. The routes are admin-only.
     machine: machineAlerts,
-    // Present, so the host advertises `hosted-sites-v1`. Members list; only admins delete.
-    hostedSites,
     // Present, so the host advertises `agent-import-v1`. Any member can import.
     agentImport,
     // Present, so the host advertises `instance-transfer-v1`. Only owners and admins.
@@ -2547,8 +2438,6 @@ export async function createApplicationServices({
     // Present, so the host advertises `browser-profiles-v1`. Only owners and admins change profiles;
     // any member reads the profile labels of the tabs they can see.
     browserProfiles,
-    // True on a hosted server, so the host advertises `focus-use-v1`. Any member can send it.
-    focusUse: hostedServer !== null,
     // Each member present advertises its admin capability. Every admin route requires an owner or admin.
     admin: {
       agents: agentAdminSettings,
@@ -2594,8 +2483,6 @@ export async function createApplicationServices({
           ),
         set: (input) =>
           readSetupState(setupFile).pipe(
-            // As `saveSetup`: the analytics default is saved before the setup can complete.
-            Effect.flatMap((before) => saveAnalyticsDefault(analyticsPreferenceFile, before.completed)),
             Effect.flatMap(() => writeSetupState(setupFile, input)),
             Effect.tap(() => service.setPreferredProvider(input.preferredProvider, input.preferredModel)),
             // The window read the setup once at start, so it gets the new choice.
@@ -2610,7 +2497,7 @@ export async function createApplicationServices({
       },
       routineResults: routineResultRuntime,
       // The desktop app's own server only. The servers are made below, after this host.
-      ...(localServerChild || serverModeEnvironment || hostedServer
+      ...(localServerChild || serverModeEnvironment
         ? {}
         : {
             localServers: {
@@ -2780,38 +2667,12 @@ export async function createApplicationServices({
     // service keeps its host, and the event listener settles it.
     await runCauseEffect(host.applySignedInAccount(null));
   }
-  const analyticsPlatform = process.platform;
-  if (analyticsPlatform !== "darwin" && analyticsPlatform !== "win32" && analyticsPlatform !== "linux") {
-    throw new Error(`Unsupported analytics platform: ${analyticsPlatform}`);
-  }
   performance.mark("openbot:services.remote-desktop");
-  const analyticsEnabled = (app.isPackaged && appVariant === "production") || analyticsCaptureUrl !== null;
-  const analyticsInstallId = analyticsEnabled
-    ? await Effect.runPromise(
-        readAnalyticsInstallId(join(app.getPath("userData"), ANALYTICS_INSTALL_ID_FILE), Date.now()),
-      )
-    : null;
-  const failureReports = analyticsEnabled
-    ? new ReportQueue(
-        fileReportStorage(join(app.getPath("userData"), "openbot-error-reports-v1.json")),
-        openPanelTransport({
-          clientId: "6c989975-87ef-4f0c-857e-ab449a65b5c2",
-          origin: "openbot-app://app",
-          ...(analyticsCaptureUrl ? { endpoint: `${analyticsCaptureUrl}/track` } : {}),
-        }),
-        {
-          surface: "desktop_host",
-          app_version: app.getVersion(),
-          platform: analyticsPlatform,
-          event_schema_version: ANALYTICS_GENERATIONS.desktop_host,
-        },
-      )
-    : undefined;
   const trace = new TraceFile({ directory: join(app.getPath("userData"), "logs") });
   teardown.push(TEARDOWN_ORDER.trace, "the trace file", () => Effect.runPromise(trace.close()));
   const resourceMonitor = new ResourceMonitor({
     userDataPath: app.getPath("userData"),
-    server: hostedServer !== null || serverModeEnvironment !== null,
+    server: serverModeEnvironment !== null,
     trace,
     statementTimings,
     tabProcessIds: () => browser.tabProcessIds(),
@@ -2820,76 +2681,7 @@ export async function createApplicationServices({
     Effect.runPromise(resourceMonitor.close()),
   );
   service.on("event", (event) => resourceMonitor.observeAgentEvent(event));
-  const analytics = new HostAnalytics({
-    ...(failureReports ? { reports: failureReports } : {}),
-    enabled: analyticsEnabled,
-    ...(analyticsCaptureUrl ? { apiUrl: analyticsCaptureUrl } : {}),
-    trackingEnabled: analyticsPreference.enabled,
-    installId: analyticsInstallId,
-    appVersion: app.getVersion(),
-    platform: analyticsPlatform,
-    // A function for a lifetime reason, not an ordering one: the signed-in account changes
-    // while the app runs, and the analytics identity has to follow it.
-    resolveOwner: () => {
-      const state = centralAuth.getState();
-      if (state.status !== "signed_in") return null;
-      const storedOwner = teamStore.getOwnerAnalyticsIdentity();
-      if (storedOwner) return storedOwner.id === state.user.id ? storedOwner : null;
-      const ownerEmail = teamStore.getOwnerEmail();
-      return !teamStore.configured || ownerEmail?.trim().toLowerCase() === state.user.email.trim().toLowerCase()
-        ? state.user
-        : null;
-    },
-    resolveAgent: (agentId) => service.listAgents().find((agent) => agent.id === agentId) ?? null,
-    resolveProviderAuth: (agent) =>
-      providerAuthKind(agent, {
-        account: (provider) => service.getProviderAccountKind(provider),
-        hasApiKey: (provider) => providerCredentials.status(provider) === "saved",
-        customProviderIds: () => customProviders.list().map((provider) => provider.id),
-        envKey: (name) => Boolean(process.env[name]?.trim()),
-      }),
-    resolveTurnUsage: (agentId, turnId, since) => service.getTurnUsage(agentId, turnId, since),
-    resolveMcpServer: (name) => {
-      const configs = service.listMcpServers().filter((server) => isReportedMcpServerName(server.name, name));
-      if (configs.length === 0) return null;
-      const slugs = new Set(configs.map((config) => catalogPluginSlug(config, catalogPluginServers, homedir())));
-      const [slug] = slugs;
-      return { slug: slugs.size === 1 && slug ? slug : null };
-    },
-    resolveRoutineRun: (agentId, routineId, runId) => {
-      const run = service.listRoutineRuns({ agentId, routineId }).find((item) => item.id === runId);
-      const routine = service.listRoutines(agentId).find((item) => item.id === routineId);
-      return run && routine ? { runKind: run.kind, triggerType: routine.trigger.schedule.kind } : null;
-    },
-    resolveInventory: () =>
-      collectAnalyticsInventory({
-        agents: () => service.listAgents(),
-        routines: (agentId) => service.listRoutines(agentId),
-        workflowCount: () => workflowStore.list().length,
-        // The local read: `listInstalled` asks the marketplace for each skill's latest version.
-        skills: (agentId) => skills.listInstalledForChatTags(agentId),
-        mcpServers: () => service.listMcpServers(),
-        pluginSlug: (config) => catalogPluginSlug(config, catalogPluginServers, homedir()),
-        computerUseEnabled: () => cuaDriver.mcpServerForProviders() !== null,
-      }),
-    inventoryDay: analyticsInventoryDayStore(join(app.getPath("userData"), ANALYTICS_INVENTORY_FILE)),
-    resources: resourceMonitor,
-  });
-  teardown.push(TEARDOWN_ORDER.analytics, "host analytics", () => Effect.runPromise(analytics.close()));
-  const analyticsPreferences = new AnalyticsPreferenceService({
-    path: analyticsPreferenceFile,
-    account: centralAuth,
-    setTrackingEnabled: (enabled) => analytics.setTrackingEnabled(enabled),
-    followed: (enabled) => {
-      for (const window of BrowserWindow.getAllWindows())
-        sendToRenderer(window, IPC_ENDPOINTS.app.analyticsPreference, { enabled });
-    },
-  });
-  // Immediately after construction: this attributes buffered events to the current owner rather
-  // than flushing a queue, so a later call would attribute them to nobody.
-  analytics.flushPending();
-  service.on("failure", (failure) => analytics.handleFailure(failure));
-  resourceMonitor.start(() => analytics.checkResources());
+  resourceMonitor.start();
   const connectTrace = new RemoteConnectTrace((span) => trace.record(span));
   // Development only: a network round trip added to the WebRTC client, for `bun run perf:remote`.
   const developmentRoundTripMs = app.isPackaged ? 0 : Math.max(0, Number(process.env.OPENBOT_DEV_RTT_MS) || 0);
@@ -2927,7 +2719,7 @@ export async function createApplicationServices({
       accountReady: centralAuthInitialization,
       // A joined host keeps the member's phones quiet while this computer has input and this desktop
       // shows the events of that host: in a focused window, or as notifications.
-      ...(hostedServer || serverModeEnvironment || localServerChild
+      ...(serverModeEnvironment || localServerChild
         ? {}
         : {
             computerActivity: {
@@ -2947,11 +2739,6 @@ export async function createApplicationServices({
             },
           }),
       getLocalHostId: () => teamStore.getIdentity()?.serverId ?? null,
-      hostedServers: {
-        unavailable: (serverId, wake) => hostedServers.unavailableHost(serverId, wake),
-        wake: (serverId) => hostedServers.wake(serverId),
-        status: (serverId) => hostedServers.status(serverId),
-      },
       webrtcTransport: new TeamWebRtcClientTransport({
         bridge: teamWebRtcBridge,
         listHosts: () => centralAuth.listRemoteHosts(),
@@ -2987,7 +2774,7 @@ export async function createApplicationServices({
   performance.mark("openbot:services.plugin-catalog");
   // Not on a server: a local server is a workspace of the desktop app.
   const localServers =
-    localServerChild || serverModeEnvironment || hostedServer
+    localServerChild || serverModeEnvironment
       ? null
       : new LocalServers({
           registryPath: join(app.getPath("userData"), LOCAL_SERVERS_FILE),
@@ -3182,26 +2969,13 @@ export async function createApplicationServices({
   const currentVersion = app.getVersion();
   // Skip the file check in dev: unpacked runs never enable updates, so avoid touching resourcesPath.
   const updateMetadataAvailable = app.isPackaged && existsSync(join(process.resourcesPath, "app-update.yml"));
-  // A hosted or self-installed server runs a release that root owns. Root installs updates for it
-  // when openbot-hosted-update has installed its request units. A container of openbot-instance asks
-  // the host instead, which pulls the image. Other containers have neither.
-  const containerInstaller =
-    app.isPackaged &&
-    process.platform === "linux" &&
-    installationMode === "container" &&
-    existsSync(CONTAINER_UPDATE_TRIGGER);
-  const hostedInstaller =
-    containerInstaller ||
-    (app.isPackaged &&
-      process.platform === "linux" &&
-      (process.env.OPENBOT_HOSTED_SERVER === "1" || installationMode === "self") &&
-      existsSync(HOSTED_UPDATE_TRIGGER));
   // A local server is the same application as its parent, which installs the update for both.
   const updatesEnabled =
     !localServerChild &&
     app.isPackaged &&
     !isNixStoreInstall() &&
-    (hostedInstaller || (supportsInstalledUpdates(process.platform) && updateMetadataAvailable)) &&
+    supportsInstalledUpdates(process.platform) &&
+    updateMetadataAvailable &&
     isValidSemver(currentVersion);
   if (app.isPackaged && updateMetadataAvailable && !isValidSemver(currentVersion)) {
     logger.warn(`OpenBot updates are disabled because the application version is not valid SemVer: ${currentVersion}`);
@@ -3209,13 +2983,7 @@ export async function createApplicationServices({
   let updateAdapter: UpdateAdapter = createDisabledUpdateAdapter();
   let updaterEnabled = updatesEnabled;
   let updaterCacheDirectory: string | undefined;
-  if (updatesEnabled && hostedInstaller) {
-    updateAdapter = new HostedUpdateAdapter({
-      currentVersion,
-      arch: process.arch,
-      ...(containerInstaller ? { paths: CONTAINER_UPDATE_PATHS } : {}),
-    });
-  } else if (updatesEnabled) {
+  if (updatesEnabled) {
     try {
       const updaterModule = await import("electron-updater");
       const realAdapter = updaterModule.autoUpdater ?? updaterModule.default?.autoUpdater ?? updaterModule.default;
@@ -3316,14 +3084,6 @@ export async function createApplicationServices({
         return { ok: true, checks: ["initialization-succeeded", "agent-list"] };
       }),
   });
-  // A client that used the server in the last minutes still uses it.
-  const clientInUse = () =>
-    host.connectedClientCount() > 0 && Date.now() - (host.lastClientUseAt() ?? 0) < CLIENT_USE_WINDOW_MS;
-  // A client wakes a hosted server, and reading is not use. Without this, a member who only reads
-  // would see the restart at the end of the disk restore.
-  const startedAt = Date.now();
-  const clientInUseSinceStart = () =>
-    clientInUse() || (host.connectedClientCount() > 0 && Date.now() - startedAt < CLIENT_USE_WINDOW_MS);
   requestedUpdate = new RequestedUpdate({
     updater,
     describeReadiness: describeRestartReadiness,
@@ -3331,8 +3091,6 @@ export async function createApplicationServices({
     savePreference: (change) => writeUpdatePreference(updatePreferenceFile, change),
     log: (message) => logger.info(message),
     announce: (state, version) => host.announceRestart(state, version),
-    // boat restores the disk of a woken server lazily, so its start no longer applies a release.
-    clientInUse: hostedServer ? clientInUseSinceStart : undefined,
   });
   const remoteUpdate = requestedUpdate;
   teardown.push(TEARDOWN_ORDER.requestedUpdate, "the requested update", () =>
@@ -3361,58 +3119,12 @@ export async function createApplicationServices({
     log: (message) => logger.info(message),
   });
   teardown.push(TEARDOWN_ORDER.idleRestart, "the restart when idle", () => idleRestart.dispose());
-  if (hostedServer) {
-    const hostedServerStartRetry = new HostedServerStartRetry({
-      hostPhase: () => host.getStatus().phase,
-      startHost: () =>
-        Effect.gen(function* () {
-          // A start with no answer from the account server ends in the auth error state, and only a
-          // retry reads the stored session again.
-          if (centralAuth.getState().status !== "signed_in") yield* centralAuth.retry().pipe(toRemoteWorkflowError);
-          if (!hostedServerSignedIn) yield* signInHostedServer(hostedServer, Effect.succeed(centralAuth.getState()));
-          return yield* host.start();
-        }),
-      onError: (message, error) => logger.warn(message, toLogValue(error)),
-    });
-    hostedServerStartRetry.start();
-    teardown.push(TEARDOWN_ORDER.hostedServerStartRetry, "the hosted server start retry", () =>
-      Effect.runPromise(hostedServerStartRetry.stop()),
-    );
-    const hostedServerActivity = new HostedServerActivity({
-      hostId: hostedServer.hostId,
-      // A live Slack, Discord or Telegram connection counts only when Signal cannot start the server for
-      // the next message and keep it (an older Signal, or no queue key): stopped, the server could not
-      // hear it. An open browser view does not count: a view that the user forgot would keep the server
-      // running. Input in the view counts as client use.
-      inUse: () =>
-        service.hasActiveWork().length > 0 ||
-        (messaging.hasLiveConnection() && !signalIngress.queueReady()) ||
-        host.describeRestartBlockers().some((reason) => reason !== "browser-view") ||
-        clientInUse(),
-      nextRunAt: () => {
-        const dueAt = service.nextRoutineDueAt();
-        return dueAt ? Date.parse(dueAt) : null;
-      },
-      report: (path, report) =>
-        centralAuth
-          .requestAuthorized(
-            path,
-            { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(report) },
-            () => undefined,
-          )
-          .pipe(toRemoteWorkflowError),
-      onError: (message, error) => logger.warn(message, toLogValue(error)),
-    });
-    hostedServerActivity.start();
-    teardown.push(TEARDOWN_ORDER.hostedServerActivity, "the hosted server activity report", () =>
-      Effect.runPromise(hostedServerActivity.stop()),
-    );
-  } else if (!serverModeEnvironment && !localServerChild) {
+  if (!serverModeEnvironment && !localServerChild) {
     // A server that was published at the last quit is published again at launch, once (`index.ts`).
     // That start can fail when the network is not ready yet, such as at login after an update, and
     // the server then stayed private until the user published it again. A published server that a
     // Signal failure puts in the error phase later is published again in the same way.
-    const launchPublishRetry = new HostedServerStartRetry({
+    const launchPublishRetry = new HostStartRetry({
       hostPhase: () => host.getStatus().phase,
       startHost: () =>
         Effect.gen(function* () {
@@ -3448,7 +3160,7 @@ export async function createApplicationServices({
       logger.error("The server control socket did not start:", toLogValue(error)),
     );
     // Nobody presses Retry on a server either. A server that is signed out has nothing to publish.
-    const serverStartRetry = new HostedServerStartRetry({
+    const serverStartRetry = new HostStartRetry({
       hostPhase: () => host.getStatus().phase,
       startHost: () =>
         Effect.gen(function* () {
@@ -3498,8 +3210,6 @@ export async function createApplicationServices({
     browserView,
     updater,
     setupFile,
-    analyticsPreferences,
-    analyticsInstallId,
     updatePreferenceFile,
     approvalAutomation,
     agentAdminSettings,
@@ -3541,10 +3251,6 @@ export async function createApplicationServices({
     localServers,
     centralAuth,
     skills,
-    hostedSites,
-    billing,
-    license,
-    hostedServers,
     routineFeed,
     events,
     eventsRuntime,
@@ -3567,7 +3273,6 @@ export async function createApplicationServices({
     cuaDriver,
     computerUseHighlight,
     computerUsePermissionHelp,
-    analytics,
     trace,
     resourceMonitor,
     machineAlerts,

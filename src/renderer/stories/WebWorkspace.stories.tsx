@@ -14,7 +14,6 @@ import { WebHostOtherTabError } from "../src/features/web-client/web-host-lock";
 import { WebHostIncompatibleError } from "../src/features/web-client/web-runtime";
 import { createBenchWebRuntime } from "../src/preview/bench-web-runtime";
 import { mockAccountCatalogFetch } from "../src/preview/mock-account-catalog";
-import { MOCK_HOSTED_SERVER_CATALOG } from "../src/preview/mock-hosted-servers";
 import { createMockOpenBot } from "../src/preview/mock-openbot";
 import { createMockWebRuntime, mockWebRuntimeFor } from "../src/preview/mock-web-runtime";
 import { AGENT_ID, TABS_KEY, THREAD_OPTIONS } from "./agent-threads-fixtures";
@@ -35,8 +34,6 @@ const meta = {
     onSessionCheck: async () => {},
     onLogout: async () => {},
     createRuntime: createMockWebRuntime,
-    language: "system",
-    onChangeLanguage: () => {},
   },
   render: (args) => (
     <div class="web-app">
@@ -266,74 +263,6 @@ export const Threads: Story = {
       </div>
     );
   },
-};
-
-/** The account server's hosted server list, with the server that Checkout paid for already running. */
-const checkoutFetch: typeof fetch = async (input) => {
-  const url = String(input instanceof Request ? input.url : input);
-  const body = url.endsWith("/hosting/plans")
-    ? MOCK_HOSTED_SERVER_CATALOG
-    : url.endsWith("/hosting/servers")
-      ? {
-          available: true,
-          servers: [
-            {
-              serverId: NEW_SERVER_ID,
-              name: "Cloud server",
-              size: "default",
-              plan: "standard",
-              interval: "month",
-              currency: "eur",
-              state: "running",
-              error: null,
-              createdAt: "2026-09-29T09:30:00.000Z",
-              updatedAt: "2026-09-29T09:34:00.000Z",
-            },
-          ],
-        }
-      : null;
-  return body ? Response.json(body) : accountFetch(input);
-};
-
-/** The return from Stripe Checkout: the add server dialog opens on the new server's setup. */
-export const CheckoutReturn: Story = {
-  args: {
-    createRuntime: newServerRuntime,
-    accountFetch: checkoutFetch,
-    hostingReturn: { serverId: NEW_SERVER_ID, paid: true },
-  },
-};
-
-/** A hosted server that stopped because nobody used it. A key press or a click wakes it. */
-const sleepingRuntime: WebRuntimeFactory = (...args) => ({
-  ...createMockWebRuntime(...args),
-  connect: async () => {
-    throw new Error("The host is not available.");
-  },
-});
-
-const sleepingFetch: typeof fetch = async (input, init) => {
-  const url = String(input instanceof Request ? input.url : input);
-  if (url.endsWith("/preview-host/status"))
-    return Response.json({ serverId: "preview-host", state: "stopped", error: null, sleeping: true });
-  if (url.endsWith("/preview-host/wake"))
-    return Response.json({
-      serverId: "preview-host",
-      name: "Preview computer",
-      size: "small",
-      plan: "starter",
-      interval: "month",
-      currency: "eur",
-      state: "waking",
-      error: null,
-      createdAt: "2026-09-29T09:30:00.000Z",
-      updatedAt: "2026-09-29T09:34:00.000Z",
-    });
-  return accountFetch(input, init);
-};
-
-export const HostedServerAsleep: Story = {
-  args: { createRuntime: sleepingRuntime, accountFetch: sleepingFetch },
 };
 
 /** Another tab has the cloud server open. The server rail opens the other server. */

@@ -33,9 +33,6 @@ export const GlobalSearch = lazy(() =>
 export const InitialSetup = lazy(() =>
   import("./features/onboarding/InitialSetup").then((module) => ({ default: module.InitialSetup })),
 );
-export const AddServerDialog = lazy(() =>
-  import("@openbot/ui/features/servers/AddServerDialog").then((module) => ({ default: module.AddServerDialog })),
-);
 export const CreateLocalServerDialog = lazy(() =>
   import("@openbot/ui/features/servers/CreateLocalServerDialog").then((module) => ({
     default: module.CreateLocalServerDialog,
@@ -46,9 +43,6 @@ export const JoinServerDialog = lazy(() =>
 );
 export const FirstRunFlow = lazy(() =>
   import("./features/onboarding/FirstRunFlow").then((module) => ({ default: module.FirstRunFlow })),
-);
-export const LanguageStep = lazy(() =>
-  import("./features/onboarding/LanguageStep").then((module) => ({ default: module.LanguageStep })),
 );
 export const RemoteDesktopWorkspace = lazy(() =>
   import("@openbot/ui/features/remote-desktop/RemoteDesktopWorkspace").then((module) => ({

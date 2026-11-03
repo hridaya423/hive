@@ -12,7 +12,6 @@ import {
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { createSignal, createStore } from "solid-js";
-import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import type { ServerBrowserProfilesOptions } from "../src/features/browser/ServerBrowserProfilesPanel";
 import type { ServerAuditOptions } from "../src/features/servers/ServerAuditSection";
@@ -22,7 +21,6 @@ import { ServerSettingsModal, type ServerSettingsModalProps } from "../src/featu
 import {
   STORY_AGENT_SUMMARIES,
   STORY_HOST_STATUS,
-  STORY_HOSTED_SITES,
   STORY_MCP_SERVERS,
   STORY_PRESENCE,
   STORY_SERVER_AUDIT_ENTRIES,
@@ -309,20 +307,6 @@ function McpSignInStory(props: { settings: ServerSettingsModalProps; initial?: R
   );
 }
 
-/** A Starter server with one site of its own and one unlinked site from before it was registered. */
-export const Sites: Story = {
-  args: {
-    initialSection: "sites",
-    hostedSites: {
-      api: {
-        list: async () => ({ sites: STORY_HOSTED_SITES.map((site) => ({ ...site })), limit: 3, used: 2 }),
-        delete: fn(async () => undefined),
-      },
-      onOpenSite: fn(),
-    },
-  },
-};
-
 const STORY_BROWSER_PROFILES: BrowserProfileSummary[] = [
   { id: "0a1b2c3d4e5f60718293a4b5c6d7e8f9", name: "Client A", hue: 215, agentIds: ["chief", "research"], tabCount: 3 },
   { id: "f9e8d7c6b5a4938271605f4e3d2c1b0a", name: "Client B", hue: 30, agentIds: ["sales"], tabCount: 1 },
@@ -410,14 +394,6 @@ export const BrowserProfiles: Story = {
 export const BrowserProfilesEmpty: Story = {
   args: { initialSection: "browser-profiles" },
   render: (args) => <ServerSettingsStory settings={{ ...args, browserProfiles: storyBrowserProfiles([]) }} />,
-};
-
-export const SitesForMember: Story = {
-  args: {
-    ...Sites.args,
-    server: { ...remoteServer, role: "member" },
-    hostStatus: null,
-  },
 };
 
 const STORY_HOST_UPDATE: HostUpdateStatus = {

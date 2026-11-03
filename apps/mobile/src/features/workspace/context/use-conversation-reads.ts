@@ -3,7 +3,7 @@ import { TEAM_CONVERSATION_UNREAD_CAPABILITY } from "@openbot/contracts/team-pro
 import { type createRemoteReadRefresh, mergeRemoteUnreadIds, runTeamEffect } from "@openbot/team-client";
 import { Effect } from "effect";
 import { type RefObject, useCallback, useRef } from "react";
-import { showFailureAlert, showWarningAlert } from "@/features/analytics/failure-reports";
+import { Alert } from "react-native";
 import type { WorkspaceRequest } from "@/features/workspace/context/host-request-actions";
 import { decodeConversationPage } from "@/features/workspace/model/conversation";
 import type { MobileConversationStore } from "@/features/workspace/model/conversation-store";
@@ -11,6 +11,7 @@ import type { LiveWorkspaceStore } from "@/features/workspace/model/live-workspa
 import { hasCapability, type ServerCapabilities } from "@/features/workspace/model/server-capabilities";
 import { decodeConversationReads } from "@/features/workspace/model/workspace-records";
 import type { MobileAgent, MobileWorkspaceContextValue } from "@/features/workspace/model/workspace-types";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { currentText } from "@/shared/lib/text";
 
 /**
@@ -168,8 +169,7 @@ export function useConversationReads({
     (agentId: string, visibleMessageId?: string | null, targetServerId?: string) => {
       const serverId = targetServerId ?? activeServerId.current;
       if (visibleMessageId === null && !hasCapability(capabilities, serverId, TEAM_CONVERSATION_UNREAD_CAPABILITY)) {
-        showWarningAlert(
-          "team",
+        Alert.alert(
           currentText().t("mobile.workspace.alert.updateRequiredTitle"),
           currentText().t("mobile.workspace.alert.updateRequiredUnread"),
         );
@@ -179,7 +179,6 @@ export function useConversationReads({
         if (visibleMessageId === null)
           showFailureAlert(
             error,
-            "settings",
             currentText().t("mobile.workspace.alert.markUnreadTitle"),
             currentText().t("mobile.workspace.alert.markUnreadBody"),
           );

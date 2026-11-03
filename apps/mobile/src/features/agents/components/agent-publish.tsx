@@ -5,12 +5,12 @@ import { Button, Typography } from "heroui-native";
 import { useState } from "react";
 import { Alert, Share, View } from "react-native";
 import { BloubAvatarPreview } from "@/features/agents/components/bloub-avatar";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
 import { type MobileAgent, useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
 import { queryKeys } from "@/features/workspace/model/query-keys";
 import { AndroidHeaderButton } from "@/shared/components/android-header-button";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { isAndroid, isIOS } from "@/shared/lib/platform";
 import { currentText, type MobileText, useText } from "@/shared/lib/text";
@@ -73,7 +73,7 @@ export function AgentPublish({ agent, available }: { agent: MobileAgent; availab
     } catch (cause) {
       void haptics.notification("error");
       const latest = currentText();
-      showFailureAlert(cause, "agent", failed, latest.errorMessage(cause, latest.t("mobile.agent.publish.failedBody")));
+      showFailureAlert(cause, failed, latest.errorMessage(cause, latest.t("mobile.agent.publish.failedBody")));
     } finally {
       setPending(null);
     }

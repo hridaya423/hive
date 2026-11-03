@@ -22,8 +22,6 @@ export const messages = defineMessages("mobile.app", {
   "mobile.app.route.editMessage": "Edit message",
   "mobile.app.route.serverOptions": "Server options",
   "mobile.app.route.members": "Members",
-  "mobile.app.route.hostedServerPlans": "Cloud server",
-  "mobile.app.route.hostedServerSetup": "Setup",
   "mobile.app.route.routines": "Routines",
   "mobile.app.route.workflows": "Workflows",
   "mobile.app.route.workflow": "Workflow",

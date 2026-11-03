@@ -1,5 +1,4 @@
 import type { JSX } from "@solidjs/web";
-import { createEffect } from "solid-js";
 import { ComposerNotice } from "./ComposerNotice";
 
 /**
@@ -20,15 +19,10 @@ export function ComposerErrorBanner(props: {
   tone?: "warning" | "danger";
   /** The code of the failure behind the message. */
   reference?: string | null | undefined;
-  onShown?: () => void;
   conversationKey?: string | null;
   onDismiss: () => void;
   action?: JSX.Element;
 }): JSX.Element {
-  createEffect(
-    () => `${props.conversationKey ?? ""}\u0000${props.message}`,
-    () => props.onShown?.(),
-  );
   return (
     <ComposerNotice
       tone={props.tone ?? "danger"}

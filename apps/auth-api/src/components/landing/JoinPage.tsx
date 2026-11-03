@@ -1,7 +1,6 @@
 import { AppLogo } from "@openbot/brand";
 import { createWebAppInvitePath, OPENBOT_INVITE_ORIGIN, toOpenBotInviteUrl } from "@openbot/contracts/invite-links";
 import { createSignal, For, onSettled, Show } from "solid-js";
-import { landingAnalytics } from "../../lib/analytics";
 import { detectDownloadPlatform } from "../../lib/download-platforms";
 import { OPENBOT_DOWNLOAD_LINKS } from "../../lib/landing-links";
 import { createOpenAppFallback, OpenAppFallbackDialog } from "../transactional/OpenAppFallback";
@@ -23,19 +22,15 @@ export function JoinPage(props: { lang: string; text: JoinPageText }) {
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1),
     );
     const platform = detectDownloadPlatform(globalThis.navigator) ?? "macos";
-    let validInvite = true;
     try {
       const pageUrl = new URL(window.location.href);
       const canonicalUrl = new URL(`${pageUrl.pathname}${pageUrl.search}`, OPENBOT_INVITE_ORIGIN);
       setOpenUrl(toOpenBotInviteUrl(canonicalUrl.toString()));
       setBrowserUrl(createWebAppInvitePath(canonicalUrl.toString()));
     } catch {
-      validInvite = false;
       setInvalid(true);
     }
     setDownloadUrl(OPENBOT_DOWNLOAD_LINKS[platform]);
-    const cleanup = landingAnalytics.startJoin(document, window.location.hostname, { validInvite, platform });
-    return cleanup;
   });
 
   const noApp = () => (mobile() ? props.text.noAppMobile : props.text.noApp);

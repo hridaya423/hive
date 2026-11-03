@@ -49,7 +49,6 @@ import { currentText, useText } from "@openbot/ui/text";
 import { errorReference } from "@openbot/user-errors";
 import { createEffect, createMemo, createSignal, createStore, onCleanup, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
-import { desktopAnalytics } from "../../analytics";
 import { writeClipboardText } from "../../clipboard";
 import type { AgentSkillCalls } from "../../skills-port";
 import type { ConnectorRegistry } from "../connectors/connector-registry";
@@ -202,8 +201,7 @@ interface AddedRecord {
 
 /**
  * The Marketplace model on the real IPC, and the dialogs that the window shows over itself. The
- * install, connect and uninstall flows are the flows of the previous Marketplace, with their
- * analytics.
+ * install, connect and uninstall flows are the flows of the previous Marketplace.
  */
 export function createMarketplaceController(props: MarketplaceControllerProps) {
   const { t, format } = useText();
@@ -264,7 +262,6 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     const key = `agent:${listing.id}`;
     if (busy[key]) return false;
     const serverId = copy ? (props.hostServerId ? props.agentUpdateServerId : undefined) : props.agentServerId;
-    const analytics = desktopAnalytics.scope();
     mark(key, true);
     const agent = await run(() =>
       calls().addAgent(
@@ -277,13 +274,6 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
         serverId,
       ),
     );
-    analytics.track("marketplace_action", {
-      entity: "agent",
-      action: copy ? "update" : "install",
-      listing_slug: listing.id,
-      result: agent ? "succeeded" : "failed",
-      ...(agent ? {} : { failure_code: copy ? "update_failed" : "install_failed" }),
-    });
     mark(key, false);
     if (!agent) return false;
     setAdded((draft) => {
@@ -302,17 +292,8 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     if (target) void props.onAgentInstalled?.(target.agent, target.serverId);
   }
 
-  async function loadAgent(id: string) {
-    const analytics = desktopAnalytics.scope();
-    const value = await run(() => calls().agents.get(id));
-    analytics.track("marketplace_action", {
-      entity: "agent",
-      action: "view",
-      listing_slug: id,
-      result: value ? "succeeded" : "failed",
-      ...(value ? {} : { failure_code: "load_failed" }),
-    });
-    return value;
+  function loadAgent(id: string) {
+    return run(() => calls().agents.get(id));
   }
 
   /* Skills. Each agent's installed skills are read once, and again when its host reports a change. */
@@ -509,27 +490,13 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     const hostCalls = skillCalls();
     const added: string[] = [];
     for (const agentId of installs) {
-      const analytics = desktopAnalytics.scope();
       try {
         await hostCalls.install({ agentId, skillId: skill.id, replaceModified: false });
         added.push(agentId);
-        analytics.track("marketplace_action", {
-          entity: "skill",
-          action: "install",
-          listing_slug: skill.id,
-          result: "succeeded",
-        });
       } catch (cause) {
         failed.push(nameOf(agentId));
         reasons.add(marketplaceErrorMessage(cause));
         lastCause = cause;
-        analytics.track("marketplace_action", {
-          entity: "skill",
-          action: "install",
-          listing_slug: skill.id,
-          result: "failed",
-          failure_code: "install_failed",
-        });
       }
     }
     if (alive && host === skillHost) {
@@ -575,7 +542,6 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
       const counted = alive;
       if (counted) countSettling(skill.id, 1);
       for (const entry of entries) {
-        const analytics = desktopAnalytics.scope();
         let removed = false;
         try {
           await hostCalls.uninstall({
@@ -584,23 +550,10 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
             ...(entry.modified ? { removeModified: true } : {}),
           });
           removed = true;
-          analytics.track("marketplace_action", {
-            entity: "skill",
-            action: "uninstall",
-            listing_slug: skill.id,
-            result: "succeeded",
-          });
         } catch (cause) {
           failed.push(nameOf(entry.agentId));
           reasons.add(marketplaceErrorMessage(cause));
           lastCause = cause;
-          analytics.track("marketplace_action", {
-            entity: "skill",
-            action: "uninstall",
-            listing_slug: skill.id,
-            result: "failed",
-            failure_code: "uninstall_failed",
-          });
         }
         heldChangeSettled({ host, agentId: entry.agentId, skillId: skill.id, removed });
         afterEach(entry.agentId, removed);
@@ -657,26 +610,12 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     const reasons = new Set<string>();
     let lastCause: unknown;
     for (const { agentId, modified: replaceModified } of targets) {
-      const analytics = desktopAnalytics.scope();
       try {
         await skillCalls().install({ agentId, skillId: skill.id, replaceModified });
-        analytics.track("marketplace_action", {
-          entity: "skill",
-          action: "update",
-          listing_slug: skill.id,
-          result: "succeeded",
-        });
       } catch (cause) {
         failed.push(agentName(agentId));
         reasons.add(marketplaceErrorMessage(cause));
         lastCause = cause;
-        analytics.track("marketplace_action", {
-          entity: "skill",
-          action: "update",
-          listing_slug: skill.id,
-          result: "failed",
-          failure_code: "update_failed",
-        });
       }
       await readInstalled(agentId);
     }
@@ -691,8 +630,6 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     const key = `skill:${skillId}`;
     const copy = installedSkill(agentId, skillId);
     if (!copy || isSkillEnabled(copy) === on || skillBusy(skillId)) return;
-    const action = on ? "enable" : "disable";
-    const analytics = desktopAnalytics.scope();
     mark(key, true);
     setError(null);
     try {
@@ -701,33 +638,16 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
         const list = draft.installed[agentId];
         if (list) draft.installed[agentId] = list.map((item) => (item.skillId === skillId ? next : item));
       });
-      analytics.track("marketplace_action", { entity: "skill", action, listing_slug: skillId, result: "succeeded" });
     } catch (cause) {
       // The host refuses a changed copy and one that needs repair: `error.skill.disableModified` and
       // `error.skill.disableNeedsRepair`, in the reader's language.
       setError(marketplaceErrorMessage(cause), cause);
-      analytics.track("marketplace_action", {
-        entity: "skill",
-        action,
-        listing_slug: skillId,
-        result: "failed",
-        failure_code: `${action}_failed`,
-      });
     }
     mark(key, false);
   }
 
-  async function loadSkill(id: string) {
-    const analytics = desktopAnalytics.scope();
-    const value = await run(() => calls().skills.get(id));
-    analytics.track("marketplace_action", {
-      entity: "skill",
-      action: "view",
-      listing_slug: id,
-      result: value ? "succeeded" : "failed",
-      ...(value ? {} : { failure_code: "load_failed" }),
-    });
-    return value;
+  function loadSkill(id: string) {
+    return run(() => calls().skills.get(id));
   }
 
   /* Apps. */
@@ -1081,7 +1001,6 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     const key = `app:${plugin.slug}`;
     if (busy[key]) return false;
     mark(key, true);
-    const analytics = desktopAnalytics.scope();
     const installed = await run(async () => {
       const addedSkills: string[] = [];
       try {
@@ -1110,16 +1029,6 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
       }
       return true;
     });
-    // `false` is a closed connect dialog: the user's decision, not an install.
-    if (installed !== false) {
-      analytics.track("marketplace_action", {
-        entity: "plugin",
-        action: "install",
-        result: installed ? "succeeded" : "failed",
-        listing_slug: plugin.slug,
-        ...(installed ? {} : { failure_code: "install_failed" }),
-      });
-    }
     /* Only on success: a read clears the error, which would take the failure off the screen before
        the reader saw it. */
     if (installed && plugin.skills.length > 0) await readInstalled(agentId);
@@ -1200,22 +1109,12 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     const key = `app:${plugin.slug}`;
     if (busy[key]) return false;
     mark(key, true);
-    const analytics = desktopAnalytics.scope();
     const saved = await run(async () => {
       const connected = await connectStep(app, row);
       if (!connected) return false;
       setServers(await calls().mcp.saveMcpServer({ config: connected }, serverId));
       return true;
     });
-    if (saved !== false) {
-      analytics.track("marketplace_action", {
-        entity: "plugin",
-        action: "update",
-        result: saved ? "succeeded" : "failed",
-        listing_slug: plugin.slug,
-        ...(saved ? {} : { failure_code: "update_failed" }),
-      });
-    }
     if (saved) await readSignIns(serverId);
     mark(key, false);
     if (saved) setNotice(t("marketplace.notice.appConnected", { name: app.name }));
@@ -1319,7 +1218,6 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
     const key = `app:${plugin.slug}`;
     mark(key, true);
     setError(null);
-    const analytics = desktopAnalytics.scope();
     const failures: string[] = [];
     let lastCause: unknown;
     for (const [app, config] of plugin.apps.flatMap((app) => heldApps(app).map((row) => [app, row] as const))) {
@@ -1342,13 +1240,6 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
       }
     }
     setUninstalling(null);
-    analytics.track("marketplace_action", {
-      entity: "plugin",
-      action: "uninstall",
-      result: failures.length > 0 ? "failed" : "succeeded",
-      listing_slug: plugin.slug,
-      ...(failures.length > 0 ? { failure_code: "uninstall_failed" } : {}),
-    });
     /* Read back before the failure is written: the reads clear the error, and a message set first
        would be taken off screen by the read that follows it. */
     await readServers(serverId);
@@ -1400,7 +1291,6 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
    * Missing notice on the page, so it shows no error toast.
    */
   async function readListing(link: MarketplaceListingLink): Promise<LinkedListing | undefined> {
-    const analytics = desktopAnalytics.scope();
     const listing: LinkedListing | undefined = await (link.kind === "agent"
       ? calls()
           .agents.getListing(link.id)
@@ -1410,12 +1300,6 @@ export function createMarketplaceController(props: MarketplaceControllerProps) {
           .then((skill) => ({ kind: "skill" as const, skill }))
     ).catch(() => undefined);
     // No listing id: a shared link can name an agent that waits for its first review.
-    analytics.track("marketplace_action", {
-      entity: link.kind,
-      action: "view",
-      result: listing ? "succeeded" : "failed",
-      ...(listing ? {} : { failure_code: "load_failed" }),
-    });
     return listing;
   }
 

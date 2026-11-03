@@ -61,7 +61,6 @@ import type {
   HostAgentMemoryLimit,
   HostAnalytics,
   HostAnalyticsInput,
-  HostedSiteList,
   HostGitHubConnectorStatus,
   HostMessagingConnectInput,
   HostMessagingWorkspaceInput,
@@ -349,8 +348,6 @@ export interface MobileWorkspaceContextValue {
   removeServer: (serverId: string) => Promise<void>;
   refreshServers: () => Promise<void>;
   refreshServer: (serverId: string) => Promise<void>;
-  /** The account server says that a hosted server starts, for example after a restart. The app connects again soon. */
-  hostedServerStarting: (serverId: string) => void;
   /** An owner or admin of an online host that serves `host-admin-v1`. The host checks the role again. */
   canEditServerIdentity: (serverId: string) => boolean;
   /**
@@ -562,14 +559,6 @@ export interface MobileWorkspaceContextValue {
   setServerUpdateSettings: (settings: HostUpdateSettingsChange, serverId: string) => Promise<HostUpdateStatus>;
   loadServerRelease: (serverId: string) => Promise<HostReleaseStatus>;
   checkServerRelease: (serverId: string) => Promise<HostReleaseStatus>;
-  /** An online host that serves `hosted-sites-v1`. Every member reads the sites. */
-  canViewHostedSites: (serverId: string) => boolean;
-  /** An owner or admin of an online host that serves `hosted-sites-v1`. The host checks the role again. */
-  canDeleteHostedSites: (serverId: string) => boolean;
-  /** The openbot.site sites that agents on the server published, and the site limit of its plan. */
-  loadHostedSites: (serverId: string) => Promise<HostedSiteList>;
-  /** The address of the site returns 410 Gone immediately. */
-  deleteHostedSite: (siteId: string, serverId: string) => Promise<void>;
   /** An owner or admin of an online host that serves `providers-v1`. The host checks the role again. */
   canManageProviders: (serverId: string) => boolean;
   /** The Providers admin of one host, with the newest route set that it serves. */
@@ -1012,8 +1001,6 @@ type MobileWorkspaceStateKey =
   | "canManageBrowserProfiles"
   | "serverUpdateAccess"
   | "canReadServerRelease"
-  | "canViewHostedSites"
-  | "canDeleteHostedSites"
   | "canManageProviders"
   | "canManageMcpServers"
   | "canRelayMcpSignIn"

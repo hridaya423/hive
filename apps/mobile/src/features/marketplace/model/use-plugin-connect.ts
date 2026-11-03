@@ -3,7 +3,6 @@ import { applyMcpFlow, type McpAuthValues } from "@openbot/contracts/mcp-connect
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Linking } from "react-native";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { relayPage } from "@/features/servers/model/provider-admin";
 import { useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
@@ -60,14 +59,14 @@ export function usePluginConnect(serverId: string, app: MobilePluginApp | null, 
     queryClient.setQueryData(queryKeys.mcpServers(queryScope, serverId), list);
   }
 
-  /** A failed test or sign-in, in the words of the host. It fails the operation, so analytics counts it. */
+  /** A failed test or sign-in, in the words of the host. */
   const hostFailure = (message: string) => new Error(sourceText(message));
 
   async function run(operation: () => Promise<void>) {
     setError(null);
     setState({ phase: "working" });
     try {
-      await mobileAnalytics.operation("marketplace_action", { entity: "plugin", action: "install" }, operation);
+      await operation();
       if (!mounted.current) return;
       void haptics.notification("success");
       setState({ phase: "done" });

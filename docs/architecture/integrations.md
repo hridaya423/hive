@@ -482,9 +482,7 @@ once, in `connect`; no answer carries them. `connect` answers `connecting` at on
 first sign-in can download `bw` and sync the vault for longer than the 15-second request limit. The
 client reads `status` every 2 seconds until the state changes. The host stores the record only after
 it unlocks the vault and finds the folder `Shared with OpenBot`, and unlocks again from it after a
-restart. The host must reach the server address over HTTPS; the instance firewall of
-[several instances on one host](../docker.md#several-instances-on-one-host) blocks private
-addresses. A host older than this capability hides Bitwarden.
+restart. The host must reach the server address over HTTPS. A host older than this capability hides Bitwarden.
 
 The phone uses the same routes in Server settings › Connectors › Bitwarden
 (`apps/mobile/src/features/servers/components/bitwarden-connector-page.tsx`). It reads `status`

@@ -135,7 +135,6 @@ import { ContextResetBusyError } from "@openbot/contracts/team-protocol/context-
 import type { QueueEditRequest } from "@openbot/contracts/team-protocol/queue-edit-v1";
 import { sourceText } from "@openbot/i18n/source";
 import { createOpenBotLogger } from "@openbot/logging";
-import { classifyFailure } from "@openbot/telemetry";
 import { Cause, Deferred, Effect, Exit, Fiber, Result, Schema, Scope, Semaphore } from "effect";
 import { AgentMemories } from "./agent/agent-memories";
 import { AgentRemoval, AgentRemovalFailed } from "./agent/agent-removal";
@@ -161,8 +160,7 @@ import { DeltaBuffer } from "./agent/delta-buffer";
 import type { SectionTeammates } from "./agent/developer-instructions";
 import { DrainScheduler } from "./agent/drain-scheduler";
 import { DuplicationGate, toAgentDuplicationFailed } from "./agent/duplication-gate";
-import type { FailureContext, FailureSignal } from "./agent/failure-signal";
-import { type AgentHostedSites, HostedSiteCoordinator } from "./agent/hosted-site-coordinator";
+import type { FailureContext } from "./agent/failure-signal";
 import { ImageGenRuntime } from "./agent/image-gen-runtime";
 import { InstructionsChanges } from "./agent/instructions-changes";
 import { MailboxSync } from "./agent/mailbox-sync";
@@ -202,13 +200,7 @@ import { SessionSettings } from "./agent/session-settings";
 import { SIDE_QUESTION_CHAT_MESSAGES, sideQuestionPrompt } from "./agent/side-question";
 import type { AgentSidebar } from "./agent/sidebar-tools";
 import type { LocalSkillTools } from "./agent/skill-tools";
-import {
-  agentProviderAccount,
-  isRequestTimeout,
-  providerForAgent,
-  providerLabel,
-  type ToolUsageSignal,
-} from "./agent/thread-items";
+import { agentProviderAccount, isRequestTimeout, providerForAgent, providerLabel } from "./agent/thread-items";
 import { ThreadLifecycle } from "./agent/thread-lifecycle";
 import { toToolOperationFailed } from "./agent/tool-operation";
 import { type AgentBrowserHost, TurnLifecycle } from "./agent/turn-lifecycle";
@@ -252,7 +244,6 @@ import type { RoutineHoldWindow } from "./routine-store";
 import { type RoutineDueSource, RoutineTimer } from "./routine-timer";
 import type { SidebarLayoutStore } from "./sidebar-layout-store";
 import type { VaultItems } from "./vault-items";
-import type { WorkflowRunEnd } from "./workflows/workflows";
 import {
   listWorkspaceDirectory,
   type ResolvedSharedFile,
@@ -276,12 +267,9 @@ export type { RoutineMutationOptions } from "./agent/routine-scheduler";
 export type { ResolvedSharedFile } from "./workspace-paths";
 
 interface AgentServiceEvents {
-  failure: [failure: FailureSignal];
   event: [event: AgentEvent];
   /** Finished tool steps for the local host's product analytics. Never forwarded to a client. */
-  toolUsage: [usage: ToolUsageSignal];
   /** A workflow run ended, for the local host's product analytics. Never forwarded to a client. */
-  workflowRun: [end: WorkflowRunEnd];
 }
 
 export interface AgentServiceOptions {
@@ -302,7 +290,6 @@ export interface AgentServiceOptions {
   clientFactory?: AgentClientFactory | null;
   bundledExecutables?: BundledProviderExecutables;
   prepareAgentWorkspace?: (agent: AgentSummary) => Effect.Effect<void, AgentLifecycleFailed>;
-  hostedSites?: AgentHostedSites | null;
   /** Draws pages for `html_preview`. Without it the tool tells the agent to show the page unchecked. */
   visualPreview?: ChatVisualPreviewHost | null;
   /** Captures the desktop for `capture_screen`; null where this process has no desktop. */
@@ -459,7 +446,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #providerUseChanges = Semaphore.makeUnsafe(1);
   readonly #endpoints: CustomEndpoints;
   readonly #prepareAgentWorkspace: (agent: AgentSummary) => Effect.Effect<void, AgentLifecycleFailed>;
-  readonly #hostedSites: HostedSiteCoordinator;
   readonly #conversation: ConversationRuntime;
   readonly #attention: AttentionRegistry;
   readonly #images: ImageGenRuntime;
@@ -506,7 +492,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       clientFactory = null,
       bundledExecutables = DEFAULT_BUNDLED_EXECUTABLES,
       prepareAgentWorkspace = () => Effect.void,
-      hostedSites = null,
       sidebarLayout = null,
       credentials = NO_PROVIDER_CREDENTIALS,
       localSkillTools,
@@ -690,13 +675,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
         isRunning: () => this.#initialized && !this.#stopping,
         usageLimited: (agentId) => !this.#usageLimits.mayDrain(agentId),
       },
-    });
-    this.#hostedSites = new HostedSiteCoordinator({
-      store,
-      conversation: this.#conversation,
-      hostedSites,
-      emitError: (code, error, agentId) => this.#emitError(code, error, agentId),
-      isStopping: () => this.#stopping,
     });
     this.#providers = new ProviderRuntime({
       offProviders: options.offProviders ?? [],
@@ -928,7 +906,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#attention = new AttentionRegistry({
       conversation: this.#conversation,
       browser: this.#browser,
-      hostedSites: this.#hostedSites,
       routines: this.#routines,
       ...(options.approvalAutomation === undefined ? {} : { approvalAutomation: options.approvalAutomation }),
       workspaceSandboxed: (agentId) => {
@@ -1453,7 +1430,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       usageLimits: this.#usageLimits,
       planContinuation: this.#planContinuation,
       hooks: {
-        emitFailure: (failure) => this.emit("failure", failure),
         emit: (event) => this.#emit(event),
         emitError: (code, error, agentId, context) => this.#emitError(code, error, agentId, context),
         emitRuntimeSnapshot: () => this.#emitRuntimeSnapshot(),
@@ -1463,7 +1439,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
           this.#threads.dropRefusedProviderSession(agentId, externalThreadId),
         listAgents: () => this.listAgents(),
         redactMcp: (text) => this.#mcp.redact(text),
-        emitToolUsage: (usage) => this.emit("toolUsage", usage),
         turnModel: (agentId, turnId) => this.#drain.modelForTurn(agentId, turnId),
         mayFailOver: (agentId) => this.#usageLimitBackup(agentId) !== undefined,
         requeueChannelDelivery: (deliveryId, continueWork) => this.#requeueChannelDelivery(deliveryId, continueWork),
@@ -1513,7 +1488,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       drain: this.#drain,
       threads: this.#threads,
       turn: this.#turn,
-      hostedSites: this.#hostedSites,
       compaction: this.#compaction,
       apiKeys: options.agentApiKeys ?? null,
       deleteWithRevokedApproval: options.deleteWithRevokedApproval ?? ((_agentId, remove) => remove()),
@@ -1550,7 +1524,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       attachments: this.#attachments,
       channels: this.channels,
       messaging: this.messaging,
-      hostedSites: this.#hostedSites,
       routines: this.#routines,
       memories: this.#memories,
       waits: this.#waits,
@@ -2234,10 +2207,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
    */
   notifyBrowserProfilesChanged(): void {
     this.#emit({ type: "browser-profiles-changed" });
-  }
-
-  notifyWorkflowRunEnded(end: WorkflowRunEnd): void {
-    this.emit("workflowRun", end);
   }
 
   listModels(): AgentModelOption[] {
@@ -3587,7 +3556,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       );
     yield* lifecycleStep("recover agent state", () => {
       this.#boot.recoverPersistedTurns();
-      this.#hostedSites.restore();
       this.#routines.skipMissed(new Date(), options.heldRoutines);
       this.#channelRoutines.skipMissed(new Date(), options.heldRoutines);
       this.#initialized = true;
@@ -4130,7 +4098,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     this.#initialized = false;
     this.#routineTimer.dispose();
     yield* this.#memoryHold.dispose();
-    this.#hostedSites.dispose();
     this.#compaction.dispose();
     this.#deltas.dispose();
     this.#conversation.dispose();
@@ -5133,12 +5100,6 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   }
 
   #emitError(code: string, error: unknown, agentId?: string, context?: FailureContext): void {
-    this.emit("failure", {
-      ...context,
-      code,
-      ...(agentId !== undefined ? { agentId } : {}),
-      causeCode: context?.causeCode ?? classifyFailure(error),
-    });
     this.#emit({
       type: "error",
       ...(agentId !== undefined ? { agentId } : {}),

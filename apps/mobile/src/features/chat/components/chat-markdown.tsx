@@ -29,7 +29,6 @@ import {
 import { UITextView } from "react-native-uitextview";
 import { useCSSVariable } from "uniwind";
 import { BloubAvatarThumbnail } from "@/features/agents/components/bloub-avatar";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { ChatLinkIcon } from "@/features/chat/components/chat-link-icon";
 import {
   StreamingBlock,
@@ -37,6 +36,7 @@ import {
   StreamRevealProvider,
 } from "@/features/chat/components/streaming-tail-text";
 import type { MobileAgent } from "@/features/workspace/model/workspace-types";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { graphemes } from "@/shared/lib/graphemes";
 import { haptics } from "@/shared/lib/haptics";
 import { useMotionPreference } from "@/shared/lib/motion";
@@ -384,12 +384,7 @@ function openMessageLink(url: string): void {
   void Linking.openURL(url).catch((error: unknown) => {
     void haptics.notification("error");
     const { t } = currentText();
-    showFailureAlert(
-      error,
-      "browser",
-      t("mobile.chat.markdown.linkFailedTitle"),
-      t("mobile.chat.markdown.linkFailedMessage"),
-    );
+    showFailureAlert(error, t("mobile.chat.markdown.linkFailedTitle"), t("mobile.chat.markdown.linkFailedMessage"));
   });
 }
 

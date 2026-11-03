@@ -75,17 +75,8 @@ extraResources:
     to: licenses/OpenAI-Whisper-LICENSE
   - from: build/licenses/Supertone-Supertonic-3-LICENSE
     to: licenses/Supertone-Supertonic-3-LICENSE
-# The voice runtime, the remote desktop runtime and each Computer Use driver are built for one
-# target, so their resources are listed under each platform instead of here.
-# electron-builder merges the root and platform lists, so every build still gets its own, while a
-# build has no missing `from` to fail on and no other platform's driver to carry.
 directories:
   output: dist
-toolsets:
-  # The static AppImage runtime (AppImage/type2-runtime) has libfuse built in, so the AppImage starts
-  # on Arch Linux, Omarchy and other systems with no libfuse.so.2. It needs only `fusermount3`
-  # from fuse3. The default toolset needs libfuse.so.2. `--appimage-extract` works with both.
-  appimage: "1.0.3"
 mac:
   category: public.app-category.productivity
   minimumSystemVersion: "13.0"
@@ -143,58 +134,6 @@ mac:
   target:
     - dmg
     - zip
-win:
-  icon: build/icon-production.ico
-  extraResources:
-    - from: .openbot-build/voice/runtime
-      to: voice/runtime
-    - from: build/remote-desktop-runtime
-      to: remote-desktop-runtime
-    - from: build/cua-driver/win32/x64
-      to: cua-driver/win32/x64
-  target:
-    - target: nsis
-      arch:
-        - x64
-# The assisted installer lets the user choose the disk and folder. `build/installer.nsh` keeps it
-# per-user and moves the install into an `OpenBot` subfolder when the chosen folder holds other
-# files, because the uninstaller deletes the whole folder. An update reads the folder from
-# `InstallLocation`. The app starts it silently (`src/main/update-service.ts`), so an update shows
-# no page.
-nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
-linux:
-  category: Development
-  icon: build/icon-production.png
-  synopsis: A local-first multi-agent desktop workspace.
-  extraResources:
-    - from: build/linux/openbot.apparmor
-      to: linux/openbot.apparmor
-    # A hosted server installs the packages, scripts and units of the release that it updates to.
-    - from: scripts/hosting
-      to: hosting
-      filter:
-        - "**/*"
-        - "!*.ts"
-    # The sherpa-onnx addon and its libraries. The dictation and speech models are downloaded on demand.
-    - from: .openbot-build/voice/runtime
-      to: voice/runtime
-    # Only the x64 build installs this runtime. For arm64 the directory does not exist, and
-    # electron-builder skips a missing source with a warning.
-    - from: build/remote-desktop-runtime
-      to: remote-desktop-runtime
-    - from: build/cua-driver/linux/${arch}
-      to: cua-driver/linux/${arch}
-  # Electron takes its Linux app id from `desktopName` in package.json, and the window manager
-  # matches a running window to the launcher through `StartupWMClass`. Syncing the two from one
-  # value is what makes the taskbar icon group with the window it belongs to.
-  syncDesktopName: true
-  target:
-    - target: AppImage
-      arch:
-        - x64
-        - arm64
 dmg:
   title: ${productName} ${version}
   # The art is 478 pt high, so it fills the window when Finder shows only the title bar.

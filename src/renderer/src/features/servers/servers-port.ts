@@ -31,13 +31,11 @@ export interface ServersPort {
     | "removeMcpSignInApp"
   >;
   events: OpenBotDesktopApi["events"];
-  auth: Pick<OpenBotDesktopApi["auth"], "onEvent">;
   browser: Pick<OpenBotDesktopApi["browser"], "setVisible">;
   hostAdmin: Pick<
     OpenBotDesktopApi["hostAdmin"],
     "cancelUpdate" | "getUpdateStatus" | "startUpdate" | "updateIdentity"
   >;
-  hostedServers: Pick<OpenBotDesktopApi["hostedServers"], "list" | "restart" | "wake">;
   localServers: OpenBotDesktopApi["localServers"];
   host: Pick<
     OpenBotDesktopApi["host"],

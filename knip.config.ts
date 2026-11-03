@@ -92,10 +92,6 @@ const config: KnipConfig = {
       // `cloudflare:workers` is a runtime module of the Workers platform, not an npm package.
       ignoreDependencies: ["cloudflare"],
     },
-    // The wrangler plugin of knip reads `main` from wrangler.jsonc.
-    "apps/site-router": {
-      project: ["src/**/*.ts"],
-    },
     "apps/mobile": {
       entry: [
         "src/app/**/*.{ts,tsx}",
@@ -120,17 +116,8 @@ const config: KnipConfig = {
         "expo-symbols",
       ],
     },
-    // src/index.ts is a default entry of knip. The capacity-report Compose service runs
-    // src/capacity-report.ts.
     "remote/api": {
-      entry: ["src/capacity-report.ts"],
       project: ["src/**/*.ts"],
-    },
-    "packages/i18n": {
-      // apps/auth-api/vite.config.ts puts this file in place of the static catalog modules by path.
-      // Metro resolves mobile-catalogs.native.ts in place of mobile-catalogs.ts.
-      entry: ["src/lazy-catalogs.ts", "src/mobile-catalogs.native.ts"],
-      project: ["src/**/*.{ts,tsx,css}"],
     },
     "packages/*": {
       project: ["src/**/*.{ts,tsx,css}"],

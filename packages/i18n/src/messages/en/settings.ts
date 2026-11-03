@@ -4,7 +4,6 @@ export const messages = defineMessages("settings", {
   // The language setting itself.
   "settings.language.title": "Language",
   "settings.language.description": "OpenBot shows menus, buttons and messages in this language.",
-  "settings.language.system": "System default",
   // The logo color setting, General tab.
   "settings.appearance.title": "Appearance",
   "settings.appearance.theme.title": "Theme",
@@ -103,7 +102,6 @@ export const messages = defineMessages("settings", {
   "settings.keepRemoteSessions.title": "Fast connection to servers",
   "settings.keepRemoteSessions.description":
     "Keep the connection to your joined servers between launches. OpenBot starts about a second faster. When you quit OpenBot, the OpenBot service does not close the connection.",
-  "settings.permissions.title": "Permissions",
   "settings.notifications.whatYouHear": "What you hear about",
   "settings.notifications.allDevices": "All my devices",
   "settings.notifications.thisComputer": "This computer",
@@ -163,11 +161,6 @@ export const messages = defineMessages("settings", {
   "settings.notch.size.height": "Height",
   "settings.notch.size.previewNotch": "Built-in display",
   "settings.notch.size.previewIsland": "External display",
-  "settings.analytics.title": "Link analytics to my account",
-  "settings.analytics.description":
-    "On: usage and reliability metadata goes to OpenBot’s self-hosted analytics with your account ID and email, with the websites that you and your agents visit, tool use and a daily summary of your setup. Off: only basic usage, such as turns and token counts, goes with a random install ID. Chats, files and prompts are never sent.",
-  "settings.analytics.webDescription":
-    "On: usage and reliability metadata goes to OpenBot’s self-hosted analytics with your account ID and email. Off: the same metadata goes with a random install ID only. Chats, files and prompts are never sent. This setting applies to this browser.",
   // The Settings window shell: its tab list, headers and save bar.
   "settings.tab.general.title": "General",
   "settings.tab.general.description": "Control how OpenBot behaves on this computer.",
@@ -190,10 +183,6 @@ export const messages = defineMessages("settings", {
   "settings.tab.dynamicIsland.description": "Choose when the island shows and how large it is.",
   "settings.tab.updates.title": "Updates",
   "settings.tab.updates.description": "Keep OpenBot current on this computer.",
-  "settings.tab.billing.title": "Billing",
-  "settings.tab.billing.description": "License, server plans, payment method and invoices.",
-  "settings.tab.hostedServers.title": "Hosted servers",
-  "settings.tab.hostedServers.description": "Create OpenBot servers that run when this computer is off.",
   "settings.sections.label": "Settings sections",
   "settings.panel.resize": "Resize right panel",
   // A failed read or save of the app preferences on the General, Notifications, Dynamic Island and Updates tabs.
@@ -429,96 +418,6 @@ export const messages = defineMessages("settings", {
   "settings.updates.allowRemote.title": "Allow updates from server members",
   "settings.updates.allowRemote.description":
     "All signed-in server members can request an update when this computer is idle. Owners and admins can also force a restart.",
-  // The Hosted sites tab.
-  "settings.hostedSites.title": "Published sites",
-  "settings.hostedSites.unavailable": "Site hosting is unavailable.",
-  "settings.hostedSites.usage": { one: "{used} of {count} site", other: "{used} of {count} sites" },
-  "settings.hostedSites.expiryNote":
-    "Sites expire 30 days after publication. Ask an agent to publish or update a site.",
-  "settings.hostedSites.empty": "This server does not have a hosted site yet. Ask an agent to publish one.",
-  "settings.hostedSites.expires": "Expires {date}",
-  "settings.hostedSites.expiryUnavailable": "Expiry unavailable",
-  "settings.hostedSites.blocked": "Blocked",
-  "settings.hostedSites.unlinked": "Not linked to a server",
-  "settings.hostedSites.openLabel": "Open {hostname}",
-  "settings.hostedSites.deleteLabel": "Delete {hostname}",
-  "settings.hostedSites.deleteTitle": "Delete {hostname}?",
-  "settings.hostedSites.deleteDescription": "This address will immediately return 410 Gone.",
-  "settings.hostedSites.deleting": "Deleting…",
-  "settings.hostedSites.loadFailed": "Could not load hosted sites.",
-  "settings.hostedSites.deleteFailed": "Could not delete the site.",
-  "settings.hostedSites.reloadFailed": "Could not reload hosted sites.",
-  // The Hosted servers tab. {vcpu}, {memory} and {disk} are numbers, such as 2, 4 and 12.
-  "settings.hostedServers.title": "Your servers",
-  "settings.hostedServers.description": "Each server has its own agents, files and routines.",
-  "settings.hostedServers.add": "Add server",
-  "settings.hostedServers.planSpec": "{plan} · {vcpu} vCPU, {memory} GB memory, {disk} GB storage",
-  "settings.hostedServers.creating": "Creating…",
-  "settings.hostedServers.usageNote":
-    "A server stops about 15 minutes after the last message or change, also when an app is open. A key press or click in the app, a message, or a scheduled routine starts it again. Its agents and routines work when this computer is off.",
-  "settings.hostedServers.empty": "You do not have a hosted server yet.",
-  "settings.hostedServers.loading": "Loading hosted servers…",
-  "settings.hostedServers.state.awaitingPayment": "Waiting for payment",
-  "settings.hostedServers.state.planEnded": "Plan ended",
-  "settings.hostedServers.state.creating": "Creating",
-  "settings.hostedServers.state.starting": "Starting",
-  "settings.hostedServers.state.running": "Running",
-  "settings.hostedServers.state.stopping": "Stopping",
-  "settings.hostedServers.state.stopped": "Stopped",
-  "settings.hostedServers.state.waking": "Starting again",
-  "settings.hostedServers.state.error": "Error",
-  "settings.hostedServers.state.deleted": "Deleted",
-  "settings.hostedServers.errorDescription": "The server could not start. Start it to try again.",
-  "settings.hostedServers.paymentDescription": "The setup starts when Stripe confirms the payment.",
-  "settings.hostedServers.planEndedDescription":
-    "The plan ended, so the server stopped. Its data stays. Renew the plan to start it.",
-  "settings.hostedServers.pay": "Open payment page",
-  "settings.hostedServers.payLabel": "Open payment page for {name}",
-  "settings.hostedServers.renew": "Renew plan",
-  "settings.hostedServers.renewLabel": "Renew plan for {name}",
-  "settings.hostedServers.openingCheckout": "Opening…",
-  "settings.hostedServers.checkoutFailed": "Could not open the payment page.",
-  "settings.hostedServers.wake": "Start",
-  "settings.hostedServers.waking": "Starting…",
-  "settings.hostedServers.wakeLabel": "Start {name}",
-  "settings.hostedServers.deleteLabel": "Delete {name}",
-  "settings.hostedServers.deleteTitle": "Delete {name}?",
-  "settings.hostedServers.deleteDescription":
-    "This permanently deletes the server with its agents, conversations and files. You cannot undo this.",
-  "settings.hostedServers.deleteConfirmLabel": "Type {name} to confirm",
-  "settings.hostedServers.deleteNameMismatch": "The name does not match.",
-  "settings.hostedServers.deleting": "Deleting…",
-  "settings.hostedServers.loadFailed": "Could not load hosted servers.",
-  "settings.hostedServers.createFailed": "Could not create the server.",
-  "settings.hostedServers.wakeFailed": "Could not start the server.",
-  "settings.hostedServers.deleteFailed": "Could not delete the server.",
-  // The plan picker. {count} is a number, such as 4. {price} is a formatted amount, such as "€50".
-  "settings.hostedServers.plan.label": "Plan",
-  "settings.hostedServers.plan.recommended": "Best value",
-  "settings.hostedServers.plan.soldOut": "Sold out",
-  "settings.hostedServers.plan.perMonth": "/ month",
-  "settings.hostedServers.plan.disk": "{count} GB storage",
-  // Each plan is a Linux virtual machine. Agents run Linux commands and apps there, not macOS or Windows ones.
-  "settings.hostedServers.plan.linux": "Linux machine",
-  // A server stops when no one uses it, and starts again for a message or a scheduled routine.
-  "settings.hostedServers.plan.startsOnUse": "Starts when you use it",
-  // The most active members of the server, the owner included.
-  "settings.hostedServers.plan.members": { one: "Up to {count} member", other: "Up to {count} members" },
-  // The most active hosted sites of the server. Agents publish static sites there.
-  "settings.hostedServers.plan.sites": { one: "Up to {count} hosted site", other: "Up to {count} hosted sites" },
-  // Work at a company needs a commercial license. With a Starter server, the 1-user license costs less.
-  "settings.hostedServers.plan.license.starter": "Commercial license: {price} / month",
-  "settings.hostedServers.plan.license.team": "Work needs a Team license",
-  // The speed of a plan compared with Starter. {factor} is a number, such as 2.
-  "settings.hostedServers.plan.speed.base": "Base speed",
-  "settings.hostedServers.plan.speed.faster": "{factor}× faster",
-  "settings.hostedServers.plan.starter.name": "Starter",
-  "settings.hostedServers.plan.starter.summary": "For one agent and a few routines.",
-  "settings.hostedServers.plan.standard.name": "Standard",
-  "settings.hostedServers.plan.standard.summary": "For a small team with daily routines.",
-  "settings.hostedServers.plan.pro.name": "Pro",
-  "settings.hostedServers.plan.pro.summary": "For many agents and heavy browser work.",
-  // The Voice tab: dictation models and the dictation language.
   "settings.voice.models.title": "Dictation model",
   "settings.voice.model.parakeet.description": "Fast. Finds the spoken language itself, in 25 European languages.",
   "settings.voice.model.bark.description": "Fast. English only. Writes mostly lowercase, with little punctuation.",

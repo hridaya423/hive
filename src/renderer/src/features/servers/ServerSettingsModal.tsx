@@ -1,6 +1,5 @@
 import type {
   AvatarImageInput,
-  HostedSitesDesktopApi,
   HostStatus,
   InviteSummary,
   McpServerConfig,
@@ -11,7 +10,6 @@ import type {
   UpdateTeamMemberInput,
 } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
-import { classifyFailure } from "@openbot/telemetry";
 import {
   Alert,
   AlertActions,
@@ -26,7 +24,6 @@ import {
   CalendarClock,
   ChevronRight,
   Download,
-  Globe2,
   HardDrive,
   History,
   KeyRound,
@@ -39,18 +36,12 @@ import {
   Text,
   UsersRound,
 } from "@openbot/ui";
-import type { LicenseCalls } from "@openbot/ui/features/billing/license-store";
 import type { ProviderSettingsDetail } from "@openbot/ui/features/settings/ProviderSettingsPage";
 import {
   SaveBarDock,
   SettingsDialogShell,
   type SettingsPagePlacement,
 } from "@openbot/ui/features/settings/SettingsDialogShell";
-import { SettingsHostedSitesTab } from "@openbot/ui/features/settings/SettingsHostedSitesTab";
-import {
-  createSettingsHostedSitesStore,
-  type HostedSiteDeleteResult,
-} from "@openbot/ui/features/settings/stores/hosted-sites-store";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createSignal, onCleanup, Show, untrack } from "solid-js";
 import { actionToast } from "../../action-toast";
@@ -96,13 +87,6 @@ export interface ServerSettingsModalProps {
    */
   onRotateHostKey?: (() => Promise<void>) | undefined;
   onCreateInvite: (input: { role: "admin" | "member"; email?: string; permanent?: boolean }) => Promise<InviteSummary>;
-  /**
-   * The license of the signed-in account. When the owner invites a person to a full license, the
-   * Members section first asks to add a user to it. Absent on surfaces with no account license.
-   */
-  license?: Pick<LicenseCalls, "getState" | "setUsers" | "changePlan"> | undefined;
-  /** Opens the contact page when a full license already has the most users that the app sells. */
-  onContactUs?: () => void;
   onUpdateMember: (input: UpdateTeamMemberInput) => Promise<void>;
   onRemoveMember: (memberId: string) => Promise<void>;
   onRevokeInvite: (inviteId: string) => Promise<void>;
@@ -156,11 +140,6 @@ export interface ServerSettingsModalProps {
    * `storage-v1` passes nothing. Every member reads it; `canManage` adds Clear and Delete.
    */
   storage?: ServerStorageOptions | undefined;
-  /**
-   * The Sites section appears only when a caller supplies this: this computer, or a remote host with
-   * `hosted-sites-v1`. Every member reads the list; an owner or admin can delete.
-   */
-  hostedSites?: ServerHostedSitesOptions | undefined;
   /**
    * The Providers section: this computer, or a remote host with `providers-v1` that this account
    * administers. A member gets no section.
@@ -235,16 +214,6 @@ export interface ServerSettingsModalProps {
   page: SettingsPagePlacement | undefined;
 }
 
-export interface ServerHostedSitesOptions {
-  /** Called with this dialog's server. */
-  api: Pick<HostedSitesDesktopApi, "list" | "delete">;
-  onOpenSite: (url: string) => void;
-  /** Called as a deletion starts. It returns the call that records the result. */
-  trackDelete?: () => (result: HostedSiteDeleteResult) => void;
-  /** Opens the server plans when the server is at its site limit. Only for a user who can buy a plan. */
-  onSeePlans?: (() => void) | undefined;
-}
-
 export type ServerSettingsSection =
   | "general"
   | "vault"
@@ -254,7 +223,6 @@ export type ServerSettingsSection =
   | "desktop"
   | "mcp"
   | "storage"
-  | "sites"
   | "providers"
   | "updates"
   | "import"
@@ -272,7 +240,6 @@ const sections = {
   desktop: { title: "server.settings.desktopTitle", description: "server.settings.desktopDescription" },
   mcp: { title: "server.settings.mcpTitle", description: "server.settings.mcpDescription" },
   storage: { title: "server.settings.storageTitle", description: "server.settings.storageDescription" },
-  sites: { title: "server.settings.hostedSitesTitle", description: "server.settings.hostedSitesDescription" },
   providers: { title: "server.settings.providersTitle", description: "server.settings.providersDescription" },
   updates: { title: "server.settings.updatesTitle", description: "server.settings.updatesDescription" },
   import: { title: "server.settings.importTitle", description: "server.settings.importDescription" },
@@ -336,7 +303,6 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
         ...{
           description: errorMessage(error, t("server.settings.actionFailed")),
         },
-        report: { operation: "settings", source: "action", cause_code: classifyFailure(error) },
       });
       return false;
     } finally {
@@ -356,7 +322,6 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
     showCopyError() {
       actionToast.error(t("server.settings.copyFailedTitle"), {
         ...{ description: t("server.settings.copyFailed") },
-        report: { operation: "settings", source: "action", cause_code: "unknown" },
       });
     },
   };
@@ -370,23 +335,6 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
       saveIdentityDraft: general.saveIdentityDraft,
     },
     roles,
-  );
-  const hostedSites = createSettingsHostedSitesStore(
-    {
-      get open() {
-        return props.open;
-      },
-      get serverId() {
-        return props.server.id;
-      },
-      get hostedSitesApi() {
-        return props.hostedSites?.api;
-      },
-      get trackDelete() {
-        return props.hostedSites?.trackDelete;
-      },
-    },
-    () => section() === "sites",
   );
 
   /** Publishes the reserve to the shell stylesheet, which spends it as the panel's end padding. */
@@ -499,7 +447,6 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
         value === "desktop" ||
         value === "mcp" ||
         value === "storage" ||
-        value === "sites" ||
         value === "providers" ||
         value === "updates" ||
         value === "import" ||
@@ -695,12 +642,6 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
                 <span>{t(sections.storage.title)}</span>
               </Tabs.Trigger>
             </Show>
-            <Show when={props.hostedSites}>
-              <Tabs.Trigger class="settings-modal-nav-item" value="sites">
-                <Globe2 aria-hidden="true" />
-                <span>{t(sections.sites.title)}</span>
-              </Tabs.Trigger>
-            </Show>
             <Show when={props.providers || props.onSwitchToManageProviders}>
               <Tabs.Trigger class="settings-modal-nav-item" value="providers">
                 <Sparkles aria-hidden="true" />
@@ -800,19 +741,6 @@ export function ServerSettingsModal(props: ServerSettingsModalProps) {
           {(storage) => (
             <Tabs.Content value="storage" class="settings-modal-tab-panel server-settings-panel" data-tab="storage">
               <ServerStoragePanel serverId={props.server.id} members={props.members} {...storage()} />
-            </Tabs.Content>
-          )}
-        </Show>
-        <Show when={props.hostedSites}>
-          {(sites) => (
-            <Tabs.Content value="sites" class="settings-modal-tab-panel server-settings-panel" data-tab="sites">
-              <SettingsHostedSitesTab
-                store={hostedSites}
-                available
-                canDelete={serverRoleCanAdminister(props.server)}
-                onOpenSite={sites().onOpenSite}
-                onSeePlans={sites().onSeePlans}
-              />
             </Tabs.Content>
           )}
         </Show>

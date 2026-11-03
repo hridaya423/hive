@@ -35,9 +35,6 @@ export function SettingsScreen() {
         <SettingsRow onPress={() => router.push("/settings/animations")}>
           <Typography.Paragraph>{t("mobile.settings.animations.title")}</Typography.Paragraph>
         </SettingsRow>
-        <SettingsRow onPress={() => router.push("/settings/language")}>
-          <Typography.Paragraph>{t("mobile.settings.language.title")}</Typography.Paragraph>
-        </SettingsRow>
         <SettingsRow onPress={() => router.push("/settings/voice")}>
           <Typography.Paragraph>{t("mobile.settings.voice.title")}</Typography.Paragraph>
         </SettingsRow>
@@ -47,9 +44,6 @@ export function SettingsScreen() {
         {/* On iOS the screen also has the Live Activities, which exist only there. */}
         <SettingsRow onPress={() => router.push("/settings/notifications")}>
           <Typography.Paragraph>{t("mobile.settings.notifications.title")}</Typography.Paragraph>
-        </SettingsRow>
-        <SettingsRow onPress={() => router.push("/settings/privacy")}>
-          <Typography.Paragraph>{t("mobile.settings.privacy.title")}</Typography.Paragraph>
         </SettingsRow>
         <SettingsRow onPress={() => router.push("/settings/app-lock")}>
           <Typography.Paragraph>{t("mobile.appLock.title")}</Typography.Paragraph>

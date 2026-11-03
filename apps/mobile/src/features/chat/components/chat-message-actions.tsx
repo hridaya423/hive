@@ -12,9 +12,9 @@ import Volume2 from "lucide-react-native/icons/volume-2";
 import { type PropsWithChildren, useMemo, useState } from "react";
 import { type AccessibilityState, Pressable, View } from "react-native";
 import Animated, { FadeIn, FadeOut, ReduceMotion } from "react-native-reanimated";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { toggleReadAloud, useReadingAloud } from "@/features/voice/model/message-reading";
 import type { MobileAgent } from "@/features/workspace/context/mobile-workspace-context";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { useText } from "@/shared/lib/text";
 import { useCopyMessage } from "./use-copy-message";
@@ -153,7 +153,7 @@ export function ChatMessageActions({
     onReact(emoji).catch((error: unknown) => {
       setPending(null);
       void haptics.notification("error");
-      showFailureAlert(error, "turn", t("mobile.chat.message.reactionFailed"), t("mobile.chat.copyFailedMessage"));
+      showFailureAlert(error, t("mobile.chat.message.reactionFailed"), t("mobile.chat.copyFailedMessage"));
     });
   };
   const time = useMemo(

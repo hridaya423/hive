@@ -1,7 +1,6 @@
 import { defineMessages } from "../../message";
 
 export const messages = defineMessages("account", {
-  "account.menu.billing": "Billing",
   "account.menu.sendFeedback": "Send feedback",
   "account.menu.signOut": "Sign out",
   "account.menu.signingOut": "Signing out…",
@@ -95,9 +94,4 @@ export const messages = defineMessages("account", {
   "account.otp.verifying": "Verifying…",
   "account.otp.entry": "One-time code entry",
   "account.otp.label": "One-time code",
-  "account.language.title": "Choose your language",
-  "account.language.previous": "Previous language",
-  "account.language.next": "Next language",
-  "account.language.continue": "Continue",
-  "account.language.change": "Change language",
 });

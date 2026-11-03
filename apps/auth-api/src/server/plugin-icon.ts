@@ -13,7 +13,7 @@ class PluginIconError extends Schema.TaggedError<PluginIconError>()("PluginIconE
 // Nothing here takes a URL from a request. The slug names a listing, the listing names the address,
 // and an address the catalog does not hold cannot be reached through this route.
 
-import { findPlugin } from "../lib/plugins";
+import { PLUGIN_CATALOG_DETAILS, PLUGIN_CATALOG_INDEX } from "../lib/plugin-catalog.generated";
 
 /**
  * A day, not a year: the catalog is a literal in this repository today and becomes a document
@@ -36,7 +36,8 @@ function isServableImage(contentType: string): boolean {
 
 /** The address the catalog holds for this listing, if it is one the web can be fetched over. */
 function iconSource(slug: string, appId: string | null): string | null {
-  const plugin = findPlugin(slug);
+  const entry = PLUGIN_CATALOG_INDEX.plugins.find((candidate) => candidate.slug === slug);
+  const plugin = entry ? PLUGIN_CATALOG_DETAILS[entry.slug] : undefined;
   if (!plugin) return null;
   if (appId) {
     const app = plugin.apps.find((candidate) => candidate.id === appId);

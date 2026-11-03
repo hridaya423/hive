@@ -1,7 +1,6 @@
 import type { RemoteDesktopConnectResult, RemoteDesktopErrorCode, RemoteDesktopSession } from "@openbot/contracts/ipc";
 import { currentText } from "@openbot/ui/text";
 import { createEffect, createMemo, createSignal, flush, onSettled } from "solid-js";
-import { desktopAnalytics } from "../../analytics";
 import { usePlatform } from "../../platform";
 import { createSimpleContext } from "../../simple-context";
 import { serverSupportsCapability } from "../servers/server-capabilities";
@@ -60,69 +59,27 @@ const RemoteDesktop = createSimpleContext({
     }
 
     async function connectRemoteDesktop(serverId: string): Promise<RemoteDesktopConnectResult> {
-      const analytics = desktopAnalytics.scope();
-      try {
-        const result = await remoteDesktopPort().remoteDesktop.connect({ serverId });
-        if (result.status === "refused") {
-          analytics.track("remote_desktop_action", {
-            action: "connect",
-            result: "failed",
-            failure_code: result.errorCode,
-          });
-          return result;
-        }
-        const session = result.session;
-        setRemoteDesktopSessions((current) => [...current.filter((item) => item.id !== session.id), session]);
-        analytics.track("remote_desktop_action", {
-          action: "connect",
-          result: "succeeded",
-          transport: session.transport,
-        });
+      const result = await remoteDesktopPort().remoteDesktop.connect({ serverId });
+      if (result.status === "refused") {
         return result;
-      } catch (error) {
-        analytics.track("remote_desktop_action", {
-          action: "connect",
-          result: "failed",
-          failure_code: "connection_failed",
-        });
-        throw error;
       }
+      const session = result.session;
+      setRemoteDesktopSessions((current) => [...current.filter((item) => item.id !== session.id), session]);
+      return result;
     }
 
     async function disconnectRemoteDesktop(sessionId: string): Promise<void> {
-      const analytics = desktopAnalytics.scope();
-      try {
-        await remoteDesktopPort().remoteDesktop.disconnect(sessionId);
-        setRemoteDesktopSessions((current) => current.filter((session) => session.id !== sessionId));
-        analytics.track("remote_desktop_action", { action: "disconnect", result: "succeeded" });
-      } catch (error) {
-        analytics.track("remote_desktop_action", {
-          action: "disconnect",
-          result: "failed",
-          failure_code: "disconnect_failed",
-        });
-        throw error;
-      }
+      await remoteDesktopPort().remoteDesktop.disconnect(sessionId);
+      setRemoteDesktopSessions((current) => current.filter((session) => session.id !== sessionId));
     }
 
     async function selectRemoteDesktopDisplay(serverId: string, displayId: string): Promise<void> {
-      const analytics = desktopAnalytics.scope();
-      try {
-        await remoteDesktopPort().remoteDesktop.selectDisplay({ serverId, displayId });
-        setRemoteDesktopSessions((current) =>
-          current.map((session) =>
-            session.serverId === serverId ? { ...session, selectedDisplayId: displayId } : session,
-          ),
-        );
-        analytics.track("remote_desktop_action", { action: "select_display", result: "succeeded" });
-      } catch (error) {
-        analytics.track("remote_desktop_action", {
-          action: "select_display",
-          result: "failed",
-          failure_code: "display_select_failed",
-        });
-        throw error;
-      }
+      await remoteDesktopPort().remoteDesktop.selectDisplay({ serverId, displayId });
+      setRemoteDesktopSessions((current) =>
+        current.map((session) =>
+          session.serverId === serverId ? { ...session, selectedDisplayId: displayId } : session,
+        ),
+      );
     }
 
     function latestRemoteDesktopSession(serverId: string): RemoteDesktopSession | undefined {

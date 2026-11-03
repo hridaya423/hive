@@ -1,23 +1,21 @@
-import type { HostedServerIssue } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import { formatElapsed } from "@openbot/ui/utils";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { ConfirmDialog } from "../../confirm-dialog";
 import { ErrorReference } from "../../error-reference";
-import { CircleCheck, CircleDot, Download, Moon, RefreshCw, TriangleAlert } from "../../icons";
+import { CircleCheck, CircleDot, Download, RefreshCw, TriangleAlert } from "../../icons";
 import { Spinner } from "../../surface";
 import { useText } from "../../text";
 import type { ServerWorkspacePhase } from "./ServerConnectionNotice";
 
-/** What took the workspace away. An update or a wake keeps its cause until the workspace is back. */
-type Cause = "update" | "wake" | "connection";
-type Step = "update" | "wake" | "connect" | "load";
+/** What took the workspace away. An update keeps its cause until the workspace is back. */
+type Cause = "update" | "connection";
+type Step = "update" | "connect" | "load";
 type StepStatus = "done" | "active" | "failed" | "pending";
 
 const STEP_TEXT = {
   update: { label: "server.status.stepUpdate", detail: "server.status.stepUpdateDetail" },
-  wake: { label: "server.status.stepWake", detail: "server.status.stepWakeDetail" },
   connect: { label: "server.status.stepConnect", detail: "server.status.stepConnectDetail" },
   load: { label: "server.status.stepLoad", detail: "server.status.stepLoadDetail" },
 } as const satisfies Record<Step, { label: AppTextKey; detail: AppTextKey }>;
@@ -30,7 +28,6 @@ export interface ServerStatusDialogProps {
   title: string;
   phase: ServerWorkspacePhase;
   initial: boolean;
-  issue?: HostedServerIssue | null;
   /** The OpenBot version that the server restarts into. */
   updateVersion?: string | null;
   remainingSeconds?: number;
@@ -41,29 +38,22 @@ export interface ServerStatusDialogProps {
 }
 
 /**
- * Tells the user why the workspace is away and which step it is at: the server installs an update or
- * starts, then this app connects and loads the workspace.
+ * Tells the user why the workspace is away and which step it is at: the server installs an update,
+ * then this app connects and loads the workspace.
  */
 export function ServerStatusDialog(props: ServerStatusDialogProps) {
   const { t } = useText();
   const cause = createMemo<Cause>((previous) => {
     if (props.phase === "updating") return "update";
-    if (props.phase === "waking" || props.phase === "sleeping" || props.issue) return "wake";
     return previous ?? "connection";
   });
-  const serverStep = (): Step => (cause() === "update" ? "update" : "wake");
-  const steps = (): Step[] => (cause() === "connection" ? ["connect", "load"] : [serverStep(), "connect", "load"]);
+  const steps = (): Step[] => (cause() === "connection" ? ["connect", "load"] : ["update", "connect", "load"]);
   const current = (): Step => {
     switch (props.phase) {
       case "updating":
         return "update";
-      case "waking":
-      case "sleeping":
-        return "wake";
       case "loading":
         return "load";
-      case "blocked":
-        return props.issue ? serverStep() : "connect";
       default:
         return "connect";
     }
@@ -74,8 +64,7 @@ export function ServerStatusDialog(props: ServerStatusDialogProps) {
     if (index < currentIndex) return "done";
     if (index > currentIndex) return "pending";
     if (props.phase === "blocked") return "failed";
-    // A sleeping server starts only when the user asks for it.
-    return props.phase === "sleeping" ? "pending" : "active";
+    return "active";
   };
   const stepDetail = (step: Step): string => {
     if (step === "connect" && current() === "connect") {
@@ -85,16 +74,11 @@ export function ServerStatusDialog(props: ServerStatusDialogProps) {
     return t(STEP_TEXT[step].detail);
   };
   const description = () => {
-    if (props.issue === "plan_ended") return t("server.connection.planHint");
     switch (cause()) {
       case "update":
         return props.updateVersion
           ? t("server.status.updateCause", { name: props.name, version: props.updateVersion })
           : t("server.status.updateCauseNoVersion", { name: props.name });
-      case "wake":
-        return props.phase === "sleeping"
-          ? t("server.connection.wakeHint")
-          : t("server.status.wakeCause", { name: props.name });
       default:
         return props.initial
           ? t("server.status.connectCause", { name: props.name })
@@ -106,8 +90,6 @@ export function ServerStatusDialog(props: ServerStatusDialogProps) {
     switch (cause()) {
       case "update":
         return <Download />;
-      case "wake":
-        return <Moon />;
       default:
         return <RefreshCw />;
     }

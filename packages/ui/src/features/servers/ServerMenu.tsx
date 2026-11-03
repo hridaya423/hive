@@ -10,7 +10,6 @@ import {
   ContextMenu,
   DropdownMenu,
   Eye,
-  Moon,
   PanelLeft,
   Plus,
 } from "@openbot/ui";
@@ -18,14 +17,7 @@ import { SwapLabel } from "@openbot/ui/components/SwapLabel";
 import { createEffect, createSignal, For, Show, untrack } from "solid-js";
 import { useText } from "../../text";
 import { type ServerActionCallbacks, ServerActionItems } from "./ServerActionItems";
-import {
-  addServerLabel,
-  type HiddenLocalServer,
-  ServerMark,
-  ServerSleepDot,
-  serverHostedSleep,
-  serverStatusLabels,
-} from "./ServerRail";
+import { type HiddenLocalServer, ServerMark, serverStatusLabels } from "./ServerRail";
 
 /** Where the desktop app lists servers: the rail beside the sidebar, or the menu on the server name. */
 export type ServerView = "rail" | "menu";
@@ -50,7 +42,6 @@ export interface ServerMenuProps extends ServerActionCallbacks {
   onSelect: (serverId: string) => void;
   onAdd?: () => void;
   /** True when `onAdd` opens the hosted server plans, where the user can also join with an invite. */
-  addCreatesServer?: boolean | undefined;
   /** Opens the dialog that creates a server on this computer. Without it, the menu does not show the item. */
   onCreateLocal?: (() => void) | undefined;
   /** The server on this computer while the user hides it. Without it, the menu does not show the item. */
@@ -90,17 +81,6 @@ export function ServerMenu(props: ServerMenuProps) {
   let trigger: HTMLElement | undefined;
   const activeServer = () => props.servers.find((server) => server.active);
   const activeServers = () => props.servers.filter((server) => server.active);
-  const activeSleep = () => {
-    const server = activeServer();
-    return server ? serverHostedSleep(server) : null;
-  };
-  /** The name, or why the server does not answer while it sleeps or wakes. */
-  const triggerTitle = () => {
-    const sleep = activeSleep();
-    if (sleep === "sleeping") return t("server.sleep.tooltipSleeping", { name: props.serverName });
-    if (sleep === "waking") return t("server.sleep.tooltipWaking", { name: props.serverName });
-    return props.serverName;
-  };
   const shownBefore = lastShown;
   let markId = shownBefore?.id;
   createEffect(
@@ -140,15 +120,11 @@ export function ServerMenu(props: ServerMenuProps) {
             size: "sm",
             class: "sidebar-server-name no-drag",
           })}
-          aria-label={[
-            t("server.menu.open", { name: props.serverName }),
-            ...(activeSleep() === "sleeping" ? [t("server.state.sleeping")] : []),
-            ...(activeSleep() === "waking" ? [t("server.state.waking")] : []),
-          ].join(", ")}
+          aria-label={[t("server.menu.open", { name: props.serverName })].join(", ")}
           aria-hidden={props.compact ? "true" : undefined}
           aria-keyshortcuts="Shift+F10"
           tabindex={props.compact ? -1 : 0}
-          title={triggerTitle()}
+          title={props.serverName}
           onContextMenu={(event) => {
             event.preventDefault();
             openActions(event.clientX, event.clientY);
@@ -178,9 +154,6 @@ export function ServerMenu(props: ServerMenuProps) {
             }}
           </For>
           <SwapLabel class="sidebar-server-name-label" text={props.serverName} from={shownBefore?.name} />
-          <Show when={activeSleep()}>
-            {(sleep) => <Moon class="sidebar-server-name-sleep" data-state={sleep()} aria-hidden="true" />}
-          </Show>
           <ChevronsUpDown class="sidebar-server-name-chevron" aria-hidden="true" />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
@@ -229,7 +202,6 @@ export function ServerMenu(props: ServerMenuProps) {
                         <ServerMark server={server()} />
                       </span>
                       <span class="server-menu-name">{server().name}</span>
-                      <ServerSleepDot server={server()} class="server-menu-sleep" />
                       <Show when={server().notificationsMuted}>
                         <BellOff class="server-menu-muted size-3" aria-hidden="true" />
                       </Show>
@@ -270,7 +242,7 @@ export function ServerMenu(props: ServerMenuProps) {
                   <span class="server-menu-add-circle" aria-hidden="true">
                     <Plus />
                   </span>
-                  <span>{t(addServerLabel(props))}</span>
+                  <span>{t("server.rail.addRemote")}</span>
                 </DropdownMenu.Item>
               </Show>
               <Show when={props.onCreateLocal}>

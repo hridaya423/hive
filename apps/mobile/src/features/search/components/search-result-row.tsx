@@ -10,13 +10,11 @@ import FileIcon from "lucide-react-native/icons/file";
 import FileImage from "lucide-react-native/icons/file-image";
 import FileText from "lucide-react-native/icons/file-text";
 import Info from "lucide-react-native/icons/info";
-import Languages from "lucide-react-native/icons/languages";
 import LifeBuoy from "lucide-react-native/icons/life-buoy";
 import MonitorSmartphone from "lucide-react-native/icons/monitor-smartphone";
 import Palette from "lucide-react-native/icons/palette";
 import Radio from "lucide-react-native/icons/radio";
 import Server from "lucide-react-native/icons/server";
-import ShieldCheck from "lucide-react-native/icons/shield-check";
 import Sparkles from "lucide-react-native/icons/sparkles";
 import Trash2 from "lucide-react-native/icons/trash";
 import UserRound from "lucide-react-native/icons/user-round";
@@ -136,11 +134,9 @@ const SETTING_ICON = {
   sessions: MonitorSmartphone,
   appearance: Palette,
   animations: Sparkles,
-  language: Languages,
   haptics: Vibrate,
   notifications: Bell,
   liveActivities: Radio,
-  privacy: ShieldCheck,
   hiddenChats: EyeOff,
   deletedChannels: Trash2,
   support: LifeBuoy,
@@ -162,16 +158,12 @@ function openSetting(id: MobileSearchSettingId, serverId: string) {
       return router.push("/settings/appearance");
     case "animations":
       return router.push("/settings/animations");
-    case "language":
-      return router.push("/settings/language");
     case "haptics":
       return router.push("/settings/haptics");
     // One page has the notification and the Live Activity settings.
     case "notifications":
     case "liveActivities":
       return router.push("/settings/notifications");
-    case "privacy":
-      return router.push("/settings/privacy");
     case "hiddenChats":
       return router.push("/settings/hidden-chats");
     case "deletedChannels":

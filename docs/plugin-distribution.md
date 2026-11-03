@@ -156,7 +156,7 @@ A new `scripts/build-plugin-catalog.ts` reads `marketplace/plugin-catalog/`. It 
 - a generated module in `apps/auth-api`, which the routes import. The module is committed;
 - the offline snapshot in `resources/plugin-catalog/`.
 
-The existing `scripts/deploy-auth-api.ts` then ships the catalog with the Worker. There is no D1
+A Worker deploy then ships the catalog. There is no D1
 step, no R2 step and no admin token. This is the reason for the static route.
 
 The build script refuses:

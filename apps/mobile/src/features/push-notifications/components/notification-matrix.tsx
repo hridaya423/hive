@@ -11,7 +11,6 @@ import { Pressable, ScrollView, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { BloubAvatar } from "@/features/agents/components/bloub-avatar";
-import { showFailureAlert } from "@/features/analytics/failure-reports";
 import { SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
 import { useLiveActivitiesPreference } from "@/features/settings/model/live-activities";
 import {
@@ -29,6 +28,7 @@ import { useMobileWorkspace, useMobileWorkspaceActions } from "@/features/worksp
 import { showsOnline } from "@/features/workspace/model/server-status";
 import type { MobileAgent, MobileServer } from "@/features/workspace/model/workspace-types";
 import { MenuView } from "@/shared/components/menu-view";
+import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { useReducedMotion } from "@/shared/lib/motion";
 import { isIOS } from "@/shared/lib/platform";
@@ -189,7 +189,6 @@ function ServerLevels({
       const text = currentText();
       showFailureAlert(
         cause,
-        "settings",
         text.t("mobile.agent.notifications.failed"),
         text.errorMessage(cause, text.t("mobile.agent.notifications.failedBody")),
       );
@@ -212,7 +211,6 @@ function ServerLevels({
       const text = currentText();
       showFailureAlert(
         cause,
-        "settings",
         text.t("mobile.agent.notifications.failed"),
         text.errorMessage(cause, text.t("mobile.agent.notifications.failedBody")),
       );

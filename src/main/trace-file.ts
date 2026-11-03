@@ -4,7 +4,7 @@ import type { AgentEvent } from "@openbot/contracts/ipc";
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { redactValue } from "@openbot/logging";
 import { Effect, Exit, Scope, Semaphore } from "effect";
-import { analyticsIO } from "./analytics-effects";
+import { localIO } from "./local-effects";
 
 /**
  * One timed operation. The name is a fixed string - an IPC channel, a turn origin, a crash origin, a
@@ -168,18 +168,18 @@ export const appendRotatingLines = Effect.fn("TraceFile.appendRotatingLines")(fu
   file: { directory: string; path: string; maxBytes: number },
   lines: readonly string[],
 ) {
-  yield* analyticsIO(() => mkdir(file.directory, { recursive: true }));
-  yield* analyticsIO(() => stat(file.path)).pipe(
+  yield* localIO(() => mkdir(file.directory, { recursive: true }));
+  yield* localIO(() => stat(file.path)).pipe(
     Effect.flatMap((stats) =>
-      stats.size >= file.maxBytes ? analyticsIO(() => rename(file.path, `${file.path}.1`)) : Effect.void,
+      stats.size >= file.maxBytes ? localIO(() => rename(file.path, `${file.path}.1`)) : Effect.void,
     ),
     Effect.catch(() => Effect.void),
   );
-  yield* analyticsIO(() => appendFile(file.path, `${lines.join("\n")}\n`, { encoding: "utf8", mode: 0o600 }));
+  yield* localIO(() => appendFile(file.path, `${lines.join("\n")}\n`, { encoding: "utf8", mode: 0o600 }));
 });
 
 const readOptional = Effect.fn("TraceFile.readOptional")((path: string) =>
-  analyticsIO(() => readFile(path, "utf8")).pipe(Effect.catch(() => Effect.succeed(""))),
+  localIO(() => readFile(path, "utf8")).pipe(Effect.catch(() => Effect.succeed(""))),
 );
 
 // A crash can cut the last line short, so a line that does not parse is skipped.

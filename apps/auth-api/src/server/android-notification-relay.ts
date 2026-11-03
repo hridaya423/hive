@@ -188,7 +188,7 @@ function isSound(value: unknown): value is NotificationSound | null {
 }
 
 /** Reads the service account key file that Firebase gives, or returns `null` when it is not one. */
-export function readFcmServiceAccount(value: string): FcmConfig | null {
+function readFcmServiceAccount(value: string): FcmConfig | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(value);

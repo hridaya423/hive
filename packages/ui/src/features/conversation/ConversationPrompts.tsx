@@ -6,7 +6,6 @@ import type {
   BrowserTakeoverRequest,
   LocalBrowserSecretResponse,
 } from "@openbot/contracts/ipc";
-import { classifyFailure } from "@openbot/telemetry";
 import {
   Badge,
   Button,
@@ -148,9 +147,7 @@ export function ApprovalCard(props: {
       const completed = await (decision === "accept" ? props.onApprove() : props.onReject());
       if (!completed) setSubmitting(false);
     } catch (error) {
-      toast.error(errorMessage(error, t("prompt.approval.answerFailed")), {
-        report: { operation: "turn", source: "system", cause_code: classifyFailure(error) },
-      });
+      toast.error(errorMessage(error, t("prompt.approval.answerFailed")));
       setSubmitting(false);
     }
   };
@@ -163,9 +160,7 @@ export function ApprovalCard(props: {
       const completed = await grant();
       if (!completed) setSubmitting(false);
     } catch (error) {
-      toast.error(errorMessage(error, t("prompt.approval.grantFailed")), {
-        report: { operation: "turn", source: "system", cause_code: classifyFailure(error) },
-      });
+      toast.error(errorMessage(error, t("prompt.approval.grantFailed")));
       setSubmitting(false);
     }
   };

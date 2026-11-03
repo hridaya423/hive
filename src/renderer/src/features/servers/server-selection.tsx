@@ -2,7 +2,6 @@ import type { AddedAgent, AgentProviderId, NotificationOpenedEvent, ServerSummar
 import { currentText } from "@openbot/ui/text";
 import { onSettled } from "solid-js";
 import { actionToast } from "../../action-toast";
-import { desktopAnalytics } from "../../analytics";
 import { usePlatform } from "../../platform";
 import { createSimpleContext } from "../../simple-context";
 import { useAgents } from "../agents/agents-context";
@@ -23,8 +22,8 @@ import { activeServerId, serversPort } from "./servers-port";
  * and refilled every per-server domain by hand. It no longer touches any of
  * them: `setServers` changes the active id, the keyed boundary in
  * `app-providers.tsx` disposes the scope, and the fresh scope loads itself. What
- * is left is the part that genuinely spans the two - the compatibility retry,
- * the analytics, and the authoritative-server recovery when main disagrees with
+ * is left is the part that genuinely spans the two - the compatibility retry
+ * and the authoritative-server recovery when main disagrees with
  * what was asked for.
  *
  * It still lives inside the scope, below the domains it guards on, and that is
@@ -38,7 +37,7 @@ const ServerSelection = createSimpleContext({
   name: "Server selection",
   init: () => {
     const { servers, setServers, beginServerSelection } = useServers();
-    const { pendingInviteUrl, setPendingInviteUrl, saveSetup } = useSetup();
+    const { setPendingInviteUrl, saveSetup } = useSetup();
     const { setSkillsMarketplaceOpen } = useSettings();
     const { disconnectRemoteDesktopWorkspace } = useRemoteDesktop();
     const {
@@ -53,17 +52,12 @@ const ServerSelection = createSimpleContext({
     const { setDirectTyping } = useDirectMessages();
     const { chatWindow } = usePlatform();
 
-    async function selectServer(
-      serverId: string,
-      trackSelection = true,
-      recoverAuthoritativeServer = true,
-    ): Promise<boolean> {
+    async function selectServer(serverId: string, recoverAuthoritativeServer = true): Promise<boolean> {
       if (agentSetupOpen() && creatingAgent()) return false;
       // Main has one active server for the app. A chat window stays on its own server, so a switch
       // from it would move the main window instead.
       if (chatWindow) return false;
       const selectionIsCurrent = beginServerSelection();
-      const analytics = desktopAnalytics.scope();
       const previousServerId = servers().find((server) => server.active)?.id;
       const switchingServers = Boolean(previousServerId && previousServerId !== serverId);
       if (switchingServers) setBrowserVisibilitySuspended(true);
@@ -90,25 +84,11 @@ const ServerSelection = createSimpleContext({
           if (!selectionIsCurrent()) return false;
           const authoritativeServerId = nextServers.find((server) => server.active)?.id;
           if (authoritativeServerId !== serverId) {
-            if (authoritativeServerId) await selectServer(authoritativeServerId, false, false);
+            if (authoritativeServerId) await selectServer(authoritativeServerId, false);
             return false;
-          }
-          if (trackSelection) {
-            analytics.track("team_action", {
-              action: "server_selected",
-              result: "succeeded",
-              server_kind: nextServers.find((server) => server.active)?.kind ?? "unknown",
-            });
           }
         } catch (error) {
           if (!selectionIsCurrent()) return false;
-          if (trackSelection) {
-            analytics.track("team_action", {
-              action: "server_selected",
-              result: "failed",
-              failure_code: "server_select_failed",
-            });
-          }
           if (recoverAuthoritativeServer) {
             const authoritativeServers = await serversPort()
               .servers.list()
@@ -116,7 +96,7 @@ const ServerSelection = createSimpleContext({
             if (!selectionIsCurrent()) return false;
             const authoritativeServerId = authoritativeServers?.find((server) => server.active)?.id;
             if (authoritativeServerId && authoritativeServerId !== previousServerId) {
-              await selectServer(authoritativeServerId, false, false);
+              await selectServer(authoritativeServerId, false);
             }
           }
           throw error;
@@ -136,11 +116,9 @@ const ServerSelection = createSimpleContext({
      */
     async function openInstalledMarketplaceAgent(agent: AddedAgent, serverId = "local"): Promise<void> {
       try {
-        if (!(await selectServer(serverId, false))) return;
+        if (!(await selectServer(serverId))) return;
       } catch {
-        actionToast.error(currentText().t("server.select.openAgentFailed", { name: agent.name }), {
-          report: { operation: "team", source: "action", cause_code: "unknown" },
-        });
+        actionToast.error(currentText().t("server.select.openAgentFailed", { name: agent.name }));
         return;
       }
       // Published rather than called: if this was a switch, the navigation
@@ -152,7 +130,7 @@ const ServerSelection = createSimpleContext({
 
     async function openNotifiedAgent(event: NotificationOpenedEvent): Promise<void> {
       const onServer = servers().find((server) => server.active)?.id === event.serverId;
-      if (!onServer && !(await selectServer(event.serverId, false))) return;
+      if (!onServer && !(await selectServer(event.serverId))) return;
       // Published for the same reason as the marketplace agent above.
       if (event.channelId) {
         setPendingChannelSelection(event.channelId);
@@ -169,28 +147,15 @@ const ServerSelection = createSimpleContext({
     );
 
     async function joinServer(input: { inviteUrl: string }): Promise<void> {
-      const analytics = desktopAnalytics.scope();
-      const entryPoint = pendingInviteUrl() ? "invite_deep_link" : "in_app";
-      try {
-        await serversPort().servers.join(input);
-        setPendingInviteUrl("");
-        await selectServer(await activeServerId(), false);
-        analytics.track("team_action", { action: "server_joined", result: "succeeded", entry_point: entryPoint });
-      } catch (error) {
-        analytics.track("team_action", {
-          action: "server_joined",
-          result: "failed",
-          entry_point: entryPoint,
-          failure_code: "join_failed",
-        });
-        throw error;
-      }
+      await serversPort().servers.join(input);
+      setPendingInviteUrl("");
+      await selectServer(await activeServerId());
     }
 
     /** Creates a server on this computer and opens it. Main resolves when the desktop is connected to it. */
     async function createLocalServer(name: string): Promise<void> {
       const server = await serversPort().localServers.create(name);
-      await selectServer(server.id, false);
+      await selectServer(server.id);
     }
 
     async function joinRemoteDuringSetup(input: { inviteUrl: string }, provider: AgentProviderId): Promise<void> {

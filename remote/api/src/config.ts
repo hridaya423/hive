@@ -4,7 +4,7 @@ export interface RemoteApiConfig {
   host: string;
   port: number;
   // The health and metrics server. Compose binds it to all addresses in the container and publishes it
-  // on the loopback address of the host only, for the capacity reporter.
+  // on the loopback address of the host only.
   healthHost: string;
   healthPort: number;
   tlsCertificatePath: string | null;

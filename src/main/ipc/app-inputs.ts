@@ -9,7 +9,6 @@ import type {
   BrowserDockPresentation,
   BusyMessageModePreference,
   ChatWindowTarget,
-  DeleteHostedSiteInput,
   DynamicIslandAction,
   DynamicIslandPreference,
   DynamicIslandPresentation,
@@ -26,12 +25,9 @@ import type {
   MarketplaceSkillSort,
   MemoryReviewPreference,
   NotificationPreference,
-  PublishHostedSiteInput,
   RemoteNetworkRoutePreference,
   RemoteSessionReusePreference,
-  ReplaceHostedSiteInput,
   SaveSetupInput,
-  SetAnalyticsPreferenceInput,
   SetAppAppearancePreferenceInput,
   SetAppInterfaceSizePreferenceInput,
   SetAppLanguagePreferenceInput,
@@ -95,12 +91,6 @@ export function parseSetup(input: unknown): SaveSetupInput {
 export function parseProviderId(input: unknown): AgentProviderId {
   if (!isAgentProvider(input)) throw new Error("Unknown provider.");
   return input;
-}
-
-export function parseAnalyticsPreference(input: unknown): SetAnalyticsPreferenceInput {
-  if (!isDynamicRecord(input) || !isBoolean(input.enabled)) throw new Error("Analytics preference is required.");
-  if (input.chosen !== undefined && !isBoolean(input.chosen)) throw new Error("Analytics choice is not valid.");
-  return { enabled: input.enabled, ...(input.chosen ? { chosen: true } : {}) };
 }
 
 export function parseBusyMessageModePreference(input: unknown): BusyMessageModePreference {
@@ -298,7 +288,6 @@ export function parseExternalDestination(input: unknown): ExternalDestination {
     input !== "github" &&
     input !== "x" &&
     input !== "grok-bot-export" &&
-    input !== "hosted-server-contact" &&
     input !== "mac-screen-recording"
   ) {
     throw new Error("Unknown external destination.");
@@ -408,34 +397,6 @@ export function parseSetEnabledSkill(input: unknown): SetEnabledSkillInput {
     skillId: requireString(input.skillId, "skillId"),
     enabled,
   };
-}
-
-export function parsePublishHostedSite(input: unknown): PublishHostedSiteInput {
-  if (!isObject(input)) throw new Error("Invalid site publication.");
-  const spaFallback = optionalBoolean(input.spaFallback, "spaFallback");
-  return {
-    sourcePath: requireString(input.sourcePath, "sourcePath", INPUT_LIMITS.path),
-    title: requireString(input.title, "title", 120),
-    description: requireString(input.description, "description", 500),
-    ...(spaFallback !== undefined ? { spaFallback } : {}),
-  };
-}
-
-export function parseReplaceHostedSite(input: unknown): ReplaceHostedSiteInput {
-  if (!isObject(input)) throw new Error("Invalid site replacement.");
-  const spaFallback = optionalBoolean(input.spaFallback, "spaFallback");
-  return {
-    siteId: requireString(input.siteId, "siteId", INPUT_LIMITS.identifier),
-    sourcePath: requireString(input.sourcePath, "sourcePath", INPUT_LIMITS.path),
-    title: requireString(input.title, "title", 120),
-    description: requireString(input.description, "description", 500),
-    ...(spaFallback !== undefined ? { spaFallback } : {}),
-  };
-}
-
-export function parseDeleteHostedSite(input: unknown): DeleteHostedSiteInput {
-  if (!isObject(input)) throw new Error("Invalid site deletion.");
-  return { siteId: requireString(input.siteId, "siteId", INPUT_LIMITS.identifier) };
 }
 
 export function parseSubmitMarketplaceAgent(input: unknown): SubmitMarketplaceAgentInput {

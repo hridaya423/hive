@@ -19,7 +19,6 @@ import {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { REPLY_VOICE_FAILURE_TEXT, type ReplyReading, streamReply } from "@/features/voice/model/reply-voice";
 import { speechNative } from "@/features/voice/model/speech-native";
 import { haptics } from "@/shared/lib/haptics";
@@ -237,8 +236,6 @@ function createController({
   /** The recognizer reached `listening` in this session: an end after that is not a failed start. */
   let sessionListened = false;
   let previousRecognizerPhase: VoiceDictation["phase"] = "idle";
-  let startedAt = 0;
-  let turns = 0;
 
   const update = (change: Partial<LiveConversationState>) => setState((current) => ({ ...current, ...change }));
   const setPhase = (next: LiveConversationPhase) => {
@@ -312,7 +309,6 @@ function createController({
       update({ caption: text, error: currentText().t("mobile.chat.liveVoice.notSent") });
       return;
     }
-    turns += 1;
     const room = input().channel;
     pending = {
       clientMessageId: message.clientMessageId,
@@ -530,15 +526,8 @@ function createController({
       open = true;
       exiting = false;
       muted = false;
-      startedAt = performance.now();
-      turns = 0;
       setState(() => ({ ...CLOSED, open: true }));
       void haptics.impact("light");
-      mobileAnalytics.track("voice_conversation_action", {
-        action: "start",
-        server_kind: "remote",
-        result: "succeeded",
-      });
       // The composer turns into the call bar on this progress.
       presence.set(withTiming(1, { duration: OPEN_MS, easing: EASE_OUT, reduceMotion: ReduceMotion.System }));
       // Started while the server is away, it waits for the server as it would after a disconnect.
@@ -576,13 +565,6 @@ function createController({
       dictation()?.cancel();
       update({ exit: "cancel" });
       void haptics.selection();
-      mobileAnalytics.track("voice_conversation_action", {
-        action: "end",
-        server_kind: "remote",
-        result: "succeeded",
-        duration_ms: performance.now() - startedAt,
-        turn_count: turns,
-      });
       // The call bar opens back into the composer.
       presence.set(
         withTiming(0, { duration: CLOSE_MS, easing: EASE_OUT, reduceMotion: ReduceMotion.System }, (finished) => {

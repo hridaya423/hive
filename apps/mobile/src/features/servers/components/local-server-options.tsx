@@ -7,14 +7,11 @@ import { SettingsRow, SettingsSection } from "@/features/settings/components/set
 import { useMobileWorkspace } from "@/features/workspace/context/mobile-workspace-context";
 import { useText } from "@/shared/lib/text";
 
-/** The create page of the sheet that shows these rows. */
-export type LocalServerPathname = "/add-server/local" | "/hosted-server/local";
-
 /**
  * One row for each computer where the owner can make another server (`local-servers-v1`): an online
  * server of the OpenBot desktop app that this account owns. Nothing when there is none.
  */
-export function LocalServerOptions({ pathname }: { pathname: LocalServerPathname }) {
+export function LocalServerOptions() {
   const { t } = useText();
   const [foreground] = useThemeColor(["foreground"]);
   const { servers, canCreateLocalServers } = useMobileWorkspace();
@@ -32,7 +29,7 @@ export function LocalServerOptions({ pathname }: { pathname: LocalServerPathname
             </View>
           }
           supportingText={t("mobile.server.local.optionHint", { name: server.name })}
-          onPress={() => router.push({ pathname, params: { serverId: server.id } })}
+          onPress={() => router.push({ pathname: "/add-server/local", params: { serverId: server.id } })}
         >
           <Typography.Paragraph numberOfLines={1}>{t("mobile.server.local.option")}</Typography.Paragraph>
         </SettingsRow>

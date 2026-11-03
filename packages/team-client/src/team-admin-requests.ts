@@ -64,7 +64,6 @@ import { SIDEBAR_PINS_ROUTES } from "@openbot/contracts/team-protocol/sidebar-pi
 // The host answers only an owner or admin; a member gets a refusal, which the transport rejects.
 
 import { type AgentProviderRef, isAgentProviderRef, type ManagedProviderId } from "@openbot/contracts/agent-providers";
-import { parseHostedSiteList } from "@openbot/contracts/hosted-sites";
 import {
   type AccountUsage,
   type AddedAgent,
@@ -139,7 +138,6 @@ import {
   type GitHubConnectorRepositories,
   type HostAddMessagingOrchestratorInput,
   type HostAgentMemoryLimit,
-  type HostedSiteList,
   type HostGitHubConnectorStatus,
   type HostMemoryReview,
   type HostMessagingConnectInput,
@@ -246,7 +244,6 @@ import { CONNECTORS_ROUTES } from "@openbot/contracts/team-protocol/connectors-v
 import { EVENTS_ROUTES } from "@openbot/contracts/team-protocol/events-v1";
 import { HOST_ADMIN_ROUTES } from "@openbot/contracts/team-protocol/host-admin-v1";
 import { HOST_UPDATE_ROUTES } from "@openbot/contracts/team-protocol/host-update-v1";
-import { HOSTED_SITES_ROUTES } from "@openbot/contracts/team-protocol/hosted-sites-v1";
 import { MCP_SIGN_IN_APP_ROUTES } from "@openbot/contracts/team-protocol/mcp-sign-in-app-v1";
 import { MCP_SIGN_IN_ROUTES } from "@openbot/contracts/team-protocol/mcp-sign-in-v1";
 import { MCP_ROUTES } from "@openbot/contracts/team-protocol/mcp-v1";
@@ -975,21 +972,6 @@ export function clearStorage(
   input: ClearStorageInput,
 ): Effect.Effect<void, TeamAdminRequestError> {
   return adminCall(() => request("POST", STORAGE_ROUTES.clear, ignoreResponse, { ...input }));
-}
-
-function decodeHostedSiteList(value: unknown): HostedSiteList {
-  const list = parseHostedSiteList(value);
-  if (!list) throw new Error("The host returned an invalid site list.");
-  return list;
-}
-
-/** Any member can read the sites of the server. */
-export function listHostedSites(request: TeamApiRequest): Effect.Effect<HostedSiteList, TeamAdminRequestError> {
-  return adminCall(() => request("POST", HOSTED_SITES_ROUTES.list, decodeHostedSiteList, {}));
-}
-
-export function deleteHostedSite(request: TeamApiRequest, siteId: string): Effect.Effect<void, TeamAdminRequestError> {
-  return adminCall(() => request("POST", HOSTED_SITES_ROUTES.remove, ignoreResponse, { siteId }));
 }
 
 /**

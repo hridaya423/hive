@@ -3,10 +3,9 @@ import type { MobileTextKey } from "@openbot/i18n/mobile";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { Button, Typography } from "heroui-native";
-import { type PropsWithChildren, useEffect, useRef, useState } from "react";
+import { type PropsWithChildren, useRef, useState } from "react";
 import { View } from "react-native";
 import { agentSkillsQuery } from "@/features/agents/model/agent-skills-query";
-import { mobileAnalytics } from "@/features/analytics/mobile-analytics";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { SettingsNote, SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
 import {
@@ -96,9 +95,6 @@ export function AgentInformation({
   available: boolean;
   section: "usage" | "memories" | "routines" | "memory" | "routine" | "skills" | "files";
 }) {
-  useEffect(() => {
-    if (section === "usage") mobileAnalytics.track("usage_viewed", { scope: "agent" });
-  }, [section]);
   const { t, format } = useText();
   // The server Usage screen passes its range, so the agent's report opens on the same days.
   const { recordId, startDate, endDate, timeZone } = useLocalSearchParams<{

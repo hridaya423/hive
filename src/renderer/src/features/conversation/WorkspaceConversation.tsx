@@ -21,7 +21,6 @@ import { unloadedHistory } from "@openbot/ui/features/conversation/ChatScrollRai
 import { sidebarAgentWaits } from "@openbot/ui/features/sidebar/sidebar-agent-states";
 import { useText } from "@openbot/ui/text";
 import { createEffect, createMemo } from "solid-js";
-import { desktopAnalytics } from "../../analytics";
 import { ProviderSignInDialogs } from "../../components/ProviderSignInDialogs";
 import { useNavigation } from "../../navigation";
 import { usePlatform } from "../../platform";
@@ -454,7 +453,6 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
       return undefined;
     const agentId = agent.id;
     const reasoningEffort = agent.reasoningEffort;
-    const fromProvider = agent.provider;
     return {
       provider,
       resetsAt,
@@ -475,15 +473,8 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
           leaveUsageLimit: true,
           ...(remember ? { backupModels: rememberedBackupModels(option.choice, backupModels) } : {}),
         });
-        desktopAnalytics.track("usage_limit_action", {
-          action: "model_switched",
-          from_provider: fromProvider,
-          to_provider: option.choice.provider,
-          to_model: option.choice.model,
-        });
       },
       onWait: () => {
-        desktopAnalytics.track("usage_limit_action", { action: "waited", from_provider: fromProvider });
         setWaitedUsageLimits((current) => ({ ...current, [agentId]: resetsAt }));
       },
     };
@@ -499,7 +490,6 @@ export function WorkspaceConversation(props: { account: () => CentralAuthUser })
     (shown) => {
       if (!shown || shownUsageLimits.has(shown.key)) return;
       shownUsageLimits.add(shown.key);
-      desktopAnalytics.track("usage_limit_action", { action: "shown", from_provider: shown.provider });
     },
   );
 
