@@ -60,24 +60,19 @@ interface OpenBotToolDefinition {
   shape: z.ZodRawShape;
 }
 
-/** The page rules for `html_render` and `html_preview`. The names match the variables that `ChatVisual` sends. */
+/** The page rules for `html_render`. The names match the variables that `ChatVisual` sends. */
 const VISUAL_PAGE_RULES = [
-  "Write one self-contained HTML document with inline <style> and <script>. Remote http(s) files, such as a chart library from a CDN, load as they are; local file paths do not load.",
-  "The page runs in a sandbox: it cannot use cookies, storage or pop-up windows. A click on an http(s) link opens the link in the user's browser.",
-  "The frame has no border and sits on the chat background, as wide as the reply column (about 360px on phones). Leave html and body with no background, use a fluid width and no outer card or banner title: the page is part of your reply.",
-  "Give charts fixed pixel heights. Let the content set the page height; do not use 100vh or height:100% on html or body. The frame cuts what is outside the page box, so highlight a box with its border, not an outline or an outer shadow.",
-  "OpenBot sets these CSS variables on :root from the app theme, which is dark on the desktop: --background (transparent), --foreground, --muted-foreground, --muted, --card, --card-foreground, --border, --accent, --destructive, --success, --chart-1 to --chart-6, --radius, --font-sans, --font-mono. The base style sets the body font and color from them.",
+  "Write one self-contained HTML document with inline <style> and <script>. Remote https libraries load; local files do not. The sandbox has no cookies, storage or pop-ups.",
+  "The frame sits on the chat background at the width of the reply column (about 360px on phones): leave html and body with no background, use a fluid width, and add no outer card or title.",
+  "Give charts fixed pixel heights. Do not use 100vh or height:100% on html or body. Highlight a box with its border, not an outline or an outer shadow.",
+  "App theme variables on :root: --background (transparent), --foreground, --muted-foreground, --muted, --card, --card-foreground, --border, --accent, --destructive, --success, --chart-1 to --chart-6, --radius, --font-sans, --font-mono.",
 ].join(" ");
 
 /** What an `html_render` page can ask of the app. The names match `window.openbotPage` in the frame bootstrap. */
-const VISUAL_PAGE_ACTIONS = [
-  "For a choice, a form or a game, call openbotPage.sendMessage(text) from a click: OpenBot puts the text in the user's message box, and the user sends it.",
-  `openbotPage.setContext(text) from a click keeps the page state as a quote in the user's message box, so you read it with the next message; up to ${CHAT_VISUAL_CONTEXT_LIMIT} characters, and empty text removes it.`,
-  "OpenBot gives each page a full-screen button and opens a clicked image large, so do not build them. The mobile app runs page scripts but has no openbotPage, so check that window.openbotPage exists before you call it.",
-].join(" ");
+const VISUAL_PAGE_ACTIONS = `openbotPage.sendMessage(text) from a click puts text in the user's message box. openbotPage.setContext(text) keeps page state as a quote for your next message, up to ${CHAT_VISUAL_CONTEXT_LIMIT} characters; empty text removes it. The mobile app has no openbotPage: check that it exists.`;
 
 export const htmlRenderToolSchema = z.object({
-  html: z.string().min(1).max(CHAT_VISUAL_HTML_LIMIT).describe("A complete, self-contained HTML document."),
+  html: z.string().min(1).max(CHAT_VISUAL_HTML_LIMIT).describe("A complete HTML document."),
   title: z.string().trim().min(1).max(CHAT_VISUAL_TITLE_LIMIT).describe("A short name for the page."),
   height: z
     .number()
@@ -86,7 +81,7 @@ export const htmlRenderToolSchema = z.object({
     .max(CHAT_VISUAL_MAX_HEIGHT)
     .optional()
     .describe(
-      `The highest frame height in CSS pixels, ${CHAT_VISUAL_MIN_HEIGHT}-${CHAT_VISUAL_MAX_HEIGHT}. Omit it to fit the whole page.`,
+      `The highest frame height in CSS pixels, ${CHAT_VISUAL_MIN_HEIGHT}-${CHAT_VISUAL_MAX_HEIGHT}. Omit to fit the page.`,
     ),
 });
 
@@ -96,7 +91,7 @@ const CHAT_VISUAL_PREVIEW_MAX_WIDTH = 1_600;
 export const CHAT_VISUAL_PREVIEW_DEFAULT_WIDTH = 728;
 
 export const htmlPreviewToolSchema = z.object({
-  html: z.string().min(1).max(CHAT_VISUAL_HTML_LIMIT).describe("A complete, self-contained HTML document."),
+  html: z.string().min(1).max(CHAT_VISUAL_HTML_LIMIT).describe("A complete HTML document."),
   width: z
     .number()
     .int()
@@ -104,7 +99,7 @@ export const htmlPreviewToolSchema = z.object({
     .max(CHAT_VISUAL_PREVIEW_MAX_WIDTH)
     .optional()
     .describe(
-      `The page width in CSS pixels, ${CHAT_VISUAL_PREVIEW_MIN_WIDTH}-${CHAT_VISUAL_PREVIEW_MAX_WIDTH}. The default is ${CHAT_VISUAL_PREVIEW_DEFAULT_WIDTH}, the desktop reply column; use 360 to check a phone.`,
+      `Width in CSS pixels, ${CHAT_VISUAL_PREVIEW_MIN_WIDTH}-${CHAT_VISUAL_PREVIEW_MAX_WIDTH}. Default ${CHAT_VISUAL_PREVIEW_DEFAULT_WIDTH}; 360 checks a phone.`,
     ),
   appearance: z.enum(["dark", "light"]).optional().describe("The app theme to draw with. The default is dark."),
 });
@@ -335,12 +330,13 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   },
   {
     name: "html_preview",
-    description: `Draw an HTML page out of view and get a screenshot, the content height and the console output. The user does not see it. Use it to check a page before you call html_render, and correct what the screenshot or the console shows. ${VISUAL_PAGE_RULES}`,
+    description:
+      "Draw an HTML page out of view and return a screenshot, the content height and the console output. The user does not see it. Use it to check a page before html_render. Page rules: see html_render.",
     shape: htmlPreviewToolSchema.shape,
   },
   {
     name: "html_render",
-    description: `Show a finished HTML page (chart, table, diagram, collage, mockup) in this conversation, above your final text reply; call it before you write that reply. The user already sees the page, so the reply must not announce it or restate it: add only what the page does not say. In a channel, each member who reads the channel sees it. OpenBot fits the frame to the page height. A height lower than the page caps the frame, and the rest scrolls in it. ${VISUAL_PAGE_RULES} ${VISUAL_PAGE_ACTIONS}`,
+    description: `Show a finished HTML page (chart, table, diagram, mockup) above your final reply; call it before you write the reply. Do not announce or restate the page. The frame fits the page height; height caps it. ${VISUAL_PAGE_RULES} ${VISUAL_PAGE_ACTIONS}`,
     shape: htmlRenderToolSchema.shape,
   },
   {
