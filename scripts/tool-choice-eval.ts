@@ -5,7 +5,7 @@
 // A `tool_call` counts as the tool named in its `name` argument. A turn ends as soon as its first tool
 // is known. The temporary profile and workspace take any effect that lands before the interrupt.
 // A prompt passes when its first tool is in `expect`; `prefix.*` accepts every tool of a namespace.
-// `bun scripts/tool-choice-eval.ts [--runs N] [--ids 1,2] [--label NAME] [--computer-use on]`
+// `bun scripts/tool-choice-eval.ts [--runs N] [--ids 1,2] [--label NAME] [--keep]`
 // Writes .openbot-build/tool-choice-eval/<label>-<time>.json. It never reads or writes Application Support.
 // The Codex home is a copy of ~/.codex (config, AGENTS.md, rules, skills, auth.json); ~/.codex stays unchanged.
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -216,7 +216,6 @@ const { values: options } = parseArgs({
     runs: { type: "string", default: "3" },
     ids: { type: "string" },
     label: { type: "string", default: "run" },
-    "computer-use": { type: "string", default: "off" },
     keep: { type: "boolean", default: false },
   },
 });
@@ -372,9 +371,7 @@ async function runPrompt(entry: EvalPrompt, run: number): Promise<RunResult> {
         avatarHue: null,
         initialMessage: entry.prompt,
       },
-      options["computer-use"] === "on"
-        ? undefined
-        : (created) => agents.updateAgent({ agentId: created.id, computerUse: false }),
+      (created) => agents.updateAgent({ agentId: created.id, computerUse: false }),
     ),
   );
   report.model ??= agent.model;
