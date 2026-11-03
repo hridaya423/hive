@@ -107,7 +107,7 @@ export function ReadFailedAlert(props: { message: string; onRetry?: (() => void)
 }
 
 /** An action that failed: what failed, and why. `message` is a source text from the main process. */
-export function ActionFailedAlert(props: { title: string; message: string }) {
+function ActionFailedAlert(props: { title: string; message: string }) {
   const { sourceText } = useText();
   return (
     <Alert tone="danger" role="alert">
@@ -316,7 +316,7 @@ export interface WizardProps {
 }
 
 /** The body of a connect dialog. `heading` is the title element, so a dialog can give its own. */
-export function WizardContent(props: WizardProps & { heading: JSX.Element }) {
+function WizardContent(props: WizardProps & { heading: JSX.Element }) {
   return (
     <>
       <div class="integration-wizard-head">

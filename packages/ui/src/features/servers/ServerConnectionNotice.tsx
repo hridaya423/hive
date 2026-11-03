@@ -1,4 +1,5 @@
 import type { HostedServerIssue, HostedServerSleep, HostedServerStart } from "@openbot/contracts/ipc";
+import { formatElapsed } from "@openbot/ui/utils";
 import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { Button } from "../../button";
 import { ErrorReference } from "../../error-reference";
@@ -193,10 +194,6 @@ export function ServerConnectionNotice(props: ServerConnectionNoticeProps) {
       />
     </Show>
   );
-}
-
-function formatElapsed(seconds: number): string {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 // A history that loads faster than this does not cover the chat, so a fast switch does not flash.

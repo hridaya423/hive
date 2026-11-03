@@ -1,5 +1,6 @@
 import type { UpdateRestartMode } from "@openbot/contracts/ipc";
 import { Button, ConfirmDialog, Progress, Spinner, SwitchField } from "@openbot/ui";
+import { formatElapsed } from "@openbot/ui/utils";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, For, Show } from "solid-js";
 import { CircleCheck, CircleDot, RotateCcw, TriangleAlert } from "../../icons";
@@ -294,9 +295,4 @@ function StepIcon(props: { status: StepStatus }): JSX.Element {
       </Show>
     </Show>
   );
-}
-
-/** Minutes and seconds, as the restart dialog shows them. */
-function formatElapsed(seconds: number): string {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }

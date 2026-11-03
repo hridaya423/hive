@@ -1,3 +1,4 @@
+import { fileReferenceTone } from "@openbot/brand/file-reference";
 import { type ChatTagKind, chatTagReferences } from "@openbot/contracts/chat-tag-references";
 import type { AttachmentSummary } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
@@ -10,7 +11,7 @@ import type { ComposerAgent, ComposerSkill, MessageCitation } from "../../data";
 import { useText } from "../../text";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { AnchoredTooltip } from "./AnchoredTooltip";
-import { AttachmentReferenceVisual, attachmentReferenceTone } from "./AttachmentReference";
+import { AttachmentReferenceVisual } from "./AttachmentReference";
 import { LinkIcon } from "./ConversationIcons";
 import { messageFileReferences } from "./FileReference";
 import {
@@ -126,7 +127,7 @@ export function RichMessageText(props: RichMessageTextProps) {
                 variant="ghost"
                 type="button"
                 class="message-file-reference"
-                data-file-tone={attachmentReferenceTone(name)}
+                data-file-tone={fileReferenceTone(name)}
                 aria-label={attachment ? t("chat.file.openAttached", { name }) : t("chat.file.openShared", { name })}
                 aria-describedby={tooltipId}
                 data-cuelume-tap="open"

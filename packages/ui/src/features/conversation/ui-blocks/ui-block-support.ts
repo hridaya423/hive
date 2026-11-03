@@ -27,7 +27,7 @@ export interface UiBlockProps<Spec extends UiBlockSpec> {
   elementRef?: ((element: HTMLElement) => void) | undefined;
 }
 
-export const PENDING_UI_BLOCK_STATE: UiBlockState = { status: "pending" };
+const PENDING_UI_BLOCK_STATE: UiBlockState = { status: "pending" };
 
 export function uiBlockState(props: { state?: UiBlockState | undefined }): UiBlockState {
   return props.state ?? PENDING_UI_BLOCK_STATE;

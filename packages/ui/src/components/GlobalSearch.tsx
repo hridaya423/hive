@@ -259,7 +259,6 @@ function section(
   };
 }
 
-// A Kobalte collection node holds a section or a result.
 function sectionOf(value: GlobalSearchResult | GlobalSearchSection): GlobalSearchSection | undefined {
   return "items" in value ? value : undefined;
 }

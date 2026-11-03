@@ -1,6 +1,6 @@
 import { createMemo, For, untrack } from "solid-js";
 import { createDigitRoll } from "./digit-roll";
-import { prefersReducedMotion } from "./utils";
+import { isDigit, prefersReducedMotion } from "./utils";
 
 /**
  * The price, with digits that roll to each new value, as in the task list. They fall when the
@@ -42,8 +42,4 @@ export function RollingPrice(props: { value: number; format: (value: number) => 
       </span>
     </span>
   );
-}
-
-function isDigit(character: string) {
-  return /\d/u.test(character);
 }

@@ -87,7 +87,7 @@ export const addGroups = (allowed: readonly WorkflowNodeKind[]) =>
   })).filter((group) => group.items.length > 0);
 
 /** A node kind as a row of the picker: its icon on a tile in the colour of the kind. */
-export const addOption = (t: AppTranslate, item: AddItem): PickerOption<WorkflowNodeKind> => ({
+const addOption = (t: AppTranslate, item: AddItem): PickerOption<WorkflowNodeKind> => ({
   value: item.kind,
   label: t(KIND_LABEL[item.kind]),
   tile: item.icon,

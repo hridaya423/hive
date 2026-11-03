@@ -1,3 +1,4 @@
+import { fileReferenceBadge, fileReferenceTone } from "@openbot/brand/file-reference";
 import { canPreviewAttachment } from "@openbot/contracts/ipc";
 import type { AppTextKey } from "@openbot/i18n";
 import {
@@ -28,7 +29,6 @@ import { useText } from "@openbot/ui/text";
 import { Dynamic } from "@solidjs/web";
 import { createMemo, createSignal, createStore, For, Show } from "solid-js";
 import { fileBadge } from "../conversation/AttachmentCards";
-import { attachmentReferenceBadge, attachmentReferenceTone } from "../conversation/AttachmentReference";
 import {
   FILE_SORTS,
   FILE_TYPE_FILTERS,
@@ -363,11 +363,11 @@ function FileVisual(props: { file: StoredFileRow }) {
       fallback={
         <span
           class="files-file-visual"
-          data-file-tone={attachmentReferenceTone(props.file.name)}
+          data-file-tone={fileReferenceTone(props.file.name)}
           data-status={props.file.status}
           aria-hidden="true"
         >
-          {attachmentReferenceBadge(props.file.name) ?? fileBadge(props.file)}
+          {fileReferenceBadge(props.file.name) ?? fileBadge(props.file)}
         </span>
       }
     >

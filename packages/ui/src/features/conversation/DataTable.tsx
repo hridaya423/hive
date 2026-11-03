@@ -3,7 +3,7 @@ import type { JSX } from "@solidjs/web";
 import { createSignal, For, onCleanup } from "solid-js";
 import { useText } from "../../text";
 
-export type DataTableAlignment = "left" | "center" | "right";
+type DataTableAlignment = "left" | "center" | "right";
 
 export interface DataTableBlock {
   type: "table";
@@ -18,7 +18,7 @@ export interface ComparisonTableBlock {
   rows: string[][];
 }
 
-export interface MessageTextBlock {
+interface MessageTextBlock {
   type: "text";
   text: string;
 }
@@ -116,7 +116,7 @@ export function DataTable(props: { table: DataTableBlock; renderCell?: (text: st
 }
 
 /** The table as Markdown source again. A cell keeps its own markdown, with `|` escaped. */
-export function dataTableMarkdown(table: Pick<DataTableBlock, "headers" | "alignments" | "rows">): string {
+function dataTableMarkdown(table: Pick<DataTableBlock, "headers" | "alignments" | "rows">): string {
   const row = (cells: readonly string[]) =>
     `| ${cells.map((cell) => cell.replace(/\\(?=[\\|]|$)/gu, "\\\\").replace(/\|/gu, "\\|")).join(" | ")} |`;
   const separator = table.headers.map((_, index) => {
@@ -127,7 +127,7 @@ export function dataTableMarkdown(table: Pick<DataTableBlock, "headers" | "align
 }
 
 /** Rows as CSV (RFC 4180): a cell with a comma, a quote or a line break goes in quotes. */
-export function dataTableCsv(rows: readonly (readonly string[])[]): string {
+function dataTableCsv(rows: readonly (readonly string[])[]): string {
   return rows
     .map((cells) => cells.map((cell) => (/[",\r\n]/u.test(cell) ? `"${cell.replaceAll('"', '""')}"` : cell)).join(","))
     .join("\n");

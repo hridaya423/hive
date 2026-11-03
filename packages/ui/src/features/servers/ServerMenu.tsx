@@ -37,7 +37,6 @@ const SERVER_VIEW_LABELS = {
   menu: "server.menu.layoutMenu",
 } as const satisfies Record<ServerView, AppTextKey>;
 
-// The rail is a strip at the left edge. The menu opens from the server name, as a switcher does.
 const SERVER_VIEW_ICONS = { rail: PanelLeft, menu: ChevronsUpDown } as const satisfies Record<
   ServerView,
   typeof PanelLeft
