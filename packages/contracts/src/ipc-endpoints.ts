@@ -138,6 +138,7 @@ import type {
 } from "./ipc-agent-templates";
 import type { AgentWaitsSnapshot, CancelAgentWaitInput } from "./ipc-agent-waits";
 import type {
+  AgentBackupModels,
   AgentDefaults,
   AvatarImageInput,
   ClientAgentSummary,
@@ -679,6 +680,8 @@ export const IPC_ENDPOINTS = {
     setBusyMessageModePreference: request<BusyMessageModePreference, BusyMessageModePreference>()(
       "app:set-busy-message-mode",
     ),
+    getHostBackupModels: request<undefined, AgentBackupModels>()("app:get-host-backup-models"),
+    setHostBackupModels: request<AgentBackupModels, AgentBackupModels>()("app:set-host-backup-models"),
     getAgentDefaults: request<undefined, AgentDefaults>()("app:get-agent-defaults"),
     setAgentDefaults: request<AgentDefaults, AgentDefaults>()("app:set-agent-defaults"),
     getAgentMemoryLimitPreference: request<undefined, AgentMemoryLimitPreference>()("app:get-agent-memory-limit"),

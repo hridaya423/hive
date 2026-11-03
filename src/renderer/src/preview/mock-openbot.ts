@@ -13,6 +13,7 @@ import {
   AGENT_FOLDER_LIMIT,
   AGENT_INSTRUCTIONS_CHANGE_ITEM_TYPE,
   type AgentAccessChange,
+  type AgentBackupModels,
   type AgentBrowserProfile,
   type AgentDefaults,
   type AgentEvent,
@@ -80,6 +81,7 @@ import {
   DEFAULT_CUSTOM_PROVIDER_HARNESS,
   DEFAULT_DYNAMIC_ISLAND_PREFERENCE,
   DEFAULT_EXTERNAL_LINK_PREFERENCE,
+  DEFAULT_HOST_BACKUP_MODELS,
   DEFAULT_MACHINE_ALERT_SETTINGS,
   DEFAULT_MEMORY_REVIEW_INTERVAL,
   DEFAULT_PROMPT_CACHE_TTL,
@@ -450,6 +452,7 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
   let approvalAutomation = clone<ApprovalAutomationPreference>(DEFAULT_APPROVAL_AUTOMATION_PREFERENCE);
   let busyMessageMode: BusyMessageModePreference = { mode: DEFAULT_BUSY_MESSAGE_MODE };
   let agentDefaults: AgentDefaults = { ...DEFAULT_AGENT_DEFAULTS };
+  let hostBackupModels: AgentBackupModels = clone(DEFAULT_HOST_BACKUP_MODELS);
   let agentMemoryLimit: AgentMemoryLimitPreference = { limit: DEFAULT_AGENT_MEMORY_LIMIT };
   let memoryReview: MemoryReviewPreference = { interval: DEFAULT_MEMORY_REVIEW_INTERVAL };
   // The disk level is below the preview disk use (82%), so Storage shows a passed level.
@@ -1139,6 +1142,11 @@ export function createMockOpenBot(options: MockOpenBotOptions = {}): MockOpenBot
     setBusyMessageModePreference: async ({ mode }) => {
       busyMessageMode = { mode };
       return clone(busyMessageMode);
+    },
+    getHostBackupModels: async () => clone(hostBackupModels),
+    setHostBackupModels: async (next) => {
+      hostBackupModels = clone(next);
+      return clone(hostBackupModels);
     },
     getAgentDefaults: async () => clone(agentDefaults),
     setAgentDefaults: async (next) => {

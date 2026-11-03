@@ -401,6 +401,8 @@ const database = new OpenBotDatabase(userData);
 const clients: ClaudeStandIn[] = [];
 const events: AgentEvent[] = [];
 
+let hostBackupModels: AgentBackupModels = { automatic: false, order: [] };
+
 function startService() {
   const store = new AgentStore(userData, home, database);
   const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
@@ -410,6 +412,7 @@ function startService() {
     browser: inertBrowserHost,
     preferredProvider: "claude",
     offProviders: AGENT_PROVIDERS.filter((provider) => provider !== "claude" && provider !== "codex"),
+    hostBackupModels: () => hostBackupModels,
     clientFactory: (provider, cli) => {
       if (provider === "codex") return new CodexAppServerClient(cli.executable, 30000);
       const client = new ClaudeStandIn(cli);
@@ -686,6 +689,58 @@ try {
     );
     return { outcome, models: ran.map((turn) => turn.model) };
   });
+
+  await check("a host default chain moves an agent with no chain of its own", async () => {
+    await restart();
+    failing([]);
+    const agent = await create("Hosted");
+    await waitFor("the first turn to end", () =>
+      service.listQueue(agent.id).deliveries.every((delivery) => delivery.status === "completed"),
+    );
+    hostBackupModels = {
+      automatic: true,
+      order: [
+        { provider: "codex", model: CODEX_MODEL, providerAccountId: "acct-2" },
+        { provider: "claude", model: BACKUP },
+      ],
+    };
+    failing([PRIMARY]);
+    const since = events.length;
+    const before = turns().length;
+    const outcome = await send(agent.id, "work");
+    assert.equal(outcome.status, "completed", `The message completes: ${outcome.error}`);
+    assert.deepEqual(
+      turns()
+        .slice(before)
+        .map((turn) => turn.model),
+      [PRIMARY, BACKUP],
+      "The account that is not connected is skipped, and the message runs on the first ready entry.",
+    );
+    assert.equal(agentOf(agent.id).model, BACKUP, "The agent is on the host default's backup model.");
+    assert.equal(agentOf(agent.id).usageLimitReturn?.model, PRIMARY, "The agent keeps its own model to go back to.");
+    assert.deepEqual(errorsFor(agent.id, since), [], "No error shows for the moved turn.");
+    return { model: agentOf(agent.id).model };
+  });
+
+  await check("an agent's own chain wins over the host default", async () => {
+    await restart();
+    failing([]);
+    const agent = await create("Ownchain");
+    await waitFor("the first turn to end", () =>
+      service.listQueue(agent.id).deliveries.every((delivery) => delivery.status === "completed"),
+    );
+    await runCauseEffect(service.updateAgent({ agentId: agent.id, backupModels: { automatic: false, order: [] } }));
+    failing([PRIMARY]);
+    const since = events.length;
+    const outcome = await send(agent.id, "work");
+    assert.equal(outcome.status, "failed", "The own chain asks first, so the turn fails as before.");
+    assert.equal(agentOf(agent.id).model, PRIMARY, "The agent stays on its own model.");
+    assert.ok(errorsFor(agent.id, since).length > 0, "The error shows.");
+    return outcome;
+  });
+
+  hostBackupModels = { automatic: false, order: [] };
+  failing([]);
 
   for (const mode of ["partial", "tool-only", "chain", "chain-empty"]) {
     await check(`Codex ${mode} work continues on another provider`, async () => {

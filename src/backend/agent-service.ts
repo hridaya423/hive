@@ -107,6 +107,7 @@ import type {
   UpdateRoutineInput,
 } from "@openbot/contracts/ipc";
 import {
+  type AgentBackupModels,
   type AgentDefaults,
   type AgentModelChoice,
   agentAutomationAllowed,
@@ -117,6 +118,7 @@ import {
   CONTEXT_RESET_ITEM_TYPE,
   DEFAULT_BUSY_MESSAGE_MODE,
   DEFAULT_CUSTOM_PROVIDER_HARNESS,
+  DEFAULT_HOST_BACKUP_MODELS,
   DEFAULT_PROVIDER_ACCOUNT_ID,
   isContextResetMarker,
   isCustomProviderHarness,
@@ -341,6 +343,11 @@ export interface AgentServiceOptions {
    */
   busyMessageMode?: () => BusyMessageMode;
   /**
+   * The chain of an agent that has none of its own. The main process owns the preference. Omitted,
+   * no agent follows a host chain.
+   */
+  hostBackupModels?: () => AgentBackupModels;
+  /**
    * How many memories one agent can hold. The main process owns the preference. Omitted, the
    * default cap, which was the only cap before the setting existed.
    */
@@ -484,6 +491,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
   readonly #routineFlowTools: (() => RoutineFlowTools) | undefined;
   readonly #developmentDefaults: boolean;
   readonly #busyMessageMode: () => BusyMessageMode;
+  readonly #hostBackupModels: () => AgentBackupModels;
   /** The last turn of each agent's chat that the user stopped. One per agent, so it needs no clean-up. */
   readonly #stoppedTurns = new Map<string, string>();
 
@@ -516,9 +524,11 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
       githubConnector = null,
       hostMemory = null,
       busyMessageMode = () => DEFAULT_BUSY_MESSAGE_MODE,
+      hostBackupModels = () => DEFAULT_HOST_BACKUP_MODELS,
     } = options;
     this.#developmentDefaults = developmentDefaults;
     this.#busyMessageMode = busyMessageMode;
+    this.#hostBackupModels = hostBackupModels;
     this.#localSkillTools = localSkillTools;
     this.#routineFlowTools = routineFlowTools;
     this.#store = store;
@@ -3071,7 +3081,7 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
    */
   #usageLimitMove(agentId: string): { input: UpdateAgentInput; move: ModelMove | null } | null {
     const agent = this.#store.list().find((candidate) => candidate.id === agentId);
-    if (!agent || (!agent.usageLimitReturn && !agent.backupModels?.automatic)) return null;
+    if (!agent || (!agent.usageLimitReturn && !this.#backupModelsOf(agent).automatic)) return null;
     if (this.#runsTurn(agentId) || this.#mailbox.hasStartedDelivery(agentId)) return null;
     // The agent keeps its reasoning effort where the other model has it. It goes back with the effort it left.
     const move = (choice: AgentModelChoice, reasoningEffort = agent.reasoningEffort) => {
@@ -3102,14 +3112,24 @@ export class AgentService extends EventEmitter<AgentServiceEvents> {
     return next ? { input: { ...move(next), leaveUsageLimit: true }, move: failed ? "provider-error" : null } : null;
   }
 
+  /** The agent's own chain, or the host's when it has none. */
+  #backupModelsOf(agent: { backupModels?: AgentBackupModels | undefined }): AgentBackupModels {
+    return agent.backupModels ?? this.#hostBackupModels();
+  }
+
+  /** The host chain changed: a drain lets each agent that follows it and waits at a hold move now. */
+  hostBackupModelsChanged(): void {
+    for (const agent of this.#store.list()) if (!agent.backupModels) this.#drain.scheduleDrain(agent.id);
+  }
+
   /** The first ready backup model of an agent set to switch without asking, or undefined. */
   #usageLimitBackup(agentId: string): AgentModelChoice | undefined {
     const agent = this.#store.list().find((candidate) => candidate.id === agentId);
-    if (!agent?.backupModels?.automatic) return undefined;
+    if (!agent) return undefined;
+    const backupModels = this.#backupModelsOf(agent);
+    if (!backupModels.automatic) return undefined;
     const current = agentModelChoice(agent);
-    return agent.backupModels.order.find(
-      (choice) => !sameAgentModelChoice(choice, current) && this.#usageLimitReady(choice),
-    );
+    return backupModels.order.find((choice) => !sameAgentModelChoice(choice, current) && this.#usageLimitReady(choice));
   }
 
   /** Whether the model is ready, and no usage limit or provider error holds it. */

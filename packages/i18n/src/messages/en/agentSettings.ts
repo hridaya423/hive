@@ -81,6 +81,11 @@ export const messages = defineMessages("agentSettings", {
     "When {model} reaches its usage limit before {name} starts to write, {name} asks you which model to use.",
   "agentSettings.backupModels.introAutomatic":
     "When {model} reaches its usage limit or fails with a provider error before {name} starts to write, {name} switches to the first available model in the order.",
+  "agentSettings.backupModels.hostIntro":
+    "When an agent with no order of its own reaches a usage limit or fails with a provider error before it starts to write, it switches to the first available model in this order.",
+  "agentSettings.backupModels.hostEmpty": "No order set. Agents with no order of their own ask you first.",
+  "agentSettings.backupModels.hostNote":
+    "An agent never switches after it starts to write. It goes back to its own model when the limit ends, or 10 minutes after a provider error. An order set in an agent's own settings wins.",
   "agentSettings.backupModels.ask": "Ask before switching",
   "agentSettings.backupModels.order": "Order",
   "agentSettings.backupModels.listLabel": "Backup models, in order",
