@@ -26,7 +26,9 @@ Hridya asked to "bring in the new features and make sure that its all perfected"
   - What's new: 14 items about Windows, Linux, hosted servers, other languages, co-author and bug reports removed.
 - Token budget: all six numbers lower than right after the merge, still above Hive's old baseline because upstream made `ask_ui` and three browser tools direct and added the Natural response style and about 17 tools. `budget.json` set to the measured values (instructions.claude 14041, codex 14220, visible-tools 13816, schemas 57160, descriptions 26033, guidance 22317). `scripts/tool-choice-eval.ts` not run (needs a real model).
 - Dropped on purpose: MCP sign-in with a client metadata document (pointed at openbot.run), install of a server on another computer (needs upstream's server claims), upstream's Umbrel setup page, feedback to the OpenBot team.
-- Not verified: mobile typecheck by hand (the pre-commit hook runs it), a GUI smoke of the app, real providers.
+- Commits: `e38d276c3` (merge; pre-commit hook passed: Biome, `check:ui`, every `typecheck:*` project including mobile, schema parity) and `91a11f3f7` (unused phone report keys). Mobile typecheck also run by hand after fixes: 0 errors.
+- Not verified: a GUI smoke of the app, real providers, `scripts/tool-choice-eval.ts`. Blocked: the mini has 3.9 GB free (99%) and no Hive clone left (only old `*.bundle` files in `~/honey`); a fresh clone and `bun install` need about that much, and a full disk would stop the control plane there. Needs Hridya to free space on the mini or to allow a smoke on another machine.
+- Branch `merge/upstream-v0.71` is not merged into `personal` and not pushed.
 
 ## Done
 - 2026-11-03: Cloned. Six research reports written and spot-checked against the code. Plan written. No code changed.
