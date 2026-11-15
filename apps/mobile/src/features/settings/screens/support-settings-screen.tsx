@@ -1,25 +1,18 @@
 import { File, Paths } from "expo-file-system";
+import { router } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { Typography } from "heroui-native";
 import { useState, useSyncExternalStore } from "react";
-import { Alert, ScrollView } from "react-native";
+import { Alert } from "react-native";
 import {
   SettingsContent,
   SettingsNote,
   SettingsRow,
   SettingsSection,
 } from "@/features/settings/components/settings-content";
-import { formatSupportLogEntry, type SupportLogLevel, supportLog } from "@/features/support/model/support-log";
+import { supportLog } from "@/features/support/model/support-log";
 import { clearSupportLog, supportLogFileText } from "@/features/support/model/support-log-capture";
 import { useText } from "@/shared/lib/text";
-
-/** The screen shows the newest events. The saved file has all of them. */
-const SHOWN_ENTRIES = 100;
-const LEVEL_CLASS = {
-  info: "text-grouped-secondary",
-  warn: "text-warning-text",
-  error: "text-danger-text",
-} as const satisfies Record<SupportLogLevel, string>;
 
 export function SupportSettingsScreen() {
   const { t } = useText();
@@ -61,42 +54,18 @@ export function SupportSettingsScreen() {
     <SettingsContent>
       <SettingsSection title={t("mobile.settings.support.log")} footer={t("mobile.settings.support.logFooter")}>
         <SettingsRow
-          onPress={() => void save()}
-          disabled={saving}
-          disclosure={false}
+          onPress={() => router.push("/settings/support-log")}
           supportingText={t("mobile.settings.support.events", { count: entries.length })}
         >
+          <Typography.Paragraph>{t("mobile.settings.support.show")}</Typography.Paragraph>
+        </SettingsRow>
+        <SettingsRow onPress={() => void save()} disabled={saving} disclosure={false}>
           <Typography.Paragraph>{t("mobile.settings.support.save")}</Typography.Paragraph>
         </SettingsRow>
         <SettingsRow onPress={clear} disabled={entries.length === 0} disclosure={false}>
           <Typography.Paragraph className="text-danger-text">{t("mobile.settings.support.clear")}</Typography.Paragraph>
         </SettingsRow>
         {saveError ? <SettingsNote>{saveError}</SettingsNote> : null}
-      </SettingsSection>
-      <SettingsSection title={t("mobile.settings.support.recent")} footer={t("mobile.settings.support.recentFooter")}>
-        {entries.length === 0 ? (
-          <SettingsRow>
-            <Typography.Paragraph type="body-xs" className="text-grouped-secondary">
-              {t("mobile.settings.support.empty")}
-            </Typography.Paragraph>
-          </SettingsRow>
-        ) : (
-          <ScrollView className="max-h-80" contentContainerClassName="gap-1 px-4 py-3" nestedScrollEnabled>
-            {entries
-              .slice(-SHOWN_ENTRIES)
-              .reverse()
-              .map((entry) => (
-                <Typography.Paragraph
-                  key={entry.id}
-                  type="body-xs"
-                  className={`font-mono ${LEVEL_CLASS[entry.level]}`}
-                  selectable
-                >
-                  {formatSupportLogEntry(entry)}
-                </Typography.Paragraph>
-              ))}
-          </ScrollView>
-        )}
       </SettingsSection>
     </SettingsContent>
   );

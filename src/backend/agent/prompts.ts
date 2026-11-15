@@ -14,6 +14,7 @@ import {
 import { type DynamicRecord, isString } from "@openbot/contracts/runtime-values";
 import {
   normalizeUiBlockSpec,
+  UI_API_KEY_SCOPE_FIELD_ID,
   UI_VAULT_REQUEST_FIELDS,
   UI_VAULT_SECRET_FIELDS,
   type UiBlockResponse,
@@ -39,7 +40,7 @@ export function secretElicitationField(id: string, property: DynamicRecord | und
   return SECRET_FIELD_PATTERN.test(`${id} ${getString(property, "title") ?? ""}`);
 }
 
-export function elicitationOptions(property: DynamicRecord): Array<{ label: string; description: string }> | null {
+function elicitationOptions(property: DynamicRecord): Array<{ label: string; description: string }> | null {
   if (Array.isArray(property.oneOf)) {
     return property.oneOf.filter(isRecord).flatMap((option) => {
       const value = getString(option, "const");
@@ -86,6 +87,12 @@ export function commandText(params: unknown): string | null {
   return null;
 }
 
+/** The short line under a question, when the request has one. */
+function promptQuestionDetail(question: DynamicRecord): { detail?: string } {
+  const detail = getString(question, "detail")?.trim();
+  return detail ? { detail: detail.slice(0, INPUT_LIMITS.promptQuestion) } : {};
+}
+
 export function promptQuestions(params: unknown): AgentPromptQuestion[] {
   return getArray(params, "questions")
     .filter(isRecord)
@@ -93,6 +100,7 @@ export function promptQuestions(params: unknown): AgentPromptQuestion[] {
       id: getString(question, "id") ?? randomUUID(),
       header: getString(question, "header") ?? "Question",
       question: getString(question, "question") ?? "The agent needs more information.",
+      ...promptQuestionDetail(question),
       isSecret: question.isSecret === true,
       options: Array.isArray(question.options)
         ? question.options.filter(isRecord).map((option) => ({
@@ -125,18 +133,24 @@ function elicitationConsentQuestion(params: unknown, serverName: string | null):
   };
 }
 
-/** One question per requested field, so a plugin can collect an API key or any other value. */
-function elicitationFieldQuestions(params: unknown, subject: string): AgentPromptQuestion[] {
+/**
+ * One question per requested field, so a plugin can collect an API key or any other value. When a
+ * field has its own text, the request message goes under the first question, so it is not lost.
+ */
+export function elicitationFieldQuestions(params: unknown, subject: string): AgentPromptQuestion[] {
   const properties = getRecord(getRecord(params, "requestedSchema"), "properties") ?? {};
-  const message = getString(params, "message")?.trim();
-  return Object.entries(properties).flatMap(([id, property]) => {
+  const message = getString(params, "message")?.trim() || undefined;
+  return Object.entries(properties).flatMap(([id, property], index) => {
     if (!isRecord(property)) return [];
-    const question = getString(property, "description") ?? message ?? `${subject} needs more information.`;
+    const description = getString(property, "description");
+    const question = description ?? message ?? `${subject} needs more information.`;
+    const detail = index === 0 && description && message && message !== description ? message : undefined;
     return [
       {
         id,
         header: (getString(property, "title") ?? id).slice(0, INPUT_LIMITS.promptHeader),
         question: question.slice(0, INPUT_LIMITS.promptQuestion),
+        ...(detail ? { detail: detail.slice(0, INPUT_LIMITS.promptQuestion) } : {}),
         isSecret: secretElicitationField(id, property),
         options: elicitationOptions(property),
       },
@@ -156,6 +170,30 @@ export function mcpElicitationQuestions(params: unknown): AgentPromptQuestion[] 
       ? [elicitationConsentQuestion(params, serverName)].filter((question) => question !== null)
       : elicitationFieldQuestions(params, serverName ?? "This plugin");
   return validPromptQuestions(questions) ? questions : null;
+}
+
+/** Codex's own server for the apps connected on ChatGPT. Its name is not one that the user knows. */
+const CODEX_APPS_MCP_SERVER_NAME = "codex_apps";
+
+/**
+ * The notice for a request that OpenBot declines. It names the server, and for a sign-in it says
+ * where to sign in. Codex asks to reconnect a ChatGPT app with a link, and puts the app name in
+ * `_meta._codex_apps.connector_auth_failure.connector_name`.
+ */
+export function declinedMcpElicitationText(params: unknown): string {
+  const serverName = getString(params, "serverName")?.trim() || null;
+  const signIn = getString(params, "mode") === "url";
+  if (serverName === CODEX_APPS_MCP_SERVER_NAME) {
+    const authFailure = getRecord(getRecord(getRecord(params, "_meta"), "_codex_apps"), "connector_auth_failure");
+    const app = getString(authFailure, "connector_name")?.trim();
+    return signIn && app
+      ? sourceText("error.backend.mcpAppReconnect", { name: app })
+      : sourceText("error.backend.mcpRequestDeclined");
+  }
+  if (!serverName) return sourceText("error.backend.mcpRequestDeclined");
+  return sourceText(signIn ? "error.backend.mcpServerSignInPage" : "error.backend.mcpServerRequestDeclined", {
+    name: serverName === COMPUTER_USE_MCP_SERVER_NAME ? "Computer Use" : serverName,
+  });
 }
 
 /**
@@ -225,28 +263,41 @@ function elicitationFieldResult(
   return { action: "accept", content, _meta: null };
 }
 
+/**
+ * Why the questions make no card, or null when they make one. The text names the question and the
+ * limit, so the agent can correct its call: the advertised schema has no limits (#6268).
+ */
+export function promptQuestionsProblem(questions: AgentPromptQuestion[]): string | null {
+  if (questions.length === 0) return "questions must be a non-empty array of question objects, not text.";
+  if (questions.length > INPUT_LIMITS.promptQuestions)
+    return `questions has ${questions.length} items; the limit is ${INPUT_LIMITS.promptQuestions}.`;
+  const ids = new Set<string>();
+  for (const [index, question] of questions.entries()) {
+    const at = `questions[${index}]`;
+    if (question.id.length === 0 || question.id.length > INPUT_LIMITS.identifier)
+      return `${at}.id must have 1 to ${INPUT_LIMITS.identifier} characters. Leave id out to get one.`;
+    if (ids.has(question.id))
+      return `${at}.id is the id of an earlier question. Give each question a different id, or leave id out.`;
+    ids.add(question.id);
+    if (question.header.length > INPUT_LIMITS.promptHeader)
+      return `${at}.header has ${question.header.length} characters; the limit is ${INPUT_LIMITS.promptHeader}.`;
+    if (question.question.length === 0 || question.question.length > INPUT_LIMITS.promptQuestion)
+      return `${at}.question must have 1 to ${INPUT_LIMITS.promptQuestion} characters.`;
+    if (question.options === null) continue;
+    if (question.options.length > INPUT_LIMITS.promptOptions)
+      return `${at}.options has ${question.options.length} options; the limit is ${INPUT_LIMITS.promptOptions}. Keep the most likely options: the user can also type an answer.`;
+    for (const [position, option] of question.options.entries()) {
+      if (option.label.length === 0 || option.label.length > INPUT_LIMITS.promptOptionLabel)
+        return `${at}.options[${position}].label must have 1 to ${INPUT_LIMITS.promptOptionLabel} characters.`;
+      if (option.description.length > INPUT_LIMITS.promptOptionDescription)
+        return `${at}.options[${position}].description has ${option.description.length} characters; the limit is ${INPUT_LIMITS.promptOptionDescription}.`;
+    }
+  }
+  return null;
+}
+
 export function validPromptQuestions(questions: AgentPromptQuestion[]): boolean {
-  return (
-    questions.length > 0 &&
-    questions.length <= INPUT_LIMITS.promptQuestions &&
-    new Set(questions.map((question) => question.id)).size === questions.length &&
-    questions.every(
-      (question) =>
-        question.id.length > 0 &&
-        question.id.length <= INPUT_LIMITS.identifier &&
-        question.header.length <= INPUT_LIMITS.promptHeader &&
-        question.question.length > 0 &&
-        question.question.length <= INPUT_LIMITS.promptQuestion &&
-        (question.options === null ||
-          (question.options.length <= INPUT_LIMITS.promptOptions &&
-            question.options.every(
-              (option) =>
-                option.label.length > 0 &&
-                option.label.length <= INPUT_LIMITS.promptOptionLabel &&
-                option.description.length <= INPUT_LIMITS.promptOptionDescription,
-            ))),
-    )
-  );
+  return promptQuestionsProblem(questions) === null;
 }
 
 export function questionPromptText(questions: AgentPromptQuestion[], resolution: AgentPromptResolution | null): string {
@@ -288,6 +339,36 @@ export function dynamicPromptResult(answers: Record<string, string[]>): DynamicT
   };
 }
 
+/**
+ * The answer for a question that the provider cannot wait for: its call would time out (#6230). The
+ * card stays open, and the user's answer reaches the agent as a new message. Only the model reads it.
+ */
+export function detachedPromptResult(): DynamicToolResult {
+  const value = {
+    status: "waiting",
+    next: "The user has not answered yet. The question stays open in the chat, and the answer arrives as the user's next message, which quotes the question. Do not ask it again. End your turn unless other work does not need the answer.",
+  };
+  return { success: true, contentItems: [{ type: "inputText", text: JSON.stringify(value) }] };
+}
+
+/**
+ * The message that carries the answer to a detached question: each answered question as a quote, with
+ * its answer below. It holds no words of its own, so it reads the same in each language.
+ */
+export function lateAnswerText(questions: AgentPromptQuestion[], answers: Record<string, string[]>): string {
+  return questions
+    .flatMap((question) => {
+      const values = answers[question.id] ?? [];
+      if (values.length === 0) return [];
+      const quote = question.question
+        .split("\n")
+        .map((line) => `> ${line}`)
+        .join("\n");
+      return [`${quote}\n\n${values.join(", ")}`];
+    })
+    .join("\n\n");
+}
+
 /** The answer for a question that expired before the user answered it. Only the model reads it. */
 export function expiredPromptResult(
   responseKind: "dynamic-tool" | "mcp-elicitation" | "user-input" | "ui-block",
@@ -298,6 +379,29 @@ export function expiredPromptResult(
     success: false,
     contentItems: [{ type: "inputText", text: "The question expired before the user answered." }],
   };
+}
+
+const USER_MESSAGE_NOTE =
+  "The user wrote a new message in this chat instead of answering. Follow that message. If it is not in your input, end your turn: it starts next. Ask again only if you still need the answer.";
+
+/**
+ * The answer for a question or block that the user did not answer because they wrote a new message
+ * in the chat. Only the model reads it. The message reaches the agent as a steer or as the next turn.
+ * `userInputNote`: the client gives the `note` of a `user-input` result to the model (`AgentClient`).
+ */
+export function userMessagePromptResult(
+  responseKind: "dynamic-tool" | "user-input" | "ui-block",
+  blockId: string | undefined,
+  userInputNote = false,
+): DynamicToolResult | { answers: Record<string, never>; note?: string } {
+  // Codex's `request_user_input` has no field for a note: empty answers are what a skip gives.
+  if (responseKind === "user-input") return userInputNote ? { answers: {}, note: USER_MESSAGE_NOTE } : { answers: {} };
+  const value = {
+    status: "skipped",
+    ...(blockId ? { blockId } : {}),
+    next: USER_MESSAGE_NOTE,
+  };
+  return { success: true, contentItems: [{ type: "inputText", text: JSON.stringify(value) }] };
 }
 
 /** What a blocking UI block (`ask_ui`) ended with. */
@@ -326,16 +430,26 @@ export function uiBlockPromptResult(outcome: UiBlockPromptOutcome): DynamicToolR
 /** The id of the one secret field in the form of `request_api_key`. */
 export const API_KEY_FIELD_ID = "key";
 
+/** The id of the field of the `request_api_key` form that selects who can use the key. */
+export const API_KEY_SCOPE_FIELD_ID = UI_API_KEY_SCOPE_FIELD_ID;
+
+/** The option of the scope field that keeps the key for the asking agent only. */
+export const API_KEY_SCOPE_AGENT = sourceText("status.agent.apiKeyScope.agent");
+
 /**
  * The form of `request_api_key`: one required secret field. Its label is the variable name, because
- * the user finds the key by that name at the service. Null when the contract refuses it.
+ * the user finds the key by that name at the service. With `vault`, a second field saves the key in the
+ * Vault for every agent, which is the first option, or for the asking agent only. Null when the contract
+ * refuses it.
  */
 export function apiKeyFormSpec(input: {
   name: string;
   title: string;
   placeholder?: string | undefined;
   submit?: string | undefined;
+  vault?: boolean | undefined;
 }): UiBlockSpec | null {
+  const allAgents = sourceText("status.agent.apiKeyScope.vault");
   return normalizeUiBlockSpec({
     type: "form",
     title: input.title,
@@ -348,6 +462,18 @@ export function apiKeyFormSpec(input: {
         secret: true,
         ...(input.placeholder ? { placeholder: input.placeholder } : {}),
       },
+      ...(input.vault
+        ? [
+            {
+              id: API_KEY_SCOPE_FIELD_ID,
+              kind: "segmented",
+              label: sourceText("status.agent.apiKeyScope.label"),
+              options: [allAgents, API_KEY_SCOPE_AGENT],
+              required: true,
+              value: allAgents,
+            },
+          ]
+        : []),
     ],
     ...(input.submit ? { submit: input.submit } : {}),
   });
@@ -359,7 +485,13 @@ export function apiKeyFormSpec(input: {
  */
 export function apiKeyPromptResult(blockId: string, saved: SavedApiKey | null): DynamicToolResult {
   const value = saved
-    ? { status: "saved", blockId, name: saved.name, path: saved.path }
+    ? {
+        status: "saved",
+        blockId,
+        name: saved.name,
+        path: saved.path,
+        ...(saved.source ? { source: saved.source } : {}),
+      }
     : { status: "skipped", blockId };
   return { success: true, contentItems: [{ type: "inputText", text: JSON.stringify(value) }] };
 }

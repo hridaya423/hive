@@ -1,8 +1,9 @@
 import { agentTemplateIdFromWebAppSearch, WEB_APP_AGENT_TEMPLATE_PARAM } from "@openbot/contracts/agent-template-links";
 import { DEFAULT_APP_LANGUAGE } from "@openbot/contracts/app-language";
+import { companySignInErrorKey, WEB_APP_COMPANY_SIGN_IN_ERROR_PARAM } from "@openbot/contracts/company-sign-in";
 import { type FirstTouch, readFirstTouch } from "@openbot/contracts/first-touch";
 import { inviteUrlFromWebAppSearch, WEB_APP_INVITE_FIELDS } from "@openbot/contracts/invite-links";
-import type { AppVariant, CentralAuthState, CentralAuthUser } from "@openbot/contracts/ipc";
+import { type AppVariant, type CentralAuthState, type CentralAuthUser, isAvatarColor } from "@openbot/contracts/ipc";
 import {
   type MarketplaceListingLink,
   marketplaceListingFromWebAppSearch,
@@ -23,10 +24,9 @@ import { createSignal, createStore, onSettled, Show } from "solid-js";
 import { StaticI18nProvider } from "../../i18n-context";
 import { deleteRemoteWorkspaceFrames } from "../servers/remote-workspace-frame";
 import type { WebWorkspace } from "./WebWorkspace";
+import { deleteSavedAgentPictures } from "./web-agent-pictures";
 import { createWebAppearancePreference } from "./web-appearance-preference";
 import type { WebRuntimeFactory } from "./web-client-context";
-
-// The site loads this before it mounts `WebApp` (`apps/auth-api/src/routes/app.lazy.tsx`).
 
 /**
  * The workspace is its own chunk, so the sign-in screen does not wait for it. Each session check
@@ -46,6 +46,29 @@ function loadWorkspace(): Promise<typeof WebWorkspace> {
 
 /** A sign-in refusal that the login form already shows. */
 class SignInIssueShown extends Error {}
+
+/** The email signs in with the company's provider, not with an email code. */
+class CompanySignInRequired extends Error {}
+
+/**
+ * The error code of a company sign-in that came back without a session, from
+ * `/app?companySignInError=<code>`. The query is removed after it is read.
+ */
+function takeCompanySignInError(): string | null {
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get(WEB_APP_COMPANY_SIGN_IN_ERROR_PARAM);
+  if (code === null) return null;
+  url.searchParams.delete(WEB_APP_COMPANY_SIGN_IN_ERROR_PARAM);
+  window.history.replaceState(window.history.state, "", url);
+  return code;
+}
+
+/** The email start answered that the company's provider signs this email in. */
+const COMPANY_SIGN_IN = Symbol("company sign-in");
+
+function companySignInIssue(code: string) {
+  return { code, message: sourceText(companySignInErrorKey(code)) };
+}
 
 /**
  * The shared agent a `/app?agent=<id>` link names. The query is removed after it is read, so a reload
@@ -112,11 +135,12 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
     login: { status: "signed_out" },
     resendAt: 0,
   });
-  // Kept here, not in the workspace, so each link waits through sign-in.
   const [agentTemplateId, setAgentTemplateId] = createSignal(takeAgentTemplateLink());
   const [inviteUrl, setInviteUrl] = createSignal(takeInviteLink());
   const [pluginSlug, setPluginSlug] = createSignal(takePluginLink());
   const [marketplaceListing, setMarketplaceListing] = createSignal(takeMarketplaceLink());
+  /** Shown after the first session check, because its 401 resets the login state. */
+  let companySignInReturnError = takeCompanySignInError();
   const [workspace, setWorkspace] = createSignal<typeof WebWorkspace>();
   /** Sets the account when the workspace code is ready to show it. */
   async function showAccount(account: CentralAuthUser) {
@@ -137,7 +161,10 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
   function clearSession(ended = true) {
     sessionEnded = ended;
     // The saved workspace frames name the agents of the account's servers.
-    if (ended) deleteRemoteWorkspaceFrames(null);
+    if (ended) {
+      deleteRemoteWorkspaceFrames(null);
+      void deleteSavedAgentPictures(null);
+    }
     sessionGeneration += 1;
     setState((draft) => {
       draft.account = null;
@@ -152,7 +179,8 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
       generation === sessionGeneration &&
       response.status === 401 &&
       input !== "/api/browser/email/start" &&
-      input !== "/api/browser/email/verify"
+      input !== "/api/browser/email/verify" &&
+      input !== "/api/browser/company/start"
     ) {
       if (state.account) channel?.postMessage("session-changed");
       clearSession();
@@ -175,6 +203,13 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
     });
     const value = await response.json();
     if (!response.ok) {
+      if (
+        path === "email/start" &&
+        isDynamicRecord(value) &&
+        isDynamicRecord(value.error) &&
+        value.error.code === "company_sign_in_required"
+      )
+        throw new CompanySignInRequired();
       if (path === "email/start" || path === "email/verify") {
         const retryAfterSeconds = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
         const issue = {
@@ -223,6 +258,7 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
       email: value.user.email,
       name: isString(value.user.name) ? value.user.name : null,
       avatarUrl: isString(value.user.avatarUrl) ? value.user.avatarUrl : null,
+      chatColor: isAvatarColor(value.user.chatColor) ? value.user.chatColor : null,
     };
   }
   async function checkSession() {
@@ -256,15 +292,23 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
           });
       }
     } finally {
+      const returnError = companySignInReturnError;
+      companySignInReturnError = null;
       if (!disposed)
         setState((draft) => {
           draft.loaded = true;
+          if (returnError !== null && !draft.account && draft.login.status === "signed_out")
+            draft.login = { status: "error", issue: companySignInIssue(returnError) };
         });
     }
   }
   async function start(email: string) {
     if (Date.now() < state.resendAt) throw new Error(text.t("webClient.login.wait"));
-    const value = await signInRequest("email/start", { email });
+    const value = await signInRequest("email/start", { email }).catch((error: unknown) => {
+      if (error instanceof CompanySignInRequired) return COMPANY_SIGN_IN;
+      throw error;
+    });
+    if (value === COMPANY_SIGN_IN) return openCompanySignIn(email);
     if (value === null) return;
     if (!isDynamicRecord(value) || !isString(value.challengeId) || typeof value.resendAt !== "number")
       throw new Error(text.t("webClient.login.responseInvalid"));
@@ -280,6 +324,34 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
         resendAvailableAt: resendAt,
         ...(isString(value.developmentCode) ? { developmentCode: value.developmentCode } : {}),
       };
+    });
+  }
+  /**
+   * Goes to the company's sign-in page in this tab. The account service sends the browser back to
+   * `/app` with the session cookie, or with `companySignInError`.
+   */
+  async function openCompanySignIn(email: string) {
+    setState((draft) => {
+      draft.login = { status: "company_sign_in", email };
+    });
+    const response = await accountFetch("/api/browser/company/start", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json", "X-OpenBot-Browser": "1" },
+      body: JSON.stringify({ email }),
+    });
+    const value = await response.json().catch(() => null);
+    if (response.ok && isDynamicRecord(value) && isString(value.authorizationUrl)) {
+      window.location.assign(value.authorizationUrl);
+      return;
+    }
+    const code =
+      isDynamicRecord(value) && isDynamicRecord(value.error) && isString(value.error.code)
+        ? value.error.code
+        : "company_sign_in_failed";
+    setState((draft) => {
+      draft.login = { status: "company_sign_in", email, issue: companySignInIssue(code) };
     });
   }
   async function verify(challengeId: string, code: string) {
@@ -320,7 +392,9 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
     };
     void checkSession();
     // A page restored from the back-forward cache still has its session; its connection ends normally.
-    const restore = () => {
+    // A browser also sends `pageshow` after a normal load, which can come after the session check.
+    const restore = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
       clearSession(false);
       void checkSession();
     };
@@ -351,6 +425,9 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
                 onRetry={checkSession}
                 onRequestEmailCode={start}
                 onVerifyEmailCode={verify}
+                onOpenCompanySignIn={() =>
+                  state.login.status === "company_sign_in" ? openCompanySignIn(state.login.email) : Promise.resolve()
+                }
                 onReset={async () => {
                   clearSession();
                   setState((draft) => {
@@ -367,6 +444,7 @@ export function WebApp(props: { createRuntime?: WebRuntimeFactory } = {}) {
                 accountEmail={state.account?.email ?? ""}
                 accountName={state.account?.name ?? null}
                 accountAvatarUrl={state.account?.avatarUrl ?? null}
+                accountChatColor={state.account?.chatColor ?? null}
                 accountFetch={accountFetch}
                 onSessionCheck={checkSession}
                 accountSessionEnded={() => sessionEnded}

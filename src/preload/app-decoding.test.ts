@@ -9,11 +9,13 @@ import type {
   MobileConnectedDevice,
   NotificationOpenedEvent,
   UpdateStatus,
+  WorkflowNotificationOpenedEvent,
 } from "@openbot/contracts/ipc";
 import { describe, expect, it } from "vitest";
 import {
   decodeAccountSessions,
   decodeAppAppearancePreference,
+  decodeAppBehaviorPreference,
   decodeAppInfo,
   decodeAppLanguagePreference,
   decodeApprovalAutomationPreference,
@@ -25,6 +27,7 @@ import {
   decodeCustomAgentUsage,
   decodeDetectedModelServers,
   decodeDiscoverModelsResult,
+  decodeInstalledFonts,
   decodeMobileConnectedDevices,
   decodeMobileConnectTicket,
   decodeNotificationOpenedEvent,
@@ -35,6 +38,7 @@ import {
   decodeUpdateStatus,
   decodeVoiceServerProbe,
   decodeVoiceServerSettings,
+  decodeWorkflowNotificationOpenedEvent,
 } from "./app-decoding";
 
 const omarchyPalette = {
@@ -106,6 +110,22 @@ const voiceServer = {
 };
 
 const valid: [string, (value: unknown) => unknown, unknown][] = [
+  [
+    "app behavior with a quit guard",
+    decodeAppBehaviorPreference,
+    {
+      launchAtLogin: true,
+      keepRunningInBackground: false,
+      keepAwake: null,
+      keepAwakeOnBattery: null,
+      quitGuard: "always",
+    },
+  ],
+  [
+    "app behavior with no quit guard",
+    decodeAppBehaviorPreference,
+    { launchAtLogin: true, keepRunningInBackground: false, keepAwake: null, keepAwakeOnBattery: null, quitGuard: null },
+  ],
   ["a voice server", decodeVoiceServerSettings, voiceServer],
   ["no voice server", decodeVoiceServerSettings, null],
   [
@@ -134,6 +154,28 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
     } satisfies AppInfo,
   ],
   [
+    "app info drawn on the CPU",
+    decodeAppInfo,
+    {
+      name: "OpenBot",
+      version: "1.0.0",
+      platform: "linux",
+      variant: "production",
+      softwareRendering: true,
+    } satisfies AppInfo,
+  ],
+  [
+    "app info on a Mac set to a 24-hour clock",
+    decodeAppInfo,
+    {
+      name: "OpenBot",
+      version: "1.0.0",
+      platform: "darwin",
+      variant: "production",
+      hourCycle: "h23",
+    } satisfies AppInfo,
+  ],
+  [
     "setup state",
     decodeAppSetupState,
     { completed: true, preferredProvider: "codex", preferredModel: null } satisfies AppSetupState,
@@ -150,14 +192,66 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
   [
     "appearance preference",
     decodeAppAppearancePreference,
-    { appearance: "light", transparentWindow: true, palette: null, palettes: [] } satisfies AppAppearancePreference,
+    {
+      appearance: "light",
+      transparentWindow: true,
+      palette: null,
+      palettes: [],
+      chatBackgroundLight: null,
+      chatBackgroundDark: null,
+      interfaceFont: null,
+      codeFont: null,
+    } satisfies AppAppearancePreference,
   ],
   [
     "appearance preference with a theme palette",
     decodeAppAppearancePreference,
-    { appearance: "dark", transparentWindow: false, palette: "omarchy", palettes: [omarchyPalette] },
+    {
+      appearance: "dark",
+      transparentWindow: false,
+      palette: "omarchy",
+      palettes: [omarchyPalette],
+      chatBackgroundLight: null,
+      chatBackgroundDark: null,
+      interfaceFont: null,
+      codeFont: null,
+    },
   ],
+  [
+    "appearance preference with a chat background for each scheme",
+    decodeAppAppearancePreference,
+    {
+      appearance: "system",
+      transparentWindow: false,
+      palette: null,
+      palettes: [],
+      chatBackgroundLight: "#f1f2ff",
+      chatBackgroundDark: "#162232",
+      interfaceFont: null,
+      codeFont: null,
+    } satisfies AppAppearancePreference,
+  ],
+  [
+    "appearance preference with an interface font and a code font",
+    decodeAppAppearancePreference,
+    {
+      appearance: "dark",
+      transparentWindow: false,
+      palette: null,
+      palettes: [],
+      chatBackgroundLight: null,
+      chatBackgroundDark: null,
+      interfaceFont: "Noto Sans Arabic",
+      codeFont: "JetBrains Mono",
+    } satisfies AppAppearancePreference,
+  ],
+  ["installed fonts", decodeInstalledFonts, ["Al Bayan", "DejaVu Sans", "Noto Kufi Arabic"]],
   ["signed out", decodeCentralAuthState, { status: "signed_out" } satisfies CentralAuthState],
+  [
+    "signed out after a keyring change",
+    decodeCentralAuthState,
+    { status: "signed_out", reason: "keyring_changed" } satisfies CentralAuthState,
+  ],
   ["code sent", decodeCentralAuthState, codeSent],
   [
     "code sent with every option",
@@ -185,6 +279,22 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
     } satisfies CentralAuthState,
   ],
   [
+    "signed in with a chat color",
+    decodeCentralAuthState,
+    {
+      status: "signed_in",
+      user: { id: "user-1", email: "user@example.com", name: null, avatarUrl: null, chatColor: "#3b82f6" },
+    } satisfies CentralAuthState,
+  ],
+  [
+    "signed in with no chat color",
+    decodeCentralAuthState,
+    {
+      status: "signed_in",
+      user: { id: "user-1", email: "user@example.com", name: null, avatarUrl: null, chatColor: null },
+    } satisfies CentralAuthState,
+  ],
+  [
     "account error",
     decodeCentralAuthState,
     { status: "error", issue: { code: "offline", message: "No network." } } satisfies CentralAuthState,
@@ -206,6 +316,11 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
   ],
   ["update status", decodeUpdateStatus, updateStatus],
   ["host-managed update status", decodeUpdateStatus, { ...updateStatus, managedByHost: true } satisfies UpdateStatus],
+  [
+    "update status with a staged release",
+    decodeUpdateStatus,
+    { ...updateStatus, phase: "up-to-date", stagedVersion: "0.68.0" } satisfies UpdateStatus,
+  ],
   ["update preference", decodeUpdatePreference, { autoDownload: true, allowRemoteUpdates: true, autoInstall: false }],
   ["notification preference", decodeNotificationPreference, { desktopNotifications: true, messagePreview: false }],
   [
@@ -217,6 +332,11 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
     "opened channel notification",
     decodeNotificationOpenedEvent,
     { serverId: "local", agentId: "agent-1", threadId: null, channelId: "channel-1" } satisfies NotificationOpenedEvent,
+  ],
+  [
+    "opened workflow notification",
+    decodeWorkflowNotificationOpenedEvent,
+    { serverId: "local", workflowId: "workflow-1" } satisfies WorkflowNotificationOpenedEvent,
   ],
   ["chat windows", decodeChatWindowTargets, [{ serverId: "local", agentId: "agent-1" }]],
   ["detected model servers", decodeDetectedModelServers, [detectedServer]],
@@ -241,6 +361,32 @@ const valid: [string, (value: unknown) => unknown, unknown][] = [
 ];
 
 const malformed: [string, (value: unknown) => unknown, unknown][] = [
+  [
+    "an unknown quit guard",
+    decodeAppBehaviorPreference,
+    {
+      launchAtLogin: true,
+      keepRunningInBackground: false,
+      keepAwake: null,
+      keepAwakeOnBattery: null,
+      quitGuard: "sometimes",
+    },
+  ],
+  [
+    "a missing quit guard",
+    decodeAppBehaviorPreference,
+    { launchAtLogin: true, keepRunningInBackground: false, keepAwake: null, keepAwakeOnBattery: null },
+  ],
+  [
+    "app info with a software rendering flag that is not a boolean",
+    decodeAppInfo,
+    { name: "OpenBot", version: "1.0.0", platform: "linux", variant: "production", softwareRendering: "yes" },
+  ],
+  [
+    "app info with an unknown hour cycle",
+    decodeAppInfo,
+    { name: "OpenBot", version: "1.0.0", platform: "darwin", variant: "production", hourCycle: "h24" },
+  ],
   // The key never comes back to the renderer, so a record that carries one fails closed.
   ["a voice server with its key", decodeVoiceServerSettings, { ...voiceServer, apiKey: "sk-secret" }],
   [
@@ -307,7 +453,65 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
       palettes: [{ ...omarchyPalette, colors: { canvas: "#1a1b26" } }],
     },
   ],
+  [
+    "appearance preference with no chat background",
+    decodeAppAppearancePreference,
+    { appearance: "dark", transparentWindow: false, palette: null, palettes: [] },
+  ],
+  [
+    "appearance preference with no font",
+    decodeAppAppearancePreference,
+    {
+      appearance: "dark",
+      transparentWindow: false,
+      palette: null,
+      palettes: [],
+      chatBackgroundLight: null,
+      chatBackgroundDark: null,
+    },
+  ],
+  [
+    "a font name that ends the CSS string",
+    decodeAppAppearancePreference,
+    {
+      appearance: "dark",
+      transparentWindow: false,
+      palette: null,
+      palettes: [],
+      chatBackgroundLight: null,
+      chatBackgroundDark: null,
+      interfaceFont: 'Arial"; background: url(x)',
+      codeFont: null,
+    },
+  ],
+  ["an installed font with a semicolon", decodeInstalledFonts, ["Arial", "Menlo; color: red"]],
+  ["installed fonts that are not a list", decodeInstalledFonts, "Arial"],
+  [
+    "a chat background that is not a hex color",
+    decodeAppAppearancePreference,
+    {
+      appearance: "dark",
+      transparentWindow: false,
+      palette: null,
+      palettes: [],
+      chatBackgroundLight: null,
+      chatBackgroundDark: "red; background: url(x)",
+    },
+  ],
+  [
+    "a chat background with an alpha channel",
+    decodeAppAppearancePreference,
+    {
+      appearance: "light",
+      transparentWindow: false,
+      palette: null,
+      palettes: [],
+      chatBackgroundLight: "#f1f2ff00",
+      chatBackgroundDark: null,
+    },
+  ],
   ["an unknown account status", decodeCentralAuthState, { status: "banned" }],
+  ["signed out with an unknown reason", decodeCentralAuthState, { status: "signed_out", reason: "expired" }],
   ["signed in without a user", decodeCentralAuthState, { status: "signed_in" }],
   ["code sent with a text expiry", decodeCentralAuthState, { ...codeSent, expiresAt: "soon" }],
   ["Mobile Connect ticket without data", decodeMobileConnectTicket, { expiresAt: 1 }],
@@ -315,6 +519,7 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
   ["account sessions that are not a list", decodeAccountSessions, { sessionId: "s" }],
   ["update status in an unknown phase", decodeUpdateStatus, { ...updateStatus, phase: "done" }],
   ["update status with an unknown failure", decodeUpdateStatus, { ...updateStatus, errorCode: "boom" }],
+  ["update status with a staged release that is not text", decodeUpdateStatus, { ...updateStatus, stagedVersion: 68 }],
   ["update preference without a switch", decodeUpdatePreference, null],
   ["notification preference without a switch", decodeNotificationPreference, { desktopNotifications: "yes" }],
   ["opened notification without an agent", decodeNotificationOpenedEvent, { serverId: "local", threadId: null }],
@@ -323,6 +528,7 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
     decodeNotificationOpenedEvent,
     { serverId: "local", agentId: "agent-1", threadId: null, channelId: 7 },
   ],
+  ["opened workflow notification without a workflow", decodeWorkflowNotificationOpenedEvent, { serverId: "local" }],
   ["a chat window without an agent", decodeChatWindowTargets, [{ serverId: "local" }]],
   ["chat windows that are not a list", decodeChatWindowTargets, { serverId: "local", agentId: "agent-1" }],
   // A scan row never carries a credential, so one that does is refused with the whole list.
@@ -335,6 +541,22 @@ const malformed: [string, (value: unknown) => unknown, unknown][] = [
   ["a custom agent with a two-line usage prompt", decodeCustomAgents, [{ ...customAgent, usagePrompt: "/usage\nrm" }]],
   ["custom agent usage of an invalid id", decodeCustomAgentUsage, [{ id: "Not An Id", text: "42%" }]],
   ["custom agent usage with no text", decodeCustomAgentUsage, [{ id: "devin", text: null }]],
+  [
+    "an account chat color that is not a lower-case hex color",
+    decodeCentralAuthState,
+    {
+      status: "signed_in",
+      user: { id: "user-1", email: "user@example.com", name: null, avatarUrl: null, chatColor: "#3B82F6" },
+    },
+  ],
+  [
+    "an account chat color that is a CSS expression",
+    decodeCentralAuthState,
+    {
+      status: "signed_in",
+      user: { id: "user-1", email: "user@example.com", name: null, avatarUrl: null, chatColor: "red;x:url(a)" },
+    },
+  ],
   ["a model list with an empty id", decodeDiscoverModelsResult, { models: [{ id: "" }] }],
   [
     "detection settings without a switch",
@@ -360,6 +582,7 @@ const AGENT_ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 describe("pending Marketplace listing", () => {
   it.each([
     ["an agent", { kind: "agent", id: AGENT_ID }],
+    ["a curated agent", { kind: "agent", id: "openbot-curated-agent-copy-editor" }],
     ["a skill", { kind: "skill", id: "release-notes" }],
   ])("keeps %s", (_name, value) => {
     expect(decodePendingMarketplaceListing(value)).toEqual(value);
@@ -376,8 +599,10 @@ describe("pending Marketplace listing", () => {
     ["no link", null],
     ["a bare slug", "release-notes"],
     ["an unknown kind", { kind: "plugin", id: "release-notes" }],
-    ["an agent with a slug", { kind: "agent", id: "release-notes" }],
     ["an agent id in upper case", { kind: "agent", id: AGENT_ID.toUpperCase() }],
+    ["an agent with a path", { kind: "agent", id: "../account" }],
+    ["an agent with a dot", { kind: "agent", id: "agent.md" }],
+    ["an agent id over 128 characters", { kind: "agent", id: "a".repeat(129) }],
     ["a skill with a path", { kind: "skill", id: "../account" }],
     ["a skill with a dot", { kind: "skill", id: "notes.md" }],
     ["a skill slug over 64 characters", { kind: "skill", id: "a".repeat(65) }],

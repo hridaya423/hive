@@ -6,14 +6,18 @@ import {
   CHAT_VISUAL_TITLE_LIMIT,
 } from "@openbot/contracts/chat-visual";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
-import { API_KEY_NAME_PATTERN, CONNECTOR_IDS } from "@openbot/contracts/ipc";
+import { API_KEY_NAME_PATTERN, CONNECTOR_IDS, VAULT_API_KEY_LIMIT, VAULT_NOTES_LIMIT } from "@openbot/contracts/ipc";
 import { isUiBlockId, UI_BLOCK_LIMITS } from "@openbot/contracts/ui-blocks";
 import { z } from "zod";
 import pluginCatalog from "../../resources/plugin-catalog/catalog.json";
 import { advertisedJsonSchema } from "./agent/advertised-json-schema";
 import { interruptAgentToolSchema } from "./agent/agent-interrupt-tool";
+import { setBrowserProfileToolSchema } from "./agent/browser-profile-tool";
+import { createChannelToolSchema, listChannelsToolSchema, updateChannelToolSchema } from "./agent/channel-agent-tools";
 import { DATA_TOOL_DEFINITIONS } from "./agent/data-tools";
 import { HISTORY_TOOL_DEFINITIONS } from "./agent/history-tools";
+import { readImageToolShape } from "./agent/image-reader";
+import { libraryFolderArgument, listLibraryFoldersToolSchema } from "./agent/library-folder-tools";
 import { MCP_SERVER_TOOL_DEFINITIONS } from "./agent/mcp-tools";
 import { MEMORY_RECALL_TOOL_DEFINITIONS } from "./agent/memory-tool-inputs";
 import {
@@ -32,6 +36,7 @@ import {
   renameSectionToolSchema,
 } from "./agent/sidebar-tools";
 import { LOCAL_SKILL_TOOL_DEFINITIONS } from "./agent/skill-tools";
+import { readVideoToolShape } from "./agent/video-reader";
 import { CREATE_WEBHOOK_ROUTINE_TOOL, UPDATE_WEBHOOK_ROUTINE_TOOL } from "./agent/webhook-routine-tool";
 import { START_TASK_TOOL, startTaskToolSchema } from "./agent-tasks/agent-tasks";
 import {
@@ -48,11 +53,14 @@ import { ROUTINE_FLOW_TOOL_DEFINITIONS } from "./routine-flows/routine-flow-tool
 import {
   routineInstructionZodSchema,
   routineLimitPolicyZodSchema,
+  routineMissedPolicyUpdateZodSchema,
   routineMissedPolicyZodSchema,
+  routineRunPlaceZodSchema,
   routineScheduleZodSchema,
   webhookEventTypeZodSchema,
   webhookFiltersZodSchema,
 } from "./routine-tool-schema";
+import { WORKFLOW_TOOL_DEFINITIONS } from "./workflows/workflow-tools";
 
 interface OpenBotToolDefinition {
   name: string;
@@ -105,6 +113,7 @@ export const htmlPreviewToolSchema = z.object({
 
 // `ask_ui` input. The limits are the contract's; `normalizeUiBlockSpec` then checks the rules a schema
 // cannot say, such as unique ids and option labels. An id passes the same check as a stored block id.
+// The ask_ui description gives the id rule once, not on each id.
 const uiBlockIdSchema = z
   .string()
   .regex(/^[A-Za-z0-9.:-][A-Za-z0-9_.:-]{0,63}$/)
@@ -114,44 +123,13 @@ const uiLabelSchema = uiTextSchema(UI_BLOCK_LIMITS.label);
 const uiActionSchema = z.strictObject({
   id: uiBlockIdSchema,
   label: uiLabelSchema,
-  style: z.enum(["primary", "secondary", "ghost", "danger"]).optional().describe("The default is secondary."),
-  confirm: z.boolean().optional().describe("Ask the user again before this action is sent."),
+  style: z.enum(["primary", "secondary", "ghost", "danger"]).optional().describe("Default secondary."),
+  confirm: z.boolean().optional().describe("Ask again before sending."),
 });
-const uiOptionSchema = z.strictObject({ id: uiBlockIdSchema, label: uiLabelSchema });
 const uiStringOptionsSchema = (max: number) => z.array(uiLabelSchema).min(1).max(max);
-const uiFormFieldBase = { id: uiBlockIdSchema, required: z.boolean().optional() };
-const uiFormTextField = (kind: "text" | "textarea") =>
-  z.strictObject({
-    ...uiFormFieldBase,
-    kind: z.literal(kind),
-    label: uiLabelSchema,
-    placeholder: uiLabelSchema.optional(),
-    value: z.string().max(UI_BLOCK_LIMITS.fieldValue).optional(),
-    ...(kind === "text"
-      ? {
-          secret: z
-            .boolean()
-            .optional()
-            .describe("A password or a key: the app hides it and does not store it. Do not give a value."),
-        }
-      : {}),
-  });
-const uiFormOptionsField = (kind: "select" | "segmented", max: number) =>
-  z.strictObject({
-    ...uiFormFieldBase,
-    kind: z.literal(kind),
-    label: uiLabelSchema.optional(),
-    options: uiStringOptionsSchema(max),
-    value: uiLabelSchema.optional().describe("One of options."),
-  });
 
 export const routineReportFailureToolSchema = z.object({
-  reason: z
-    .string()
-    .trim()
-    .min(1)
-    .max(INPUT_LIMITS.routineFailureReason)
-    .describe("Why the task could not be done, in one short sentence."),
+  reason: z.string().trim().min(1).max(INPUT_LIMITS.routineFailureReason).describe("Why, in one short sentence."),
 });
 
 /** `acknowledge_request`: the action ids of its plan card. */
@@ -173,97 +151,64 @@ export const acknowledgeRequestToolSchema = z.object({
   alternativeLabel: uiLabelSchema.optional().describe("A smaller option the user may prefer."),
 });
 
+/**
+ * Agents get only the confirm block: an approval, such as of a draft in its preview. A question with
+ * options goes to `ask_user`, which costs less context in each request. The choice and form blocks
+ * stay in the contract: OpenBot makes forms itself, and older chats show both.
+ */
 export const askUiToolSchema = z.object({
   blockId: uiBlockIdSchema.optional(),
-  block: z.discriminatedUnion("type", [
-    z.strictObject({
-      type: z.literal("confirm"),
-      title: uiTextSchema(UI_BLOCK_LIMITS.title),
-      danger: z.boolean().optional().describe("Draw as dangerous; the primary button is held to press."),
-      confirmHold: z.number().int().min(UI_BLOCK_LIMITS.holdMinMs).max(UI_BLOCK_LIMITS.holdMaxMs).optional(),
-      fields: z
-        .array(
-          z.union([
-            z.strictObject({ label: uiLabelSchema, value: z.string().max(UI_BLOCK_LIMITS.text) }),
-            z.strictObject({
-              label: uiLabelSchema,
-              select: uiBlockIdSchema.describe("The key of the chosen option in values."),
-              options: uiStringOptionsSchema(UI_BLOCK_LIMITS.selectOptions).describe("The first is the default."),
-            }),
-          ]),
-        )
-        .max(UI_BLOCK_LIMITS.confirmFields)
-        .optional(),
-      preview: uiTextSchema(UI_BLOCK_LIMITS.preview).optional().describe("Markdown."),
-      actions: z.array(uiActionSchema).min(1).max(UI_BLOCK_LIMITS.actions),
-    }),
-    z.strictObject({
-      type: z.literal("quick_replies"),
-      title: uiTextSchema(UI_BLOCK_LIMITS.title).optional(),
-      options: z.array(uiOptionSchema).min(1).max(UI_BLOCK_LIMITS.quickReplies),
-      allowText: z.boolean().optional().describe("Also show a text box."),
-    }),
-    z.strictObject({
-      type: z.literal("choice"),
-      title: uiTextSchema(UI_BLOCK_LIMITS.title),
-      multiple: z.boolean().optional(),
-      options: z
-        .array(
+  block: z.strictObject({
+    type: z.literal("confirm"),
+    title: uiTextSchema(UI_BLOCK_LIMITS.title),
+    danger: z.boolean().optional().describe("The primary button is held to press."),
+    confirmHold: z.number().int().min(UI_BLOCK_LIMITS.holdMinMs).max(UI_BLOCK_LIMITS.holdMaxMs).optional(),
+    fields: z
+      .array(
+        z.union([
+          z.strictObject({ label: uiLabelSchema, value: z.string().max(UI_BLOCK_LIMITS.text) }),
           z.strictObject({
-            id: uiBlockIdSchema,
             label: uiLabelSchema,
-            meta: uiTextSchema(UI_BLOCK_LIMITS.meta).optional(),
-            selected: z.boolean().optional(),
+            select: uiBlockIdSchema.describe("The key of the option in values."),
+            options: uiStringOptionsSchema(UI_BLOCK_LIMITS.selectOptions).describe("The first is the default."),
           }),
-        )
-        .min(1)
-        .max(UI_BLOCK_LIMITS.choiceOptions),
-      submit: uiLabelSchema.optional().describe("The submit button label."),
-    }),
-    z.strictObject({
-      type: z.literal("form"),
-      title: uiTextSchema(UI_BLOCK_LIMITS.title),
-      fields: z
-        .array(
-          z.discriminatedUnion("kind", [
-            uiFormTextField("text"),
-            uiFormTextField("textarea"),
-            uiFormOptionsField("select", UI_BLOCK_LIMITS.selectOptions),
-            uiFormOptionsField("segmented", UI_BLOCK_LIMITS.segmentedOptions),
-            z.strictObject({
-              ...uiFormFieldBase,
-              kind: z.literal("date"),
-              label: uiLabelSchema,
-              value: z
-                .string()
-                .regex(/^\d{4}-\d{2}-\d{2}$/)
-                .optional()
-                .describe("YYYY-MM-DD."),
-            }),
-          ]),
-        )
-        .min(1)
-        .max(UI_BLOCK_LIMITS.formFields),
-      submit: uiLabelSchema.optional().describe("The submit button label."),
-    }),
-  ]),
+        ]),
+      )
+      .max(UI_BLOCK_LIMITS.confirmFields)
+      .optional(),
+    preview: uiTextSchema(UI_BLOCK_LIMITS.preview).optional().describe("Markdown."),
+    actions: z.array(uiActionSchema).min(1).max(UI_BLOCK_LIMITS.actions),
+  }),
 });
 
 const apiKeyNameSchema = z
   .string()
   .regex(API_KEY_NAME_PATTERN)
-  .describe("The environment variable name of the key, such as OPENAI_API_KEY: A-Z, 0-9 and _, up to 64 characters.");
+  .describe("Variable name, such as OPENAI_API_KEY: A-Z, 0-9, _; up to 64 characters.");
 
 export const requestApiKeyToolSchema = z.strictObject({
   name: apiKeyNameSchema,
-  title: uiTextSchema(UI_BLOCK_LIMITS.title).describe(
-    "What the key is for, in the user's language, such as OpenAI API key for the image script.",
-  ),
-  placeholder: uiLabelSchema.optional().describe("A hint for the field, such as sk-…. Never a real key."),
+  title: uiTextSchema(UI_BLOCK_LIMITS.title).describe("What the key is for, in the user's language."),
+  placeholder: uiLabelSchema.optional().describe("A hint, such as sk-…. Never a real key."),
   submit: uiLabelSchema.optional().describe("The submit button label."),
 });
 
 export const removeApiKeyToolSchema = z.strictObject({ name: apiKeyNameSchema });
+
+export const saveApiKeyToolSchema = z.strictObject({
+  name: apiKeyNameSchema,
+  key: z.string().trim().min(1).max(VAULT_API_KEY_LIMIT),
+  notes: z
+    .string()
+    .max(VAULT_NOTES_LIMIT)
+    .optional()
+    .describe("What it is for; never a secret. Omit to keep the notes."),
+});
+
+/** `openbot.web_search`: one search turn on a ChatGPT account (`AgentService.searchWeb`). */
+export const webSearchToolSchema = z.strictObject({
+  query: z.string().trim().min(1).max(1_000),
+});
 
 export const sendToChannelToolSchema = z.strictObject({
   channelId: z.string().min(1).max(INPUT_LIMITS.identifier),
@@ -286,12 +231,22 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   ...DATA_TOOL_DEFINITIONS,
   ...LOCAL_SKILL_TOOL_DEFINITIONS,
   ...ROUTINE_FLOW_TOOL_DEFINITIONS,
+  ...WORKFLOW_TOOL_DEFINITIONS,
   ...MCP_SERVER_TOOL_DEFINITIONS,
   {
     name: "attach_files_to_response",
     description:
-      "Attach existing local files to the current response, such as screenshots, charts, reports or ZIP archives that the user should receive. OpenBot copies each file and previews images.",
-    shape: { paths: z.array(z.string().min(1).max(INPUT_LIMITS.path)).min(1).max(INPUT_LIMITS.attachments) },
+      'Attach existing local files, such as screenshots, charts or reports, to the current response; images get a preview. Pass folder (a Library folder, such as "Reports/2026") only when the user or your instructions name one.',
+    shape: {
+      paths: z.array(z.string().min(1).max(INPUT_LIMITS.path)).min(1).max(INPUT_LIMITS.attachments),
+      folder: libraryFolderArgument.optional(),
+    },
+  },
+  {
+    name: "list_library_folders",
+    description:
+      "List Library folders by path, with each file's id, name and stored path, and the count of files in no folder. Pass folder for one folder and its subfolders.",
+    shape: listLibraryFoldersToolSchema.shape,
   },
   {
     name: "html_preview",
@@ -317,6 +272,24 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     shape: captureScreenToolShape,
   },
   {
+    name: "web_search",
+    description:
+      "Search the web for current facts: a short answer with source URLs. One question per call. To read a page, use openbot_browser.",
+    shape: webSearchToolSchema.shape,
+  },
+  {
+    name: "read_video",
+    description:
+      "Watch a public video link (Facebook, Instagram, TikTok, X, YouTube): title, author, counts, description, timed transcript and still frames.",
+    shape: readVideoToolShape,
+  },
+  {
+    name: "read_image",
+    description:
+      "Look at a local PNG or JPEG image, such as a photo. Returns it upright, shrunk when large, with its size.",
+    shape: readImageToolShape,
+  },
+  {
     name: "list_sections",
     description: "List sidebar sections (folders), their ids and agent assignments.",
     shape: {},
@@ -333,7 +306,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   },
   {
     name: "delete_section",
-    description: "Delete a custom sidebar section. Its agents become ungrouped.",
+    description: "Delete a custom sidebar section. Its agents and folders move up one level.",
     shape: deleteSectionToolSchema.shape,
   },
   {
@@ -344,8 +317,8 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "list_channels",
     description:
-      "List the open channels with their id, name, lead, and members. A sidebar section (folder) is not a channel.",
-    shape: {},
+      "List open channels: id, name, lead, members, instructions (first 300 characters). Folders are not channels.",
+    shape: listChannelsToolSchema.shape,
   },
   {
     name: "send_to_channel",
@@ -354,9 +327,20 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     shape: sendToChannelToolSchema.shape,
   },
   {
+    name: "create_channel",
+    description:
+      "Create a channel: a shared chat where member agents take requests and work together. Returns the channel.",
+    shape: createChannelToolSchema.shape,
+  },
+  {
+    name: "update_channel",
+    description: "Change or archive a channel. Pass only the values to change. Returns the channel.",
+    shape: updateChannelToolSchema.shape,
+  },
+  {
     name: "list_agents",
     description:
-      "List local agents: name, title, description (first 300 characters), status (working, queued or ready), queuedMessages, turnStartedAt, lastActivityAt, openWaits. To find a teammate, match the work to titles and descriptions.",
+      "List local agents: name, title, description (first 300 characters), status (working, queued or ready), queuedMessages, turnStartedAt, lastActivityAt, openWaits. To find a teammate, match the work to titles and descriptions. Changed files are not tracked.",
     shape: {},
   },
   {
@@ -374,31 +358,37 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "read_agent",
     description:
-      "Read the setup of one agent, or your own: profile, provider, model, effort, account, backup models, access, Computer Use, notifications, auto-approve, skills, routines, MCP servers. Read-only. Call it before you change another agent.",
+      "Read the setup of one agent, or your own: profile, provider, model, effort, account, backup models, access, Computer Use, notifications, browser profile, skills, routines, MCP servers. Read-only. Call it before you change another agent.",
     shape: readAgentToolSchema.shape,
   },
   {
     name: "create_agent",
     description:
-      "Create a persistent agent when the user asks for a new teammate. Take its profile from the request and give its first task. It gets your provider, model, effort, access and Computer Use limits; set provider, model or reasoningEffort only when the user asks for others (list_models first). Use update_profile for an existing agent.",
+      "Create a persistent agent when the user asks for a new teammate. Take its profile from the request and give its first task. It gets your provider, model, effort, account, access and Computer Use limits; set provider, model or reasoningEffort only when the user asks for others (list_models first). Use update_profile for an existing agent.",
     shape: createAgentToolSchema.shape,
   },
   {
     name: "update_profile",
     description:
-      "Update an agent's name, title, description, avatar, provider, model, effort, account, backup models, access, Computer Use or notifications. You can restrict access and turn Computer Use off; only the user can widen them. Call list_models before you change a model, account or backup models. A provider or account change fails while the agent has a turn or queued messages. For several agents use update_agents.",
+      "Update an agent's name, title, description, avatar, provider, model, effort, account, backup models, access, Computer Use or notifications. You can restrict access and turn Computer Use off; only the user can widen them. Call list_models before you change a model, account or backup models. A provider or account change fails while the agent has a turn or queued messages; a new model applies from the next turn. backupModels replaces the whole list. For several agents use update_agents.",
     shape: updateProfileToolSchema.shape,
   },
   {
     name: "update_agents",
     description:
-      "Give several agents the same provider, model, effort, access, Computer Use or notifications setting. Each agent gets the checks of update_profile; a failure for one does not stop or undo the others. Returns updated and failed counts and, per agent id, ok with the new settings or the error. Call list_models before you change a model.",
+      "Give several agents the same provider, model, effort, access, Computer Use or notifications setting. Each agent gets the checks of update_profile; one failure does not stop or undo the others. Returns updated and failed counts and, per agent id, the new settings or the error. Call list_models before you change a model.",
     shape: updateAgentsToolSchema.shape,
+  },
+  {
+    name: "set_browser_profile",
+    description:
+      "Move local agents to one browser profile (shared sign-ins) when the user asks. The owner approves each change on a card. Moved agents lose open tabs.",
+    shape: setBrowserProfileToolSchema.shape,
   },
   {
     name: "start_new_chat",
     description:
-      "Start a new chat for yourself when this chat is long and its earlier messages no longer matter, or when a routine asks. Keep what you need first, with remember or a file. The new chat starts when this turn ends and your queue is empty. Works only in your own chat, when the user allows it.",
+      "Start a new chat for yourself when this chat is long and its earlier messages no longer matter, or when a routine asks. Keep what you need first, with remember or a file. It starts when this turn ends and your queue is empty or holds only routine runs; if another message runs first, call it again. Only in your own chat, when the user allows it.",
     shape: {},
   },
   {
@@ -410,7 +400,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "create_routine",
     description:
-      "Create a scheduled routine for this agent, or for agentId. Use a once schedule for a one-time reminder. Returns the saved routine.",
+      "Create a scheduled routine for this agent, or for agentId. Several steps in one graph: use edit_workflow. Repeating schedules run at most every 3 minutes. Use a once schedule for a one-time reminder. Returns the saved routine.",
     shape: {
       agentId: z.string().min(1).max(INPUT_LIMITS.identifier).optional(),
       name: z.string().min(1).max(INPUT_LIMITS.routineName),
@@ -420,6 +410,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
       timezone: z.string().min(1).max(128).describe("IANA timezone. Default: the user's.").optional(),
       limitPolicy: routineLimitPolicyZodSchema.optional(),
       missedPolicy: routineMissedPolicyZodSchema.optional(),
+      runIn: routineRunPlaceZodSchema.optional(),
     },
   },
   {
@@ -438,6 +429,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
       filters: webhookFiltersZodSchema.optional(),
       active: z.boolean().optional(),
       limitPolicy: routineLimitPolicyZodSchema.optional(),
+      runIn: routineRunPlaceZodSchema.optional(),
     },
   },
   {
@@ -453,6 +445,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
       filters: webhookFiltersZodSchema.optional(),
       active: z.boolean().optional(),
       limitPolicy: routineLimitPolicyZodSchema.optional(),
+      runIn: routineRunPlaceZodSchema.optional(),
     },
   },
   {
@@ -467,7 +460,8 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
       schedule: routineScheduleZodSchema.optional(),
       active: z.boolean().optional(),
       limitPolicy: routineLimitPolicyZodSchema.optional(),
-      missedPolicy: routineMissedPolicyZodSchema.optional(),
+      missedPolicy: routineMissedPolicyUpdateZodSchema.optional(),
+      runIn: routineRunPlaceZodSchema.optional(),
     },
   },
   {
@@ -489,19 +483,19 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: ROUTINE_NO_UPDATE_TOOL,
     description:
-      "Routine runs only: call it when the run has nothing to report. OpenBot collapses the run and sends no notification. A requested reminder or message is a report: write it in your answer instead.",
+      "Call it when nothing is for the user: a routine run with nothing to report, or a teammate's update that wants no answer. OpenBot collapses the run and sends no notification. A requested reminder or message is a report. A manual Test run shows your answer.",
     shape: {},
   },
   {
     name: ROUTINE_REPORT_FAILURE_TOOL,
     description:
-      "Routine runs only: call it when the task could not be done, such as a needed service being unavailable. OpenBot ends the run as failed with your reason. Not for a done task with bad news.",
+      "Routine runs only: call it when the task could not be done, such as a needed service being unavailable. OpenBot ends the run as failed with your reason; still answer. Not for a done task with bad news.",
     shape: routineReportFailureToolSchema.shape,
   },
   {
     name: AWAIT_EVENT_TOOL,
     description:
-      "Open a wait when this request must wait for something outside this turn, such as a build or a deploy. The user sees the wait until you close it. A run of your routine, or a script event with its waitId, wakes it. Then tell the user what you wait for and end your turn.",
+      "Open a wait when this request waits for something outside this turn that takes over about 15 minutes, such as a long build or a deploy. The user sees the wait until you close it. A run of your routine (routineId: only that one), or a script event with its waitId, wakes it. Then tell the user what you wait for and end your turn.",
     shape: awaitEventToolSchema.shape,
   },
   {
@@ -526,11 +520,12 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "remember",
     description:
-      "Stage one short, durable memory for this agent. Use memoryId to correct or merge an existing one. Entries are searchable unless inclusion is essential. The change commits only if the turn completes.",
+      "Stage one short, durable memory for this agent. Use memoryId to correct or merge an existing one. Entries are searchable unless inclusion is essential. site (a host or URL) shows it on that site's pages. Commits only if the turn completes.",
     shape: {
       text: z.string().min(1).max(INPUT_LIMITS.agentMemoryText),
       memoryId: z.string().optional(),
       inclusion: z.enum(["essential", "searchable"]).optional(),
+      site: z.string().max(2048).optional(),
     },
   },
   {
@@ -550,10 +545,11 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
             id: z.string().max(INPUT_LIMITS.identifier).optional(),
             header: z.string().max(INPUT_LIMITS.promptHeader).optional(),
             question: z.string().min(1).max(INPUT_LIMITS.promptQuestion),
+            detail: z.string().max(INPUT_LIMITS.promptQuestion).optional(),
             isSecret: z
               .boolean()
               .optional()
-              .describe("Masks a private answer, such as a one-time code. For an API key use request_api_key."),
+              .describe("Masks a private answer, such as a code. For an API key use request_api_key."),
             options: z
               .array(
                 z.strictObject({
@@ -572,25 +568,25 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
   {
     name: "acknowledge_request",
     description: [
-      "Before a long task (over about a minute), show your plan in one card and wait. Skip it for quick answers, small changes, routine runs and approved work. OpenBot presses start after 10 s.",
-      'Returns {"status":"answered","actionId"}: start, alternative or cancel; "_text" carries the user\'s own words; skipped or expired means do not start. Works only when the user turned it on.',
+      "Before a long task (over about a minute), show your plan in one card and wait. Skip it for quick answers, small changes, routine runs and approved work. OpenBot presses start after the wait the user set.",
+      'Returns {"status":"answered","actionId"}: start, alternative or cancel; "_text" carries the user\'s own words; skipped or expired means do not start. Only when the user turned it on, not in an external chat.',
     ].join(" "),
     shape: acknowledgeRequestToolSchema.shape,
   },
   {
     name: "ask_ui",
     description: [
-      "Show an interactive block (confirm, quick_replies, choice or form) and wait. Use it instead of ask_user when buttons, a list or a short form fit better, or for approval before an action with effects.",
-      'Returns {"status":"answered","blockId","actionId","values"}: actionId is the button or option id, or "submit"; values has "selected" option ids or the form values by field id. "_text" with "text" carries the user\'s own words. Otherwise skipped or expired.',
-      "A confirmed block is not a permission: provider approvals still apply. A secret field gives you its value: never repeat it. For an API key use request_api_key.",
+      "Show a confirm card and wait: an approval of an action or of a draft in its preview, with up to 4 buttons. For a question or a choice, use ask_user.",
+      'Returns {"status":"answered","actionId","values"}: actionId is the button id, or "_text" with "text" for the user\'s words; values has each select option by its key. Otherwise skipped or expired.',
+      "Only the server owner or an admin can press a danger or confirm button. A confirmed block is not a permission: provider approvals still apply. Ids: letters, digits and _ . : -, up to 64 characters, not starting with _.",
     ].join(" "),
     shape: askUiToolSchema.shape,
   },
   {
     name: "request_api_key",
     description: [
-      "Call it at once when your task needs an API key or token, or the user offers one: it asks in a secure form and waits. OpenBot saves it in a private file outside your workspace; you never get the value.",
-      'Returns {"status":"saved","name","path"}, skipped or expired. Read the key from path in your command, quoted; never print or copy it. Call list_api_keys first.',
+      "Call it at once when your task needs an API key, token or password, or the user offers one: it asks in a secure form and waits. OpenBot saves it in a private file outside your workspace; you never get the value.",
+      'Returns {"status":"saved","name","path"}, skipped or expired. Read the key from path in your command, quoted; never print or copy it. Call list_api_keys first; a saved key is not asked again. Only the server owner or an admin can answer. Not in an external chat.',
     ].join(" "),
     shape: requestApiKeyToolSchema.shape,
   },
@@ -601,15 +597,26 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     shape: {},
   },
   {
+    name: "save_api_key",
+    description: [
+      "Save a key, token or password that you have, such as one the user pasted, in the OpenBot Vault for every agent. It replaces a Vault key of this name and deletes your own key of this name.",
+      'Returns {"status":"added"|"updated","name","path"}, never the key. Only for a request of a person in your OpenBot chat.',
+    ].join(" "),
+    shape: saveApiKeyToolSchema.shape,
+  },
+  {
     name: "remove_api_key",
     description: "Delete one saved API key, only when the user asks.",
     shape: removeApiKeyToolSchema.shape,
   },
   {
     name: "suggest_marketplace_app",
-    description: `Call it when the user needs one of these services and you have no working tools for it: ${MARKETPLACE_APP_IDS.join(", ")}. It shows a card to connect the app; nothing connects without the user. For an installed app it tests the app and returns the fix.`,
+    /* The description does not list the apps: the catalog has more than 200, and each agent turn would
+       carry them. An unknown name returns the list. */
+    description:
+      "Call it when the user needs an outside service, such as Notion, Slack or Linear, and you have no working tools for it. It shows a card to connect the app; nothing connects without the user. For an installed app it tests it and returns the fix. An unknown name returns the app list.",
     shape: {
-      app: z.string().min(1).max(63).describe("An app from the list, such as notion. Use github for GitHub."),
+      app: z.string().min(1).max(63).describe("The app id, such as notion or brave-search."),
     },
   },
   {
@@ -617,6 +624,19 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
     description:
       "Add one emoji reaction to the user's message for a clear emotional moment, positive or negative. An emoji in your answer is not a reaction. Skip neutral messages; never replace the answer with a reaction.",
     shape: { emoji: z.string().min(1).max(64).describe("Exactly one complete Unicode emoji.") },
+  },
+  {
+    name: "pin_message",
+    description: "Pin or unpin one finished message of this chat. You cannot unpin a person's pin.",
+    shape: {
+      quote: z
+        .string()
+        .min(1)
+        .max(500)
+        .describe("Exact text of the message to target (the newest match). Omit for the user's message.")
+        .optional(),
+      pinned: z.boolean().describe("false unpins.").optional(),
+    },
   },
   {
     name: "send_message",
@@ -630,7 +650,7 @@ export const OPENBOT_TOOL_DEFINITIONS: readonly OpenBotToolDefinition[] = [
       expectsReply: z
         .boolean()
         .describe(
-          "True (default) for a request or delegated task: the result comes back. False for information or your own reply; it ends the exchange.",
+          "true (default): a request, the result comes back. false: information or your reply; it ends the exchange.",
         )
         .optional(),
     },

@@ -123,6 +123,16 @@ sqlite3 "$HOME/Library/Application Support/Hive/openbot.db" \
 Report the field the message names, together with the details below. The output holds your own file
 paths, so review it before you publish it.
 
+## Hive says a newer version saved your data
+
+An older Hive started after a newer one opened your data, for example from a second copy of the app.
+An older Hive cannot read data that a newer one updated, so it stops before it writes anything. Your
+data is intact.
+
+Do not follow the reset steps below, and do not move the folder. Copy the newest Hive app over the
+old one, and remove the older copy. The message reads `OpenBot database version <n> is newer than
+this application supports (<m>).` The same steps apply.
+
 ## Routines do not run while the computer sleeps
 
 A routine runs only while the computer is awake and OpenBot is open.
@@ -136,7 +146,7 @@ A routine runs only while the computer is awake and OpenBot is open.
 - A paused routine, and the routines of a hidden agent, do not catch up. After a resume or a
   restore, a routine waits for its next occurrence.
 
-Turn on Settings → General → **Keep this computer awake**. While the computer
+Turn on Settings → App behavior → **Keep this computer awake**. While the computer
 is connected to power, it then does not sleep when idle. The display can still turn off. A closed
 laptop lid, or a sleep that you select, still sleeps the computer, unless macOS uses an external
 display (closed-display mode). On battery power, the computer sleeps as usual, unless you also turn
@@ -211,6 +221,11 @@ When the desktop app closes by itself, look in the `logs` folder of its user dat
 - `main/main.log` has a `Quitting: <reason>.` line when Hive quit by itself or was closed.
 - `trace.ndjson` has an `exit` line with the same reason, and a `crash` line for each renderer or
   helper process that stopped.
+
+When Hive freezes again and again, `stall-profiles.ndjson` in the same folder has a line for a
+minute in which the main process stopped for 2 seconds or more, twice in a row. The line names the
+Hive functions that used the time (`top`) and their callers (`stack`). It holds no paths and none of
+your data.
 
 A dump in the `Crashpad` folder next to `logs` means a process crashed. Do not share the dump: it
 can hold secrets. When neither file has a reason and there is no dump, something outside Hive

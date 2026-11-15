@@ -15,10 +15,9 @@ import { createOpenBotLogger } from "@openbot/logging";
 // - a source template that more than one source key can match, so the reverse lookup is ambiguous;
 // - an English key no code names. Write keys as literals, so this check and a search find them.
 //
-// Reports, and does not fail on, keys that are not translated yet and translated modules whose keys
-// are not in the English order. `--fix` puts those keys in the English order; it moves each
-// key with the comments and blank lines above it and does not change the text. `--json` writes the
-// report to .openbot-build/i18n-report.json.
+// Reports, and does not fail on, translated modules whose keys are not in the English order.
+// `--fix` puts those keys in the English order; it moves each key with the comments and blank lines
+// above it and does not change the text. `--json` writes the report to .openbot-build/i18n-report.json.
 
 const ROOT = resolve(import.meta.dirname, "..");
 const MESSAGES = resolve(ROOT, "packages/i18n/src/messages");
@@ -44,6 +43,10 @@ const RELEASED_SOURCE_KEYS = new Set([
   "error.backend.channelHistoryArriving",
   // A channel task from v0.59.0 can keep this text as its stored error.
   "error.backend.channelHistoryLeadRequired",
+  // A channel task from v0.66.0 or earlier can keep this text as its stored error, and an older host sends it.
+  "error.backend.channelRoutingUnreadable",
+  // A host without `agent-hidden-work` refuses a message to a hidden agent with this text.
+  "error.backend.recipientHidden",
 ]);
 
 const logger = createOpenBotLogger("i18n-check");

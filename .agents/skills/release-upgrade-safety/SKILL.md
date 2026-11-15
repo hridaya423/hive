@@ -29,6 +29,27 @@ This runs *before* `docs/RELEASING.md`, which stays authoritative for the publis
 - It never runs `bun run dev:seed` or `dev:reset` — both destroy the developer's own profile — and
   never `pkill -f`, which kills other sessions' work mid-write.
 
+## Subagents and models
+
+Give each gate, and each release task after the audit, to its own subagent. Do not give every
+subagent the session model. Select the smallest tier that can do the task, and set the model
+explicitly on each spawn: an omitted model uses the session model. In Claude Code, set `model` on
+the `Agent` call. In a harness that has no model choice, use a lower reasoning effort.
+
+| Tier | Claude Code | Tasks |
+| --- | --- | --- |
+| Strong | the session model | Step 1 residue, gates A, B, C and E, gate F when `electron-updater` moved, the Step 3 verdict |
+| Medium | `sonnet` | gates D and G, gate F otherwise, Step 2b |
+| Small | `haiku` | gate H, mechanical `git grep` and file inventories |
+
+- **Do not raise the tier because a gate is long.** Raise it when the task needs judgment: a hazard
+  that can lose user data, or a frozen wire format.
+- **Check the evidence of each report** before you accept it, as `AGENTS.md` says. A small-tier
+  "no hit" passes only when its command can still find a hit (see Step 2). When a report has no
+  evidence, run the task again one tier higher. Do not do it again yourself.
+- The session model writes the Step 3 table and each stop. A subagent verdict is evidence, not the
+  verdict.
+
 ## Step 1 — establish the range, then account for every file in it
 
 ```bash
@@ -172,6 +193,8 @@ Report a table:
 | Gate | Triggered by | Verdict |
 | --- | --- | --- |
 | A. SQLite schema | *path, or "not triggered"* | pass / stop / needs a human |
+
+Add the Step 2b answers.
 
 Then state the stops explicitly. Any one of these means **the version is not cuttable yet**:
 

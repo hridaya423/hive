@@ -1,8 +1,9 @@
-import type { MessagingConnection } from "@openbot/contracts/ipc";
+import type { MessagingConnection, WhatsAppAccount, WhatsAppLinkState } from "@openbot/contracts/ipc";
 import {
-  WhatsAppConnectDialog,
+  WHATSAPP_LINK_IDLE,
   type WhatsAppIntegrationAgent,
   WhatsAppIntegrationPanel,
+  WhatsAppLinkDialog,
 } from "@openbot/ui/features/settings/WhatsAppIntegrationPanel";
 import { fn } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
@@ -37,14 +38,14 @@ const ORCHESTRATOR: WhatsAppIntegrationAgent = {
   avatarUrl: null,
 };
 
-function account(update: Partial<MessagingConnection> = {}): MessagingConnection {
+function number(update: Partial<MessagingConnection> = {}): MessagingConnection {
   return {
-    workspaceId: "whatsapp",
+    workspaceId: "447700900123",
     platform: "whatsapp",
     enabled: true,
     state: "connected",
-    workspaceName: "WhatsApp",
-    botUserId: "447700900001",
+    workspaceName: "Ada Lovelace",
+    botUserId: "447700900123",
     missingScopes: [],
     retryAt: null,
     credentials: "saved",
@@ -53,78 +54,126 @@ function account(update: Partial<MessagingConnection> = {}): MessagingConnection
   };
 }
 
-const QR = "2@storybook-pairing-code,fG3pQ9xLm0aVn7TzK1sRw8uYdE4cHbJ6oXi5NtPqAe2Mg=,storybook";
-const CHATS = ["447700900002@s.whatsapp.net", "120363000000000001@g.us"];
+const PERSONAL: WhatsAppAccount = {
+  workspaceId: "447700900123",
+  ownNumber: true,
+  workingMessage: true,
+  allowedSenders: [
+    { id: "447700900456", kind: "contact", name: "Charles Babbage" },
+    { id: "120363000000000001@g.us", kind: "group", name: "Family" },
+  ],
+  pendingRequests: [],
+};
 
-const args = (connections: MessagingConnection[], allowedChats: string[] = [], qr: string | null = null) => ({
+const DEDICATED_NUMBER = number({ workspaceId: "447700900999", workspaceName: "Acme assistant" });
+
+const DEDICATED: WhatsAppAccount = {
+  workspaceId: "447700900999",
+  ownNumber: false,
+  workingMessage: false,
+  allowedSenders: [{ id: "447700900456", kind: "contact", name: "Charles Babbage" }],
+  pendingRequests: [
+    { code: "K7Q2ZP", senderId: "447700900555", name: "Grace Hopper", expiresAt: "2026-10-30T15:00:00.000Z" },
+    { code: "M4X9RT", senderId: "14155550100", name: "", expiresAt: "2026-10-30T15:10:00.000Z" },
+  ],
+};
+
+const args = (connections: MessagingConnection[], accounts: WhatsAppAccount[], link = WHATSAPP_LINK_IDLE) => ({
   agents: [ORCHESTRATOR, ...AGENTS],
   connections,
-  qr,
-  allowedChats,
+  accounts,
   busy: false,
-  onConnect: fn(),
-  onDisconnect: fn(),
+  link,
+  onStartLink: fn(),
+  onEndLink: fn(),
+  onDisconnectNumber: fn(),
+  onDisconnectAll: fn(),
   onReconnect: fn(),
   onSetEnabled: fn(),
+  onSetOwnNumber: fn(),
+  onSetWorkingMessage: fn(),
   onAddOrchestrator: fn(),
-  onSetAllowedChats: fn(async () => true),
+  loadGroups: fn(async () => [
+    { id: "120363000000000001@g.us", name: "Family" },
+    { id: "120363000000000002@g.us", name: "Book club" },
+  ]),
+  onAddSender: fn(),
+  onRemoveSender: fn(),
+  onAnswerRequest: fn(),
 });
 
-export const NotLinked: Story = { args: args([]) };
+/** No number yet: the warning, and Link WhatsApp opens the dialog. */
+export const NotSetUp: Story = { args: args([], []) };
 
-/** The phone has not scanned the code. Show QR code opens the dialog. */
-export const WaitingForScan: Story = { args: args([account({ state: "connecting" })], [], QR) };
+/** A personal number with two allowed senders, and a number only for OpenBot with two requests. */
+export const Linked: Story = { args: args([number(), DEDICATED_NUMBER], [PERSONAL, DEDICATED]) };
 
-export const Connected: Story = { args: args([account()], CHATS) };
+/** A number is linked, and no agent answers yet. */
+export const NoOrchestrator: Story = {
+  args: args([number({ orchestratorAgentId: null })], [{ ...PERSONAL, allowedSenders: [] }]),
+};
 
-/** Nothing reaches an agent until a chat is allowed. */
-export const NoAllowedChats: Story = { args: args([account()]) };
+export const Paused: Story = { args: args([number({ enabled: false, state: "paused" })], [PERSONAL]) };
 
-export const NoOrchestrator: Story = { args: args([account({ orchestratorAgentId: null })], CHATS) };
+/** WhatsApp removed the linked device, such as after 14 days with the computer off: Link again. */
+export const LoggedOut: Story = { args: args([number({ state: "invalid_token" })], [PERSONAL]) };
 
-export const Paused: Story = { args: args([account({ enabled: false, state: "paused" })], CHATS) };
+type DialogStory = StoryObj<typeof WhatsAppLinkDialog>;
 
-/** WhatsApp restricted the number, so Hive stopped trying to connect. */
-export const Restricted: Story = { args: args([account({ state: "restricted" })], CHATS) };
+const LINK_QR: WhatsAppLinkState = {
+  status: "waiting",
+  qr: "2@openbot-story-ref,openbot-story-noise-key,openbot-story-identity-key,story",
+  code: null,
+  workspaceId: null,
+  error: null,
+};
 
-/** The unlink could not log the device out, so the phone may still list it. */
-export const UnlinkedButListed: Story = { args: { ...args([]), phoneMayKeepDevice: true } };
-
-/** The phone removed the device. */
-export const LoggedOut: Story = { args: args([account({ state: "invalid_token" })], CHATS) };
-
-type DialogStory = StoryObj<typeof WhatsAppConnectDialog>;
-
-const dialogArgs = (connections: MessagingConnection[], start: "phone" | "agent", qr: string | null = null) => ({
+const dialogArgs = (
+  link: WhatsAppLinkState,
+  connections: MessagingConnection[] = [],
+  start: "number" | "agent" = "number",
+) => ({
   open: true,
   start,
   connections,
   agents: [ORCHESTRATOR, ...AGENTS],
-  qr,
   busy: false,
+  link,
+  onStartLink: fn(),
   onAddOrchestrator: fn(),
   onClose: fn(),
 });
 
-/** Step 1: the code is ready, and the phone scans it. */
-export const ScanQr: DialogStory = {
-  render: (props) => <WhatsAppConnectDialog {...props} />,
-  args: dialogArgs([account({ state: "connecting" })], "phone", QR),
+const renderDialog = (props: Parameters<typeof WhatsAppLinkDialog>[0]) => <WhatsAppLinkDialog {...props} />;
+
+/** Step 1: what the number is, and how the phone links. */
+export const LinkChoose: DialogStory = { render: renderDialog, args: dialogArgs(WHATSAPP_LINK_IDLE) };
+
+/** The phone scans the QR code. */
+export const LinkingQr: DialogStory = { render: renderDialog, args: dialogArgs(LINK_QR) };
+
+/** The phone types the pairing code. */
+export const LinkingCode: DialogStory = {
+  render: renderDialog,
+  args: dialogArgs({ ...LINK_QR, qr: null, code: "K7Q2ZPMX" }),
 };
 
-/** Step 1 before WhatsApp has made the code. */
-export const WaitingForCode: DialogStory = {
-  render: (props) => <WhatsAppConnectDialog {...props} />,
-  args: dialogArgs([], "phone"),
+/** The phone did not link in time. */
+export const LinkFailed: DialogStory = {
+  render: renderDialog,
+  args: dialogArgs({ ...LINK_QR, status: "failed", qr: null, error: "timeout" }),
 };
 
-/** Step 2: the phone is linked, and the WhatsApp Orchestrator is added next. */
+/** Step 2: the number is linked, and the WhatsApp Orchestrator is added next. */
 export const AddOrchestrator: DialogStory = {
-  render: (props) => <WhatsAppConnectDialog {...props} />,
-  args: dialogArgs([account({ orchestratorAgentId: null })], "agent"),
+  render: renderDialog,
+  args: dialogArgs({ status: "linked", qr: null, code: null, workspaceId: "447700900123", error: null }, [
+    number({ orchestratorAgentId: null }),
+  ]),
 };
 
+/** Done: the number has the WhatsApp Orchestrator. */
 export const LinkDone: DialogStory = {
-  render: (props) => <WhatsAppConnectDialog {...props} />,
-  args: dialogArgs([account()], "agent"),
+  render: renderDialog,
+  args: dialogArgs(WHATSAPP_LINK_IDLE, [number()], "agent"),
 };

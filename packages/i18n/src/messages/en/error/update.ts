@@ -22,6 +22,8 @@ export const messages = defineMessages("error.update", {
   "error.update.siblingSessionSameAccount":
     "Another Hive process is still running in this user account. Quit it, then install the update again.",
   "error.update.siblingCheckFailed": "Could not verify other Hive sessions. Try again before installing.",
+  "error.update.readOnlyLocation":
+    "Hive cannot install updates from this location. Quit Hive. In Finder, drag Hive into the Applications folder (if it is already there, drag it out and back in). Then open Hive and install the update again.",
   // A joined server's admin reads these from the host.
   "error.update.remoteDisabled": "Updates from server admins are turned off on this computer.",
   "error.update.restartStarted": "Hive is already restarting to install the update.",

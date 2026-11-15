@@ -20,17 +20,32 @@ delete it.
 ## Connections that Hive makes
 
 - **Providers.** A provider CLI that you set up connects to its own service, such as OpenAI,
-  Anthropic, xAI, Google, Cursor, Cline, Moonshot AI, Nous or GitHub. Hive sends the conversation to
-  that provider through the CLI, under the provider's own policy.
-- **GitHub Copilot.** Hive does not download the Copilot CLI. It starts the `copilot` that you
-  installed. That CLI keeps its login in the Keychain and its files in `~/.copilot`. Hive does not
-  read them.
+  Anthropic, xAI, Google, Cursor, Cline, Moonshot AI, Cognition, Mistral, Nous or GitHub. Hive sends
+  the conversation to that provider through the CLI, under the provider's own policy.
+- **Gemini.** Hive downloads Google's Antigravity CLI from its GitHub releases when you select
+  Download. The CLI sends prompts to Google. It keeps its login in `~/.gemini/antigravity-acp`.
+- **Devin.** Hive downloads the Devin CLI from `static.devin.ai` when you select Download. The CLI
+  sends prompts to Cognition (`app.devin.ai` and `api.devin.ai`). It keeps its login in
+  `~/.local/share/devin`. Hive reads only the change time of `credentials.toml`. The CLI sends its
+  own product analytics to Cognition, and Hive does not change that.
+- **GitHub Copilot.** Hive downloads the GitHub Copilot CLI from GitHub Releases
+  (`github.com/github/copilot-cli`) when you select Download. The CLI sends prompts to GitHub
+  (`api.githubcopilot.com` and `api.github.com`). It keeps its login in the Keychain and its files
+  in `~/.copilot`. Hive does not read them. The CLI uses `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` or
+  `GITHUB_TOKEN` when the environment of Hive has one. The CLI sends its own usage data to GitHub,
+  and Hive does not change that.
+- **Mistral.** Hive downloads the Mistral Vibe ACP server from GitHub Releases
+  (`github.com/mistralai/mistral-vibe`) when you select Download. Vibe sends prompts to Mistral
+  (`api.mistral.ai`) and asks `console.mistral.ai` and `chat.mistral.ai` for your account details and
+  the settings of your organization. It keeps its sign-in in the Keychain, or in `~/.vibe/.env`.
+  Hive starts Vibe with its telemetry off, and turns on its model catalogue, so Vibe asks Mistral for
+  the models of your account and keeps the list in `~/.vibe`.
 - **Backup models.** An agent can have a list of backup models. When the first provider fails, Hive
   sends the conversation to the next provider in the list. The list is yours: Hive adds no provider.
 - **Provider CLI release checks.** Hive checks for new provider CLI releases when it starts, once an
   hour, and when you select `Check for updates`. It asks the release source of each CLI, such as
-  `api.github.com`, `registry.npmjs.org`, `x.ai/cli` and the ACP registry on
-  `raw.githubusercontent.com`. These requests carry no account, agent, conversation or file data.
+  `api.github.com`, `registry.npmjs.org`, `x.ai/cli`, `static.devin.ai`, `downloads.cursor.com` and
+  the ACP registry on `raw.githubusercontent.com`. These requests carry no account, agent, conversation or file data.
   The list of blocked versions is the file `provider-runtime-blocklist.json` in the app.
 - **Plugin and MCP servers.** Hive reaches an MCP server or plugin that you add at its own address.
   When the server asks for a sign-in, Hive talks to the authorization service of that server.
@@ -38,10 +53,26 @@ delete it.
   network. HTML that an agent shows runs in a sandbox. It can load scripts, styles, fonts and images
   from any address.
 - **Voice models.** When you turn on voice, Hive downloads the pinned speech models from
-  `huggingface.co`. These requests carry no user data. If you choose ElevenLabs, Hive sends the
-  audio to `api.elevenlabs.io` with your own key.
-- **Other services that you connect.** Bitwarden, 1Password and Link connect to their own servers
-  only after you connect them. Hive sends them no conversations and no files.
+  `huggingface.co`. The phone downloads its pinned Qwen3-ASR model from the same host. These
+  requests carry no user data. Local models keep the audio and the text on the device.
+- **Cloud voice.** If you choose ElevenLabs or Groq for dictation, Hive sends the recorded audio to
+  `api.elevenlabs.io` or `api.groq.com` with your own key. If you choose ElevenLabs or xAI for spoken
+  replies, Hive sends the text of each reply that it reads to `api.elevenlabs.io` or `api.x.ai` with
+  your own key. Hive sends no conversation, file or instruction. Each key is encrypted by the secret
+  storage of the operating system and never goes back to the app window. If you turn on Codex live
+  voice, the microphone audio goes to OpenAI through your own Codex sign-in.
+- **Other services that you connect.** Bitwarden, 1Password, Link and Proton Pass connect to their
+  own servers only after you connect them. Hive downloads Proton's `pass-cli` from `proton.me` and
+  checks it against a pinned SHA-256. Hive sends these services no conversations and no files.
+- **Sunra.** A workflow step with a Sunra model sends its prompt, the model, the size settings and
+  the input pictures to `mcp.sunra.ai`, with the Sunra sign-in that you made in Apps. Sunra keeps the
+  result in a project in your account, and your credits pay for it. Sunra's privacy policy applies.
+- **Skills from GitHub.** When you paste a GitHub link in the skill search, Hive reads that public
+  repository from `api.github.com` and `raw.githubusercontent.com` with no GitHub account. The
+  requests name the repository, the folder and the commit.
+- **Browser profile proxy.** An owner or admin can give a named browser profile a proxy. The pages of
+  that profile then go through that proxy server, which can see the sites that the profile opens.
+  Hive keeps the proxy password encrypted, sends it only to that proxy, and does not log it.
 - **GitHub.** The GitHub connection is off until `fork.config.json` names a GitHub App in
   `githubApp` (`clientId` and `slug`), or you set `OPENBOT_GITHUB_CLIENT_ID` and
   `OPENBOT_GITHUB_APP_SLUG`. It then signs in to that App through device flow. You own the App,
@@ -86,48 +117,45 @@ tailnet, because nothing else protects the plain text.
 
 ## WhatsApp connections
 
-The user links their own WhatsApp account to this computer as a linked device, the way WhatsApp Web
-works. The computer opens a WebSocket straight to the servers of WhatsApp through the unofficial
-Baileys library. No Hive server is in the path. The account service, Signal and the tailnet see no
-chat, no phone number and no message. The settings page shows a QR code. The phone scans it, and
-WhatsApp gives this computer the keys of the new device.
+A WhatsApp number links as a device of the computer that runs Hive, as WhatsApp Web does. The
+computer connects directly to WhatsApp's servers. No Hive service takes part: the account service
+and Signal do not know the number, the link or any message. To link, the user scans a QR code that
+Hive shows, or types a pairing code on the phone. Before each connection, Hive asks
+`web.whatsapp.com` for the current WhatsApp Web version, as a browser does. Hive uses an unofficial
+client, WhatsApp protocol code that is vendored in the repository, so WhatsApp can restrict or block
+a number that it sees as automated.
 
-- **Stored on the host.** Hive stores the login of the linked device. It writes one JSON file for
-  each key in the `whatsapp/auth` folder of the application data folder. Hive does not encrypt these
-  files. Anyone who can read that folder can use the account until the user unlinks the device.
-- **Stored in the database.** The database holds the connection record, the name of the WhatsApp
-  Orchestrator agent, and one row for each conversation that an agent answers. Hive keeps the
-  messages of that conversation as a conversation of that agent, with the WhatsApp name of each
-  author. It keeps the files that people send with the attachments of the agent.
-- **Stored with other secrets.** The list of allowed chats is encrypted by the secret storage of the
-  operating system. Hive also keeps the last messages of an allowed chat in memory until Hive quits.
-- **Read from WhatsApp.** WhatsApp delivers every message of the account to a linked device. The
-  library decrypts each message in memory. The host drops a message from a chat that is not on the
-  allowlist before it reads, stores, logs or passes on the content. It logs only the number of drops.
-- **Given to agents.** Messages from an allowed chat reach the agent. These are every message of a
-  direct chat and each message that mentions the account in a group. A new request goes first to
-  the WhatsApp Orchestrator. It runs on its provider like any other agent.
-- **Sent to WhatsApp.** Hive sends the answers of the agents, their files and reactions only to a
-  chat on the allowlist. They appear as messages from the user's own account. WhatsApp has no
-  buttons for a linked device, so an approval request does not go to the chat. The user approves in
-  the app.
-- **Linked from a joined computer.** An owner or admin of the server can link, unlink and edit the
-  allowed chats from a computer that joined the server (Team API capability `whatsapp-link-v1`). The
-  host sends the pairing QR code, the state of the account and the allowed chats only to that
-  computer. A member who is not an owner or admin gets a refusal. The QR code is a short-lived
-  secret: a person who scans it links the login of the host to their own account. The login files
-  and the messages stay on the host.
-- **Unlink.** Unlink logs the device out of WhatsApp and removes it from the linked devices of the
-  phone. Hive deletes the `whatsapp/auth` folder, the allowed chats, and the WhatsApp Orchestrator
-  with its conversations. For a paused connection, Hive opens a short connection from the saved
-  login to log out. If WhatsApp does not answer in 10 seconds, Hive deletes the login and writes a
-  log line. The phone can then still list the device until the user removes it in WhatsApp. If the
-  phone removes the device first, the host deletes the login and shows that the account must be
-  linked again.
+- **Stored on the host.** The device's keys, its Signal sessions, the messages that Hive sent in the
+  last day, the last 30 minutes of received messages that the agents took, and the reply chains of
+  the last 7 days are in `<userData>/whatsapp/`. Every value is encrypted with a random key that the
+  operating system's secret storage keeps, and the file is readable only by the user. The database
+  holds the number, a masked name, which agent is the WhatsApp Orchestrator, the contacts and groups
+  that the owner allowed, and one row for each conversation that an agent answers. The messages of
+  the allowed chats that Hive sees are kept in the database for 90 days, so that an agent can read
+  and search them. The files of these messages are downloaded when they arrive, up to 100 MB each,
+  to `<userData>/whatsapp/files/`, and are deleted with their message. The copies of one number use
+  at most 2 GB: when they use more, the oldest copies are deleted first. Disconnect logs the device
+  out, deletes its keys, the saved messages and their files, and keeps the conversations, the
+  workspace memories and the allowed senders.
+- **Read from WhatsApp.** WhatsApp gives a linked device every message of the account. Hive reads
+  only the owner's own "Message yourself" chat, direct messages of the contacts that the owner
+  allowed, and the groups that the owner allowed. Every other chat is dropped when it arrives and is
+  not stored. Hive keeps only contact names from the first history that WhatsApp sends, in memory,
+  and does not ask WhatsApp for the full history.
+- **Given to agents.** Every new WhatsApp request goes first to the WhatsApp Orchestrator. It runs on
+  its provider like any other agent and passes the work to another agent.
+- **Managed from another computer.** An owner or admin of a joined server can link and manage the
+  host's numbers from their own computer. The host sends that computer the QR code or pairing code
+  of a link, the numbers and their names, the allowed contacts and groups, and the pairing requests
+  that wait, over the encrypted connection of the server. The QR code holds the one-use secret of
+  that link. The stored keys of the device do not leave the host.
+- **Sent to WhatsApp.** The answers of the agents and the files they attach, short status posts,
+  reactions, and approval requests with the command, folder and reason that the provider gave,
+  redacted. On a number that only Hive uses, a person whom the owner did not allow gets one message
+  with a pairing code. On the owner's personal number, Hive never writes first to anyone else.
 
-An unofficial client can break the terms of service of WhatsApp, and WhatsApp can block the number.
-Anyone in an allowed chat can give the agents work. The agents run on the host with the access that
-the user gave them.
+Anyone whom the owner allowed can give the agents work. The agents run on the host with the access
+that the user gave them.
 
 ## Agent access
 

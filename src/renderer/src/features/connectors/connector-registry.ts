@@ -10,7 +10,9 @@ import type { GitHubConnectorPort } from "./github-connector-port";
 import { createMessagingConnector, type MessagingApi, type MessagingConnectorOptions } from "./messaging-connector";
 import { createOnePasswordConnector } from "./onepassword-connector";
 import { type OnePasswordConnectorPort, onePasswordConnectorPort } from "./onepassword-connector-port";
-import { createWhatsAppConnector, type WhatsAppApi } from "./whatsapp-connector";
+import { createPasswordManagerConnector } from "./password-manager-connector";
+import { type PasswordManagerPort, passwordManagerPort } from "./password-manager-port";
+import { createWhatsAppConnector, type WhatsAppPort } from "./whatsapp-connector";
 
 /** The connectors of one place. A connector that the place cannot reach has no controller. */
 export type ConnectorSet = Partial<Record<ConnectorId, ConnectorController>>;
@@ -20,14 +22,17 @@ export interface ConnectorTransports {
   github?: () => GitHubConnectorPort;
   onePassword?: () => OnePasswordConnectorPort;
   bitwarden?: () => BitwardenConnectorPort;
+  /** The shared password manager engine, for the managers that have no port of their own (Proton Pass). */
+  passwordManagers?: () => PasswordManagerPort;
   messaging?: MessagingApi;
-  whatsapp?: WhatsAppApi;
+  whatsapp?: () => WhatsAppPort;
 }
 
 /** This computer's transports, through main. */
 export const LOCAL_CONNECTOR_TRANSPORTS = {
   onePassword: onePasswordConnectorPort,
   bitwarden: bitwardenConnectorPort,
+  passwordManagers: passwordManagerPort,
 } as const satisfies ConnectorTransports;
 
 /**
@@ -46,6 +51,9 @@ export function createConnectorSet(transports: ConnectorTransports, options: Mes
   if (transports.github) set.github = createGitHubConnector(transports.github, options.hostName);
   if (transports.onePassword) set.onepassword = createOnePasswordConnector(transports.onePassword, options.hostName);
   if (transports.bitwarden) set.bitwarden = createBitwardenConnector(transports.bitwarden, options.hostName);
+  if (transports.passwordManagers) {
+    set.protonpass = createPasswordManagerConnector("protonpass", transports.passwordManagers, options.hostName);
+  }
   return set;
 }
 

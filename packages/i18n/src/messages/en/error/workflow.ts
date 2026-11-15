@@ -18,14 +18,26 @@ export const messages = defineMessages("error.workflow", {
   "error.workflow.conditionUnclear": "The model did not answer yes or no.",
   "error.workflow.modelFailed": "The model could not answer. Run the step again.",
   "error.workflow.modelBusy": "Another model request is running. Run the step again soon.",
+  "error.workflow.mediaFailed": "The model could not make the image or video. Run the step again.",
+  "error.workflow.pictureMissing": "The picture is no longer on the server. Send it again.",
+  "error.workflow.pictureType": "Use a PNG, JPEG or WebP picture.",
+  "error.workflow.mediaInputMissing": "A picture from a step before this one is not available. Run that step again.",
+  "error.workflow.mediaInputNotImage":
+    "This step takes only pictures, not videos. Remove the connection from the video.",
   "error.workflow.stepMissing": "This step no longer exists.",
   "error.workflow.nodeMissing": "This step is not in the workflow.",
   "error.workflow.runMissing": "This run no longer exists.",
   "error.workflow.notRetryable": "Only a step that failed or stopped can run again.",
   "error.workflow.noDecision": "This step does not wait for a decision.",
   "error.workflow.outputPlaceMissing": "Choose a messaging place for this output.",
+  "error.workflow.outputChannelMissing": "Choose a channel for this output.",
+  "error.workflow.outputChannelFailed": "Hive could not post the result in the channel. Run the step again.",
   "error.workflow.discordNoMessage":
     "This output acts on the Discord message that started the run. Start the run from a Discord mention, or choose Post in channel.",
+  "error.workflow.slackNoMessage":
+    "This output acts on the Slack message that started the run. Start the run from a Slack mention, or choose Post in channel.",
+  "error.workflow.telegramNoMessage":
+    "This output acts on the Telegram message that started the run. Start the run from a Telegram mention, or choose Post in chat.",
   "error.workflow.outputConnectionOff":
     "The messaging connection of this output is off or removed. Choose a place again.",
   "error.workflow.outputNotRunning": "The messaging connection does not run now. Try again when it runs.",
@@ -56,4 +68,14 @@ export const messages = defineMessages("error.workflow", {
   "error.workflow.githubUncertain":
     "The change stopped on its way. It can be on GitHub. Look there before you run the step again.",
   "error.workflow.githubNoEvent": "GitHub has no issue or pull request that this trigger starts on.",
+  "error.workflow.sunraSignIn": "Sign in to Sunra in Apps to use Sunra models.",
+  "error.workflow.sunraNoCredits":
+    "Your Sunra account does not have sufficient credits. Add credits at sunra.ai/pricing, then run the step again.",
+  "error.workflow.sunraNeedsPlan":
+    "This Sunra model needs a Sunra plan. Get a plan at sunra.ai/pricing, or select a different model.",
+  "error.workflow.sunraTeamInputs":
+    "Sunra uses input pictures only with a Personal account. Select your Personal account in Sunra, or remove the picture connections.",
+  "error.workflow.sunraFailed": "Sunra could not make the file: {reason}",
+  "error.workflow.sunraTimeout":
+    "Sunra did not finish the file in time. Look in the OpenBot project on sunra.ai before you run the step again.",
 });

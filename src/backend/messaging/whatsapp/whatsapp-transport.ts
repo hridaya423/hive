@@ -1,277 +1,292 @@
-import { access, rm } from "node:fs/promises";
-import { join } from "node:path";
-import { isDynamicRecord, isNumber } from "@openbot/contracts/runtime-values";
-import type { Logger } from "@openbot/logging";
+import type { MessagingConnectionState } from "@openbot/contracts/ipc";
+import { sourceText } from "@openbot/i18n/source";
+import { createOpenBotLogger } from "@openbot/logging";
+import { jidNormalizedUser, proto, type WAMessage } from "@openbot/whatsapp/baileys";
 import { Effect } from "effect";
-import type { MessagingTransport, TransportSink } from "../messaging-types";
-import type { WhatsAppSession } from "./whatsapp-session";
+import type { InboundMessage, MessagingTransport, TransportSink } from "../messaging-types";
 import {
-  WHATSAPP_CLOSE,
-  type WhatsAppClient,
-  type WhatsAppConnect,
-  type WhatsAppConnectionUpdate,
-  type WhatsAppMessage,
-} from "./whatsapp-socket";
-import { whatsappChatOf, whatsappInbound } from "./whatsapp-updates";
+  freshUpsert,
+  type WhatsAppEvent,
+  type WhatsAppIdentity,
+  whatsAppDedupKey,
+  whatsAppInbound,
+} from "./whatsapp-events";
+import type { WhatsAppConnectionHandle, WhatsAppRuntime } from "./whatsapp-runtime";
+import type { WhatsAppSessionState } from "./whatsapp-session";
 
-const WHATSAPP_RETRY_CAP_MS = 30_000;
-export const WHATSAPP_LOGOUT_TIMEOUT_MS = 10_000;
+const logger = createOpenBotLogger("whatsapp");
 
-export function whatsappRetryDelayMs(attempt: number): number {
-  return Math.min(WHATSAPP_RETRY_CAP_MS, 1_000 * 2 ** attempt);
-}
+/** A socket can deliver one message twice, such as after a reconnect. */
+const RECENT_MESSAGES = 2_000;
+/** Text-only messages of one author in one conversation within this time become one message. */
+const DEBOUNCE_MS = 1_500;
+/** A journaled message counts as handed on this long after the transport gave it to the service. */
+const HANDLED_AFTER_MS = 60_000;
+const PRUNE_INTERVAL_MS = 60 * 60_000;
 
-function closeStatus(error: Error | undefined): number | undefined {
-  const output = isDynamicRecord(error) ? error.output : undefined;
-  const status = isDynamicRecord(output) ? output.statusCode : undefined;
-  return isNumber(status) ? status : undefined;
-}
+const STATES: Record<WhatsAppSessionState, MessagingConnectionState | null> = {
+  connecting: "connecting",
+  open: "connected",
+  reconnecting: "reconnecting",
+  logged_out: "invalid_token",
+  // Another client took the session. The service keeps the state until the owner reconnects.
+  replaced: "error",
+  // Only a link that has not finished gets it; its own flow reports it.
+  unreachable: "reconnecting",
+  stopped: null,
+};
 
-async function endClient(client: WhatsAppClient): Promise<void> {
-  client.socket.end(undefined);
-  await client.stopCreds();
-}
-
-function openedOrGone(socket: WhatsAppClient["socket"]): Promise<"open" | "gone"> {
-  return new Promise((resolve, reject) => {
-    socket.ev.on("connection.update", (update) => {
-      if (update.connection === "open") {
-        resolve("open");
-      } else if (update.connection === "close") {
-        if (closeStatus(update.lastDisconnect?.error) === WHATSAPP_CLOSE.loggedOut) resolve("gone");
-        else reject(update.lastDisconnect?.error);
-      }
-    });
-  });
-}
-
-export interface WhatsAppUnlinkOptions {
-  connect: WhatsAppConnect;
-  authDir: string;
-  logger: Logger;
-  timeoutMs: number;
-}
-
-/**
- * Logs the device out of WhatsApp, so the phone drops it, and deletes the login. A connection that
- * is paused or stopped has no socket, so a short-lived one opens from the saved login. When the logout
- * does not finish in time, the login is deleted anyway and the log says that the phone may keep the device.
- * Resolves `false` in that case, and `true` when WhatsApp logged the device out.
- */
-export async function unlinkWhatsApp(options: WhatsAppUnlinkOptions, live: WhatsAppClient | null): Promise<boolean> {
-  const { connect, authDir, logger, timeoutMs } = options;
-  let client = live;
-  let expired = false;
-  const logout = async (): Promise<boolean> => {
-    if (!client) {
-      const linked = await access(join(authDir, "creds.json")).then(
-        () => true,
-        () => false,
-      );
-      if (!linked) return true;
-      const opened = await connect(authDir);
-      if (expired) {
-        await endClient(opened);
-        return false;
-      }
-      client = opened;
-      if ((await openedOrGone(opened.socket)) === "gone") return true;
-    }
-    await client.socket.logout();
-    return true;
-  };
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const loggedOut = await Promise.race([
-    logout().catch(() => false),
-    new Promise<false>((resolve) => {
-      timer = setTimeout(() => resolve(false), timeoutMs);
-    }),
-  ]);
-  clearTimeout(timer);
-  expired = true;
-  if (client) await endClient(client);
-  await rm(authDir, { recursive: true, force: true });
-  if (!loggedOut)
-    logger.warn("WhatsApp did not log this device out, so the phone may still list it as a linked device.");
-  return loggedOut;
-}
-
-/** The pairing QR code that the settings page shows. It is null once the phone has scanned it. */
-export class WhatsAppPairing {
-  #code: string | null = null;
-
-  qr(code: string | null): void {
-    this.#code = code;
-  }
-
-  code(): string | null {
-    return this.#code;
-  }
+interface Pending {
+  message: InboundMessage;
+  /** The journal key of the first message, which the joined message keeps. */
+  head: string;
+  /** The journal keys of the messages joined into it. */
+  followers: string[];
+  timer: ReturnType<typeof setTimeout>;
 }
 
 export interface WhatsAppTransportOptions {
-  connect: WhatsAppConnect;
-  authDir: string;
-  session: WhatsAppSession;
-  pairing: WhatsAppPairing;
-  retryDelayMs: (attempt: number) => number;
-  logoutTimeoutMs: number;
-  logger: Logger;
+  runtime: WhatsAppRuntime;
+  handle: WhatsAppConnectionHandle;
+  identity: WhatsAppIdentity;
+  workspaceId: string;
 }
 
 /**
- * The inbound half of the linked account: the socket to WhatsApp, which this host opens itself. It
- * reconnects with a backoff, shows the pairing QR code while no account is linked, and stops when the
- * phone unlinks the account or WhatsApp restricts the number. A message from a chat outside the allowlist is dropped before anything
- * reads it, and only the number of drops is logged.
+ * The inbound half of one linked number. It reads the messages that the socket receives, keeps only
+ * those that the sender rules let through, journals each before it hands it on (so a crash replays
+ * it, and the mailbox idempotency key drops a copy), and joins a burst of short messages into one.
  */
 export class WhatsAppTransport implements MessagingTransport {
-  readonly #options: WhatsAppTransportOptions;
+  readonly #runtime: WhatsAppRuntime;
+  readonly #handle: WhatsAppConnectionHandle;
+  readonly #identity: WhatsAppIdentity;
+  readonly #workspaceId: string;
+  readonly #seen = new Set<string>();
+  readonly #pending = new Map<string, Pending>();
+  /** The journal keys of messages handed to the service and not yet marked handled, with their timers. */
+  readonly #handed = new Map<string, ReturnType<typeof setTimeout>>();
   #sink: TransportSink | null = null;
-  #attempt = 0;
-  #timer: ReturnType<typeof setTimeout> | null = null;
-  #generation = 0;
-  #halted = false;
+  /** Messages are read one at a time, so they reach the service in the order WhatsApp gave them. */
+  #reading: Promise<void> = Promise.resolve();
+  #unsubscribe: Array<() => void> = [];
+  #prune: ReturnType<typeof setInterval> | null = null;
 
   constructor(options: WhatsAppTransportOptions) {
-    this.#options = options;
+    this.#runtime = options.runtime;
+    this.#handle = options.handle;
+    this.#identity = options.identity;
+    this.#workspaceId = options.workspaceId;
   }
 
   start(sink: TransportSink): void {
     this.#sink = sink;
-    sink.state("connecting");
-    void this.#open();
+    const { session, store } = this.#handle;
+    this.#unsubscribe.push(
+      session.onState((state) => {
+        const mapped = STATES[state];
+        if (mapped) this.#sink?.state(mapped);
+      }),
+      session.onUpsert(({ messages, type }) => {
+        for (const message of messages) if (freshUpsert(type, message, session.openedAt)) this.#enqueue(message, true);
+      }),
+    );
+    store.prune();
+    this.#prune = setInterval(() => this.#handle.store.prune(), PRUNE_INTERVAL_MS);
+    this.#prune.unref?.();
+    // A connection that starts right after its link finds the socket open already.
+    sink.state(session.state === "open" ? "connected" : "connecting");
+    for (const entry of store.unhandled()) {
+      const message = decodeJournal(entry.payload);
+      if (message) this.#enqueue(message, false);
+    }
+    session.start();
   }
 
   reconnect(): void {
-    if (!this.#sink || this.#halted || this.#options.session.client) return;
-    this.#clearTimer();
-    void this.#open();
+    this.#handle.session.reconnect();
   }
 
-  readonly stop = Effect.fn("WhatsAppTransport.stop")(() => Effect.sync(() => this.#close()));
-
-  /** Logs the account out of WhatsApp, so the phone drops this device, and deletes the login. */
-  readonly unlink = Effect.fn("WhatsAppTransport.unlink")(() =>
-    Effect.promise(() => {
-      const client = this.#detach();
-      this.#options.pairing.qr(null);
-      const { connect, authDir, logger, logoutTimeoutMs } = this.#options;
-      return unlinkWhatsApp({ connect, authDir, logger, timeoutMs: logoutTimeoutMs }, client);
-    }),
-  );
-
-  #close(): void {
-    this.#options.pairing.qr(null);
-    this.#detach()?.socket.end(undefined);
-  }
-
-  #detach(): WhatsAppClient | null {
+  readonly stop = Effect.fn("WhatsAppTransport.stop")(function* (this: WhatsAppTransport) {
     this.#sink = null;
-    this.#generation += 1;
-    this.#clearTimer();
-    const client = this.#options.session.client;
-    this.#options.session.client = null;
-    return client;
+    for (const unsubscribe of this.#unsubscribe.splice(0)) unsubscribe();
+    for (const pending of this.#pending.values()) clearTimeout(pending.timer);
+    this.#pending.clear();
+    // The service finishes the messages it has (its work is uninterruptible), so after a normal stop
+    // only a crash replays them.
+    for (const [dedupKey, timer] of this.#handed) {
+      clearTimeout(timer);
+      this.#handle.store.markHandled(dedupKey);
+    }
+    this.#handed.clear();
+    if (this.#prune) clearInterval(this.#prune);
+    this.#prune = null;
+    // The store stays open: a restart of the connection uses it again.
+    yield* this.#handle.session.stop();
+  });
+
+  #enqueue(message: WAMessage, live: boolean): void {
+    this.#reading = this.#reading
+      .then(() => this.#read(message, live))
+      .catch((cause: unknown) => {
+        // A failed read must not stop the reads after it.
+        logger.warn("A WhatsApp message could not be read.", {
+          cause: cause instanceof Error ? cause.name : "unknown",
+        });
+      });
   }
 
-  #dropClient(): WhatsAppClient | null {
-    const client = this.#options.session.client;
-    this.#options.session.client = null;
-    client?.socket.end(undefined);
-    return client;
-  }
-
-  #clearTimer(): void {
-    if (this.#timer) clearTimeout(this.#timer);
-    this.#timer = null;
-  }
-
-  async #open(): Promise<void> {
-    const generation = ++this.#generation;
-    const { session, connect, authDir, logger } = this.#options;
+  async #read(message: WAMessage, live: boolean): Promise<void> {
+    const dedupKey = whatsAppDedupKey(message);
+    if (!dedupKey || this.#remember(dedupKey)) return;
+    const { session, store, chats } = this.#handle;
+    let event: WhatsAppEvent | null;
     try {
-      const client = await connect(authDir);
-      if (generation !== this.#generation) {
-        client.socket.end(undefined);
-        return;
-      }
-      session.client = client;
-      client.socket.ev.on("connection.update", (update) => {
-        if (generation === this.#generation) this.#connectionUpdate(update);
+      event = await whatsAppInbound(message, {
+        me: this.#identity,
+        openedAt: session.openedAt,
+        now: Date.now(),
+        rules: this.#runtime.policy.rules(this.#workspaceId),
+        chats,
+        isOwnPost: (id) => session.isOwnPost(id),
+        threadOf: (id) => store.getPost(id)?.threadKey ?? null,
+        numberForLid: async (lid) => {
+          const mapping = session.socket()?.signalRepository.lidMapping;
+          const pn = mapping ? await mapping.getPNForLID(lid).catch(() => null) : null;
+          return pn ? (jidNormalizedUser(pn).split("@")[0]?.split(":")[0] ?? null) : null;
+        },
       });
-      client.socket.ev.on("messages.upsert", ({ messages, type }) => {
-        if (generation === this.#generation && type === "notify")
-          for (const message of messages) this.#message(message);
-      });
-    } catch (error) {
-      if (generation !== this.#generation) return;
-      logger.warn("WhatsApp could not open its connection.", {
-        error: error instanceof Error ? error.message : "unknown",
-      });
-      this.#retry();
-    }
-  }
-
-  #connectionUpdate(update: WhatsAppConnectionUpdate): void {
-    const sink = this.#sink;
-    if (!sink) return;
-    if (update.qr) {
-      this.#options.pairing.qr(update.qr);
-      sink.state("connecting");
-    }
-    if (update.connection === "open") {
-      this.#attempt = 0;
-      this.#options.pairing.qr(null);
-      sink.state("connected");
-    }
-    if (update.connection !== "close") return;
-    const status = closeStatus(update.lastDisconnect?.error);
-    const dropped = this.#dropClient();
-    if (status === WHATSAPP_CLOSE.loggedOut) {
-      this.#halted = true;
-      this.#generation += 1;
-      this.#options.pairing.qr(null);
-      void (async () => {
-        await dropped?.stopCreds();
-        await rm(this.#options.authDir, { recursive: true, force: true });
-      })().finally(() => sink.state("invalid_token"));
-    } else if (status === WHATSAPP_CLOSE.replaced || status === WHATSAPP_CLOSE.forbidden) {
-      this.#halted = true;
-      this.#generation += 1;
-      if (status === WHATSAPP_CLOSE.forbidden)
-        this.#options.logger.warn("WhatsApp restricted or banned this number, so Hive stopped trying to connect.");
-      sink.state(status === WHATSAPP_CLOSE.forbidden ? "restricted" : "error");
-    } else if (status === WHATSAPP_CLOSE.restartRequired) {
-      void this.#open();
-    } else {
-      this.#retry();
-    }
-  }
-
-  #retry(): void {
-    const sink = this.#sink;
-    if (!sink) return;
-    sink.state("reconnecting");
-    const delay = this.#options.retryDelayMs(this.#attempt);
-    this.#attempt += 1;
-    this.#clearTimer();
-    this.#timer = setTimeout(() => void this.#open(), delay);
-    this.#timer.unref?.();
-  }
-
-  #message(message: WhatsAppMessage): void {
-    const sink = this.#sink;
-    const { session, logger } = this.#options;
-    const named = whatsappChatOf(message);
-    if (!sink || !named) return;
-    const chat = session.allowedChat(named, message.key.remoteJidAlt);
-    if (!chat) {
-      session.dropped += 1;
-      logger.warn("WhatsApp dropped a message from a chat that is not allowed.", { count: session.dropped });
+    } catch (cause) {
+      logger.warn("A WhatsApp message could not be read.", { cause: cause instanceof Error ? cause.name : "unknown" });
       return;
     }
-    const inbound = whatsappInbound(message, chat, session);
-    if (inbound) sink.message(inbound);
+    if (!event || !this.#sink) return;
+    if (event.type === "pairing") return this.#pair(event);
+    if (event.type === "action") {
+      this.#sink.action(event.action);
+      return;
+    }
+    if (live) store.journal({ dedupKey, payload: encodeJournal(message), receivedAt: Date.now() });
+    // The message continues its conversation: a reply to it names the same conversation.
+    if (event.isGroup)
+      store.putPost(event.message.platformMessageId, { chatJid: event.chatJid, threadKey: event.message.threadKey });
+    // A replayed message goes alone: joined with others, its own key would not reach the mailbox.
+    if (live) this.#queue(event.message, dedupKey);
+    else this.#hand(event.message, dedupKey);
+  }
+
+  /** Joins a burst of short text messages of one author in one conversation; any other message goes at once. */
+  #queue(message: InboundMessage, dedupKey: string): void {
+    const key = `${message.platformChannelId}:${message.threadKey}:${message.authorId}`;
+    const pending = this.#pending.get(key);
+    const textOnly = message.files.length === 0 && !message.replyTo;
+    if (pending && textOnly) {
+      clearTimeout(pending.timer);
+      pending.followers.push(dedupKey);
+      pending.message = {
+        ...pending.message,
+        text: `${pending.message.text}\n${message.text}`,
+        mentionedUserIds: [...new Set([...pending.message.mentionedUserIds, ...message.mentionedUserIds])],
+        requiresLink: pending.message.requiresLink && message.requiresLink,
+        platformMessageId: message.platformMessageId,
+        target: message.target,
+      };
+      pending.timer = this.#flushLater(key);
+      return;
+    }
+    if (pending) this.#flush(key);
+    if (!textOnly) {
+      this.#hand(message, dedupKey);
+      return;
+    }
+    // Nothing of a burst counts as handled before it goes: a stop before then replays each message.
+    this.#pending.set(key, { message, head: dedupKey, followers: [], timer: this.#flushLater(key) });
+  }
+
+  #flushLater(key: string): ReturnType<typeof setTimeout> {
+    const timer = setTimeout(() => this.#flush(key), DEBOUNCE_MS);
+    timer.unref?.();
+    return timer;
+  }
+
+  #flush(key: string): void {
+    const pending = this.#pending.get(key);
+    this.#pending.delete(key);
+    if (!pending || !this.#sink) return;
+    clearTimeout(pending.timer);
+    this.#sink.message(pending.message);
+    // The joined messages are in the first one's text, so a replay must not send them again.
+    for (const follower of pending.followers) this.#handle.store.markHandled(follower);
+    this.#handledLater(pending.head);
+  }
+
+  #hand(message: InboundMessage, dedupKey: string): void {
+    this.#sink?.message(message);
+    this.#handledLater(dedupKey);
+  }
+
+  /** The service takes a message within moments; a crash before this time replays it. */
+  #handledLater(dedupKey: string): void {
+    const timer = setTimeout(() => {
+      this.#handed.delete(dedupKey);
+      this.#handle.store.markHandled(dedupKey);
+    }, HANDLED_AFTER_MS);
+    timer.unref?.();
+    this.#handed.set(dedupKey, timer);
+  }
+
+  /** A dedicated number answers an unknown person once, with the code the owner sees in OpenBot. */
+  async #pair(event: Extract<WhatsAppEvent, { type: "pairing" }>): Promise<void> {
+    const request = this.#runtime.policy.pairing(this.#workspaceId, event.senderId, event.name);
+    if (!request?.created) return;
+    await Effect.runPromise(
+      this.#handle.session
+        .send(event.chatJid, { text: sourceText("status.messaging.whatsappPairingCode", { code: request.code }) })
+        .pipe(Effect.catch(() => Effect.void)),
+    );
+  }
+
+  /** True when the message was already read. */
+  #remember(dedupKey: string): boolean {
+    if (this.#seen.has(dedupKey)) return true;
+    this.#seen.add(dedupKey);
+    if (this.#seen.size > RECENT_MESSAGES) {
+      const oldest = this.#seen.values().next().value;
+      if (oldest !== undefined) this.#seen.delete(oldest);
+    }
+    return false;
+  }
+}
+
+/** The message as protobuf, and the phone forms of its chat and author, which protobuf does not carry. */
+interface JournalEntry {
+  message: string;
+  remoteJidAlt?: string;
+  participantAlt?: string;
+}
+
+function encodeJournal(message: WAMessage): string {
+  const entry: JournalEntry = {
+    message: Buffer.from(proto.WebMessageInfo.encode(message).finish()).toString("base64"),
+    ...(message.key.remoteJidAlt ? { remoteJidAlt: message.key.remoteJidAlt } : {}),
+    ...(message.key.participantAlt ? { participantAlt: message.key.participantAlt } : {}),
+  };
+  return JSON.stringify(entry);
+}
+
+function decodeJournal(payload: string): WAMessage | null {
+  try {
+    const { message, remoteJidAlt, participantAlt } = JSON.parse(payload);
+    if (typeof message !== "string") return null;
+    const decoded = proto.WebMessageInfo.decode(Buffer.from(message, "base64"));
+    if (!decoded.key) return null;
+    const key = {
+      ...decoded.key,
+      ...(typeof remoteJidAlt === "string" ? { remoteJidAlt } : {}),
+      ...(typeof participantAlt === "string" ? { participantAlt } : {}),
+    };
+    return Object.assign(decoded, { key });
+  } catch {
+    return null;
   }
 }

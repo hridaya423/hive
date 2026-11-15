@@ -28,6 +28,9 @@ const executable = join(root, "claude.cjs");
 const logPath = join(root, "claude.jsonl");
 // A key in the shell would reach the CLI in every case.
 delete process.env.ANTHROPIC_API_KEY;
+// The own sign-in reads its stored login before it asks the CLI. An empty folder keeps the login of
+// this computer out, so the fake CLI answers each account check.
+process.env.CLAUDE_CONFIG_DIR = join(root, "own-sign-in");
 process.env.FAKE_CLAUDE_LOG = logPath;
 
 /** Records each start, never the key itself: only whether it is the expected one. */
@@ -46,7 +49,7 @@ if (process.argv.slice(2).join(" ") === "auth status --json") {
     ? { loggedIn: true, authMethod: "api_key", apiProvider: "firstParty", apiKeySource: "ANTHROPIC_API_KEY" }
     : process.env.FAKE_CLAUDE_SIGNED_OUT === "1"
       ? { loggedIn: false, authMethod: "none", apiProvider: "firstParty" }
-      : { loggedIn: true, authMethod: "claude.ai", apiProvider: "firstParty", email: "owner@example.invalid", subscriptionType: "max" }));
+      : { loggedIn: true, authMethod: "claude.ai", apiProvider: "firstParty", email: "owner@example.invalid", orgId: "org-owner", subscriptionType: "max" }));
   process.exit(0);
 }
 process.exit(2);
@@ -123,9 +126,11 @@ function unused(name: string) {
 function accountsHost(key: Pick<ProviderAccountsHost, "apiKey" | "defaultUsesApiKey">): ProviderAccountsHost {
   return {
     ...key,
+    accountKey: () => null,
+    saveAccountKey: unused("saveAccountKey"),
     scope: unused("scope"),
     cli: () => ({ executable, version: "2.1.310" }),
-    defaultEmail: () => null,
+    defaultLogin: () => null,
     signInTemp: () => undefined,
     authenticate: unused("authenticate"),
     stopClient: unused("stopClient"),
@@ -133,6 +138,7 @@ function accountsHost(key: Pick<ProviderAccountsHost, "apiKey" | "defaultUsesApi
     isAccountBusy: () => false,
     stopAgentClients: unused("stopAgentClients"),
     readUsage: unused("readUsage"),
+    readModels: unused("readModels"),
     resetCredits: () => undefined,
     consumeUsageReset: unused("consumeUsageReset"),
     changed: () => {},
@@ -155,7 +161,7 @@ try {
   const plan = await runCase("plan-and-key", KEY);
   report.cases.push(plan);
   assert.deepEqual(plan.account, {
-    account: { type: "claude", email: "owner@example.invalid", planType: "max" },
+    account: { type: "claude", email: "owner@example.invalid", planType: "max", organization: "org-owner" },
     requiresOpenaiAuth: false,
   });
   assert.ok(
@@ -166,7 +172,7 @@ try {
   const keyOnly = await runCase("key-only", KEY, { signedOut: true });
   report.cases.push(keyOnly);
   assert.deepEqual(keyOnly.account, {
-    account: { type: CLAUDE_API_KEY_ACCOUNT_TYPE, email: null, planType: null },
+    account: { type: CLAUDE_API_KEY_ACCOUNT_TYPE, email: null, planType: null, organization: null },
     requiresOpenaiAuth: false,
   });
   const keyOnlyStatus = keyOnly.starts.filter((entry) => entry.args[0] === "auth");
@@ -183,7 +189,7 @@ try {
   const none = await runCase("no-key", null);
   report.cases.push(none);
   assert.deepEqual(none.account, {
-    account: { type: "claude", email: "owner@example.invalid", planType: "max" },
+    account: { type: "claude", email: "owner@example.invalid", planType: "max", organization: "org-owner" },
     requiresOpenaiAuth: false,
   });
   assert.ok(
@@ -244,8 +250,10 @@ try {
       listAgents: unused("listAgents"),
       updateAgent: unused("updateAgent"),
       signInProviderAccountOnHost: unused("signInProviderAccountOnHost"),
+      connectProviderAccountKey: unused("connectProviderAccountKey"),
       renameProviderAccount: unused("renameProviderAccount"),
       removeProviderAccount: unused("removeProviderAccount"),
+      setProviderAccountPool: unused("setProviderAccountPool"),
     },
     browser: { openPrivate: unused("openPrivate"), privateTab: unused("privateTab"), close: unused("close") },
   });

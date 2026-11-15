@@ -1,8 +1,10 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { z } from "zod";
+import { CHANNEL_REPLY_CHARACTERS, CHANNEL_REPLY_LIMIT } from "./channel-replies";
 import {
   routineInstructionZodSchema,
   routineLimitPolicyZodSchema,
+  routineMissedPolicyUpdateZodSchema,
   routineMissedPolicyZodSchema,
   routineScheduleZodSchema,
 } from "./routine-tool-schema";
@@ -37,7 +39,7 @@ export const CHANNEL_TOOL_DEFINITIONS: readonly { name: string; description: str
   {
     name: "channel_assign",
     description:
-      "Assign one subtask to another channel member. You stay the owner: integrate the result and report to the user. End your turn while you wait. Use only in a channel task; otherwise use openbot.send_message.",
+      "Assign one subtask to another member when the person asks for that member or for help, or a part needs their role. You stay the owner: integrate the result and report. End your turn while you wait. Channel task only; otherwise use openbot.send_message.",
     shape: handoff,
   },
   {
@@ -53,9 +55,22 @@ export const CHANNEL_TOOL_DEFINITIONS: readonly { name: string; description: str
     shape: { text: z.string().min(1).max(INPUT_LIMITS.messageText) },
   },
   {
+    name: "channel_reply",
+    description: `Reply in the shared chat to another member's message when you must ask it, agree with it, or correct it before you can finish. It gets one turn to answer; end your turn after the call. For work use channel_assign. A request allows ${CHANNEL_REPLY_LIMIT} member replies, none after your result. Never reply only to thank.`,
+    shape: {
+      messageId: z.string().min(1).max(INPUT_LIMITS.identifier),
+      text: z.string().min(1).max(CHANNEL_REPLY_CHARACTERS),
+    },
+  },
+  {
+    name: "channel_cancel",
+    description: `Cancel a run that you own when a person asks to drop it. Give the taskId of its request message or a subtask: the whole run ends; messages stay. Not for your current task. ${PERSON_ONLY}`,
+    shape: { taskId: z.string().min(1).max(INPUT_LIMITS.identifier) },
+  },
+  {
     name: "channel_remember",
-    description:
-      "Save one short, durable fact about this channel that every member should keep. Save the same text again to correct it. This writes immediately.",
+    // The advertised schema has no maxLength, so the limit is in the description.
+    description: `Save one durable fact for all members, up to ${INPUT_LIMITS.agentMemoryText} characters. Save the same text again to correct it. Writes at once.`,
     shape: { text: z.string().min(1).max(INPUT_LIMITS.agentMemoryText) },
   },
   {
@@ -107,7 +122,7 @@ export const CHANNEL_TOOL_DEFINITIONS: readonly { name: string; description: str
       schedule: routineScheduleZodSchema.optional(),
       active: z.boolean().optional(),
       limitPolicy: routineLimitPolicyZodSchema.optional(),
-      missedPolicy: routineMissedPolicyZodSchema.optional(),
+      missedPolicy: routineMissedPolicyUpdateZodSchema.optional(),
     },
   },
   {

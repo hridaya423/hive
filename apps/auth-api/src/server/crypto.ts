@@ -23,6 +23,25 @@ export const hmacSha256 = Effect.fn("Crypto.hmacSha256")(function* (secret: stri
   return encodeBase64Url(new Uint8Array(digest));
 });
 
+/**
+ * Derives a key for one use from a secret that has another use. A different label gives an unrelated
+ * key, so the derived key tells nothing about the secret or about a key with another label.
+ */
+export const deriveSecret = Effect.fn("Crypto.deriveSecret")(function* (secret: string, label: string) {
+  const encoder = new TextEncoder();
+  const key = yield* cryptoCall(() =>
+    crypto.subtle.importKey("raw", encoder.encode(secret), "HKDF", false, ["deriveBits"]),
+  );
+  const bits = yield* cryptoCall(() =>
+    crypto.subtle.deriveBits(
+      { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(), info: encoder.encode(label) },
+      key,
+      256,
+    ),
+  );
+  return encodeBase64Url(new Uint8Array(bits));
+});
+
 export function importHmacSha256Key(secret: string, usage: "sign" | "verify"): Promise<CryptoKey> {
   return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [
     usage,

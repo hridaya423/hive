@@ -1,5 +1,6 @@
 import { type AgentProviderId, isAgentProvider } from "./agent-providers";
 import { INPUT_LIMITS } from "./input-limits";
+import { type AgentModelOption, isAgentModelOption } from "./ipc-agent-identity";
 import { isBoundedString, isFiniteNumber, isNullableBoundedString } from "./ipc-bounded-values";
 import type { McpSignInRelayPage } from "./ipc-mcp-servers";
 import { isDynamicRecord, isOneOf } from "./runtime-values";
@@ -60,8 +61,20 @@ export interface AgentProviderStatus {
    * apart, and only the provider that resolved a CLI reports one at all.
    */
   cliSource?: "system" | "managed";
+  /**
+   * The version of the other CLI the user can run instead (`chooseInstalledCli`): the one they
+   * installed while OpenBot's copy runs, or OpenBot's newer copy while theirs runs by their choice.
+   */
+  otherCliVersion?: string;
   /** A restart the user asked for waits for the provider's turns to end. New turns wait for it. */
   restartPending?: boolean;
+  /**
+   * OpenCode and Pi: true while a saved endpoint waits for a process that reads it, as a restart
+   * waits for the provider's turns to end. False when the running process read every saved endpoint,
+   * so an endpoint it lists no model of was left out by the provider itself. A host before this field
+   * does not send it.
+   */
+  endpointsPending?: boolean;
   /**
    * A saved API key serves the provider's turns in place of the plan sign-in, so the plan's usage
    * does not apply. Gemini: its saved key comes before the Google account. Codex: its own login is
@@ -87,6 +100,19 @@ export interface AgentProviderStatus {
    * released Team API adapters omit it.
    */
   accounts?: ProviderAccountStatus[];
+  /** The pool of `accounts`. Absent while the pool is off. Local only, like `accounts`. */
+  accountPool?: ProviderAccountPool;
+}
+
+/**
+ * Agents of a pooled provider use one account until it nears a limit, then the next one: the
+ * account whose limit refreshes first.
+ */
+export interface ProviderAccountPool {
+  /** The accounts that the user left out of the pool. */
+  leftOut: string[];
+  /** The account that the pool uses now. Null before the pool has a usable account. */
+  inUse: string | null;
 }
 
 /** The account a provider signed in first, in the CLI's own folder. An agent with no account uses it. */
@@ -114,6 +140,12 @@ export interface ProviderAccountStatus {
   /** One of `ProviderAccountState`, open at the trust boundary like the provider `state`. */
   state: ProviderAccountState;
   message: string | null;
+  /**
+   * The models that an account after the first serves and the provider's catalogue does not, from its
+   * last check: a plan can serve more than the provider's own sign-in. Absent before a check listed
+   * them, and on the own sign-in.
+   */
+  models?: AgentModelOption[];
 }
 
 /** The longest name a user can give a provider account. */
@@ -126,7 +158,8 @@ export function isProviderAccountStatus(value: unknown): value is ProviderAccoun
     isNullableBoundedString(value.label, PROVIDER_ACCOUNT_LABEL_MAX_LENGTH) &&
     isNullableBoundedString(value.email, INPUT_LIMITS.email) &&
     isBoundedString(value.state, INPUT_LIMITS.identifier) &&
-    isNullableBoundedString(value.message, INPUT_LIMITS.messageText)
+    isNullableBoundedString(value.message, INPUT_LIMITS.messageText) &&
+    (value.models === undefined || (Array.isArray(value.models) && value.models.every(isAgentModelOption)))
   );
 }
 
@@ -143,8 +176,10 @@ function isAgentProviderStatus(value: unknown): value is AgentProviderStatus {
     (value.signInPending === undefined || typeof value.signInPending === "boolean") &&
     (value.checkError === undefined || isNullableBoundedString(value.checkError, INPUT_LIMITS.messageText)) &&
     (value.cliSource === undefined || isBoundedString(value.cliSource, INPUT_LIMITS.identifier)) &&
+    (value.otherCliVersion === undefined || isBoundedString(value.otherCliVersion, 160)) &&
     (value.off === undefined || typeof value.off === "boolean") &&
     (value.restartPending === undefined || typeof value.restartPending === "boolean") &&
+    (value.endpointsPending === undefined || typeof value.endpointsPending === "boolean") &&
     (value.apiKeyInUse === undefined || typeof value.apiKeyInUse === "boolean") &&
     (value.planRequired === undefined || typeof value.planRequired === "boolean") &&
     (value.lastError === undefined || isNullableBoundedString(value.lastError, INPUT_LIMITS.messageText)) &&
@@ -152,7 +187,18 @@ function isAgentProviderStatus(value: unknown): value is AgentProviderStatus {
     (value.accounts === undefined ||
       (Array.isArray(value.accounts) &&
         value.accounts.length <= MAX_PROVIDER_ACCOUNTS &&
-        value.accounts.every(isProviderAccountStatus)))
+        value.accounts.every(isProviderAccountStatus))) &&
+    (value.accountPool === undefined || isProviderAccountPool(value.accountPool))
+  );
+}
+
+export function isProviderAccountPool(value: unknown): value is ProviderAccountPool {
+  return (
+    isDynamicRecord(value) &&
+    Array.isArray(value.leftOut) &&
+    value.leftOut.length <= MAX_PROVIDER_ACCOUNTS &&
+    value.leftOut.every(isProviderAccountId) &&
+    (value.inUse === null || isProviderAccountId(value.inUse))
   );
 }
 
@@ -168,6 +214,9 @@ export type AgentAuthState =
   | { kind: "cursor"; email: string | null }
   | { kind: "cline"; email: string | null }
   | { kind: "kimi"; email: string | null }
+  | { kind: "devin"; email: string | null }
+  | { kind: "copilot"; email: string | null }
+  | { kind: "mistral"; email: string | null }
   | { kind: "pi"; email: string | null }
   | { kind: "muse"; email: string | null }
   | { kind: "inception"; email: string | null }
@@ -183,7 +232,7 @@ export interface AccountUsageWindow {
   resetsAt: number | null;
 }
 
-function isAccountUsageWindow(value: unknown): value is AccountUsageWindow {
+export function isAccountUsageWindow(value: unknown): value is AccountUsageWindow {
   return (
     isDynamicRecord(value) &&
     isFiniteNumber(value.usedPercent) &&
@@ -212,8 +261,10 @@ export interface AccountUsageLimit {
   primary: AccountUsageWindow | null;
   secondary: AccountUsageWindow | null;
   /**
-   * OpenCode only: the weekly or monthly window that `secondary` does not hold. `secondary` is the one
-   * that stops work first, so only the usage list shows this one. The Team API does not send this field.
+   * OpenCode: the weekly or monthly window that `secondary` does not hold. `secondary` is the one that
+   * stops work first, so only the usage list shows this one. Cursor: the total of a plan split into
+   * Cursor's own models (`primary`) and the others (`secondary`), which the ring shows. No usage limit
+   * check reads this field. The Team API sends it only to a peer with `usage-tertiary-v1`.
    */
   tertiary?: AccountUsageWindow;
   /**
@@ -226,6 +277,12 @@ export interface AccountUsageLimit {
    * rail then shows the ring of that provider alone. The Team API does not send this field.
    */
   sharedQuotaWith?: AgentProviderId;
+  /**
+   * Codex: whether the account can keep working on credits when a plan window is spent. Absent when
+   * the provider sends no credit state. The released usage routes do not send it: a joined server
+   * reads it with `usage-credits-v1`, and a reading without it keeps the last one (`keepUsageCredits`).
+   */
+  creditsAvailable?: boolean;
 }
 
 export interface AccountUsage {
@@ -248,9 +305,61 @@ export function isAccountUsage(value: unknown): value is AccountUsage {
           (Array.isArray(limit.groups) &&
             limit.groups.length <= MAX_USAGE_GROUPS &&
             limit.groups.every(isAccountUsageGroup))) &&
-        (limit.sharedQuotaWith === undefined || isAgentProvider(limit.sharedQuotaWith)),
+        (limit.sharedQuotaWith === undefined || isAgentProvider(limit.sharedQuotaWith)) &&
+        (limit.creditsAvailable === undefined || typeof limit.creditsAvailable === "boolean"),
     )
   );
+}
+
+/** One row of a `usage-credits-v1` list: whether a provider account of the host can work on credits. */
+export interface UsageCredits {
+  provider: AgentProviderId;
+  /** `DEFAULT_PROVIDER_ACCOUNT_ID` for the provider's own sign-in. */
+  accountId: string;
+  available: boolean;
+}
+
+/** The `accounts` of a `usage-credits-v1` list. A provider this client does not know is left out. */
+export function decodeUsageCredits(value: unknown): UsageCredits[] {
+  const invalid = () => new Error("Invalid usage credits.");
+  if (!Array.isArray(value)) throw invalid();
+  return value.flatMap((row: unknown) => {
+    if (!isDynamicRecord(row) || !isProviderAccountId(row.accountId) || typeof row.available !== "boolean")
+      throw invalid();
+    return isAgentProvider(row.provider)
+      ? [{ provider: row.provider, accountId: row.accountId, available: row.available }]
+      : [];
+  });
+}
+
+/** A joined server's reading with the credit state that its host gave on `usage-credits-v1`. */
+export function withUsageCredits(usage: AccountUsage, credits: readonly UsageCredits[]): AccountUsage {
+  const byAccount = new Map(credits.map((row) => [JSON.stringify([row.provider, row.accountId]), row.available]));
+  return {
+    limits: usage.limits.map((limit) => {
+      const available = byAccount.get(JSON.stringify([limit.id, limit.accountId ?? DEFAULT_PROVIDER_ACCOUNT_ID]));
+      return available === undefined ? limit : { ...limit, creditsAvailable: available };
+    }),
+  };
+}
+
+/**
+ * The credit state of the last reading, for a limit of a new one that has none. The released usage
+ * routes and the `usage-changed` event of a joined server do not carry it, and a Codex reading on this
+ * computer always does, so a limit without it keeps the last one.
+ */
+export function keepUsageCredits(previous: AccountUsageLimit | undefined, next: AccountUsageLimit): AccountUsageLimit {
+  return next.creditsAvailable !== undefined || previous?.creditsAvailable === undefined
+    ? next
+    : { ...next, creditsAvailable: previous.creditsAvailable };
+}
+
+/**
+ * A limit that an event updated while a read ran, with the credit state of that read. The event is
+ * newer for the windows, but its credit state is only the one that `keepUsageCredits` kept.
+ */
+export function withReadCredits(read: AccountUsageLimit | undefined, limit: AccountUsageLimit): AccountUsageLimit {
+  return read?.creditsAvailable === undefined ? limit : { ...limit, creditsAvailable: read.creditsAvailable };
 }
 
 /** The most groups in one reading, and the most models in one group. */
@@ -316,11 +425,26 @@ export interface ConnectProviderAccountInput {
   accountId: string | null;
 }
 
+/**
+ * Gives a provider account its API key: a new account when `accountId` is null, or a new key for one
+ * that exists. For a provider whose accounts are keys (`accountSignIn: "key"`).
+ */
+export interface ConnectProviderAccountKeyInput extends ConnectProviderAccountInput {
+  key: string;
+}
+
 /** A null label returns the account to its email. */
 export interface RenameProviderAccountInput {
   provider: AgentProviderId;
   accountId: string;
   label: string | null;
+}
+
+/** Turns the pool of a provider's accounts on or off, and sets the accounts that it leaves out. */
+export interface SetProviderAccountPoolInput {
+  provider: AgentProviderId;
+  enabled: boolean;
+  leftOut: string[];
 }
 
 /** Removes an account and its credentials. Its agents move to the provider's own sign-in. */
@@ -359,8 +483,18 @@ export type ProviderUsageResetOutcome = (typeof PROVIDER_USAGE_RESET_OUTCOMES)[n
  */
 export interface HostProviderAccounts {
   providers: { provider: AgentProviderId; accounts: ProviderAccountStatus[] }[];
+  /** The pools that are on (`provider-account-pool-v1`). Absent when the host does not have it. */
+  pools?: { provider: AgentProviderId; pool: ProviderAccountPool }[];
   /** The agents on an account after the first. Every other agent uses the provider's own sign-in. */
   agents: { agentId: string; accountId: string }[];
+}
+
+/**
+ * The models that each account after the first serves and the provider's own sign-in does not
+ * (`provider-account-models-v1`). The client puts them on `ProviderAccountStatus.models`.
+ */
+export interface HostProviderAccountModels {
+  providers: { provider: AgentProviderId; accounts: { accountId: string; models: AgentModelOption[] }[] }[];
 }
 
 /** Moves an agent of a joined server to an account of its provider. Null is the provider's own sign-in. */

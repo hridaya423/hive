@@ -3,6 +3,7 @@ import { type AuthRetentionResult, pruneExpiredAuthData } from "./auth-data-rete
 import { permanentTrailingSlashRedirect } from "./canonical-redirect";
 import { runApiEffect } from "./effect-runtime";
 import { enforceMarketplaceIngress, MarketplaceRateLimitError } from "./marketplace-request-policy";
+import { observedD1 } from "./observed-d1";
 import { deliverPendingRemoteAuthEvents, type RemoteAuthEventBindings } from "./remote-control-plane";
 import { checkSignalEntry, SIGNAL_ENTRY_CRON, type SignalEntryBindings } from "./signal-entry-failover";
 import type { WorkerBindings } from "./types";
@@ -63,8 +64,9 @@ export function createWorkerHandler(
     },
     async scheduled(
       controller: Pick<ScheduledController, "scheduledTime"> & Partial<Pick<ScheduledController, "cron">>,
-      bindings: RemoteAuthEventBindings & Partial<SignalEntryBindings>,
+      workerBindings: RemoteAuthEventBindings & Partial<SignalEntryBindings>,
     ) {
+      const bindings = { ...workerBindings, DB: observedD1(workerBindings.DB) };
       if (controller.cron === SIGNAL_ENTRY_CRON) {
         await runSignalEntryCheck(bindings);
         return;

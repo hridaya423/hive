@@ -1,4 +1,4 @@
-import type { AccountSession, AvatarImageInput } from "@openbot/contracts/ipc";
+import type { AccountSession, AvatarColor, AvatarImageInput } from "@openbot/contracts/ipc";
 import { isBoolean, isDynamicRecord, isNumber, isString } from "@openbot/contracts/runtime-values";
 import { currentText } from "@openbot/ui/text";
 
@@ -9,6 +9,8 @@ import { currentText } from "@openbot/ui/text";
 export interface WebAccountCalls {
   updateName: (name: string) => Promise<void>;
   updateAvatar: (image: AvatarImageInput | null) => Promise<void>;
+  /** Saves the chat color on the account. Members of each server of the user see it. */
+  setChatColor: (color: AvatarColor | null) => Promise<void>;
   listSessions: () => Promise<AccountSession[]>;
   revokeSession: (sessionId: string) => Promise<void>;
 }
@@ -56,6 +58,10 @@ export function createWebAccountCalls(
           ? { method: "PUT", body: new Uint8Array(image.bytes), contentType: image.mimeType }
           : { method: "DELETE", body: "{}" },
       );
+      await onAccountChanged();
+    },
+    async setChatColor(color) {
+      await request("v1/me/chat-color", { method: "PUT", body: JSON.stringify({ chatColor: color }) });
       await onAccountChanged();
     },
     async listSessions() {

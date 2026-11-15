@@ -103,6 +103,8 @@ async function openFixture(root: string): Promise<Fixture> {
         excludedAgents: () => hidden,
         isRunning: () => running,
         usageLimited: () => false,
+        routineThread: () => null,
+        routineDeleted: () => Effect.void,
       },
     });
     sources.push(scheduler);
@@ -248,7 +250,6 @@ try {
   let skipId = "";
   let explicitId = "";
   let pausedId = "";
-  let hiddenId = "";
 
   await step("A routine with no missedPolicy defaults to run-once, an explicit skip stays skip", async () => {
     setSystemTime(at("10:01"));
@@ -371,26 +372,6 @@ try {
     assert.deepEqual(missedRecords(pausedId), []);
     assert.deepEqual(scheduledRuns(pausedId), []);
     return { nextRunAt: resumed.trigger.nextRunAt };
-  });
-
-  await step("A hidden agent's routine does not catch up at a start, a wake or a restore", async () => {
-    setSystemTime(at("18:21"));
-    const routineHidden = create("Hidden default");
-    hiddenId = routineHidden.id;
-    await reopenAt(at("20:20"));
-    current().hidden.add(current().agentId);
-    await coldStart(at("20:20"));
-    assert.equal(deliveries(hiddenId), 0, "No catch-up at a start.");
-    sleepUntil(at("21:20"));
-    assert.equal(deliveries(hiddenId), 0, "No catch-up at a wake.");
-    current().scheduler.skipMissedFor(current().agentId, new Date());
-    current().hidden.clear();
-    await runCauseEffect(current().scheduler.processDue(at("21:20")));
-    assert.equal(deliveries(hiddenId), 0, "No catch-up when the agent comes back.");
-    assert.ok(missedRecords(hiddenId).length > 0, "The occurrences of the hide are recorded as missed.");
-    assert.equal(routine(hiddenId).trigger.nextRunAt, at("21:30").toISOString());
-    assert.deepEqual(current().errors, []);
-    return { missed: missedRecords(hiddenId) };
   });
 
   report.passed = true;

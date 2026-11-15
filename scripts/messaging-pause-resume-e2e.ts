@@ -84,6 +84,7 @@ function fakeIngress(): { ingress: MessagingIngress; handler: () => IngressHandl
       reconnect: () => {},
       discord: unused,
       onDiscordRoutes: () => () => {},
+      onLinkedRoutes: () => () => {},
     },
   };
 }

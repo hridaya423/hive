@@ -1,48 +1,57 @@
-import { slackChunks } from "../slack/slack-render";
+import { chunkMarkdown, FENCE } from "../messaging-chunks";
 
-const WHATSAPP_CHUNK_CHARACTERS = 4_000;
-const FENCE = "```";
-const BOLD_MARK = "";
+/** WhatsApp takes 65,536 characters, but long posts read badly on a phone. */
+export const WHATSAPP_TEXT_LIMIT = 4_000;
 
-/** Markdown as WhatsApp text: `*bold*`, `_italic_`, `~strike~` and the code marks that WhatsApp reads. */
-export function whatsappText(markdown: string): string {
+/** Splits an answer into WhatsApp posts, each in WhatsApp's own formatting. */
+export function whatsAppChunks(markdown: string): string[] {
+  return chunkMarkdown(markdown, WHATSAPP_TEXT_LIMIT).map(whatsAppText);
+}
+
+/**
+ * Markdown in WhatsApp's formatting: `*bold*`, `_italic_`, `~strike~`, `` `code` `` and fenced blocks.
+ * Headings become bold lines and links show their address after the text. Text in code stays as it is.
+ */
+export function whatsAppText(markdown: string): string {
+  const out: string[] = [];
   let inFence = false;
-  return markdown
-    .split("\n")
-    .map((line) => {
-      if (line.trimStart().startsWith(FENCE)) {
-        inFence = !inFence;
-        return FENCE;
-      }
-      if (inFence) return line;
-      const heading = /^#{1,6}\s+(.*)$/u.exec(line);
-      if (heading) return `*${inline(heading[1] ?? "")}*`;
-      const bullet = /^(\s*)[-*+]\s+(.*)$/u.exec(line);
-      if (bullet) return `${bullet[1]}• ${inline(bullet[2] ?? "")}`;
-      return inline(line);
-    })
-    .join("\n");
+  for (const line of markdown.split("\n")) {
+    if (line.trimStart().startsWith(FENCE)) {
+      inFence = !inFence;
+      out.push(line.trimStart().slice(0, FENCE.length));
+      continue;
+    }
+    out.push(inFence ? line : inlineLine(line));
+  }
+  return out.join("\n");
 }
 
-export function whatsappChunks(markdown: string): string[] {
-  return slackChunks(markdown, WHATSAPP_CHUNK_CHARACTERS);
-}
-
-function inline(line: string): string {
-  return line
-    .split(/(`[^`]+`)/u)
-    .map((part) => (part.length > 2 && part.startsWith("`") && part.endsWith("`") ? part : marks(part)))
+function inlineLine(line: string): string {
+  const heading = /^\s{0,3}#{1,6}\s+(.*)$/u.exec(line);
+  const body = heading ? (heading[1] ?? "") : line;
+  // Code spans keep their text; the rest is converted around them.
+  const parts = body.split(/(`[^`]+`)/u);
+  const converted = parts
+    .map((part) => (part.startsWith("`") && part.endsWith("`") && part.length > 1 ? part : inlineText(part)))
     .join("");
+  const bullet = converted.replace(/^(\s*)[*+]\s+/u, "$1• ");
+  return heading ? `*${bullet.trim()}*` : bullet;
 }
 
-function marks(text: string): string {
-  return text
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gu, "$1 ($2)")
-    .replace(
-      /\*\*(.+?)\*\*|__(.+?)__/gu,
-      (_match, a: string | undefined, b: string | undefined) => `${BOLD_MARK}${a ?? b}${BOLD_MARK}`,
-    )
-    .replace(/(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])/gu, "_$1_")
-    .replace(/~~(.+?)~~/gu, "~$1~")
-    .replaceAll(BOLD_MARK, "*");
+function inlineText(text: string): string {
+  return (
+    text
+      // Links: [text](https://…) → text (https://…).
+      .replace(/!?\[([^\]]+)\]\((\S+?)\)/gu, (_match, label: string, url: string) =>
+        label === url ? url : `${label} (${url})`,
+      )
+      // Bold first, through a private-use marker, so the italic rule does not read its stars.
+      .replace(
+        /\*\*(.+?)\*\*|__(.+?)__/gu,
+        (_match, a: string | undefined, b: string | undefined) => `\uE00F${a ?? b}\uE00F`,
+      )
+      .replace(/(^|[^\w*])\*(?!\s)([^*\n]+?)\*(?!\w)/gu, "$1_$2_")
+      .replace(/~~(.+?)~~/gu, "~$1~")
+      .replace(/\uE00F/gu, "*")
+  );
 }

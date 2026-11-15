@@ -6,6 +6,7 @@ import {
   type MobileEmailChallenge,
   MobileEmailSignInError,
   type MobileSession,
+  signInMobileWithCompany,
   startMobileEmailSignIn,
   verifyMobileEmailCode,
 } from "@/features/auth/api/mobile-auth";
@@ -85,7 +86,9 @@ export function useEmailSignIn({
   // Each rejected value shakes its field again, also for the same message.
   const [rejection, setRejection] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
-  const [pending, setPending] = useState<"send" | "resend" | "verify" | null>(null);
+  const [pending, setPending] = useState<"send" | "resend" | "verify" | "company" | null>(null);
+  // The address that signs in at its company provider. The send button opens that sign-in again.
+  const [companyEmail, setCompanyEmail] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
   // The code expired or took too many attempts. Only a new code unlocks the field.
   const [needsNewCode, setNeedsNewCode] = useState(false);
@@ -124,6 +127,10 @@ export function useEmailSignIn({
       reject();
       return;
     }
+    if (kind === "send" && companyEmail === address) {
+      await signInWithCompany(address);
+      return;
+    }
     // Back on the email step, the same address keeps the code that is already on its way.
     if (kind === "send" && !needsNewCode && challenge?.email === address && Date.now() < challenge.resendAt) {
       go("code");
@@ -147,11 +154,51 @@ export function useEmailSignIn({
         void haptics.notification("success");
       }
     } catch (error) {
+      if (error instanceof MobileEmailSignInError && error.code === "company_sign_in_required") {
+        requestId.current = null;
+        setPending(null);
+        setCompanyEmail(address);
+        // A resend gets this answer when the company turned the sign-in on after the first code.
+        go("email");
+        await signInWithCompany(address);
+        return;
+      }
       const issue = issueFrom(error, t("mobile.auth.email.error.sendFailed"));
       if (!UNCONFIRMED_DELIVERY.has(issue.code)) requestId.current = null;
       if (issue.retryAfterSeconds) setBlockedUntil(Date.now() + issue.retryAfterSeconds * 1_000);
       if (kind === "send") setEmailIssue(issue);
       else setCodeIssue(issue);
+      reject();
+    } finally {
+      setPending(null);
+    }
+  }
+
+  /** Shows the verified state, then gives the new session to the app. */
+  async function finish(session: MobileSession) {
+    setVerified(true);
+    void haptics.notification("success");
+    // The keyboard closes while the verified state shows, so the screen is still when it leaves.
+    await Promise.all([
+      reduced ? undefined : new Promise((resolve) => setTimeout(resolve, VERIFIED_PAUSE_MS)),
+      closeKeyboard(),
+    ]);
+    await connect(session);
+  }
+
+  /** Signs in at the company provider. A closed browser keeps the email step, with no issue. */
+  async function signInWithCompany(address: string) {
+    setPending("company");
+    setEmailIssue(null);
+    try {
+      const session = await signInMobileWithCompany(address);
+      if (session) await finish(session);
+    } catch (error) {
+      const issue = issueFrom(error, t("error.auth.companySignInFailed"));
+      // The company turned the sign-in off: the next send asks for an email code again.
+      if (issue.code === "company_sign_in_not_found") setCompanyEmail(null);
+      if (issue.retryAfterSeconds) setBlockedUntil(Date.now() + issue.retryAfterSeconds * 1_000);
+      setEmailIssue(issue);
       reject();
     } finally {
       setPending(null);
@@ -165,14 +212,7 @@ export function useEmailSignIn({
     setNotice(null);
     try {
       const session = await verifyMobileEmailCode(challenge.challengeId, value);
-      setVerified(true);
-      void haptics.notification("success");
-      // The keyboard closes while the verified state shows, so the screen is still when it leaves.
-      await Promise.all([
-        reduced ? undefined : new Promise((resolve) => setTimeout(resolve, VERIFIED_PAUSE_MS)),
-        closeKeyboard(),
-      ]);
-      await connect(session);
+      await finish(session);
     } catch (error) {
       const issue = issueFrom(error, t("mobile.auth.email.error.verifyFailed"));
       setCodeIssue(issue);
@@ -193,7 +233,7 @@ export function useEmailSignIn({
   async function back() {
     // A send or a verify ends on the code step or in the app, so the way back waits for it. The
     // Android back button calls this directly, without the disabled state of the on-screen button.
-    if (pending === "send" || pending === "verify" || verified || leaving.current) return;
+    if (pending === "send" || pending === "verify" || pending === "company" || verified || leaving.current) return;
     const target = step === "code" ? "email" : "options";
     // Back to the options, the keyboard closes first and the screen changes after it is gone, so
     // the two movements do not overlap. Back to the email, the keyboard stays for the field.
@@ -221,13 +261,18 @@ export function useEmailSignIn({
     setEmail: (value: string) => {
       setEmail(value);
       setEmailIssue(null);
+      if (normalizeEmailAddress(value) !== companyEmail) setCompanyEmail(null);
       setBlockedUntil(0);
       requestId.current = null;
     },
     emailIssue,
     sendCode: () => void requestCode("send"),
     resendCode: () => void requestCode("resend"),
-    sending: pending === "send",
+    sending: pending === "send" || pending === "company",
+    /** The company provider page is open, or about to open. */
+    companySignIn: pending === "company",
+    /** The address signs in at its company provider: the send button opens that sign-in. */
+    usesCompanySignIn: companyEmail !== null && companyEmail === normalizeEmailAddress(email),
     resending: pending === "resend",
     retryIn,
     resendIn,

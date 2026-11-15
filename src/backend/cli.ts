@@ -1,6 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { constants } from "node:fs";
-import { access, readFile, stat } from "node:fs/promises";
+import { access, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, delimiter, dirname, extname, isAbsolute, join, posix, resolve, win32 } from "node:path";
 import { promisify, stripVTControlCharacters } from "node:util";
@@ -8,6 +8,7 @@ import { type AgentProviderId, agentProviderName } from "@openbot/contracts/ipc"
 import { isDynamicRecord } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
 import { Deferred, Effect, Result } from "effect";
+import { providerCheckTimeoutMs } from "./disk-restore";
 import type { SignInRegion } from "./kimi-region";
 import { type ProviderClientOperationError, providerCall, providerFailure } from "./provider-client-effects";
 
@@ -22,8 +23,6 @@ const MINIMUM_GROK_VERSION = [1, 0, 5] as const;
 const MINIMUM_CLINE_VERSION = [3, 0, 68] as const;
 // The first checked Python Kimi CLI. Login capabilities are probed before code sign-in.
 const MINIMUM_KIMI_VERSION = [1, 52, 0] as const;
-// The only Copilot CLI that OpenBot was run with. Older builds list no model in ACP (github/copilot-cli#4880).
-const MINIMUM_COPILOT_VERSION = [1, 0, 105] as const;
 
 /** What every resolved provider CLI carries. */
 interface ResolvedCli {
@@ -69,15 +68,12 @@ export interface KimiCliInfo extends ResolvedCli {
 }
 
 /**
- * OpenBot never installs Hermes: the user's own `hermes` runs, with the user's own `~/.hermes`, and
- * `resolveHermesCli` gives only `system`. The type keeps `managed`, as each other CLI does, so a
- * `managed` test value does not narrow `AgentCliInfo`.
+ * The user's own `hermes` runs, with the user's own `~/.hermes`, and `resolveHermesCli` gives only
+ * `system`. The Download of `HermesInstaller` runs the official installer, which puts Hermes where a
+ * terminal install does, so OpenBot finds it as the user's CLI. The type keeps `managed`, as each
+ * other CLI does, so a `managed` test value does not narrow `AgentCliInfo`.
  */
 export interface HermesCliInfo extends ResolvedCli {
-  source?: "system" | "managed";
-}
-
-export interface CopilotCliInfo extends ResolvedCli {
   source?: "system" | "managed";
 }
 
@@ -90,8 +86,7 @@ export type AgentCliInfo =
   | CursorCliInfo
   | ClineCliInfo
   | KimiCliInfo
-  | HermesCliInfo
-  | CopilotCliInfo;
+  | HermesCliInfo;
 
 export class CodexCliError extends Error {
   constructor(
@@ -329,19 +324,12 @@ export const resolveOpencodeCli: (input?: {
   Effect.catchDefect((cause) => Effect.fail(providerFailure(cause))),
 );
 
-/** The file beside `bin/` that names the version of an Antigravity install. */
-export const ANTIGRAVITY_MANIFEST = "antigravity-package.json";
-
-export function antigravityHarnessName(target: string): "localharness_external" | "localharness_external.exe" {
-  return target.startsWith("win32") ? "localharness_external.exe" : "localharness_external";
-}
-
 /**
- * The Antigravity server is never looked for on `PATH`: the Antigravity IDE installs an
- * `antigravity` command that is an editor, not this server. Only the copy OpenBot downloaded, or the
- * path in `OPENBOT_ANTIGRAVITY_PATH`, is used. The server takes no `--version`, so the version comes
- * from the manifest two levels above the program, which a managed install writes. The server
- * still gets `cliLaunchPath`: the MCP servers that it starts are commands such as bare `node` (#3418).
+ * The Antigravity CLI is never looked for on `PATH`: the Antigravity IDE installs an `antigravity`
+ * command that is an editor, not this CLI. Only the copy OpenBot downloaded, or the path in
+ * `OPENBOT_ANTIGRAVITY_PATH`, is used. The CLI prints its version, such as `1.5.4`, with
+ * `--version`. It still gets `cliLaunchPath`: the MCP servers that it starts are commands such as
+ * bare `node` (#3418).
  *
  * A path the user set is the only candidate: when it cannot start, the error says so, and the
  * managed copy does not run in its place without a message.
@@ -366,14 +354,12 @@ export const resolveAntigravityCli: (input?: {
       found = true;
       const attempt = yield* Effect.result(
         Effect.gen(function* () {
-          const manifest = join(dirname(dirname(candidate.executable)), ANTIGRAVITY_MANIFEST);
-          const version = parseAntigravityVersion(yield* providerCall(() => readFile(manifest, "utf8")));
-          const launchPath = yield* cliLaunchPath(candidate.executable, candidate.source);
+          const { stdout, launch } = yield* readCliVersion(candidate, "antigravity");
           return {
             executable: candidate.executable,
-            version,
+            version: parseAntigravityVersion(stdout),
             source: candidate.source,
-            ...(launchPath ? { launchPath } : {}),
+            ...launch,
           };
         }).pipe(Effect.catchDefect((cause) => Effect.fail(providerFailure(cause)))),
       );
@@ -381,6 +367,10 @@ export const resolveAntigravityCli: (input?: {
 
       /* Try the remaining candidates. */
     }
+    // Only the managed copy is downloadable, so a path the user set that cannot run must not say
+    // "not downloaded": Download is refused while the override is set (#4978).
+    if (!found && override.length > 0)
+      throw new CodexCliError(sourceText("error.provider.antigravityOverrideInvalid"), "invalid");
     throw new CodexCliError(
       found ? sourceText("error.provider.antigravityNotStarted") : sourceText("error.provider.antigravityMissing"),
       found ? "invalid" : "missing",
@@ -389,17 +379,10 @@ export const resolveAntigravityCli: (input?: {
   Effect.catchDefect((cause) => Effect.fail(providerFailure(cause))),
 );
 
-export function parseAntigravityVersion(manifest: string): string {
-  let version: unknown = null;
-  try {
-    const value = JSON.parse(manifest);
-    if (isDynamicRecord(value)) version = value.version;
-  } catch {
-    /* Reported below. */
-  }
-  if (typeof version !== "string" || !/^\d+\.\d+\.\d+$/u.test(version)) {
-    throw new CodexCliError(sourceText("error.provider.antigravityVersionUnreadable"), "invalid");
-  }
+/** Antigravity CLI 1.5.4 prints `1.5.4`. */
+function parseAntigravityVersion(output: string): string {
+  const version = /^\s*(\d+\.\d+\.\d+)\s*$/u.exec(output)?.[1];
+  if (!version) throw new CodexCliError(sourceText("error.provider.antigravityVersionUnreadable"), "invalid");
   return version;
 }
 
@@ -459,17 +442,24 @@ export const resolveHermesCli: (input?: {
     for (const candidate of candidates) {
       if (!(yield* isExecutable(candidate.executable))) continue;
       found = true;
-      const attempt = yield* Effect.result(
+      const read = (args: readonly string[]) =>
         Effect.gen(function* () {
-          const { stdout, launch } = yield* readCliVersion(candidate, "hermes");
+          const { stdout, launch } = yield* readCliVersion(candidate, "hermes", args);
           return {
             executable: candidate.executable,
             version: parseHermesVersion(stdout),
             source: "system" as const,
             ...launch,
           };
-        }).pipe(Effect.catchDefect((cause) => Effect.fail(providerFailure(cause)))),
-      );
+        }).pipe(Effect.catchDefect((cause) => Effect.fail(providerFailure(cause))));
+      // `hermes --version` waits for a network update check, which can take more than the limit and
+      // then never saves its result, so every check timed out (#7989). `hermes acp --version` prints
+      // only the version. A Hermes before 0.14 refuses that flag at once and gets `--version`.
+      const quick = yield* Effect.result(read(["acp", "--version"]));
+      const attempt =
+        Result.isSuccess(quick) || isCliTimeout(quick.failure.cause)
+          ? quick
+          : yield* Effect.result(read(["--version"]));
       if (Result.isSuccess(attempt)) return attempt.success;
       const error = attempt.failure.cause;
 
@@ -485,61 +475,12 @@ export const resolveHermesCli: (input?: {
 );
 
 /**
- * Finds the user's own GitHub Copilot CLI. OpenBot has no copy of its own: the CLI keeps the user's
- * sign-in in the login Keychain and updates itself. A CLI older than `MINIMUM_COPILOT_VERSION` is
- * the error the user sees.
- */
-export const resolveCopilotCli: (input?: {
-  systemCandidates?: string[];
-}) => Effect.Effect<CopilotCliInfo, ProviderClientOperationError> = Effect.fn("Cli.resolveCopilotCli")(
-  function* (
-    input: { systemCandidates?: string[] } = {},
-  ): Effect.fn.Return<CopilotCliInfo, ProviderClientOperationError> {
-    const candidates = yield* cliCandidates("copilot", input.systemCandidates, null);
-    const failures: CodexCliError[] = [];
-    for (const candidate of candidates) {
-      if (!(yield* isExecutable(candidate.executable))) continue;
-      const attempt = yield* Effect.result(
-        Effect.gen(function* () {
-          const { stdout, launch } = yield* readCliVersion(candidate, "copilot");
-          const version = parseCopilotVersion(stdout);
-          if (!isMinimumVersion(version, MINIMUM_COPILOT_VERSION)) {
-            throw new CodexCliError(sourceText("error.provider.copilotOutdated", { version }), "outdated");
-          }
-          return { executable: candidate.executable, version, source: "system" as const, ...launch };
-        }).pipe(Effect.catchDefect((cause) => Effect.fail(providerFailure(cause)))),
-      );
-      if (Result.isSuccess(attempt)) return attempt.success;
-      const error = attempt.failure.cause;
-
-      if (isCliTimeout(error)) throw error;
-      failures.push(
-        error instanceof CodexCliError
-          ? error
-          : new CodexCliError(sourceText("error.provider.copilotNotStarted"), "invalid"),
-      );
-    }
-    throw (
-      failures.find((failure) => failure.code === "outdated") ??
-      failures[0] ??
-      new CodexCliError(sourceText("error.provider.copilotMissing"), "missing")
-    );
-  },
-  Effect.catchDefect((cause) => Effect.fail(providerFailure(cause))),
-);
-
-function parseCopilotVersion(output: string): string {
-  const version = output.match(/^GitHub Copilot CLI v?(\d+\.\d+\.\d+)\b/mu)?.[1];
-  if (!version) throw new CodexCliError(sourceText("error.provider.copilotVersionUnreadable"), "invalid");
-  return version;
-}
-
-/**
- * Hermes prints its release and its build on the first line, such as
+ * `hermes acp --version` prints only the version, such as `0.21.5+5805.g54bc5e5`. `hermes --version`
+ * prints its release and its build on the first line, such as
  * `Hermes Agent v0.21.5+5805.g54bc5e5 (2026.9.24) · upstream 54bc5e50`. A line about an update can follow.
  */
 function parseHermesVersion(output: string): string {
-  const version = output.match(/^Hermes Agent v(\d+\.\d+\.\d+)\b/mu)?.[1];
+  const version = output.match(/^(?:Hermes Agent v)?(\d+\.\d+\.\d+)\b/mu)?.[1];
   if (!version) throw new CodexCliError(sourceText("error.provider.hermesVersionUnreadable"), "invalid");
   return version;
 }
@@ -806,19 +747,12 @@ export function claudeTakesPromptSnapshotFlag(version: string): boolean {
 }
 
 /**
- * Whether this Antigravity ACP server answers `/usage` itself, with no model turn. Checked in 1.4.1;
- * 1.3.0 sends the command to the model.
+ * Whether this Antigravity CLI takes `--gemini-dir` and `--app-data-dir`, so that an account after
+ * the first can have a folder of its own, and keeps its token in a file there when it sees
+ * `WSL_DISTRO_NAME`. Checked in 1.5.3 and 1.5.4.
  */
-export function antigravityAnswersUsageCommand(version: string): boolean {
-  return isMinimumVersion(version, [1, 4, 1]);
-}
-
-/**
- * Whether this Antigravity ACP server keeps its token and settings in `GEMINI_HOME`, so that an
- * account after the first can have a folder of its own. Checked in 1.4.0, 1.4.1 and 1.4.3.
- */
-export function antigravityReadsGeminiHome(version: string): boolean {
-  return isMinimumVersion(version, [1, 4, 0]);
+export function antigravityTakesStateFolders(version: string): boolean {
+  return isMinimumVersion(version, [1, 5, 3]);
 }
 
 function isMinimumVersion(version: string, minimum: readonly number[]): boolean {
@@ -832,9 +766,9 @@ function isMinimumVersion(version: string, minimum: readonly number[]): boolean 
   return true;
 }
 
-/** Resolves native RPC providers through the same explicit/managed/system precedence. */
+/** Resolves the native providers through the same explicit/managed/system precedence. */
 const resolveNativeCli = Effect.fn("Cli.resolveNativeCli")(function* (
-  provider: "pi" | "muse",
+  provider: NativeCliProvider,
   input: { systemCandidates?: string[]; bundledExecutable?: string | null | undefined } = {},
 ): Effect.fn.Return<AgentCliInfo, ProviderClientOperationError> {
   const candidates = yield* cliCandidates(provider, input.systemCandidates, input.bundledExecutable ?? null);
@@ -846,7 +780,7 @@ const resolveNativeCli = Effect.fn("Cli.resolveNativeCli")(function* (
     const attempt = yield* Effect.result(
       Effect.gen(function* () {
         const { stdout, launch } = yield* readCliVersion(candidate, provider);
-        const version = provider === "pi" ? parsePiVersion(stdout) : parseMuseVersion(stdout);
+        const version = NATIVE_VERSION_PARSERS[provider](stdout);
         if (provider === "pi" && !isMinimumVersion(version, [1, 1, 0]))
           throw new CodexCliError(sourceText("error.provider.piOutdated", { version }), "outdated");
         return { executable: candidate.executable, version, source: candidate.source, ...launch };
@@ -876,19 +810,74 @@ export const resolveMuseCli = (input?: {
   systemCandidates?: string[];
   bundledExecutable?: string | null | undefined;
 }) => resolveNativeCli("muse", input);
+export const resolveDevinCli = (input?: {
+  systemCandidates?: string[];
+  bundledExecutable?: string | null | undefined;
+}) => resolveNativeCli("devin", input);
+export const resolveCopilotCli = (input?: {
+  systemCandidates?: string[];
+  bundledExecutable?: string | null | undefined;
+}) => resolveNativeCli("copilot", input);
+export const resolveMistralCli = (input?: {
+  systemCandidates?: string[];
+  bundledExecutable?: string | null | undefined;
+}) => resolveNativeCli("mistral", input);
 
-export function parsePiVersion(output: string): string {
+function parsePiVersion(output: string): string {
   const match = output.trim().match(/(?:^|\s)v?(\d+\.\d+\.\d+)(?:[-+][\w.-]+)?(?:\s|$)/u);
   if (!match?.[1])
     throw new CodexCliError(sourceText("error.provider.nativeVersionUnreadable", { provider: "Pi" }), "invalid");
   return match[1];
 }
-export function parseMuseVersion(output: string): string {
+function parseMuseVersion(output: string): string {
   const match = output.match(/\b\d+\.\d+\.\d+-R\d+(?:\.\d+)?\b/u) ?? output.match(/\b\d+\.\d+\.\d+\b/u);
   if (!match)
     throw new CodexCliError(sourceText("error.provider.nativeVersionUnreadable", { provider: "Muse" }), "invalid");
   return match[0];
 }
+
+/** Devin CLI 3000.11.234 prints `devin 3000.11.234 (92c83011d113)`. */
+function parseDevinVersion(output: string): string {
+  const match = output.match(/\bdevin[ \t]+v?(\d+\.\d+\.\d+)\b/iu) ?? output.match(/\b\d+\.\d+\.\d+\b/u);
+  if (!match)
+    throw new CodexCliError(sourceText("error.provider.nativeVersionUnreadable", { provider: "Devin" }), "invalid");
+  return match[1] ?? match[0];
+}
+
+/** GitHub Copilot CLI 1.0.105 prints `GitHub Copilot CLI 1.0.105.` and a line about updates. */
+function parseCopilotVersion(output: string): string {
+  const match = output.match(/\bCopilot CLI[ \t]+v?(\d+\.\d+\.\d+)\b/iu) ?? output.match(/\b\d+\.\d+\.\d+\b/u);
+  if (!match)
+    throw new CodexCliError(
+      sourceText("error.provider.nativeVersionUnreadable", { provider: "GitHub Copilot" }),
+      "invalid",
+    );
+  return match[1] ?? match[0];
+}
+
+/** Mistral Vibe 3.1.0 prints `vibe-acp 3.1.0`. */
+function parseMistralVersion(output: string): string {
+  const match = output.match(/\bvibe-acp[ \t]+v?(\d+\.\d+\.\d+)\b/iu) ?? output.match(/\b\d+\.\d+\.\d+\b/u);
+  if (!match)
+    throw new CodexCliError(
+      sourceText("error.provider.nativeVersionUnreadable", { provider: "Mistral Vibe" }),
+      "invalid",
+    );
+  return match[1] ?? match[0];
+}
+
+/** The providers whose CLI is one native program that OpenBot can download. */
+type NativeCliProvider = "pi" | "muse" | "devin" | "copilot" | "mistral" | "antigravity";
+
+/** The version parser of each native provider CLI. */
+export const NATIVE_VERSION_PARSERS: Readonly<Record<NativeCliProvider, (output: string) => string>> = {
+  pi: parsePiVersion,
+  muse: parseMuseVersion,
+  devin: parseDevinVersion,
+  copilot: parseCopilotVersion,
+  mistral: parseMistralVersion,
+  antigravity: parseAntigravityVersion,
+};
 
 export function isVersion(value: string): boolean {
   return /^\d+\.\d+\.\d+(?:(?:-\d{2}-\d{2}-\d{2})?-[0-9a-f]{7,40})?$/u.test(value);
@@ -917,30 +906,60 @@ export function resolveInstalledFirst<Cli extends AgentCliInfo, E>(
   resolve: (input: { bundledExecutable?: string | null }) => Effect.Effect<Cli, E>,
   bundledExecutable: string | null | undefined,
   preferInstalled: boolean,
+  installedChosen = false,
 ): Effect.Effect<Cli, E> {
+  return chooseInstalledFirst(resolve, bundledExecutable, preferInstalled, installedChosen).pipe(
+    Effect.map((choice) => choice.cli),
+  );
+}
+
+/**
+ * The CLI that runs, and the one the user can switch to: the CLI the user installed while OpenBot's
+ * copy runs, or the newer copy while the user's CLI runs because they chose it.
+ */
+export interface InstalledFirstChoice<Cli> {
+  readonly cli: Cli;
+  readonly passedOver: { readonly source: "system" | "managed"; readonly version: string } | null;
+}
+
+/**
+ * `resolveInstalledFirst`, with the CLI it passed over. `installedChosen`: the user chose their own
+ * CLI, so it runs also when the copy is newer. A launcher of the user's, such as a script that picks
+ * Pi's settings folder, then still runs after an update (#6327).
+ */
+export function chooseInstalledFirst<Cli extends AgentCliInfo, E>(
+  resolve: (input: { bundledExecutable?: string | null }) => Effect.Effect<Cli, E>,
+  bundledExecutable: string | null | undefined,
+  preferInstalled: boolean,
+  installedChosen = false,
+): Effect.Effect<InstalledFirstChoice<Cli>, E> {
   const copy = resolve(bundledExecutable === undefined ? {} : { bundledExecutable });
-  if (!preferInstalled) return copy;
   const installedCli = resolve({ bundledExecutable: null }).pipe(Effect.orElseSucceed(() => null));
-  const choose = (resolved: Cli, installed: Cli | null): Cli =>
-    resolved.source === "managed" &&
-    installed?.source === "system" &&
-    (installed.version === resolved.version || olderVersion(resolved.version, installed.version))
-      ? installed
-      : resolved;
+  const choose = (resolved: Cli, installed: Cli | null): InstalledFirstChoice<Cli> => {
+    if (resolved.source !== "managed" || installed?.source !== "system") return { cli: resolved, passedOver: null };
+    const asNew = installed.version === resolved.version || olderVersion(resolved.version, installed.version);
+    if (preferInstalled && (asNew || installedChosen)) {
+      const copyNewer = olderVersion(installed.version, resolved.version);
+      return { cli: installed, passedOver: copyNewer ? { source: "managed", version: resolved.version } : null };
+    }
+    return { cli: resolved, passedOver: { source: "system", version: installed.version } };
+  };
   return Effect.gen(function* () {
     // With a copy, the two probes run at once: the user's CLI adds no wait unless it is the slower one.
+    // An update starts the copy, but still reads the user's CLI, so that it can offer it afterwards.
     if (bundledExecutable) {
       const [resolved, installed] = yield* Effect.all([copy, installedCli], { concurrency: 2 });
       return choose(resolved, installed);
     }
     const resolved = yield* copy;
-    return resolved.source === "managed" ? choose(resolved, yield* installedCli) : resolved;
+    return resolved.source === "managed" ? choose(resolved, yield* installedCli) : { cli: resolved, passedOver: null };
   });
 }
 
 /** The command name of a provider's CLI on `PATH`. */
 function cliCommandName(provider: AgentProviderId): string {
-  return provider === "cursor" ? "cursor-agent" : provider;
+  // Mistral Vibe's `vibe` command is its terminal app; `vibe-acp` is its ACP server.
+  return provider === "cursor" ? "cursor-agent" : provider === "mistral" ? "vibe-acp" : provider;
 }
 
 /** An explicit path remains under the user's control, including during managed updates. */
@@ -1311,9 +1330,19 @@ export function cliSpawnTarget(
 /**
  * A busy computer can take many seconds to start a CLI, so the limit is generous. A timeout is
  * reported apart from a failure: the CLI is not broken, and reinstalling it does not help. The
- * provider runtime tries again later, so this limit only has to cover one slow answer.
+ * provider runtime tries again later, with `SLOW_CLI_VERSION_TIMEOUT_MS`.
  */
 const CLI_VERSION_TIMEOUT_MS = 10_000;
+/**
+ * The limit of a version read after a read of the same CLI timed out. The first read from a cold disk
+ * cache took 85 s, and 3 reads with `CLI_VERSION_TIMEOUT_MS` in a row stopped the provider (#8548). The
+ * longer limit stays after a read in time: the files can leave the disk cache again. A read that also
+ * times out with this limit is from a CLI that does not answer, and the next read has the short limit
+ * again: a hung CLI does not hold a start for 2 minutes each time.
+ */
+const SLOW_CLI_VERSION_TIMEOUT_MS = 120_000;
+/** The executables whose next version read waits `SLOW_CLI_VERSION_TIMEOUT_MS`. */
+const slowVersionReads = new Set<string>();
 
 /**
  * A busy computer makes every candidate slow, so the resolvers report the first timeout and do not
@@ -1324,51 +1353,62 @@ function isCliTimeout(error: unknown): error is CodexCliError {
 }
 
 /**
- * Runs `--version` with the `PATH` that the CLI's processes get, so a `#!/usr/bin/env node` CLI that
- * starts here also starts as the provider. `launch` holds that `PATH` for the resolved CLI info.
+ * Runs `--version` (or the fixed `args` that print the version) with the `PATH` that the CLI's
+ * processes get, so a `#!/usr/bin/env node` CLI that starts here also starts as the provider.
+ * `launch` holds that `PATH` for the resolved CLI info.
  */
 const readCliVersion = Effect.fn("Cli.readVersion")(function* (
   { executable: candidate, source }: { executable: string; source: "system" | "managed" },
   provider: AgentProviderId,
+  args: readonly string[] = ["--version"],
 ) {
   const launchPath = yield* cliLaunchPath(candidate, source);
   const launch = launchPath ? { launchPath } : {};
   const target = process.platform === "win32" && [".bat", ".cmd"].includes(extname(candidate).toLowerCase());
-  const output = yield* providerCall(() =>
-    target
-      ? execFileAsync(
-          process.env.ComSpec?.trim() || "cmd.exe",
-          ["/d", "/s", "/c", `""${candidate.replaceAll("%", "%%")}" --version"`],
-          {
-            timeout: CLI_VERSION_TIMEOUT_MS,
-            maxBuffer: 64 * 1024,
-            windowsHide: true,
-            windowsVerbatimArguments: true,
-          },
-        )
-      : execFileAsync(candidate, ["--version"], {
-          timeout: CLI_VERSION_TIMEOUT_MS,
-          maxBuffer: 64 * 1024,
-          windowsHide: process.platform === "win32",
-          env: { ...process.env, ...cliPathEnvironment(launch) },
-        }),
-  ).pipe(
-    Effect.mapError((failure) =>
-      isDynamicRecord(failure.cause) && failure.cause.killed === true
-        ? providerFailure(
-            new CodexCliError(
-              sourceText("error.provider.cliTimedOutRefresh", { provider: agentProviderName(provider) }),
-              "timeout",
-            ),
+  const slow = slowVersionReads.has(candidate);
+  const timeout = providerCheckTimeoutMs(slow ? SLOW_CLI_VERSION_TIMEOUT_MS : CLI_VERSION_TIMEOUT_MS);
+  // The signal stops the process when the start that waits for it ends.
+  const output = yield* Effect.tryPromise({
+    try: (signal) =>
+      target
+        ? execFileAsync(
+            process.env.ComSpec?.trim() || "cmd.exe",
+            ["/d", "/s", "/c", `""${candidate.replaceAll("%", "%%")}" ${args.join(" ")}"`],
+            {
+              signal,
+              timeout,
+              maxBuffer: 64 * 1024,
+              windowsHide: true,
+              windowsVerbatimArguments: true,
+            },
           )
-        : failure,
-    ),
+        : execFileAsync(candidate, [...args], {
+            signal,
+            timeout,
+            maxBuffer: 64 * 1024,
+            windowsHide: process.platform === "win32",
+            env: { ...process.env, ...cliPathEnvironment(launch) },
+          }),
+    catch: providerFailure,
+  }).pipe(
+    Effect.mapError((failure) => {
+      if (!(isDynamicRecord(failure.cause) && failure.cause.killed === true)) return failure;
+      // The timeout changes the limit of the next read (`SLOW_CLI_VERSION_TIMEOUT_MS`).
+      if (slow) slowVersionReads.delete(candidate);
+      else slowVersionReads.add(candidate);
+      return providerFailure(
+        new CodexCliError(
+          sourceText("error.provider.cliTimedOutRefresh", { provider: agentProviderName(provider) }),
+          "timeout",
+        ),
+      );
+    }),
   );
   return { stdout: output.stdout, launch };
 });
 
 /** `X_OK` also passes for a folder, and a login-shell `PATH` folder can hold one with the CLI's name. */
-const isExecutable = Effect.fn("Cli.isExecutable")((path: string) =>
+export const isExecutable = Effect.fn("Cli.isExecutable")((path: string) =>
   providerCall(async () => {
     await access(path, process.platform === "win32" ? constants.F_OK : constants.X_OK);
     return (await stat(path)).isFile();

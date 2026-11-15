@@ -92,7 +92,7 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
   // Most users start free, so its download starts before they choose. It waits until the status says
   // there is no OpenCode CLI: a user with their own gets no download. It goes to the host directly,
   // because the row action would also choose the provider and fix the plan rows before the user saw
-  // them. A failed request leaves the provider not downloaded; "Start free" tries again and says why.
+  // them. A failed request leaves the provider not downloaded; "Use free models" tries again and says why.
   createEffect(
     () => {
       const free = option(FREE_PROVIDER);
@@ -162,7 +162,7 @@ export function FirstRunFlow(props: FirstRunFlowProps) {
       current.path = "free";
     });
     retryFree();
-    // The step after the first question; the plan step's "Start free instead" also lands there.
+    // The step after the first question; the plan step's "Use free models instead" also lands there.
     const following = stepsFor("free")[1];
     if (following) {
       moveTo(following);

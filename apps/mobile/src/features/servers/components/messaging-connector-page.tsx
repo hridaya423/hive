@@ -1,5 +1,5 @@
 import {
-  type ConnectorPlatform,
+  type ConnectorMessagingPlatform,
   MESSAGING_LIMITS,
   type MessagingConnection,
   type MessagingOverview,
@@ -56,7 +56,7 @@ const AVATAR_SIZE = 32;
 /** What to do about a stopped connection, or null for a state that shows the connection's description. */
 function connectionHelp(
   { t }: MobileText,
-  platform: ConnectorPlatform,
+  platform: ConnectorMessagingPlatform,
   state: MessagingConnection["state"],
   host: string,
 ): string | null {
@@ -66,6 +66,8 @@ function connectionHelp(
         return t("mobile.server.connectors.telegram.helpRemoved");
       case "relay_unavailable":
         return t("mobile.server.connectors.telegram.helpRelay", { host });
+      case "not_linked":
+        return t("mobile.server.connectors.telegram.helpNotLinked", { host });
       case "invalid_token":
       case "secret_storage_unavailable":
       case "error":
@@ -90,12 +92,17 @@ function connectionHelp(
       return t(slack ? "mobile.server.connectors.slack.helpRelay" : "mobile.server.connectors.discord.helpRelay", {
         host,
       });
+    case "not_linked":
+      return t(
+        slack ? "mobile.server.connectors.slack.helpNotLinked" : "mobile.server.connectors.discord.helpNotLinked",
+        { host },
+      );
     default:
       return null;
   }
 }
 
-function isWorkspacePlatform(platform: ConnectorPlatform): platform is WorkspacePlatform {
+function isWorkspacePlatform(platform: ConnectorMessagingPlatform): platform is WorkspacePlatform {
   return platform !== "telegram";
 }
 
@@ -106,7 +113,7 @@ function isWorkspacePlatform(platform: ConnectorPlatform): platform is Workspace
  * Resolves false when the user closed the browser.
  */
 async function openHostPage(
-  platform: ConnectorPlatform,
+  platform: ConnectorMessagingPlatform,
   page: HostPage,
   /** Resolves false when the host refused the grant, such as after its install key expired. */
   complete: (grant: { nonce: string; grant: string }) => Promise<boolean>,
@@ -129,7 +136,7 @@ async function openHostPage(
 }
 
 /**
- * Server settings › Connectors › Slack, Discord or Telegram of a joined server. A Slack workspace or a
+ * Marketplace › Apps › Slack, Discord or Telegram of a joined server. A Slack workspace or a
  * Discord server installs the one OpenBot app, and its orchestrator agent receives every request.
  * Every Telegram chat adds the one OpenBot bot and shares one orchestrator. No token reaches the phone.
  */
@@ -140,7 +147,7 @@ export function MessagingConnectorPage({
   agents,
 }: {
   server: MobileServer;
-  platform: ConnectorPlatform;
+  platform: ConnectorMessagingPlatform;
   query: UseQueryResult<MessagingOverview>;
   agents: readonly MobileAgent[];
 }) {
@@ -397,6 +404,7 @@ export function MessagingConnectorPage({
                   agentId={agent.id}
                   serverId={agent.serverId}
                   hue={agent.avatarHue}
+                  color={agent.avatarColor}
                   seed={agent.avatarSeed}
                   size={AVATAR_SIZE}
                 />

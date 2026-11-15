@@ -21,7 +21,7 @@ import {
 import { type ClientAgentSummary, isClientAgentSummary } from "./ipc-agents";
 import { isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
 import { decodeRecord, nonNegativeInteger } from "./ipc-decoding";
-import { isBoolean, isString } from "./runtime-values";
+import { isBoolean, isDynamicRecord, isString } from "./runtime-values";
 
 export const INSTANCE_TRANSFER_LIMITS = {
   /** The file is read into memory on import, so it stays below 2 GiB. */
@@ -54,6 +54,21 @@ export interface ExportInstanceInput {
   agentIds: string[];
   includeFiles: boolean;
   includeSettings: boolean;
+  /**
+   * The agents' chats and side threads with the files of their messages. Absent is off: the Team API
+   * route `instance-transfer-v1` does not carry it.
+   */
+  includeHistory?: boolean;
+  /**
+   * The messages of the exported channels. Absent follows `includeHistory`, which carried them before
+   * this field existed: `instance-transfer-chunks-v1` does not carry this field.
+   */
+  includeChannelMessages?: boolean;
+  /**
+   * The host-wide preferences: time zone, personality, busy-message mode, agent defaults, memory and
+   * skill settings, prompt cache, and the owner's server notification level. Absent is off.
+   */
+  includeServerPreferences?: boolean;
 }
 
 export interface InstanceExportResult {
@@ -72,6 +87,11 @@ export interface InstanceTransferPreview {
   agents: AgentImportPreviewAgent[];
   /** The file carries app settings. */
   hasSettings: boolean;
+  /**
+   * The file carries server preferences (with the name, logo and members' choices). Absent from a
+   * host that answers with the `instance-transfer-v1` preview, which does not carry it.
+   */
+  hasServerPreferences?: boolean;
   warnings: string[];
 }
 
@@ -80,6 +100,22 @@ export interface ApplyInstanceTransferInput {
   /** May be empty when only the settings are imported. */
   keys: string[];
   includeSettings: boolean;
+  /**
+   * Replaces this server's preferences, name, logo and members' choices with the file's. Absent is
+   * off: the `instance-transfer-v1` apply does not carry it.
+   */
+  includeServerPreferences?: boolean;
+}
+
+/**
+ * Agents of one server copied into another, with their workspace files and no chat history or server
+ * settings. The server scope of the request is the destination. Main exports from the source and
+ * imports at the destination with the routes above, so a host needs no new route.
+ */
+export interface CopyInstanceAgentsInput {
+  /** The server that has the agents. It is not the destination. */
+  fromServerId: string;
+  agentIds: string[];
 }
 
 export interface InstanceTransferResult {
@@ -109,6 +145,11 @@ function invalid(label: string): never {
   throw new Error(`Invalid ${label}.`);
 }
 
+function record(value: unknown, label: string) {
+  if (!isDynamicRecord(value)) invalid(label);
+  return value;
+}
+
 function isUniqueList<T extends string>(
   value: unknown,
   maximum: number,
@@ -122,7 +163,17 @@ export function parseExportInstanceInput(value: unknown): ExportInstanceInput {
   if (!isUniqueList(input.agentIds, INPUT_LIMITS.agents, isIdentifier) || input.agentIds.length === 0)
     invalid("agent selection");
   if (!isBoolean(input.includeFiles) || !isBoolean(input.includeSettings)) invalid("export request");
-  return { agentIds: input.agentIds, includeFiles: input.includeFiles, includeSettings: input.includeSettings };
+  for (const key of ["includeHistory", "includeChannelMessages", "includeServerPreferences"] as const)
+    if (input[key] !== undefined && !isBoolean(input[key])) invalid("export request");
+  return {
+    agentIds: input.agentIds,
+    includeFiles: input.includeFiles,
+    includeSettings: input.includeSettings,
+    ...(input.includeHistory ? { includeHistory: true } : {}),
+    // Kept when false: false differs from absent, which follows `includeHistory`.
+    ...(isBoolean(input.includeChannelMessages) ? { includeChannelMessages: input.includeChannelMessages } : {}),
+    ...(input.includeServerPreferences ? { includeServerPreferences: true } : {}),
+  };
 }
 
 export function parseApplyInstanceTransferInput(value: unknown): ApplyInstanceTransferInput {
@@ -130,8 +181,24 @@ export function parseApplyInstanceTransferInput(value: unknown): ApplyInstanceTr
   if (!isIdentifier(input.token)) invalid("import token");
   if (!isUniqueList(input.keys, INPUT_LIMITS.agents, isAgentImportKey)) invalid("agent selection");
   if (!isBoolean(input.includeSettings)) invalid("import request");
-  if (input.keys.length === 0 && !input.includeSettings) invalid("import request");
-  return { token: input.token, keys: input.keys, includeSettings: input.includeSettings };
+  if (input.includeServerPreferences !== undefined && !isBoolean(input.includeServerPreferences))
+    invalid("import request");
+  const includeServerPreferences = input.includeServerPreferences === true;
+  if (input.keys.length === 0 && !input.includeSettings && !includeServerPreferences) invalid("import request");
+  return {
+    token: input.token,
+    keys: input.keys,
+    includeSettings: input.includeSettings,
+    ...(includeServerPreferences ? { includeServerPreferences: true } : {}),
+  };
+}
+
+export function parseCopyInstanceAgentsInput(value: unknown): CopyInstanceAgentsInput {
+  const input = record(value, "copy request");
+  if (!isIdentifier(input.fromServerId)) invalid("source server");
+  if (!isUniqueList(input.agentIds, INPUT_LIMITS.agents, isIdentifier) || input.agentIds.length === 0)
+    invalid("agent selection");
+  return { fromServerId: input.fromServerId, agentIds: input.agentIds };
 }
 
 export function parseMoveAgentInput(value: unknown): MoveAgentInput {
@@ -218,6 +285,7 @@ export function decodeInstanceTransferPreview(value: unknown): InstanceTransferP
     exportedAt: preview.exportedAt,
     agents: preview.agents.map(decodeAgentImportPreviewAgent),
     hasSettings: preview.hasSettings,
+    ...(isBoolean(preview.hasServerPreferences) ? { hasServerPreferences: preview.hasServerPreferences } : {}),
     warnings: decodeImportMessages(preview.warnings, "transfer warnings"),
   };
 }

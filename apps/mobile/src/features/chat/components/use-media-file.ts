@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Directory, File, Paths } from "expo-file-system";
 import { useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
 import { queryKeys } from "@/features/workspace/model/query-keys";
+import { largeDownloadOf } from "../model/large-files";
 
 /** The extension of a file whose name has none, for the types a player cannot read without one. */
 const MIME_EXTENSIONS: Record<string, string> = {
@@ -36,17 +37,50 @@ function mediaFolder() {
   return folder;
 }
 
+/** A folder name from a server or attachment id. */
+const segment = (value: string) => value.replace(/[^\w.-]/gu, "_").replace(/^\.+/u, "_");
+/** A file name with no folder separators, control characters or leading dots. */
+const fileName = (name: string) => name.replace(/[/\\\p{Cc}]/gu, "_").replace(/^\.+/u, "_") || "file";
+
 /**
  * Where a host file is kept on this phone. A player reads a file, not the Base64 that the host
  * sends, and the file keeps the attachment's name so the share sheet shows it.
  */
 export function mediaFile(serverId: string, attachment: AttachmentSummary) {
-  const segment = (value: string) => value.replace(/[^\w.-]/gu, "_").replace(/^\.+/u, "_");
-  let name = attachment.name.replace(/[/\\\p{Cc}]/gu, "_").replace(/^\.+/u, "_") || "file";
+  let name = fileName(attachment.name);
   // A player and the photo library read the type from the extension.
   if (!attachmentFileExtension(name))
     name = `${name}.${MIME_EXTENSIONS[attachment.mimeType] ?? attachment.mimeType.split("/")[1] ?? "bin"}`;
   return new File(mediaFolder(), segment(serverId), segment(attachment.id), name);
+}
+
+/**
+ * The place of a file that a message names, in the folder of downloaded files. `key` names the file
+ * on the host, so a second open writes over the copy of the first one and adds no copy.
+ */
+export function messageFileCopy(serverId: string, key: string, name: string) {
+  // FNV-1a: a host path can be longer than a folder name may be.
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < key.length; index += 1) hash = Math.imul(hash ^ key.charCodeAt(index), 0x01000193);
+  const folder = `message-file-${(hash >>> 0).toString(36)}`;
+  return new File(mediaFolder(), segment(serverId), folder, fileName(name));
+}
+
+/** The writes that run now, by file. */
+const mediaWrites = new Map<string, Promise<void>>();
+
+/**
+ * Writes the Base64 of a host file to its place in the folder of downloaded files. The write is not
+ * `writeSync`: that decodes and writes megabytes on the JS thread, which also places the chat rows.
+ * Two readers of one host file, such as its card and Share, get the same write: a second write to
+ * the path would cut the file while the first reader has it.
+ */
+export function writeMediaFile(file: File, base64: string): Promise<void> {
+  const running = mediaWrites.get(file.uri);
+  if (running) return running;
+  const write = file.write(base64, { encoding: "base64" }).finally(() => mediaWrites.delete(file.uri));
+  mediaWrites.set(file.uri, write);
+  return write;
 }
 
 /**
@@ -61,9 +95,9 @@ export function useMediaFile(serverId: string, attachment: AttachmentSummary, en
     queryFn: async () => {
       const file = mediaFile(serverId, attachment);
       if (file.exists && file.size === attachment.size) return file.uri;
-      const data = await downloadAttachment(serverId, attachment.id);
+      const data = await downloadAttachment(serverId, attachment.id, largeDownloadOf(attachment));
       file.parentDirectory.create({ intermediates: true, idempotent: true });
-      file.writeSync(data.base64, { encoding: "base64" });
+      await writeMediaFile(file, data.base64);
       return file.uri;
     },
     retry: false,

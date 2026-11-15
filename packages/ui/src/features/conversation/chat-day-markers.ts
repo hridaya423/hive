@@ -17,6 +17,11 @@ export interface DayMarkerOptions {
   t?: AppTranslate;
   /** The interface formats. Without it, the date and time use `locale`. */
   format?: AppFormat;
+  /**
+   * A separator also stands between two messages of one day when this many milliseconds or more
+   * are between them. Without it, only a new day gets a separator.
+   */
+  gapMs?: number;
 }
 
 function dayDifference(from: Date, to: Date): number {
@@ -38,7 +43,8 @@ function dateOf(value: Date, options: DayMarkerOptions): string {
  *
  * `previousIso` is the time of the message above it, and is absent for the first message of the
  * transcript, which always gets a separator. An unreadable timestamp gives no separator, because a
- * separator that cannot name its day tells the reader nothing.
+ * separator that cannot name its day tells the reader nothing. With `gapMs`, a long pause on one day
+ * also gets a separator.
  */
 export function dayMarkerLabel(
   previousIso: string | undefined,
@@ -49,7 +55,9 @@ export function dayMarkerLabel(
   if (Number.isNaN(current.getTime())) return null;
   if (previousIso !== undefined) {
     const previous = new Date(previousIso);
-    if (!Number.isNaN(previous.getTime()) && dayDifference(previous, current) === 0) return null;
+    const sameDay = !Number.isNaN(previous.getTime()) && dayDifference(previous, current) === 0;
+    const longGap = options.gapMs !== undefined && current.getTime() - previous.getTime() >= options.gapMs;
+    if (sameDay && !longGap) return null;
   }
   const now = options.now ?? new Date();
   const age = dayDifference(current, now);

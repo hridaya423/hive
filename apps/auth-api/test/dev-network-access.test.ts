@@ -14,6 +14,7 @@ describe("development Auth API LAN access", () => {
       "/v1/mobile-auth/session",
       "/v1/me",
       "/v1/me/profile",
+      "/v1/me/chat-color",
       "/v1/me/avatar",
       "/v1/mobile/features?platform=ios&version=1.2.0",
       "/v1/avatars/user-id?v=photo-version",
@@ -28,6 +29,7 @@ describe("development Auth API LAN access", () => {
       "/v2/remote/hosts/host-1/",
       "/v2/remote/hosts/host-1/members/member-1",
       "/v2/remote/hosts/host-1/logo?v=logo-version",
+      "/v2/remote/hosts/host-1/appearance",
       "/v1/agent-templates/AbCdEfGhIjKlMnOpQrSt_-",
       "/v1/agent-templates/AbCdEfGhIjKlMnOpQrSt_-/avatar",
     ]) {
@@ -40,6 +42,7 @@ describe("development Auth API LAN access", () => {
     expect(developmentNetworkRequestAllowed("192.168.1.20", "/v1/mobile-auth/ticket")).toBe(false);
     expect(developmentNetworkRequestAllowed("192.168.1.20", "/v1/mobile-auth/devices/session-id/other")).toBe(false);
     expect(developmentNetworkRequestAllowed("192.168.1.20", "/v1/me/other")).toBe(false);
+    expect(developmentNetworkRequestAllowed("192.168.1.20", "/v1/me/chat-color/other")).toBe(false);
     expect(developmentNetworkRequestAllowed("192.168.1.20", "/v1/mobile/other")).toBe(false);
     expect(developmentNetworkRequestAllowed("192.168.1.20", "/v1/avatars/user-id/other")).toBe(false);
     expect(developmentNetworkRequestAllowed("192.168.1.20", "/v1/agent-templates/mine")).toBe(false);
@@ -57,6 +60,7 @@ describe("development Auth API LAN access", () => {
     }
     expect(developmentNetworkRequestAllowed("192.168.1.20", "/v2/slack/authorize")).toBe(false);
     expect(developmentNetworkRequestAllowed("192.168.1.20", "/v2/remote/hosts/host-1/logo/other")).toBe(false);
+    expect(developmentNetworkRequestAllowed("192.168.1.20", "/v2/remote/hosts/host-1/appearance/other")).toBe(false);
     expect(developmentNetworkRequestAllowed("192.168.1.20", "/v2/remote/sessions/session-1/other")).toBe(false);
     for (const path of [
       "/v2/hosting/plans",

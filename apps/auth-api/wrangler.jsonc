@@ -10,8 +10,10 @@
     "enabled": true,
     "cross_version_cache": false
   },
+  // Workers Logs stay off: they kept one event for each request, and their cost was larger than the cost of
+  // the requests. `wrangler tail` still shows live events. `false` turns off a setting made earlier.
   "observability": {
-    "enabled": true
+    "enabled": false
   },
   // The Cloudflare Vite plugin emits and uploads Worker source maps unless this is false. The Worker
   // bundles the web app, and its maps pass the 60 MiB upload limit, so every deploy fails.
@@ -41,6 +43,7 @@
     "REMOTE_TICKET_KEY_ID": "openbot-remote-1",
     "REMOTE_SIGNAL_URL": "",
     "REMOTE_SIGNAL_HOMES": "",
+    "REMOTE_SIGNAL_HOME_LOCATIONS": "",
     "REMOTE_AUTH_WEBHOOK_URL": "",
     "REMOTE_AUTH_WEBHOOK_URLS": "",
     "SIGNAL_ENTRY_ZONE_ID": ""
@@ -122,6 +125,7 @@
         "REMOTE_TICKET_KEY_ID": "openbot-remote-1",
         "REMOTE_SIGNAL_URL": "ws://127.0.0.1:8081/v1/signal",
         "REMOTE_SIGNAL_HOMES": "",
+        "REMOTE_SIGNAL_HOME_LOCATIONS": "",
         "REMOTE_AUTH_WEBHOOK_URL": "http://127.0.0.1:8081/internal/auth-events",
         "REMOTE_AUTH_WEBHOOK_URLS": "",
         "SIGNAL_ENTRY_ZONE_ID": ""
@@ -198,6 +202,7 @@
         "REMOTE_TICKET_KEY_ID": "openbot-remote-1",
         "REMOTE_SIGNAL_URL": "",
         "REMOTE_SIGNAL_HOMES": "",
+        "REMOTE_SIGNAL_HOME_LOCATIONS": "",
         "REMOTE_AUTH_WEBHOOK_URL": "",
         "REMOTE_AUTH_WEBHOOK_URLS": "",
         // The test Worker never moves the production entry name.

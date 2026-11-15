@@ -9,6 +9,7 @@ import { AgentUsageReport, type UsageAgentRow } from "@/features/agents/componen
 import { UsageLoading } from "@/features/agents/components/usage-motion";
 import { lastUsageDays, UsageRangePicker } from "@/features/agents/components/usage-range-picker";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
+import { MachineUsageSummary } from "@/features/servers/components/machine-usage-summary";
 import { PlanLimitsSummary } from "@/features/servers/components/plan-limits-summary";
 import { SettingsNote } from "@/features/settings/components/settings-content";
 import { useMobileWorkspace } from "@/features/workspace/context/mobile-workspace-context";
@@ -67,7 +68,8 @@ export function ServerUsageScreen() {
   return (
     <LargeTitleScrollView title={title} caption={server.name} contentContainerClassName="px-4 pt-3">
       <View className="gap-4">
-        {/* Above the range: the limits are the provider's now, not of a range. */}
+        {/* Above the range: the limits and the machine use are now, not of a range. */}
+        <MachineUsageSummary serverId={server.id} />
         <PlanLimitsSummary serverId={server.id} />
         <UsageRangePicker range={range} onChange={setRange} />
         {!online ? (

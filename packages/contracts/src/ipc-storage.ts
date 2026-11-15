@@ -50,7 +50,11 @@ export const STORED_FILE_STATUSES = ["available", "missing", "remote", "failed"]
  */
 export type StoredFileStatus = (typeof STORED_FILE_STATUSES)[number];
 
-export const STORAGE_SCOPES = ["host", "agent", "conversation"] as const;
+/**
+ * `channel` is the files of one channel's messages. A joined server answers it only with
+ * `storage-channel-v1`; the storage-v1 wire does not carry it.
+ */
+export const STORAGE_SCOPES = ["host", "agent", "conversation", "channel"] as const;
 export type StorageScope = (typeof STORAGE_SCOPES)[number];
 
 /** A host with more rows than this sends the largest ones and sets `truncated`. */
@@ -106,6 +110,8 @@ export interface StorageUsage {
   scope: StorageScope;
   agentId: string | null;
   conversationId: string | null;
+  /** Only on the `channel` scope. */
+  channelId?: string;
   scannedAt: string;
   /** Free space on the disk that holds the host data. Null when the host cannot tell. */
   freeBytes: number | null;
@@ -121,12 +127,19 @@ export interface StorageUsage {
 export interface StorageDisk {
   freeBytes: number | null;
   totalBytes: number | null;
+  /**
+   * The bytes that the files of the server's user use on this disk: the home folder and the temporary
+   * folders. Only a hosted server without Docker measures it (`storage-user-files-v1`); the clients
+   * then count the plan storage from it. Absent or null elsewhere.
+   */
+  userBytes?: number | null;
 }
 
 export interface GetStorageUsageInput {
   scope: StorageScope;
   agentId?: string;
   conversationId?: string;
+  channelId?: string;
   /** Measure again, even when a recent result is cached. */
   force?: boolean;
 }
@@ -141,7 +154,11 @@ export interface ClearStorageInput {
 
 export interface OpenStoredFileInput {
   fileId: string;
-  action: "open" | "reveal" | "download";
+  /**
+   * `save` puts the file in the Downloads folder with no dialog, so the Library can download many files
+   * at once. A file there keeps its name; the new file gets a number after its name.
+   */
+  action: "open" | "reveal" | "download" | "save";
 }
 
 /**
@@ -189,12 +206,15 @@ export function parseGetStorageUsageInput(value: unknown): GetStorageUsageInput 
   if (input.force !== undefined && !isBoolean(input.force)) invalid("storage refresh flag");
   const agentId = optionalIdentifier(input.agentId, "storage agent");
   const conversationId = optionalIdentifier(input.conversationId, "storage conversation");
+  const channelId = optionalIdentifier(input.channelId, "storage channel");
   if (input.scope === "agent" && !agentId) invalid("storage agent");
   if (input.scope === "conversation" && !conversationId) invalid("storage conversation");
+  if ((input.scope === "channel") !== (channelId !== undefined)) invalid("storage channel");
   return {
     scope: input.scope,
     ...(agentId === undefined ? {} : { agentId }),
     ...(conversationId === undefined ? {} : { conversationId }),
+    ...(channelId === undefined ? {} : { channelId }),
     ...(input.force === undefined ? {} : { force: input.force }),
   };
 }
@@ -211,7 +231,7 @@ export function parseClearStorageInput(value: unknown): ClearStorageInput {
 
 export function parseOpenStoredFileInput(value: unknown): OpenStoredFileInput {
   const input = decodeRecord(value, "file request");
-  if (!isOneOf(["open", "reveal", "download"] as const, input.action)) invalid("file action");
+  if (!isOneOf(["open", "reveal", "download", "save"] as const, input.action)) invalid("file action");
   return { fileId: identifier(input.fileId, "file"), action: input.action };
 }
 
@@ -309,11 +329,13 @@ export function decodeStorageUsage(value: unknown): StorageUsage {
   if (!isOneOf(STORAGE_SCOPES, usage.scope)) invalid("storage scope");
   if (!isNullableBoundedString(usage.agentId, 128) || !isNullableBoundedString(usage.conversationId, 128))
     invalid("storage scope");
+  if (usage.channelId !== undefined && !isNullableBoundedString(usage.channelId, 128)) invalid("storage scope");
   if (!isString(usage.scannedAt) || !isBoolean(usage.truncated)) invalid("storage usage");
   return {
     scope: usage.scope,
     agentId: usage.agentId,
     conversationId: usage.conversationId,
+    ...(isString(usage.channelId) ? { channelId: usage.channelId } : {}),
     scannedAt: usage.scannedAt,
     freeBytes: usage.freeBytes === null ? null : nonNegativeInteger(usage.freeBytes, "free space"),
     breakdown: list(usage.breakdown, STORAGE_CATEGORIES.length, decodeBreakdown, "storage breakdown"),
@@ -334,6 +356,32 @@ export function decodeStorageDisk(value: unknown): StorageDisk {
   return {
     freeBytes: disk.freeBytes === null ? null : nonNegativeInteger(disk.freeBytes, "free space"),
     totalBytes: disk.totalBytes === null ? null : nonNegativeInteger(disk.totalBytes, "disk size"),
+    ...(disk.userBytes === undefined
+      ? {}
+      : { userBytes: disk.userBytes === null ? null : nonNegativeInteger(disk.userBytes, "user files") }),
+  };
+}
+
+/**
+ * The `storage-channel-v1` answer as the usage of the `channel` scope: the files of one channel, with
+ * no breakdown, agents or chats, which that route does not carry.
+ */
+export function decodeChannelStorageUsage(value: unknown): StorageUsage {
+  const usage = decodeRecord(value, "channel storage");
+  if (!isIdentifier(usage.channelId)) invalid("storage channel");
+  if (!isString(usage.scannedAt) || !isBoolean(usage.truncated)) invalid("storage usage");
+  return {
+    scope: "channel",
+    agentId: null,
+    conversationId: null,
+    channelId: usage.channelId,
+    scannedAt: usage.scannedAt,
+    freeBytes: null,
+    breakdown: [],
+    agents: [],
+    conversations: [],
+    files: list(usage.files, STORAGE_LIMITS.files, decodeFileRow, "stored files"),
+    truncated: usage.truncated,
   };
 }
 
@@ -347,7 +395,8 @@ export function assertStorageUsageScope(result: StorageUsage, input: GetStorageU
   if (
     result.scope !== input.scope ||
     result.agentId !== (input.agentId ?? null) ||
-    result.conversationId !== (input.conversationId ?? null)
+    result.conversationId !== (input.conversationId ?? null) ||
+    (result.channelId ?? null) !== (input.channelId ?? null)
   )
     throw new Error("Storage response does not match the request.");
   return result;

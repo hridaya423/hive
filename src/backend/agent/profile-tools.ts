@@ -8,6 +8,7 @@ import {
   type AgentSummary,
   AVATAR_HUES,
   AVATAR_SEED_PATTERN,
+  type AvatarHue,
   agentComputerUseEnabled,
   isAvatarHue,
   isProviderAccountId,
@@ -15,6 +16,19 @@ import {
   workspaceAccessEnforced,
 } from "@openbot/contracts/ipc";
 import { z } from "zod";
+
+const AVATAR_HUE_NAMES = {
+  0: "red",
+  30: "orange",
+  55: "yellow",
+  100: "lime",
+  150: "green",
+  185: "cyan",
+  215: "blue",
+  245: "indigo",
+  280: "violet",
+  320: "magenta",
+} as const satisfies Record<AvatarHue, string>;
 
 const profileFields = {
   name: z.string().trim().min(1).max(INPUT_LIMITS.agentName),
@@ -27,7 +41,7 @@ const profileFields = {
     .int()
     .refine(isAvatarHue, "Invalid avatar hue.")
     .nullable()
-    .describe(`One of ${AVATAR_HUES.join(", ")}, or null.`),
+    .describe(`One of ${AVATAR_HUES.map((hue) => `${hue} ${AVATAR_HUE_NAMES[hue]}`).join(", ")}, or null.`),
 };
 
 export const createAgentToolSchema = z
@@ -74,7 +88,9 @@ export const updateProfileToolSchema = z
     reasoningEffort: z.enum(AGENT_REASONING_EFFORTS).describe("Effort from list_models.").optional(),
     providerAccountId: providerAccountId
       .nullable()
-      .describe("Account id from list_models, or null for the provider's own sign-in.")
+      .describe(
+        "Account id from list_models, or null for the provider's own sign-in. Null gives a pooled agent to the pool.",
+      )
       .optional(),
     backupModels: z
       .object({
@@ -151,6 +167,7 @@ export const PROFILE_TOOL_NAMES: ReadonlySet<string> = new Set([
   "create_agent",
   "update_profile",
   "update_agents",
+  "set_browser_profile",
 ]);
 
 /**
@@ -178,12 +195,16 @@ export function restrictionInput(
 /**
  * Describe a failed profile tool call. Schema failures omit submitted instructions and unknown field
  * names. A schema parsed with `reportInput` gives the checked value, so a trimmed field reports its
- * trimmed length.
+ * trimmed length. `unsupportedFields` gives the text for an object at `path` that has fields the tool
+ * does not take.
  */
-export function profileToolErrorMessage(error: unknown): string {
+export function profileToolErrorMessage(
+  error: unknown,
+  unsupportedFields: (path: readonly PropertyKey[]) => string = () => "Remove unsupported profile fields.",
+): string {
   if (!(error instanceof z.ZodError)) return error instanceof Error ? error.message : String(error);
   const details = error.issues.map((issue) => {
-    if (issue.code === "unrecognized_keys") return "Remove unsupported profile fields.";
+    if (issue.code === "unrecognized_keys") return unsupportedFields(issue.path);
     const field = issue.path.join(".") || "arguments";
     if (issue.code === "too_big" && issue.origin === "string" && typeof issue.input === "string") {
       return `${field} must have at most ${issue.maximum} characters; received ${issue.input.length}. Shorten it and retry.`;

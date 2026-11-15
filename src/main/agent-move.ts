@@ -23,8 +23,8 @@ import { Effect, Schema } from "effect";
 import type { AgentService } from "../backend/agent-service";
 import type { SidebarLayoutStore } from "../backend/sidebar-layout-store";
 import type { AgentHostSettingsService } from "./agent-host-settings";
-import type { InstanceTransferService } from "./instance-transfer-service";
-import { decodeHiddenAgentsFromHost, decodeRoutines } from "./remote-agent-decoding";
+import { type InstanceTransferService, LOCAL_OWNER } from "./instance-transfer-service";
+import { decodeHiddenAgentsFromHost, decodeRoutine, decodeRoutines } from "./remote-agent-decoding";
 import { decodeVoid } from "./remote-host-decoding";
 import type { RemoteServerManager } from "./remote-server-manager";
 
@@ -38,6 +38,11 @@ interface MovedAgent {
   name: string;
   warnings: string[];
   signIn: AgentProviderId[];
+}
+
+interface MoveRoutine {
+  id: string;
+  active: boolean;
 }
 
 interface TransferCounts {
@@ -55,7 +60,12 @@ export interface MoveHost {
     agentId: string,
     settings: AgentBackupModelSettings,
   ) => Effect.Effect<void, AgentMoveFailed>;
-  readonly routineIds: (agentId: string) => Effect.Effect<string[], AgentMoveFailed>;
+  readonly routines: (agentId: string) => Effect.Effect<MoveRoutine[], AgentMoveFailed>;
+  readonly setRoutineActive: (
+    agentId: string,
+    routineId: string,
+    active: boolean,
+  ) => Effect.Effect<void, AgentMoveFailed>;
   readonly deleteRoutine: (agentId: string, routineId: string) => Effect.Effect<void, AgentMoveFailed>;
   readonly deleteAgent: (agentId: string) => Effect.Effect<void, AgentMoveFailed>;
   readonly setHidden: (agentId: string, hidden: boolean) => Effect.Effect<void, AgentMoveFailed>;
@@ -77,7 +87,7 @@ const attempt = <A>(step: string, run: () => A | Promise<A>): Effect.Effect<A, A
 
 export interface LocalMoveHostDependencies {
   name: string;
-  agents: Pick<AgentService, "listRoutines" | "deleteRoutine" | "deleteAgent" | "setAgentHidden">;
+  agents: Pick<AgentService, "listRoutines" | "updateRoutine" | "deleteRoutine" | "deleteAgent" | "setAgentHidden">;
   hostSettings: Pick<AgentHostSettingsService, "readBackupModels" | "updateBackupModels">;
   instanceTransfer: Pick<InstanceTransferService, "summary" | "exportForMember" | "stageUpload" | "apply">;
   sidebarLayout: Pick<SidebarLayoutStore, "removeAgent">;
@@ -101,7 +111,7 @@ export function localMoveHost({
       ),
     exportAgent: (agentId) =>
       Effect.acquireUseRelease(
-        instanceTransfer.exportForMember(exportOne(agentId)).pipe(failAt("export")),
+        instanceTransfer.exportForMember(exportOne(agentId), LOCAL_OWNER).pipe(failAt("export")),
         (path) => attempt("export", async () => new Uint8Array(await readFile(path))),
         (path) => Effect.promise(() => rm(path, { force: true })),
       ),
@@ -129,7 +139,10 @@ export function localMoveHost({
       hostSettings
         .updateBackupModels({ agentId, backupModels: settings.backupModels })
         .pipe(failAt("backup models"), Effect.asVoid),
-    routineIds: (agentId) => attempt("routines", () => agents.listRoutines(agentId).map((routine) => routine.id)),
+    routines: (agentId) =>
+      attempt("routines", () => agents.listRoutines(agentId).map(({ id, active }) => ({ id, active }))),
+    setRoutineActive: (agentId, routineId, active) =>
+      attempt("pause routine", () => void agents.updateRoutine({ agentId, routineId, active })),
     deleteRoutine: (agentId, routineId) => agents.deleteRoutine({ agentId, routineId }).pipe(failAt("delete routine")),
     deleteAgent: (agentId) =>
       agents.deleteAgent(agentId).pipe(
@@ -233,11 +246,18 @@ export function remoteMoveHost(
             .pipe(failAt("backup models"), Effect.asVoid),
         ),
       ),
-    routineIds: (agentId) =>
+    routines: (agentId) =>
       remote.request(serverId, TEAM_API_ROUTES.agent.routines(agentId), decodeRoutines).pipe(
         failAt("routines"),
-        Effect.map((routines) => routines.map((routine) => routine.id)),
+        Effect.map((routines) => routines.map(({ id, active }) => ({ id, active }))),
       ),
+    setRoutineActive: (agentId, routineId, active) =>
+      remote
+        .request(serverId, TEAM_API_ROUTES.agent.routine(agentId, routineId), decodeRoutine, {
+          method: "PATCH",
+          body: { active },
+        })
+        .pipe(failAt("pause routine"), Effect.asVoid),
     deleteRoutine: (agentId, routineId) =>
       remote
         .request(serverId, TEAM_API_ROUTES.agent.routine(agentId, routineId), decodeVoid, { method: "DELETE" })
@@ -278,10 +298,13 @@ export interface MoveAgentInput {
 export const moveAgent = Effect.fn("AgentMove.move")(function* ({ source, target, agentId }: MoveAgentInput) {
   const expected = yield* source.counts(agentId);
   const backups = yield* source.backupModels(agentId);
+  const sourceRoutines = yield* source.routines(agentId);
+  const running = sourceRoutines.filter((routine) => routine.active).map((routine) => routine.id);
   yield* source.setHidden(agentId, true);
 
   const created = yield* Effect.gen(function* () {
     const bytes = yield* source.exportAgent(agentId);
+    for (const routineId of running) yield* source.setRoutineActive(agentId, routineId, false);
     const copy = yield* target.importAgent(bytes);
     yield* Effect.gen(function* () {
       const actual = yield* target.counts(copy.agentId);
@@ -306,7 +329,10 @@ export const moveAgent = Effect.fn("AgentMove.move")(function* ({ source, target
     return copy;
   }).pipe(
     Effect.tapError((failure) =>
-      source.setHidden(agentId, false).pipe(
+      Effect.forEach(running, (routineId) => source.setRoutineActive(agentId, routineId, true), {
+        discard: true,
+      }).pipe(
+        Effect.andThen(source.setHidden(agentId, false)),
         Effect.mapError(() =>
           failure.step === "rollback"
             ? failure
@@ -329,8 +355,7 @@ export const moveAgent = Effect.fn("AgentMove.move")(function* ({ source, target
         ),
       );
   }
-  const routineIds = yield* source.routineIds(agentId).pipe(Effect.orElseSucceed(() => []));
-  for (const routineId of routineIds) yield* source.deleteRoutine(agentId, routineId).pipe(Effect.ignore);
+  for (const { id } of sourceRoutines) yield* source.deleteRoutine(agentId, id).pipe(Effect.ignore);
 
   return { agentId: created.agentId, name: created.name, warnings, signIn: created.signIn } satisfies MovedAgent;
 });

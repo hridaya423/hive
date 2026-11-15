@@ -83,3 +83,71 @@ export const MESSAGING_ALLOWED_ROLES_SCHEMA_SQL = `
     PRIMARY KEY (connection_id, role_id)
   );
 `;
+
+// Shared by migration v51 and the separate new-database schema. IF NOT EXISTS throughout.
+//
+// The WhatsApp contacts and groups that can give work in one connection, beside the owner's own chat.
+// `sender_id` is the phone number in digits for a contact and the group JID for a group. The name is
+// the one the owner saw when they added it. Configuration, written directly. No CASCADE, as for roles:
+// disconnect keeps the rows, so a number linked again keeps its list.
+export const MESSAGING_ALLOWED_SENDERS_SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS projection_messaging_allowed_senders (
+    connection_id TEXT NOT NULL REFERENCES projection_messaging_connections(connection_id),
+    sender_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('contact', 'group')),
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (connection_id, sender_id)
+  );
+`;
+
+// Shared by migration v59 and the separate new-database schema. IF NOT EXISTS throughout.
+//
+// The people that an agent's `messaging_post` pinged in a Slack thread. A reply of one of them in that
+// thread reaches the orchestrator without a mention; a reply of anyone else needs a mention, also after
+// the first reply gives the thread its link. `text` is the redacted post, which the orchestrator gets
+// as the message that the first reply answers. No CASCADE, as for roles: disconnect keeps the rows.
+export const MESSAGING_PINGS_SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS projection_messaging_pings (
+    connection_id TEXT NOT NULL REFERENCES projection_messaging_connections(connection_id),
+    platform_channel_id TEXT NOT NULL,
+    thread_key TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (connection_id, platform_channel_id, thread_key, user_id)
+  );
+`;
+
+// Shared by migration v62 and the separate new-database schema. IF NOT EXISTS throughout.
+//
+// The messages that a linked WhatsApp number saw in its allowed chats, also those that did not
+// mention OpenBot, so an agent can read a chat after a restart. WhatsApp sends no history to a new
+// device, so this is the only copy on this computer. `seq` keeps the order in which they arrived,
+// also after a VACUUM, for the context of a conversation; a search reads them by `sent_at`.
+// `files_json` lists the message's files, with the path of the copy that was saved when the message
+// arrived. Rows and files older than 90 days go, and the copies of one number stay under 2 GB. No
+// CASCADE, as for roles: a disconnect deletes the rows of its number itself.
+export const MESSAGING_HISTORY_SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS projection_messaging_history (
+    seq INTEGER PRIMARY KEY,
+    connection_id TEXT NOT NULL REFERENCES projection_messaging_connections(connection_id),
+    platform_channel_id TEXT NOT NULL,
+    message_id TEXT NOT NULL,
+    thread_key TEXT NOT NULL,
+    author_id TEXT NOT NULL,
+    author_name TEXT NOT NULL,
+    text TEXT NOT NULL,
+    sent_at TEXT NOT NULL,
+    files_json TEXT NOT NULL,
+    saved_at TEXT NOT NULL,
+    UNIQUE (connection_id, platform_channel_id, message_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_projection_messaging_history_place
+    ON projection_messaging_history(connection_id, platform_channel_id, seq);
+  CREATE INDEX IF NOT EXISTS idx_projection_messaging_history_sent
+    ON projection_messaging_history(connection_id, platform_channel_id, sent_at);
+  CREATE INDEX IF NOT EXISTS idx_projection_messaging_history_saved
+    ON projection_messaging_history(saved_at);
+`;

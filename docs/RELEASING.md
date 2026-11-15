@@ -95,13 +95,15 @@ licence, because Ubuntu 26.04 has only `libminiupnpc21`. Sunshine finds it throu
 Ubuntu 26.04.
 Linux arm64 builds only for local development and has no release artifact.
 
-## Pin the Gemini server
+## Pin the Gemini CLI
 
-`native-runtime.lock.json` pins Google's Antigravity ACP server for the Gemini provider by hand:
-the version from the ACP registry entry `antigravity-acp`, and for each target the zip name, its
-SHA-256 and size, and the SHA-256 of `agy_acp_server` and `localharness_external` in it. Download
-each zip from the registry `archive` URL, hash the zip and the two files, and set `installedBytes`
-above the extracted size. Do not commit the zip: Google's license does not allow redistribution.
+`native-runtime.lock.json` pins Google's Antigravity CLI for the Gemini provider by hand. Read the
+tag of `https://api.github.com/repos/google-antigravity/antigravity-cli/releases/latest` and set
+`version` to it (the tags have no `v`). For each target, download `agy_cli_<target>.tar.gz`
+(`agy_cli_windows_x64.zip` on Windows) from that release, and check its SHA-256 against the asset
+`digest`. Set `url`, `assetSha256`, `downloadBytes`, `installedBytes` (the size of the extracted
+`antigravity` or `antigravity.exe`) and the SHA-256 of `bin/antigravity` (`bin/antigravity.exe` on
+Windows). Do not commit an archive: Google's license does not allow redistribution.
 
 ## Pin the Cursor CLI
 
@@ -132,6 +134,37 @@ asset SHA-256 and size, `installedBytes` above the extracted size, and the SHA-2
 `files`: `kimi` (`kimi.exe` on Windows), `_internal/base_library.zip` and the Python library. The
 paths in `files` are relative to the archive's `kimi/` folder. Do not follow or copy the symbolic
 links in the archive. Set `licenseSha256` to the SHA-256 of `LICENSE` at the version tag.
+
+## Pin the Devin CLI
+
+`native-runtime.lock.json` pins the Devin CLI by hand. Read `version` from
+`https://static.devin.ai/cli/current/manifest.json` and set `version`. For each target, download
+`devin-<version>-<triple>.tar.gz` (`.zip` on Windows) from `https://static.devin.ai/cli/<version>/`,
+and check its SHA-256 against the manifest `sha256`. Set `url`, `assetSha256`, `downloadBytes`,
+`installedBytes` (the size of the extracted `bin/` and `share/` folders), and the SHA-256 of
+`bin/devin` (`bin/devin.exe` on Windows). `share/` holds only documentation, so it is not in
+`files`.
+
+## Pin the GitHub Copilot CLI
+
+`native-runtime.lock.json` pins the GitHub Copilot CLI by hand. Read the tag of
+`https://api.github.com/repos/github/copilot-cli/releases/latest` and set `version` without its
+`v`. For each target, download `copilot-<target>.tar.gz` (`copilot-win32-x64.zip` on Windows) from
+that release, and check its SHA-256 against the asset `digest`. Set `url`, `assetSha256`,
+`downloadBytes`, `installedBytes` (the size of the extracted `copilot` or `copilot.exe`) and the
+SHA-256 of `bin/copilot` (`bin/copilot.exe` on Windows).
+
+## Pin Mistral Vibe
+
+`native-runtime.lock.json` pins Mistral Vibe's ACP server by hand. Read the tag of
+`https://api.github.com/repos/mistralai/mistral-vibe/releases/latest` and set `version` without its
+`v`, and `licenseUrl` to `LICENSE` at that tag. For each target, download
+`vibe-acp-<triple>-<version>.tar.gz` (`.zip` on Windows) from that release, and check its SHA-256
+against the asset `digest`. Set `url`, `assetSha256`, `downloadBytes`, `installedBytes` above the
+extracted size, and the SHA-256 of each file in `files`: `bin/vibe-acp` (`bin/vibe-acp.exe` on
+Windows), `bin/_internal/base_library.zip`, the Python library, and
+`bin/_internal/mistral_vibe-<version>.dist-info/licenses/LICENSE`. Do not follow or copy the symbolic
+links in the archive.
 
 ## Pin the OpenCode CLI
 

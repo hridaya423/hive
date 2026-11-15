@@ -1,15 +1,6 @@
 import type { ServerConnectionState, ServerSummary } from "@openbot/contracts/ipc";
 import type { AppTextKey, AppTranslate } from "@openbot/i18n";
-import {
-  BellOff,
-  buttonVariants,
-  ContextMenu,
-  DropdownMenu,
-  Eye,
-  Plus,
-  ServerGradientLogo,
-  Tooltip,
-} from "@openbot/ui";
+import { BellOff, buttonVariants, ContextMenu, DropdownMenu, Eye, Plus, ServerPlushLogo, Tooltip } from "@openbot/ui";
 import { createEffect, createSignal, createStore, For, onCleanup, Show } from "solid-js";
 import { createScrollFades } from "../../components/createScrollFades";
 import { createVerticalDragPreview } from "../../components/createVerticalDragPreview";
@@ -562,7 +553,7 @@ function ServerRailButton(
   );
 }
 
-export function ServerMark(props: { server: Pick<ServerSummary, "id" | "logoUrl"> }) {
+export function ServerMark(props: { server: Pick<ServerSummary, "id" | "logoUrl" | "appearance"> }) {
   const [failed, setFailed] = createSignal(false);
   createEffect(
     () => props.server.logoUrl,
@@ -571,7 +562,10 @@ export function ServerMark(props: { server: Pick<ServerSummary, "id" | "logoUrl"
     },
   );
   return (
-    <Show when={!failed() ? props.server.logoUrl : null} fallback={<ServerGradientLogo seed={props.server.id} />}>
+    <Show
+      when={!failed() ? props.server.logoUrl : null}
+      fallback={<ServerPlushLogo seed={props.server.id} appearance={props.server.appearance} />}
+    >
       {(url) => <img class="server-rail-logo" src={url()} alt="" draggable={false} onError={() => setFailed(true)} />}
     </Show>
   );

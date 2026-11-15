@@ -1,9 +1,10 @@
 import {
-  AGENT_DEFAULT_KEYS,
   type ApprovalAutomationPreference,
   agentAutoApprovalEnabled,
   type DynamicIslandGeometry,
+  type DynamicIslandPreference,
   type ExternalLinkTarget,
+  LOCAL_SERVER_ID,
 } from "@openbot/contracts/ipc";
 import type { MarketplaceListingLink } from "@openbot/contracts/marketplace-links";
 import { DEFAULT_GENERAL_SETTINGS, type GeneralSettingsValue } from "@openbot/ui/features/settings/app-settings";
@@ -12,6 +13,11 @@ import { createEffect, createSignal, flush, onSettled } from "solid-js";
 import { isActionSoundEnabled, readActionSoundTheme, setActionSoundChoice } from "../../action-sounds";
 import { actionToast } from "../../action-toast";
 import { readShowAgentSteps, setShowAgentSteps, useShowAgentSteps } from "../../agent-steps-preference";
+import {
+  readCompactMessageActions,
+  setCompactMessageActions,
+  useCompactMessageActions,
+} from "../../compact-message-actions-preference";
 import { playSoundChoice, readTaskSound, setTaskSound } from "../../completion-sound";
 import { usePlatform } from "../../platform";
 import { readSendShortcutMode, setSendShortcutMode, useSendShortcutMode } from "../../send-shortcut-preference";
@@ -20,8 +26,35 @@ import { settingsPort } from "./settings-port";
 import { isOpenSettingsShortcut } from "./settings-shortcut";
 import type { SettingsTab } from "./settings-tabs";
 
+/** The general settings that show the island preference of main. */
+function islandSettings(preference: DynamicIslandPreference) {
+  return {
+    macBookNotch: preference.enabled,
+    macBookNotchHaptics: preference.hapticsEnabled,
+    macBookNotchIdle: preference.idleVisible,
+    macBookNotchAdditionalDisplays: preference.additionalDisplaysEnabled,
+    macBookNotchWidthPercent: preference.widthPercent,
+    macBookNotchHeightPercent: preference.heightPercent,
+    macBookNotchServers: preference.serverVisibility,
+    macBookNotchNewServers: preference.newServersVisible,
+  } satisfies Partial<GeneralSettingsValue>;
+}
+
 function sameExternalLinkTarget(left: ExternalLinkTarget, right: ExternalLinkTarget): boolean {
   return left.kind === right.kind && (left.kind !== "app" || right.kind !== "app" || left.path === right.path);
+}
+
+/** Compares two settings values field by field. The values hold only JSON data. */
+function samePlainValue(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (typeof left !== "object" || typeof right !== "object" || left === null || right === null) return false;
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  const leftEntries = Object.entries(left);
+  const rightEntries = new Map(Object.entries(right));
+  return (
+    leftEntries.length === rightEntries.size &&
+    leftEntries.every(([key, value]) => rightEntries.has(key) && samePlainValue(value, rightEntries.get(key)))
+  );
 }
 
 /** Tells the user why a switch went back to its previous value. */
@@ -96,14 +129,21 @@ const Settings = createSimpleContext({
     createEffect(appSettingsOpen, (open) => {
       if (!open) setNotificationFocusRequest(null);
     });
-    const [generalSettings, setGeneralSettings] = createSignal<GeneralSettingsValue>({
-      ...DEFAULT_GENERAL_SETTINGS,
-      taskSound: readTaskSound(),
-      sendShortcut: readSendShortcutMode(),
-      showAgentSteps: readShowAgentSteps(),
-      soundFeedback: isActionSoundEnabled(),
-      soundTheme: readActionSoundTheme(),
-    });
+    // A write of equal values keeps the current object. A new object rebuilds the options of each
+    // Select on the page, and a Select reports its value again for new options. Without this, a
+    // Select that saves the value it reports freezes the window (#5708).
+    const [generalSettings, setGeneralSettings] = createSignal<GeneralSettingsValue>(
+      {
+        ...DEFAULT_GENERAL_SETTINGS,
+        taskSound: readTaskSound(),
+        sendShortcut: readSendShortcutMode(),
+        showAgentSteps: readShowAgentSteps(),
+        compactMessageActions: readCompactMessageActions(),
+        soundFeedback: isActionSoundEnabled(),
+        soundTheme: readActionSoundTheme(),
+      },
+      { equals: samePlainValue },
+    );
     // The mode also changes outside this dialog: another window, or the web Preferences tab on
     // the same page. The shared signal carries those changes into the displayed settings value.
     // Two-arg form: compute tracks the signal, apply writes the store outside tracking.
@@ -120,6 +160,15 @@ const Settings = createSimpleContext({
       (show) => {
         setGeneralSettings((current) =>
           current.showAgentSteps === show ? current : { ...current, showAgentSteps: show },
+        );
+      },
+    );
+    const compactMessageActions = useCompactMessageActions();
+    createEffect(
+      () => compactMessageActions(),
+      (compact) => {
+        setGeneralSettings((current) =>
+          current.compactMessageActions === compact ? current : { ...current, compactMessageActions: compact },
         );
       },
     );
@@ -141,6 +190,7 @@ const Settings = createSimpleContext({
     let keepRunningInBackgroundChanged = false;
     let keepAwakeChanged = false;
     let keepAwakeOnBatteryChanged = false;
+    let quitGuardChanged = false;
 
     let dynamicIslandSaveCount = 0;
 
@@ -169,6 +219,9 @@ const Settings = createSimpleContext({
       }
       if (previous.showAgentSteps !== value.showAgentSteps) {
         setShowAgentSteps(value.showAgentSteps);
+      }
+      if (previous.compactMessageActions !== value.compactMessageActions) {
+        setCompactMessageActions(value.compactMessageActions);
       }
       if (previous.soundFeedback !== value.soundFeedback || previous.soundTheme !== value.soundTheme) {
         setActionSoundChoice(value.soundFeedback ? value.soundTheme : "off");
@@ -213,18 +266,8 @@ const Settings = createSimpleContext({
         if (previous.notificationPreview !== value.notificationPreview)
           persistField("notificationPreview", saved, (preference) => preference.messagePreview);
       }
-      if (previous.busyMessageMode !== value.busyMessageMode) {
-        busyMessageModeChanged = true;
-        persistField(
-          "busyMessageMode",
-          settingsPort().setBusyMessageModePreference({ mode: value.busyMessageMode }),
-          (preference) => preference.mode,
-        );
-      }
-      if (AGENT_DEFAULT_KEYS.some((key) => previous.agentDefaults[key] !== value.agentDefaults[key])) {
-        agentDefaultsChanged = true;
-        persistField("agentDefaults", settingsPort().setAgentDefaults({ ...value.agentDefaults }), (saved) => saved);
-      }
+      // `busyMessageMode` and `agentDefaults` are not saved here: Server Settings > Agents saves them
+      // through the host, and the `agents-changed` listener below reads them again.
       // A hidden switch is null and cannot change.
       if (value.launchAtLogin !== null && previous.launchAtLogin !== value.launchAtLogin) {
         launchAtLoginChanged = true;
@@ -259,6 +302,14 @@ const Settings = createSimpleContext({
           "keepAwakeOnBattery",
           settingsPort().setAppBehaviorPreference({ keepAwakeOnBattery: value.keepAwakeOnBattery }),
           (preference) => preference.keepAwakeOnBattery,
+        );
+      }
+      if (value.quitGuard !== null && previous.quitGuard !== value.quitGuard) {
+        quitGuardChanged = true;
+        persistField(
+          "quitGuard",
+          settingsPort().setAppBehaviorPreference({ quitGuard: value.quitGuard }),
+          (preference) => preference.quitGuard,
         );
       }
       if (!sameExternalLinkTarget(previous.externalLinkTarget, value.externalLinkTarget)) {
@@ -305,14 +356,7 @@ const Settings = createSimpleContext({
             if (save !== dynamicIslandSaveCount) return;
             setGeneralSettings((current) => ({
               ...current,
-              macBookNotch: preference.enabled,
-              macBookNotchHaptics: preference.hapticsEnabled,
-              macBookNotchIdle: preference.idleVisible,
-              macBookNotchAdditionalDisplays: preference.additionalDisplaysEnabled,
-              macBookNotchWidthPercent: preference.widthPercent,
-              macBookNotchHeightPercent: preference.heightPercent,
-              macBookNotchServers: preference.serverVisibility,
-              macBookNotchNewServers: preference.newServersVisible,
+              ...islandSettings(preference),
             }));
           })
           .catch((error: unknown) => {
@@ -389,6 +433,56 @@ const Settings = createSimpleContext({
           autoInstallUpdates: preference.autoInstall,
         }));
       });
+      // The right-click menu of the island turns it off in main. A save reply that is still on its way
+      // must not show the island as on again.
+      const unsubscribeIsland = settingsPort().dynamicIsland.onPreference((preference) => {
+        ++dynamicIslandSaveCount;
+        setGeneralSettings((current) => ({
+          ...current,
+          ...islandSettings(preference),
+        }));
+      });
+      // Server Settings > Agents of this computer, a phone or the web client change the agent defaults of
+      // this computer. The host then sends `agents-changed`, and new chats here read the defaults from
+      // these settings. Main answers in the order of the calls, so a read that starts before a change
+      // does not come after the answer of that change.
+      // Many changes send `agents-changed`, such as a queued message, so the events of a burst share
+      // one read: an event during a read starts one more read after it, which sees the last change.
+      let agentDefaultsRead: Promise<void> | null = null;
+      let agentDefaultsReadAgain = false;
+      const readAgentDefaults = (): void => {
+        if (agentDefaultsRead) {
+          agentDefaultsReadAgain = true;
+          return;
+        }
+        agentDefaultsRead = Promise.all([
+          settingsPort()
+            .getAgentDefaults()
+            .then((defaults) => {
+              agentDefaultsChanged = true;
+              setGeneralSettings((current) => ({ ...current, agentDefaults: defaults }));
+            }),
+          settingsPort()
+            .getBusyMessageModePreference()
+            .then((preference) => {
+              busyMessageModeChanged = true;
+              setGeneralSettings((current) => ({ ...current, busyMessageMode: preference.mode }));
+            }),
+        ])
+          .then(
+            () => undefined,
+            () => undefined,
+          )
+          .finally(() => {
+            agentDefaultsRead = null;
+            if (!agentDefaultsReadAgain) return;
+            agentDefaultsReadAgain = false;
+            readAgentDefaults();
+          });
+      };
+      const unsubscribeAgentDefaults = settingsPort().agent.onScopedEvent(({ serverId, event }) => {
+        if (serverId === LOCAL_SERVER_ID && event.type === "agents-changed") readAgentDefaults();
+      });
       // A page can open from main with no click here, such as a sign-in page, so main sends the notice.
       const unsubscribeLinkFallback = settingsPort().onExternalLinkFallback(({ name }) => {
         const { t } = currentText();
@@ -405,6 +499,8 @@ const Settings = createSimpleContext({
         unsubscribeApprovals();
         unsubscribeMemoryLimit();
         unsubscribeUpdates();
+        unsubscribeIsland();
+        unsubscribeAgentDefaults();
       };
     });
 
@@ -460,6 +556,7 @@ const Settings = createSimpleContext({
               keepAwakeOnBattery: keepAwakeOnBatteryChanged
                 ? current.keepAwakeOnBattery
                 : preference.keepAwakeOnBattery,
+              quitGuard: quitGuardChanged ? current.quitGuard : preference.quitGuard,
             }));
           }),
         settingsPort()
@@ -492,14 +589,7 @@ const Settings = createSimpleContext({
               .then((preference) =>
                 setGeneralSettings((current) => ({
                   ...current,
-                  macBookNotch: preference.enabled,
-                  macBookNotchHaptics: preference.hapticsEnabled,
-                  macBookNotchIdle: preference.idleVisible,
-                  macBookNotchAdditionalDisplays: preference.additionalDisplaysEnabled,
-                  macBookNotchWidthPercent: preference.widthPercent,
-                  macBookNotchHeightPercent: preference.heightPercent,
-                  macBookNotchServers: preference.serverVisibility,
-                  macBookNotchNewServers: preference.newServersVisible,
+                  ...islandSettings(preference),
                 })),
               ),
       ]).then((results) => {

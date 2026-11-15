@@ -1,3 +1,4 @@
+import { agentNotificationLevelMap } from "@openbot/contracts/ipc";
 import * as Clipboard from "expo-clipboard";
 import { Link, router } from "expo-router";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -5,6 +6,10 @@ import { Alert, StyleSheet, View } from "react-native";
 import { useUniwind } from "uniwind";
 import { useAgentPinTransition } from "@/features/agents/components/agent-pin-transition";
 import { useChatSectionMenu } from "@/features/agents/components/use-chat-section-menu";
+import {
+  setSyncedNotificationLevels,
+  useSyncedNotificationLevels,
+} from "@/features/settings/model/notification-levels";
 import { useAgentUnread } from "@/features/workspace/components/use-live-workspace";
 import {
   type MobileAgent,
@@ -26,6 +31,13 @@ function useAgentMenuActions(agent: MobileAgent) {
     canToggleAgentPin([...pinnedAgentIds, ...pinnedChannelIds], agent.id),
   );
   const isUnread = useAgentUnread(agent.id);
+  // The user's own level of the agent, on a host that keeps the levels. "nothing" is a muted agent.
+  // A host that keeps no levels, or that did not answer yet, has no mute item: the item must not fail.
+  const levels = useSyncedNotificationLevels((state) => state.servers[agent.serverId]);
+  const canMute =
+    useMobileWorkspaceSelector(({ canSetAgentNotificationLevel }) => canSetAgentNotificationLevel(agent.serverId)) &&
+    levels !== undefined;
+  const isMuted = levels ? agentNotificationLevelMap(levels).get(agent.id) === "nothing" : false;
   const actionPending = useRef(false);
   const { t } = useText();
 
@@ -33,7 +45,7 @@ function useAgentMenuActions(agent: MobileAgent) {
     if (actionPending.current) return;
     actionPending.current = true;
     try {
-      if (action === "delete") await workspace().deleteAgent(agent.id);
+      if (action === "delete") await workspace().deleteAgent(agent.id, agent.serverId);
       else await workspace().duplicateAgent(agent.id);
       void haptics.notification();
     } catch (error) {
@@ -75,6 +87,23 @@ function useAgentMenuActions(agent: MobileAgent) {
     else workspace().markAgentUnread(agent.id);
     void haptics.selection();
   };
+  /** Mutes the agent for the user on all of their devices, or gives it the server level again. */
+  const handleMute = () => {
+    void haptics.selection();
+    workspace()
+      .setAgentNotificationLevel({ agentId: agent.id, level: isMuted ? null : "nothing" }, agent.serverId)
+      .then((snapshot) => setSyncedNotificationLevels(agent.serverId, snapshot))
+      .catch((error: unknown) => {
+        void haptics.notification("error");
+        const text = currentText();
+        showFailureAlert(
+          error,
+
+          text.t("mobile.agent.notifications.failed"),
+          text.errorMessage(error, text.t("mobile.agent.notifications.failedBody")),
+        );
+      });
+  };
   const handleHide = () => {
     workspace().hideAgent(agent.id);
     void haptics.impact();
@@ -88,9 +117,12 @@ function useAgentMenuActions(agent: MobileAgent) {
     isPinned,
     isUnread,
     canPin,
+    canMute,
+    isMuted,
     sectionMenu,
     handleRead,
     handlePin,
+    handleMute,
     handleHide,
     handleInfo,
     handleCopyId,
@@ -105,9 +137,12 @@ function useAgentContextMenu(agent: MobileAgent) {
     isPinned,
     isUnread,
     canPin,
+    canMute,
+    isMuted,
     sectionMenu,
     handleRead,
     handlePin,
+    handleMute,
     handleHide,
     handleInfo,
     handleCopyId,
@@ -122,6 +157,11 @@ function useAgentContextMenu(agent: MobileAgent) {
       <Link.MenuAction icon={isPinned ? "pin.slash" : "pin"} isOn={isPinned} onPress={handlePin} disabled={!canPin}>
         {t(isPinned ? "mobile.agent.pin.unpin" : "mobile.agent.pin.pin")}
       </Link.MenuAction>
+      {canMute ? (
+        <Link.MenuAction icon={isMuted ? "bell" : "bell.slash"} onPress={handleMute}>
+          {t(isMuted ? "mobile.agent.menu.unmute" : "mobile.agent.menu.mute")}
+        </Link.MenuAction>
+      ) : null}
       <Link.MenuAction icon="eye.slash" onPress={handleHide}>
         {t("mobile.agent.menu.hide")}
       </Link.MenuAction>
@@ -206,15 +246,23 @@ function OpenAgentMenu({
     isPinned,
     isUnread,
     canPin,
+    canMute,
+    isMuted,
     sectionMenu,
     handleRead,
     handlePin,
+    handleMute,
     handleHide,
     handleInfo,
     handleCopyId,
     handleDuplicate,
     handleDelete,
   } = useAgentMenuActions(agent);
+  const muteAction: MenuAction = {
+    id: "mute",
+    title: t(isMuted ? "mobile.agent.menu.unmute" : "mobile.agent.menu.mute"),
+    image: isMuted ? "bell" : "bell.slash",
+  };
   const actions: MenuAction[] = [
     {
       id: "read",
@@ -227,6 +275,7 @@ function OpenAgentMenu({
       image: isPinned ? "pin.slash" : "pin",
       attributes: { disabled: !canPin },
     },
+    ...(canMute ? [muteAction] : []),
     { id: "hide", title: t("mobile.agent.menu.hide"), image: "eye.slash" },
     ...sectionMenu.androidActions,
     { id: "info", title: t("mobile.agent.menu.info"), image: "info.circle" },
@@ -244,6 +293,7 @@ function OpenAgentMenu({
   const handlers: Record<string, () => void> = {
     read: handleRead,
     pin: handlePin,
+    mute: handleMute,
     hide: handleHide,
     info: handleInfo,
     copy: handleCopyId,

@@ -2,6 +2,7 @@ import { DEFAULT_TEAM_MEMBER_LIMIT, INPUT_LIMITS } from "@openbot/contracts/inpu
 import type { InviteSummary, TeamInviteSummary, TeamPresenceMember, TeamRole } from "@openbot/contracts/ipc";
 import { normalizeEmailAddress } from "@openbot/contracts/validation";
 import type { AppTextKey } from "@openbot/i18n";
+import { sourceText } from "@openbot/i18n/source";
 import {
   Alert,
   AlertContent,
@@ -134,9 +135,10 @@ export function createServerMembersSection(
   /**
    * Permanent links need a transport that carries the flag: local IPC or the account
    * plane. The frozen Team API projections strip it on legacy HTTP, where even two
-   * updated peers would silently mint single-use, so the tab stays hidden there.
+   * updated peers would silently mint single-use, so the tab stays hidden there. A server
+   * on this computer has a loopback address, but its invitations go to the account plane.
    */
-  const permanentSupported = () => local() || props.server.apiUrl === null;
+  const permanentSupported = () => local() || props.server.apiUrl === null || props.server.thisComputer === true;
   const canManage = () => configured() && serverRoleCanAdminister(props.server);
   const activeInvites = createMemo(() =>
     props.invites.filter(
@@ -312,6 +314,9 @@ export function createServerMembersSection(
   function accessDescription() {
     if (!local()) return published() ? t("server.settings.remoteOnline") : t("server.settings.remoteOffline");
     if (published()) return t("server.settings.reachable");
+    // The owner removed this server on another device, and the account service refused its automatic
+    // publish. Main sends the status as its English source text (#5273).
+    if (props.hostStatus?.message === sourceText("status.host.removed")) return t("status.host.removed");
     return configured() ? t("server.settings.notReachable") : t("server.settings.notPublished");
   }
 

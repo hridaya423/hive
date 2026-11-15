@@ -4,17 +4,21 @@
 //   the agent does not have (`gone-…`). Each form is the one that the provider's flavor recognizes.
 //   `hermes` acts as Hermes Agent 0.21.5: it advertises `session/resume`, which makes a new session for
 //   a missing one, and `session/load` of a missing session answers null. Each session it opens has `modes`.
+//   `antigravity` advertises `session/resume`, as Antigravity 1.5.7 does.
 //   It lists its provider as an auth method only when it is signed in, and its stderr is a Python log.
 // - `FAKE_SIGNED_OUT=1` refuses each new session, as an agent does before its sign-in. Hermes refuses
-//   it with "Internal error", and writes the cause only to stderr.
+//   it with "Internal error", and writes the cause only to stderr. Devin CLI 3000.11.234 opens the
+//   session, and lists no model in it.
 // - `FAKE_MODEL_SET=kimi` gives no configuration options. `session/set_model` changes the model and
-//   then fails, as Kimi CLI 1.52.0 does when its config.toml is protected.
+//   then fails, as Kimi CLI 1.52.0 does when its config.toml is protected. `FAKE_MODEL_SET=mistral`
+//   changes the model with `session/set_config_option` and then fails, as Mistral Vibe 3.1.0 does when
+//   its config.toml is protected. A signed-out Mistral Vibe refuses each new session for its missing key.
 // - `FAKE_MODEL_UNAPPLIED=1` acts as Copilot CLI 1.0.105 does in pingdotgg/t3code#29425: a new session
 //   reports the first model as current, but runs on no listed model until the client sets one.
 // - `FAKE_DEVICE_CODE=1` answers `login --device-code` with the text of Copilot CLI 1.0.105, as a CLI
 //   that waits for the sign-in, and starts no agent.
 // - `FAKE_COPILOT=1` makes the executable the Copilot CLI 1.0.105 for the runtime: `--version`, and
-//   `login --web-flow` and `login --device-code`, which end with `FAKE_LOGIN_MODE` after
+//   `login` and `login --device-code`, which end with `FAKE_LOGIN_MODE` after
 //   `FAKE_LOGIN_DELAY_MS`. `FAKE_MODE_FILE` names a file that holds what each new session does now:
 //   `ok`, `signed-out` (`-32000 "Authentication required"`), or `no-plan` (the 403 that GitHub gives an
 //   account with no Copilot plan: `-32603` with `data.category: "permission_denied"`, `data.status: 403`),
@@ -47,10 +51,25 @@ const MISSING_ERRORS: Readonly<Partial<Record<string, (sessionId: string) => Acp
     message: `Invalid params: session not found: ${sessionId}`,
     data: { sessionId },
   }),
-  // Antigravity 1.3.0, on a load or a resume.
-  antigravity: (sessionId) => ({ code: -32002, message: "Resource not found", data: { sessionId } }),
+  // Antigravity 1.5.7, on a resume. It sends no data (#8468).
+  antigravity: (sessionId) => ({
+    code: -32603,
+    message: `Failed to read session ${sessionId}; retry, or load it with session/load`,
+  }),
   // Kimi CLI 1.52.0.
   kimi: () => ({ code: -32602, message: "Invalid params", data: { session_id: "Session not found" } }),
+  // Devin CLI 3000.11.234.
+  devin: () => ({
+    code: -32016,
+    message: "Session not found",
+    data: { "cognition.ai/errorKind": "session_not_found", "cognition.ai/retryable": false },
+  }),
+  // Mistral Vibe 3.1.0.
+  mistral: (sessionId) => ({
+    code: -32602,
+    message: `Session not found: ${sessionId}`,
+    data: { session_id: sessionId },
+  }),
   // Cursor.
   cursor: (sessionId) => ({
     code: -32602,
@@ -60,6 +79,9 @@ const MISSING_ERRORS: Readonly<Partial<Record<string, (sessionId: string) => Acp
 };
 
 const hermes = process.env.FAKE_MISSING === "hermes";
+const antigravity = process.env.FAKE_MISSING === "antigravity";
+const devin = process.env.FAKE_MISSING === "devin";
+const mistral = process.env.FAKE_MISSING === "mistral";
 /** What Hermes 0.21.5 lists: its provider while that provider's credential resolves, and its terminal setup. */
 const HERMES_AUTH_METHODS = [
   { id: "nous", name: "nous runtime credentials" },
@@ -79,6 +101,7 @@ function sessionMode(): string {
   return signedOut ? "signed-out" : "ok";
 }
 const kimiModelSet = process.env.FAKE_MODEL_SET === "kimi";
+const mistralModelSet = process.env.FAKE_MODEL_SET === "mistral";
 const modelUnapplied = process.env.FAKE_MODEL_UNAPPLIED === "1";
 const UNAPPLIED_MODEL = "fake-unset";
 /** The model that each session runs on. */
@@ -135,7 +158,7 @@ if (process.env.FAKE_COPILOT === "1" && command === "--version") {
   process.stdout.write("GitHub Copilot CLI 1.0.105.\nRun 'copilot update' to check for updates.\n");
   process.exit(0);
 }
-if (process.env.FAKE_COPILOT === "1" && (command === "login --web-flow" || command === "login --device-code")) {
+if (process.env.FAKE_COPILOT === "1" && (command === "login" || command === "login --device-code")) {
   logEntry({ event: command });
   if (command === "login --device-code") {
     process.stdout.write(
@@ -161,7 +184,10 @@ serveFakeAcpAgent(
       peer.reply(request, {
         protocolVersion: 1,
         agentInfo: { name: "conformance", version: "1.0.0" },
-        agentCapabilities: { loadSession: true, ...(hermes ? { sessionCapabilities: { resume: {} } } : {}) },
+        agentCapabilities: {
+          loadSession: true,
+          ...(hermes || antigravity ? { sessionCapabilities: { resume: {} } } : {}),
+        },
         authMethods: hermes ? HERMES_AUTH_METHODS.filter((method) => !signedOut || method.id === "hermes-setup") : [],
       }),
     "session/new": (request, peer) => {
@@ -173,8 +199,15 @@ serveFakeAcpAgent(
         return;
       }
       const mode = sessionMode();
+      if (mode === "signed-out" && devin) {
+        count += 1;
+        const sessionId = `s-${process.pid}-${count}`;
+        peer.reply(request, { sessionId, configOptions: [], models: { availableModels: [], currentModelId: "" } });
+        return;
+      }
       if (mode === "signed-out") {
-        peer.fail(request, { code: -32000, message: "Authentication required" });
+        const message = mistral ? "Missing API key for mistral provider." : "Authentication required";
+        peer.fail(request, { code: -32000, message });
         return;
       }
       if (mode === "broken") {
@@ -199,7 +232,13 @@ serveFakeAcpAgent(
       const { sessionId = "", configId, value = "" } = request.params;
       logEntry({ event: "set", sessionId, configId, value });
       if (configId === "model") models.set(sessionId, value);
-      peer.reply(request, { configOptions: setup(sessionId).configOptions });
+      if (mistralModelSet)
+        peer.fail(request, {
+          code: -32602,
+          message: "Layer 'user-toml': cannot write config file at /home/user/.vibe/config.toml",
+          data: null,
+        });
+      else peer.reply(request, { configOptions: setup(sessionId).configOptions });
     },
     "session/set_model": (request, peer) => {
       const { sessionId = "", modelId = "" } = request.params;

@@ -40,11 +40,24 @@ export const messages = defineMessages("status.messaging", {
   // Text that OpenBot posts in a Telegram chat, and the Telegram Orchestrator agent. Telegram users
   // read the posts. The user can rename the agent.
   "status.messaging.telegramNoAgent": "No agent can answer here yet. Add the Telegram Orchestrator in Hive.",
-  "status.messaging.whatsappNoAgent": "No agent can answer here yet. Bind an agent to WhatsApp in Hive.",
   "status.messaging.telegramLinked":
     "Hive is connected to this chat. Mention {bot} or reply to a message of Hive to ask the agents.",
-  "status.messaging.whatsappOrchestratorName": "WhatsApp Orchestrator",
-  "status.messaging.whatsappOrchestratorTitle": "Answers in WhatsApp and asks the team",
   "status.messaging.telegramOrchestratorName": "Telegram Orchestrator",
   "status.messaging.telegramOrchestratorTitle": "Answers in Telegram and asks the team",
+  // Text that OpenBot posts from a linked WhatsApp number, and the WhatsApp Orchestrator agent.
+  // WhatsApp users read the posts. Personal WhatsApp has no buttons, so a person answers with a number.
+  "status.messaging.whatsappNoAgent": "No agent can answer here yet. Add the WhatsApp Orchestrator in Hive.",
+  "status.messaging.whatsappApprovalMenu": "Reply 1 to approve or 2 to deny.",
+  "status.messaging.whatsappStopMenu": "Reply stop to stop.",
+  "status.messaging.whatsappPairingCode":
+    "This number answers only people that its owner allowed. Give the owner this code: {code}",
+  "status.messaging.whatsappPairingApproved": "You can now send requests to this number.",
+  "status.messaging.whatsappOwnChat": "Message yourself",
+  // The first message after a link, in the linked number's own "Message yourself" chat.
+  "status.messaging.whatsappWelcomeOwn":
+    "👋 *Hive is connected*\n\nWrite here to ask your agents. The WhatsApp Orchestrator answers, or gives the work to the right agent.\n\nSend *stop* to stop a request.",
+  "status.messaging.whatsappWelcomeDedicated":
+    "👋 *Hive is connected*\n\nThe people you allow in Hive can now write to this number. A new person gets a code: approve it in Hive under Requests.\n\nSend *stop* to stop a request.",
+  "status.messaging.whatsappOrchestratorName": "WhatsApp Orchestrator",
+  "status.messaging.whatsappOrchestratorTitle": "Answers in WhatsApp and asks the team",
 });

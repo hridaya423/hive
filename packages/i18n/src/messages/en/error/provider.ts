@@ -9,8 +9,15 @@ export const messages = defineMessages("error.provider", {
   "error.provider.codexUnresponsive": "Codex stopped answering, so Hive ended its process.",
   "error.provider.acpUnresponsive": "{provider} did not answer in time, so Hive ended its process.",
   "error.provider.acpSignInLost": "{provider} lost its sign-in, so Hive ended its process. Send your message again.",
+  "error.provider.acpRefusedUntilRestart":
+    "{provider} refused a message, so Hive ended its process. Send your message again.",
+  "error.provider.acpSettingsTimedOut": "{provider} did not answer in time. Try again in a moment.",
+  "error.provider.acpPlanUsedUp":
+    "{provider} says that your plan is used up. Choose another model, or upgrade your {provider} plan.",
   "error.provider.acpMcpNotLoaded":
     "{provider} did not load Hive's tools, so this agent cannot use them or reach its teammates. A {provider} team policy can block local MCP servers. Ask your team admin to allow them, then try again.",
+  "error.provider.acpOwnMcpServerFailed":
+    "{provider} could not start the MCP server {name}, so the reply stopped. This server is in your own {provider} settings, not in Hive. Remove the server there or repair it, then start a new chat.",
   "error.provider.endpointsReadOnly":
     "The saved endpoints were written by a newer version of Hive, or the file cannot be read. Update Hive to change them.",
   "error.provider.endpointNoSecureStorage":
@@ -104,6 +111,8 @@ export const messages = defineMessages("error.provider", {
   "error.provider.contextWindowInvalid":
     "A model's context window must be a whole number of tokens from {min} to {max}.",
   "error.provider.maxOutputInvalid": "A model's max output must be a whole number of tokens from {min} to {max}.",
+  "error.provider.reasoningEffortsInvalid": "A model's reasoning efforts are not valid.",
+  "error.provider.inputsInvalid": "A model's input kinds are not valid.",
   "error.provider.headersTooMany": "There are too many headers.",
   "error.provider.headerNameCharacter": "A header name has a character HTTP does not allow.",
   "error.provider.headerNameTooLong": "A header name is too long.",
@@ -170,6 +179,8 @@ export const messages = defineMessages("error.provider", {
   "error.provider.cliBusyUpdate": "The {provider} CLI is working on a turn. Wait for it to finish, then update.",
   "error.provider.cliSelectFailed": "Hive could not select the installed managed CLI.",
   "error.provider.noAuthenticatedAccount": "{provider} did not return an authenticated account.",
+  "error.provider.codexModelProvider":
+    "Codex on this computer uses a different model provider, and that provider does not use a ChatGPT sign-in or an OpenAI API key. ChatGPT agents can use that provider now. To use your ChatGPT account, set the Codex model provider back to OpenAI.",
   "error.provider.signInExpired": "Your {provider} sign-in expired. Sign in again to continue.",
   "error.provider.noMainlandChinaSignIn": "{provider} has no sign-in for mainland China.",
   "error.provider.cliNewVersionNotStarted": "The new version did not start.",
@@ -181,6 +192,8 @@ export const messages = defineMessages("error.provider", {
     'OpenCode has no sign-in for the model provider "{provider}". Choose a model with the Free label, or connect the provider: paste an OpenCode Go key in the OpenCode settings, or run `opencode auth login` in a terminal. Then try again.',
   "error.provider.opencodeAuthRequiredUnknown":
     "OpenCode has no sign-in for the provider of this model. Choose a model with the Free label, or connect the provider: paste an OpenCode Go key in the OpenCode settings, or run `opencode auth login` in a terminal. Then try again.",
+  "error.provider.opencodeFreeModelRefused":
+    "OpenCode refused this free model. Some free models are not available in every country. Choose a different model with the Free label, or paste an OpenCode Go key in the OpenCode settings and choose an OpenCode Go model.",
   "error.provider.customEndpointKeyRefused":
     'The endpoint "{provider}" refused its API key or headers. Enter them again in Server settings → Providers, then try again.',
   "error.provider.customEndpointKeyMissing":
@@ -196,19 +209,34 @@ export const messages = defineMessages("error.provider", {
   "error.provider.opencodeInvalidUpload":
     "OpenCode's model provider reported an invalid upload request. Choose another model and continue. Check saved routines before you create them again.\n{detail}",
   "error.provider.opencodeUnreadableContent":
-    "This model cannot read a file or image in this chat. Choose a model that can read files, then send your message again.",
+    "This model cannot read a file or image in this chat. Hive started a new OpenCode session with the chat history. Send your message again without the file, or choose a model that can read files. If you added this model to a custom provider, clear Images at Accepts in its settings.",
+  "error.provider.opencodeContextTooSmall":
+    "This chat does not fit in the model's context window. In Ollama or LM Studio, load the model with a larger context length, and enter the same window in its Hive provider settings. Or choose a larger model.",
   "error.provider.opencodeFreeLimit":
     "The free OpenCode models reached their usage limit. All free models share this limit. To continue, paste an OpenCode Go key in the OpenCode settings, or choose a model from another provider.",
   "error.provider.opencodeProviderFailed":
     "The model provider failed on its side. Your connection is not the cause. Try again later or choose another model.\n{detail}",
+  "error.provider.opencodeIncompleteReply":
+    "The model's reply was cut off or was not valid. Send your message again, or choose another model.\n{detail}",
+  "error.provider.opencodeReasoningOverlap":
+    "OpenCode could not read the reasoning of this model at this effort. Select a lower effort or another model, then send your message again.",
   "error.provider.opencodeNetwork":
     "OpenCode could not connect to the model provider. Check the network connection of the computer that runs Hive, then try again.\n{detail}",
+  "error.provider.codexStateBusy":
+    "ChatGPT is still preparing its local history after an earlier start. Wait a few minutes, then try again.",
+  "error.provider.codexThreadInUse":
+    "Another Codex app has this chat open, such as the Codex desktop app, the Codex CLI or an IDE extension. Only one app at a time can write to a Codex chat. Close the chat in that app, then send your message again.",
+  "error.provider.realtimeLimitZero":
+    "Linux stopped the provider because Hive has a real-time CPU limit of 0. The limit comes from your system. Install and start rtkit (`rtkit-daemon`), run `systemctl --user restart xdg-desktop-portal`, then restart Hive. Restarting xdg-desktop-portal alone does not help while rtkit is missing.",
+  "error.provider.cpuUnsupported": "The processor of this computer cannot run this provider. Use a different provider.",
   "error.provider.opencodeDatabaseNewer":
     "OpenCode could not open its database because a newer OpenCode version changed it. Update OpenCode to version 2 or later, then try again.",
   "error.provider.opencodeNoAnswer":
     "The OpenCode model ended the turn with no answer. Try again, or choose another model.",
   "error.provider.opencodeReasoningWithoutAnswer":
     "The OpenCode model ended the turn after its reasoning, with no answer. Try again, or choose another model.",
+  "error.provider.acpNoAnswer":
+    "{provider} ended the turn with no answer. Send the message again, or start a new chat.",
   "error.provider.chatgptPageFailed": "Hive could not open the ChatGPT connection page.",
   "error.provider.noneReady": "No agent provider is ready.",
   "error.provider.claudeTurnActive": "Wait for the active Claude turn before refreshing its context.",
@@ -218,13 +246,14 @@ export const messages = defineMessages("error.provider", {
   "error.provider.noAgentProcess": "{provider} has no process running for this agent.",
   "error.provider.stoppedBeforeAgentProcess": "{provider} stopped before the agent's process started.",
   "error.provider.archiveUnreadable": "The runtime archive cannot be read or uses an unsupported format.",
-  "error.provider.antigravityArchivePath": "The Gemini archive has an unexpected file.",
-  "error.provider.antigravityChecksum": "Gemini runtime checksum mismatch.",
-  "error.provider.antigravityReleaseShape": "The Gemini release has an unexpected shape.",
   "error.provider.antigravityMissing": "Gemini is not downloaded. Download it in Hive to continue.",
   "error.provider.antigravityNotStarted": "The Gemini server was found, but its version cannot be read.",
+  "error.provider.antigravityOverrideInvalid":
+    "The Gemini server in OPENBOT_ANTIGRAVITY_PATH is missing or is not executable. Correct the path or remove the variable, then restart Hive.",
   "error.provider.antigravityVersionUnreadable": "Unable to read the Gemini server version.",
   "error.provider.antigravitySignIn": "Sign in with Google to use Gemini.",
+  "error.provider.antigravityModelAtCapacity":
+    "Google has no free capacity for this Gemini model now. Your plan's quota is not the cause. Try again in a few minutes, or choose another model.\n{detail}",
   "error.provider.antigravityRateLimited":
     "Gemini refused the request because a rate limit or the plan's quota is reached. Wait a few minutes or choose another model, then try again.\n{detail}",
   "error.provider.antigravityQuotaReached":
@@ -233,6 +262,14 @@ export const messages = defineMessages("error.provider", {
     "Gemini cannot use this model now. Choose another model, then try again.\n{detail}",
   "error.provider.antigravityServiceFailure":
     "Google's Gemini service did not complete the request. Try again in a few minutes.\n{detail}",
+  "error.provider.antigravityRequestRejected":
+    "Gemini refused this request. Choose another model, then send your message again. If it fails again, start a new chat.\n{detail}",
+  "error.provider.antigravityLocationUnsupported":
+    "Google does not let Gemini work from the network location of the computer that runs this agent. Use Gemini on another computer, or choose another provider for this agent.\n{detail}",
+  "error.provider.antigravityConnectionLost":
+    "Gemini lost the connection to its agent and stopped. Send a message to continue.",
+  "error.provider.antigravityRemoteWindowsSignIn":
+    "On a Windows host, Gemini opens the Google page on the host itself. Connect Gemini on the host computer.",
   "error.provider.cursorArchivePath": "The Cursor archive has an unexpected file.",
   "error.provider.cursorChecksum": "Cursor runtime checksum mismatch.",
   "error.provider.cursorReleaseShape": "The Cursor release has an unexpected shape.",
@@ -257,28 +294,48 @@ export const messages = defineMessages("error.provider", {
   "error.provider.kimiNotStarted": "Kimi could not start. Run `kimi --version` in a terminal.",
   "error.provider.kimiVersionUnreadable": "Unable to read the Kimi CLI version.",
   "error.provider.kimiSignIn": "Sign in with Kimi Code to use Kimi.",
+  "error.provider.devinSignIn": "Sign in with Devin to use Devin.",
+  "error.provider.copilotSignIn": "Sign in with GitHub or set COPILOT_GITHUB_TOKEN to use GitHub Copilot.",
+  "error.provider.mistralSignIn": "Sign in with Mistral or set MISTRAL_API_KEY to use Mistral.",
   "error.provider.hermesMissing": "Hermes Agent is not installed. Install it, then try again.",
   "error.provider.hermesNotStarted": "Hermes Agent could not start. Run `hermes --version` in a terminal.",
   "error.provider.hermesVersionUnreadable": "Unable to read the Hermes Agent version.",
   "error.provider.hermesSignIn": "Sign in with Nous Portal, or run `hermes setup` in a terminal, to use Hermes.",
-  "error.provider.copilotMissing": "GitHub Copilot CLI is not installed. Install it, then try again.",
-  "error.provider.copilotOutdated": "GitHub Copilot CLI {version} is too old. Hive requires 1.0.105 or newer.",
-  "error.provider.copilotNotStarted": "GitHub Copilot CLI could not start. Run `copilot --version` in a terminal.",
-  "error.provider.copilotVersionUnreadable": "Unable to read the GitHub Copilot CLI version.",
-  "error.provider.copilotSignIn": "Sign in with GitHub to use Copilot.",
   "error.provider.copilotNoPlan":
     "Signed in to GitHub as {login}, but this account has no Copilot plan. Turn on Copilot in your GitHub settings, then try again.",
   "error.provider.copilotNoPlanUnnamed":
     "This GitHub account has no Copilot plan. Turn on Copilot in your GitHub settings, then try again.",
   "error.provider.copilotStaticContext":
     "Copilot has no room left in this chat for the agent's instructions and tools. Turn off MCP servers or Computer Use that this agent does not need, start a new chat, or choose another provider.",
+  "error.provider.hermesTurnFailed":
+    "Hermes could not finish this turn. If its reply gives a reason, do what it says. If not, an MCP server of this agent can be unavailable: check it in Server settings › MCP, then send your message again.",
+  "error.provider.hermesRefused":
+    "Hermes refused this message before it started. Send it again. If Hermes refuses each message, restart Hive on the computer that runs this agent.",
+  "error.provider.copilotThinkingRejected":
+    "GitHub Copilot could not use this model: the model did not accept its thinking setting. Select a different model for this agent, then send your message again.",
   "error.provider.usageLimitReached": "The account reached its usage limit.",
+  "error.provider.claudeContextFull":
+    "This chat became too long for Claude. Hive started a new Claude Code session with the chat history. Try again.",
+  "error.provider.claudeApiKeyNoCredit":
+    "The credit balance of the Anthropic API key is too low. A Claude plan does not pay for requests with an API key. Add credit in the Anthropic Console, or sign in to Claude in Settings and select the Claude account in the agent's model menu.",
   "error.provider.foreignReasoning":
     "{provider} did not accept the earlier reasoning in this chat, because a different account or API key received it. Hive started a new {provider} session with the chat history. Try again.",
+  "error.provider.imageTooSmall":
+    "The model did not accept an image in this chat because the image is too small. Hive started a new {provider} session with the chat history. Try again.",
+  "error.provider.imageTooLarge":
+    "The model did not accept an image in this chat because the image is too large. Hive started a new {provider} session with the chat history. Try again.",
+  "error.provider.imageCountLimit":
+    "The model did not accept this chat because the chat has too many images. Hive started a new {provider} session with the chat history. Try again.",
+  "error.provider.requestTooLarge":
+    "This chat became too large to send to the model. Images in the chat often cause this. Hive started a new {provider} session with the chat history. Try again.",
   "error.provider.opencodeSessionRejected":
     "OpenCode refused the request and did not give the cause. This can occur in a long chat or after a model change. Hive started a new OpenCode session with the chat history. Try again. If the error continues, select a different model or a lower effort.",
+  "error.provider.opencodeCompactionFailed":
+    "The model could not summarize this long chat to make room in its context window. Hive started a new OpenCode session with the chat history. Try again. If the error continues, select a stronger model.",
   "error.provider.museMcpStartupFault":
     "Muse could not start an MCP server and blocked MCP in this session. Hive started a new Muse session with the chat history. Try again. If the error continues, turn off Computer Use or the failed MCP server for this agent.",
+  "error.provider.claudeSessionMissing":
+    "Claude Code could not find the saved session of this chat. Hive started a new Claude Code session with the chat history. Try again.",
   "error.provider.grokSignIn": "Run `grok login` or set XAI_API_KEY to use Grok.",
   "error.provider.acpSignInTimedOut": "The sign-in timed out.",
   "error.provider.acpSignInStopped": "The sign-in stopped before it was complete.",
@@ -288,15 +345,35 @@ export const messages = defineMessages("error.provider", {
     "Gemini could not open the sign-in page in your browser. Check your default browser, then connect again.",
   "error.provider.acpSignInFailed": "The sign-in did not complete.",
   "error.provider.acpSignInFailedReason": "The sign-in did not complete: {reason}",
+  "error.provider.acpSignInNetwork":
+    "The sign-in could not reach the provider's server. Check the network connection and the DNS settings of the computer that runs Hive, then try again.",
+  "error.provider.acpSignOutFailed": "The sign-out did not complete.",
+  "error.provider.acpSignOutFailedReason": "The sign-out did not complete: {reason}",
   "error.provider.acpSignInMethodMissing":
     "This provider does not offer this sign-in on this computer. Update the provider, then try again.",
   "error.provider.httpsSignInLinkOnly": "Only HTTPS sign-in links can open in the browser.",
   "error.provider.geminiKeyRefused":
     "Gemini refused the saved API key. Replace or remove the key in Settings, then connect again.",
+  "error.provider.geminiKeyRateLimited":
+    "Gemini refused the request because your saved Gemini API key reached a rate limit or its quota. The key is used instead of your Google plan. Wait a few minutes or choose another model, then try again. To use your Google plan, remove the key in Settings.\n{detail}",
+  "error.provider.geminiKeyQuotaZero":
+    "Your saved Gemini API key has no quota for this model. The key is used instead of your Google plan. Choose another model, or remove the key in Settings to use your Google plan.\n{detail}",
+  "error.provider.geminiAccountSettingsUnreadable":
+    "Gemini cannot open the settings file of this account, so it cannot sign in. Remove this account and add it again.",
+  "error.provider.geminiSettingsUnreadable":
+    "Gemini cannot open its settings file on this computer, so it cannot sign in. Quit the other apps that use Gemini, then quit and open Hive again.",
+  "error.provider.geminiVerificationRequired":
+    "Google must verify your account before Gemini can answer. Verify your Google account in a browser, then send your message again.",
   "error.provider.keyProviderRefused":
     "{provider} refused the saved API key. Replace or remove the key in Settings, then try again.",
   "error.provider.keyProviderNoBalance":
     "The {provider} account of the saved API key has no balance. Add credit to the account, then try again.",
+  "error.provider.keyProviderLowCredit":
+    "The {provider} account of the saved API key does not have enough credit for a reply from this model. Add credit to the account, or select a different model, then try again.",
+  "error.provider.modelServiceRefused":
+    "The model service refused the request. Select a different model, or check your access to this model at the service.",
+  "error.provider.modelServiceRefusedReason":
+    "The model service refused the request: {reason}. Select a different model, or check your access to this model at the service.",
   "error.provider.messageTooLarge": "Hive stopped {provider} because it sent a message larger than {limit} MB.",
   "error.provider.customAgentIdInvalid":
     "An agent ID must be lowercase letters, digits or `-`, and cannot be the ID of a built-in provider.",
@@ -344,6 +421,13 @@ export const messages = defineMessages("error.provider", {
   "error.provider.accountDefault": "The first {provider} account cannot be removed.",
   "error.provider.accountUsesKey":
     "This {provider} account uses the saved API key and has no sign-in. Change the key in Server settings → Providers.",
+  "error.provider.accountNeedsKey":
+    "A {provider} account after the first uses an API key. Update Hive on this device, then try again.",
+  "error.provider.accountKeyRefused": "{provider} did not accept this API key. Check the key, then try again.",
+  "error.provider.accountKeyUnreachable":
+    "Hive could not reach {provider} to check the API key. Check the internet connection, then try again.",
+  "error.provider.accountKeySignedOut":
+    "{provider} no longer accepts the API key of this account. Give the account a new key.",
   "error.provider.accountInUse": "An agent on this account is working. Try again when the agent stops.",
   "error.provider.accountsReadOnly": "The saved provider accounts cannot be read. Update Hive before you change them.",
   "error.provider.accountSignedOut": "This {provider} account is signed out. Sign in again.",
@@ -359,6 +443,8 @@ export const messages = defineMessages("error.provider", {
   "error.provider.piSessionMissing": "The Pi session file is not available on this computer.",
   "error.provider.piResumeCancelled": "Pi cancelled the session resume. Try again.",
   "error.provider.piSessionIdentity": "Pi returned a different session. The saved session was not replaced.",
+  "error.provider.piExtensionFailed":
+    "Pi stopped because it could not load an extension. Remove or update this extension, then try again. {detail}",
   "error.provider.piModelInvalid": "Select a Pi model that includes its provider.",
   "error.provider.piToolInvalid": "The tool returned an invalid result.",
   "error.provider.piSignIn": "Use /login in Pi on the host computer. Close Pi when sign-in is complete.",
@@ -391,6 +477,8 @@ export const messages = defineMessages("error.provider", {
   "error.provider.museEmptyInput": "Muse needs text or an image.",
   "error.provider.museMethodUnsupported": "Muse does not support {method}.",
   "error.provider.museTurnFailed": "Muse turn failed.",
+  "error.provider.museModelUnavailable":
+    "Muse cannot use this model. Muse may not be available in the country where this agent runs, or this account has no access to the model. Choose another model, then try again.\n{detail}",
   "error.provider.museProfileUnsupported":
     "Muse cannot generate a profile without access to external tools. Use another provider to generate the profile, then select Muse for the agent.",
   "error.provider.museAuthUnverified":
@@ -411,6 +499,8 @@ export const messages = defineMessages("error.provider", {
   "error.provider.registryPrerequisite": "Install {tool} on the host before you install this agent.",
   "error.provider.registryBindingChanged": "The custom agent changed during installation. Try again.",
   "error.provider.registryInstallFailed": "The agent installation failed. The previous installation is unchanged.",
+  "error.provider.hermesInstallFailed": "Hermes Agent did not install. Try again, or use the install guide.",
+  "error.provider.hermesNeedsGitCurl": "Hermes Agent needs git and curl. Install them, then try again.",
   "error.provider.registryRemoveBusy":
     "Wait for the agent installation and active ACP work to finish before you remove it.",
 });

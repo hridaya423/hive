@@ -7,7 +7,11 @@ export const messages = defineMessages("status.agent", {
   "status.agent.instructionsChanged": "Updated its instructions",
   "status.agent.modelSwitchedForLimit": "Usage limit reached. Switched to {model}.",
   "status.agent.modelReturnedAfterLimit": "Usage limit ended. Switched back to {model}.",
+  "status.agent.routineSkippedRunOpen": "Skipped: the last run had not finished",
+  "status.agent.routineSkippedUsageLimit": "Skipped: usage limit reached",
   "status.agent.modelSwitchedForError": "Provider error. Switched to {model}.",
+  "status.agent.modelSwitchedForSpentBalance":
+    "{previous} has no credits left. Switched to {model}. To use it again, add credits and then select it.",
   "status.agent.modelReturnedAfterError": "Switched back to {model} after the provider error.",
   "status.agent.marketplaceSuggested": "Suggested a Marketplace app: {app}.",
   "status.agent.channelMemberAdded": "{agent} added {member} to the channel. {person} asked for it.",
@@ -16,6 +20,7 @@ export const messages = defineMessages("status.agent", {
   "status.agent.channelRoutineCreated": "{agent} created the routine {routine}. {person} asked for it.",
   "status.agent.channelRoutineUpdated": "{agent} changed the routine {routine}. {person} asked for it.",
   "status.agent.channelRoutineDeleted": "{agent} deleted the routine {routine}. {person} asked for it.",
+  "status.agent.channelTaskCancelled": "{agent} cancelled the task “{task}” and its subtasks. {person} asked for it.",
   "status.agent.screenCaptureScreen": "Capture the main screen and send the image to the agent's model.",
   "status.agent.screenCaptureChannel":
     "The image shows in the channel {channel}, and each member of this server who reads the channel can see it.",
@@ -25,6 +30,16 @@ export const messages = defineMessages("status.agent", {
     "Capture the screen area at {x}, {y}, {width} × {height} points and send the image to the agent's model.",
   "status.agent.vaultCardFill":
     "Fill the saved card {card} on {site}. After you approve, agents can fill this card on this site with no approval. Remove the site in Server settings > Vault.",
+  "status.agent.reportProblem":
+    "This becomes a public GitHub issue, with the app version and your system. Your name is not shown.",
+  "status.agent.browserProfileNamed":
+    "Move {agents} to the browser profile {profile}. They get its sign-ins and cookies. Their open tabs close.",
+  "status.agent.browserProfileNew":
+    "Make the new browser profile {profile} and move {agents} to it. It has no sign-ins. Their open tabs close.",
+  "status.agent.browserProfileShared":
+    "Move {agents} to the shared browser profile. They get its sign-ins and cookies. Their open tabs close.",
+  "status.agent.browserProfileOwn": "Give {agents} each a browser profile of its own. Their open tabs close.",
+  "status.agent.workflowDelete": "Delete the workflow {title} with its runs and versions. Its open steps stop.",
   "status.agent.vaultCardFillFrames": "The card fields are in frames from {origins}.",
   "status.agent.linkCardFill":
     "Fill the one-time Link card {card} on {site}. You approved this payment in Link for {merchant}.",
@@ -56,7 +71,21 @@ export const messages = defineMessages("status.agent", {
   "status.agent.changesReviewing": "Reviewing the changes I made…",
   "status.agent.agentCoordinating": "Coordinating with another agent…",
   "status.agent.agentResponseReviewing": "Reviewing the other agent’s response…",
+  "status.agent.commandRunningUnnamed": "Running a command…",
   "status.agent.toolStepWorking": "Working through the next tool-assisted step…",
+  "status.agent.webSearching": "Searching the web for “{query}”…",
+  "status.agent.urlFetching": "Visiting {host}…",
+  "status.agent.fileReading": "Reading the file {name}…",
+  "status.agent.filesReading": "Reading files…",
+  "status.agent.filesListing": "Looking through the folder {path}…",
+  "status.agent.filesLooking": "Looking through files…",
+  "status.agent.textSearching": "Searching for “{query}”…",
+  "status.agent.filesSearchingText": "Searching the files…",
+  "status.agent.folderSizesMeasuring": "Measuring folder sizes…",
+  "status.agent.diskSpaceChecking": "Checking free disk space…",
+  "status.agent.processesChecking": "Checking running processes…",
+  "status.agent.gitChecking": "Checking the Git repository…",
+  "status.agent.commandRunning": "Running the {program} command…",
   "status.agent.memoryChanges": "Memory: {saved} saved, {updated} updated, {forgotten} forgotten.",
   "status.agent.memoryChangesWithConflicts":
     "Memory: {saved} saved, {updated} updated, {forgotten} forgotten, {notChanged} not changed because another thread changed it first.",
@@ -72,6 +101,9 @@ export const messages = defineMessages("status.agent", {
   "status.agent.vaultUpdated": "Changed in Vault: {name}",
   "status.agent.vaultDeleted": "Deleted from Vault: {name}",
   "status.agent.vaultSave": "Save to Vault",
+  "status.agent.apiKeyScope.label": "Save for",
+  "status.agent.apiKeyScope.vault": "All agents (Vault)",
+  "status.agent.apiKeyScope.agent": "Only this agent",
   "status.agent.vaultExpiryHint": "MM/YY",
   "status.agent.vaultField.website": "Website",
   "status.agent.vaultField.username": "Username or email",
@@ -92,5 +124,8 @@ export const messages = defineMessages("status.agent", {
   "status.agent.vaultField.email": "Email address",
   "status.agent.nextStepContinues": "The agent stopped before its next step. It continues ({current} of {limit}).",
   "status.agent.planContinues": "The plan has open steps. The agent continues ({current} of {limit}).",
+  "status.agent.compactionContinues":
+    "The connection stopped while the agent compacted its context. The agent continues.",
   "status.agent.branchTitle": "Branched chat",
+  "status.agent.importedChatTitle": "Imported chat",
 });

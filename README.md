@@ -2,8 +2,8 @@
 
 Hive is a personal fork of [OpenBot](https://github.com/nightly-labs/openbot), a local-first desktop
 workspace for persistent AI agents. Each agent has its own workspace and conversation. Agents run
-on the local CLIs of Codex, Claude Code, GitHub Copilot, Grok, OpenCode, Gemini, Cursor, Cline, Kimi
-and Hermes.
+on the local CLIs of Codex, Claude Code, GitHub Copilot, Grok, OpenCode, Gemini, Cursor, Cline, Kimi,
+Devin, Mistral Vibe and Hermes.
 
 Hive uses the app id `dev.hridaya.hive` and the data folder `Hive`, so it does not touch an installed
 OpenBot. It can import an OpenBot setup.
@@ -42,7 +42,8 @@ OpenBot. It can import an OpenBot setup.
 
 - An Android build of the phone app.
 - Notifications go through your own ntfy server, not Firebase.
-- WhatsApp is a channel, through Baileys, with a list of the chats an agent can use.
+- WhatsApp is a channel. It uses the WhatsApp protocol code that is vendored in the repository,
+  with no `baileys` npm package.
 
 **Cost and speed**
 

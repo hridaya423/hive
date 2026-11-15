@@ -169,6 +169,7 @@ async function openProfile(
   const transfer = new InstanceTransferService({
     agents,
     skills: { library: () => noSkills, installLocal: unused },
+    channelActor: () => ({ id: "local", name: "You" }),
     sharedRoot: store.sharedRoot,
     appVersion: "import-openbot-setup",
     uploadDirectory: join(userData, "instance-transfer-uploads"),

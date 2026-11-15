@@ -47,6 +47,7 @@ const ingress: MessagingIngress = {
   reconnect: () => {},
   discord: unused,
   onDiscordRoutes: () => () => {},
+  onLinkedRoutes: () => () => {},
 };
 
 async function boot<T>(

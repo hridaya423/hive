@@ -121,6 +121,8 @@ async function step<T>(name: string, run: () => Promise<T>): Promise<T> {
 }
 
 const teamBrowser: TeamApiBrowser = {
+  startTeach: unused,
+  stopTeach: () => [],
   listTabs: () => [],
   getControlState: () => ({ sessions: [] }),
   open: unused,
@@ -186,6 +188,7 @@ async function startHost(label: string): Promise<Host> {
   const instanceTransfer = new InstanceTransferService({
     agents,
     skills: { library: () => emptySkills, installLocal: unused },
+    channelActor: () => ({ id: "local", name: "You" }),
     sharedRoot: store.sharedRoot,
     appVersion: HOST_VERSION,
     uploadDirectory: join(userData, "instance-transfer-uploads"),

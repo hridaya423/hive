@@ -12,6 +12,7 @@ export interface ServersPort {
     | "listAgents"
     | "listConversationReads"
     | "listHiddenAgents"
+    | "listAgentNotificationLevels"
     | "listMcpServers"
     | "listModels"
     | "removeMcpServer"
@@ -34,21 +35,24 @@ export interface ServersPort {
   browser: Pick<OpenBotDesktopApi["browser"], "setVisible">;
   hostAdmin: Pick<
     OpenBotDesktopApi["hostAdmin"],
-    "cancelUpdate" | "getUpdateStatus" | "startUpdate" | "updateIdentity"
+    "cancelUpdate" | "getUpdateStatus" | "restartHost" | "rotateHostKey" | "startUpdate" | "updateIdentity"
   >;
   localServers: OpenBotDesktopApi["localServers"];
   host: Pick<
     OpenBotDesktopApi["host"],
     | "configure"
+    | "getRemoteControlPolicy"
     | "getStatus"
     | "onEvent"
     | "recheckScreenRecording"
     | "rotateIdentityKey"
+    | "setRemoteControlPolicy"
     | "start"
     | "stop"
+    | "stopRemoteControl"
     | "updateIdentity"
   >;
-  notifications: Pick<OpenBotDesktopApi["notifications"], "onOpened">;
+  notifications: Pick<OpenBotDesktopApi["notifications"], "onOpened" | "onWorkflowOpened">;
   remoteDesktop: Pick<
     OpenBotDesktopApi["remoteDesktop"],
     "checkSetup" | "connect" | "disconnect" | "list" | "openSetup" | "test"

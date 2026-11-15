@@ -17,6 +17,7 @@ import type {
   MessagingDriverOptions,
   MessagingIngress,
   MessagingPlace,
+  RecentMessages,
   StatusReaction,
 } from "../messaging-types";
 import { MessagingAdapterError, MessagingConnectionError } from "../messaging-types";
@@ -129,6 +130,14 @@ class SlackAdapter implements MessagingAdapter {
     });
   });
 
+  readonly remove = Effect.fnUntraced(function* (
+    this: SlackAdapter,
+    target: MessageTarget,
+    messageId: string,
+  ): Effect.fn.Return<void, MessagingAdapterError> {
+    yield* this.#api.call("chat.delete", { channel: target.platformChannelId, ts: messageId });
+  });
+
   readonly postPrivate = Effect.fnUntraced(function* (
     this: SlackAdapter,
     target: MessageTarget,
@@ -166,13 +175,31 @@ class SlackAdapter implements MessagingAdapter {
       );
   });
 
+  /** Adds one reaction by its Slack name, for a workflow's Slack output. */
+  readonly addEmoji = Effect.fnUntraced(function* (
+    this: SlackAdapter,
+    target: MessageTarget,
+    messageId: string,
+    emoji: string,
+  ) {
+    yield* this.#api
+      .call("reactions.add", { channel: target.platformChannelId, timestamp: messageId, name: emoji })
+      .pipe(
+        Effect.catch((failure) =>
+          failure.cause instanceof SlackApiError && failure.cause.code === "already_reacted"
+            ? Effect.void
+            : Effect.fail(failure),
+        ),
+      );
+  });
+
   readonly postAnswer = Effect.fnUntraced(function* (
     this: SlackAdapter,
     target: MessageTarget,
     markdown: string,
     replaceMessageId: string | null,
   ) {
-    const [first = "", ...rest] = slackChunks(slackMrkdwn(markdown));
+    const [first = "", ...rest] = slackChunks(slackMrkdwn(markdown, true));
     let firstId: string;
     if (replaceMessageId) {
       firstId = replaceMessageId;
@@ -226,7 +253,8 @@ class SlackAdapter implements MessagingAdapter {
         channel_id: target.platformChannelId,
         thread_ts: target.replyThreadId ?? undefined,
       });
-    return skipped;
+    // Slack shares the files in one message, but its upload answer does not give the message ts.
+    return { skipped, firstId: null };
   });
 
   readonly history = Effect.fnUntraced(function* (
@@ -265,7 +293,7 @@ class SlackAdapter implements MessagingAdapter {
     platformChannelId: string,
     threadKey: string | null,
     limit: number,
-  ): Effect.fn.Return<ContextEntry[], MessagingAdapterError> {
+  ): Effect.fn.Return<RecentMessages, MessagingAdapterError> {
     const messages = threadKey
       ? yield* this.#threadReplies(platformChannelId, threadKey)
       : yield* this.#api
@@ -277,7 +305,7 @@ class SlackAdapter implements MessagingAdapter {
         (message.subtype === undefined || RECENT_SUBTYPES.has(String(message.subtype))) &&
         (isString(message.user) || message.bot_id !== undefined),
     );
-    return (yield* this.#entries(kept, threadKey === null)).slice(-limit);
+    return { messages: (yield* this.#entries(kept, threadKey === null)).slice(-limit) };
   });
 
   /**
@@ -454,9 +482,8 @@ class SlackAdapter implements MessagingAdapter {
   });
 
   /**
-   * A marker, not Slack markup: status text is escaped as a whole, which would make `<@U…>` inert.
-   * `#statusText` turns the marker back into a mention after the escape. The answer of an agent never
-   * goes through it, so an answer cannot mention anyone.
+   * A marker, not Slack markup: status text is escaped as a whole. `#statusText` turns the marker back
+   * into a mention after the escape.
    */
   mention(userId: string): string {
     return /^[A-Z0-9]+$/.test(userId) ? `\uE000@${userId}\uE000` : userId;

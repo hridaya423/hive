@@ -1,25 +1,48 @@
 import { type AgentProviderId, agentProviderDescriptor } from "./agent-providers";
 import { INPUT_LIMITS } from "./input-limits";
 import { integerInRange, isBoundedString, isIdentifier, isNullableBoundedString } from "./ipc-bounded-values";
-import { type ConversationReadState, isConversationReadState } from "./ipc-conversations";
+import {
+  type ConversationReadState,
+  type ConversationSnapshot,
+  isConversationReadState,
+  isConversationSnapshot,
+} from "./ipc-conversations";
+import { isQueueDelivery, type QueueDelivery } from "./ipc-queue";
 import { isDynamicRecord, isOneOf } from "./runtime-values";
 
-/** The most tasks of one agent that run a turn at the same time, next to the agent's own chat. */
+/**
+ * The most tasks of one agent that run a turn at the same time by the agent's own limit, next to its
+ * own chat. Frozen by `agent-task-limit-v1`, `agent-tasks-v1` and the instance archive.
+ */
 export const AGENT_TASK_LIMIT_MAX = 4;
-/** The task limit of an agent that has no limit of its own. */
-export const AGENT_TASK_LIMIT_DEFAULT = 2;
+/**
+ * The most that an owner or admin can set as the host default for agents with no limit of their own
+ * (`HostTurnLimits.agentTaskLimit`, `host-turn-limits-v1`).
+ */
+export const HOST_AGENT_TASK_LIMIT_MAX = 64;
+/** The built-in task limit of an agent that has no limit of its own, when the host sets no default. */
+export const AGENT_TASK_LIMIT_DEFAULT = 4;
 
 export function isAgentTaskLimit(value: unknown): value is number {
   return integerInRange(value, 1, AGENT_TASK_LIMIT_MAX);
 }
 
+/** A host default task limit, or a limit that follows it. */
+export function isHostAgentTaskLimit(value: unknown): value is number {
+  return integerInRange(value, 1, HOST_AGENT_TASK_LIMIT_MAX);
+}
+
 /**
  * How many tasks of the agent run a turn at the same time. A provider that runs one turn at a time
- * runs one task, and the agent's own chat waits for it.
+ * runs one task, and the agent's own chat waits for it. `hostDefault` is the limit of an agent that
+ * has no limit of its own.
  */
-export function agentTaskLimit(agent: { provider: AgentProviderId; taskLimit?: number }): number {
+export function agentTaskLimit(
+  agent: { provider: AgentProviderId; taskLimit?: number },
+  hostDefault: number = AGENT_TASK_LIMIT_DEFAULT,
+): number {
   if (!agentProviderDescriptor(agent.provider).concurrentTurns) return 1;
-  return agent.taskLimit ?? AGENT_TASK_LIMIT_DEFAULT;
+  return agent.taskLimit ?? hostDefault;
 }
 
 export const AGENT_TASK_STATES = ["running", "queued", "idle", "closed"] as const;
@@ -82,6 +105,11 @@ export interface AgentTask {
   error: string | null;
   /** The messages that wait to start in this task, oldest first. */
   queuedMessages: AgentTaskQueuedMessage[];
+  /**
+   * The same messages in full, with their files and state, for the queue of the thread. Only this
+   * computer sends it: the frozen `agent-tasks-v1` routes carry `queuedMessages` alone.
+   */
+  queue?: QueueDelivery[];
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
@@ -90,6 +118,11 @@ export interface AgentTask {
    * Absent from a server that cannot branch, and never sent on the frozen `agent-tasks-v1` routes.
    */
   branch?: AgentTaskBranch | null;
+  /**
+   * Set when the thread takes the runs of one routine of the agent. Absent from an older server, and
+   * never sent on the frozen `agent-tasks-v1` routes.
+   */
+  routineId?: string | null;
 }
 
 /** Where a branch was copied from. */
@@ -131,6 +164,44 @@ export interface RunQueuedMessageAsTaskInput {
 export interface AgentTaskInput {
   agentId: string;
   taskId: string;
+}
+
+/** The older messages of a side thread: the page before a message that its view holds. */
+export interface ReadAgentTaskPageInput extends AgentTaskInput {
+  beforeMessageId: string;
+  /**
+   * 0 to 100: a target. The page has whole turns, so it can have more or fewer messages, and never more
+   * than 100; a turn of more than 100 messages is split over pages. With 0, the page has no messages and tells only whether the thread has older ones.
+   */
+  limit: number;
+}
+
+/** A page of the older messages of a side thread, oldest first. */
+export interface AgentTaskPage {
+  conversation: ConversationSnapshot;
+  /** The thread has messages before this page. */
+  hasOlder: boolean;
+}
+
+export function isAgentTaskPage(value: unknown): value is AgentTaskPage {
+  return isDynamicRecord(value) && isConversationSnapshot(value.conversation) && typeof value.hasOlder === "boolean";
+}
+
+/** The messages of a side thread around one of its messages: the thread opens at that message. */
+export interface ReadAgentTaskAroundInput extends AgentTaskInput {
+  messageId: string;
+  /** 1 to 100: a target, as for a page. About half of the messages come before the message. */
+  limit: number;
+}
+
+/** A part of a side thread around one message, oldest first. It has no messages when the thread does not hold the message. */
+export interface AgentTaskWindow extends AgentTaskPage {
+  /** The thread has messages after this part: it does not reach the latest message. */
+  hasNewer: boolean;
+}
+
+export function isAgentTaskWindow(value: unknown): value is AgentTaskWindow {
+  return isAgentTaskPage(value) && isDynamicRecord(value) && typeof value.hasNewer === "boolean";
 }
 
 /**
@@ -200,10 +271,12 @@ export function isAgentTask(value: unknown): value is AgentTask {
     (value.error === null || isBoundedString(value.error, INPUT_LIMITS.agentTaskError)) &&
     Array.isArray(value.queuedMessages) &&
     value.queuedMessages.every(isAgentTaskQueuedMessage) &&
+    (value.queue === undefined || (Array.isArray(value.queue) && value.queue.every(isQueueDelivery))) &&
     isBoundedString(value.createdAt, 160) &&
     isBoundedString(value.updatedAt, 160) &&
     (value.closedAt === null || isBoundedString(value.closedAt, 160)) &&
-    (value.branch === undefined || value.branch === null || isAgentTaskBranch(value.branch))
+    (value.branch === undefined || value.branch === null || isAgentTaskBranch(value.branch)) &&
+    (value.routineId === undefined || value.routineId === null || isIdentifier(value.routineId))
   );
 }
 
@@ -224,6 +297,6 @@ export function isAgentTasksSnapshot(value: unknown): value is AgentTasksSnapsho
     Array.isArray(value.tasks) &&
     value.tasks.length <= INPUT_LIMITS.agentTasks &&
     value.tasks.every(isAgentTask) &&
-    isAgentTaskLimit(value.limit)
+    isHostAgentTaskLimit(value.limit)
   );
 }

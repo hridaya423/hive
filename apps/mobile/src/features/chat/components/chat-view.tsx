@@ -1,3 +1,4 @@
+import { avatarHeadColor } from "@openbot/brand/bloub-avatar";
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type { ConversationMessage } from "@openbot/contracts/ipc";
 import { markdownPlainText } from "@openbot/contracts/markdown-preview-text";
@@ -10,18 +11,17 @@ import { type ParamListBase, useNavigation } from "expo-router/react-navigation"
 import { Typography } from "heroui-native";
 import { useThemeColor } from "heroui-native/hooks";
 import ArrowDown from "lucide-react-native/icons/arrow-down";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, Keyboard, useColorScheme, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { KeyboardGestureArea } from "react-native-keyboard-controller";
 import Animated, { useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
-import { getBloubAvatarColor } from "@/features/agents/model/bloub-activity";
 import { useBrowserFeature } from "@/features/browser/components/use-browser-feature";
 import { channelRecipient } from "@/features/channels/model/channel-draft";
 import type { ApprovalDecision } from "@/features/chat/components/chat-approval-card";
-import { ChatComposer, type MentionSkill } from "@/features/chat/components/chat-composer";
+import { ChatComposer, type MentionReference, type MentionSkill } from "@/features/chat/components/chat-composer";
 import { ChatGlassIconButton } from "@/features/chat/components/chat-glass-icon-button";
 import { ChatHeader } from "@/features/chat/components/chat-header";
 import { ChatMessageList } from "@/features/chat/components/chat-message-list";
@@ -39,7 +39,9 @@ import {
   presentChatMessages,
 } from "@/features/chat/model/chat-messages";
 import { finishedTurnSummaries, type TurnStepsSummary } from "@/features/chat/model/turn-thinking";
+import { liveVoiceWebRtc } from "@/features/voice/model/live-voice-webrtc";
 import { replyVoiceReady } from "@/features/voice/model/reply-voice";
+import { useVoiceSettings } from "@/features/voice/model/voice-settings";
 import { ConnectionStatus } from "@/features/workspace/components/connection-status";
 import { useTurnStepLines } from "@/features/workspace/components/use-agent-activity";
 import { useBrowserRequests } from "@/features/workspace/components/use-live-workspace";
@@ -55,10 +57,12 @@ import { showsOnline } from "@/features/workspace/model/server-status";
 import { haptics } from "@/shared/lib/haptics";
 import { isAndroid, isIOS } from "@/shared/lib/platform";
 import { useText } from "@/shared/lib/text";
+import { END_X } from "@/shared/lib/text-direction";
 import { useAppForeground } from "@/shared/lib/use-app-foreground";
 import { useReducedTransparency } from "@/shared/lib/use-reduced-transparency";
 import { mentionDraft } from "../model/chat-mentions";
 import type { ChatTarget } from "../model/chat-target";
+import { getComposerDraft, useComposerDraft } from "../model/composer-drafts";
 import {
   deleteComposerFiles,
   takeComposerFocus,
@@ -84,6 +88,7 @@ import { ChatSelectionBar } from "./chat-selection-bar";
 import { type ComposerVoice, liveVoice } from "./composer-voice";
 import type { ChatQueueController } from "./use-chat-queue";
 import { useComposerDictation } from "./use-composer-dictation";
+import { useGptLiveConversation } from "./use-gpt-live-conversation";
 import { type LiveChannel, useLiveConversation } from "./use-live-conversation";
 
 export interface ChatViewProps {
@@ -93,6 +98,8 @@ export interface ChatViewProps {
   mentionAgents: MobileAgent[];
   /** The skills of the chat's agent, for `@` and for Use skill in the plus menu. */
   mentionSkills?: readonly MentionSkill[];
+  /** The agent's browser tabs and open threads, for `@`. */
+  mentionReferences?: readonly MentionReference[];
   projectedMessages: ChatMessage[];
   referenceMessages: ChatMessage[];
   ready: boolean;
@@ -101,6 +108,8 @@ export interface ChatViewProps {
   canSend: boolean;
   /** A note in place of the composer that says why the person cannot write here. */
   notice?: string | null;
+  /** Lines above the composer that say why a request does not start, such as a busy channel member. */
+  statusNotes?: readonly string[];
   /** The chat only shows its history, such as a deleted channel: no replies, answers or browser steps. */
   readOnly?: boolean;
   activity?: MobileAgentActivity;
@@ -113,6 +122,35 @@ export interface ChatViewProps {
   liveChannel?: LiveChannel | null;
   /** Absent for a chat that cannot stop a turn, such as a channel. */
   stopTurn?: (turnId: string) => Promise<void>;
+  /** The host messages that offer "Branch from here". */
+  branchPoints?: ReadonlySet<string>;
+  /** Copies the chat through a host message into a new thread. Absent for a chat that cannot branch. */
+  onBranch?: (messageId: string) => Promise<void>;
+  /** Deletes a host message for everyone. Absent where the host cannot delete messages. */
+  deleteMessage?: (messageId: string) => Promise<void>;
+  /** The reader can delete the messages of others too, not only the ones that they sent. */
+  deletesAnyMessage?: boolean;
+  /** Marks an agent's host message and the messages after it unread. Absent where the host cannot. */
+  markUnread?: (messageId: string) => void;
+  /** The host messages that Mark unread is on. Keep the set stable while its ids stay the same. */
+  markUnreadMessageIds?: ReadonlySet<string>;
+  /** Pins or unpins a host message of this chat. Absent where the host cannot pin messages. */
+  togglePin?: (messageId: string, pinned: boolean) => Promise<void>;
+  /** The pinned host messages of this chat. Keep the set stable while its ids stay the same. */
+  pinnedMessageIds?: ReadonlySet<string>;
+  /**
+   * The host messages from the one where the NEW line shows to the newest, in chat order. The line
+   * shows above the first of them that has a row. Null for a chat without the line.
+   */
+  unreadLineMessageIds?: ReadonlySet<string> | null;
+  /**
+   * The open channels that the text of a message can go to, in an agent's own chat. Keep the list
+   * stable while it stays the same. Absent where a message cannot go to a channel.
+   */
+  sendToChannel?: {
+    channels: readonly { id: string; name: string }[];
+    onSend: (channelId: string, text: string) => void;
+  };
   questionForm?: QuestionPromptController;
   /** Opens the form of an open question, in a channel where several agents can ask. */
   onSelectQuestion?: (messageId: string) => void;
@@ -120,6 +158,8 @@ export interface ChatViewProps {
   needsAction?: boolean;
   /** The lead of a channel. Its browser opens when no member asks for a browser step. */
   channelLeadAgentId?: string | null;
+  /** The steps row of each finished channel turn with no answer, by the row of its first thought. */
+  channelTurnSummaries?: ReadonlyMap<string, TurnStepsSummary>;
   /** Rows under the agent's activity, such as the tasks that the agent works on. */
   activityAccessory?: ReactNode;
   /** The agent's threads, in the menu of the agent's name in the header. */
@@ -139,6 +179,11 @@ export interface ChatViewProps {
   loadOlder: () => void;
   /** A message from search that the chat opens at, once its page is loaded. */
   focusMessageId?: string | null;
+  /**
+   * `focusMessageId` is the first unread message: the chat opens at the NEW line, without the
+   * highlight of a message from search.
+   */
+  focusUnread?: boolean;
   /** True while the chat opens at a message from search, also before its page loads. */
   holdOpening?: boolean;
   /** True while the chat shows the messages that the phone kept and reads its latest page. */
@@ -204,12 +249,14 @@ export function ChatView({
   agents: serverAgents,
   mentionAgents,
   mentionSkills,
+  mentionReferences,
   projectedMessages,
   referenceMessages,
   ready,
   historyLoadFailed,
   canSend,
   notice = null,
+  statusNotes,
   readOnly = false,
   activity,
   activities,
@@ -217,10 +264,21 @@ export function ChatView({
   conversation = null,
   liveChannel = null,
   stopTurn,
+  branchPoints,
+  onBranch,
+  deleteMessage,
+  deletesAnyMessage = false,
+  markUnread,
+  markUnreadMessageIds,
+  togglePin,
+  pinnedMessageIds,
+  unreadLineMessageIds = null,
+  sendToChannel,
   questionForm,
   onSelectQuestion,
   needsAction = false,
   channelLeadAgentId = null,
+  channelTurnSummaries,
   activityAccessory,
   threadMenu,
   threadId = null,
@@ -234,6 +292,7 @@ export function ChatView({
   olderError,
   loadOlder,
   focusMessageId = null,
+  focusUnread = false,
   holdOpening = false,
   catchingUp = false,
   onFocusPlaced,
@@ -293,7 +352,28 @@ export function ChatView({
   const [selection, setSelection] = useState<{ message: ChatBubbleMessage; selected: string } | null>(null);
   const selectionQuote = selection ? selection.selected.trim() || markdownPlainText(selection.message.body) : "";
   const [replyFocusVersion, setReplyFocusVersion] = useState(0);
-  const [draft, setDraft] = useState("");
+  // Each chat keeps its own unsent text, so a look at another chat does not lose it.
+  const draftChat = useMemo(
+    () => ({ kind: target.kind, serverId: target.serverId, id: target.id }),
+    [target.kind, target.serverId, target.id],
+  );
+  const [sharedDraft, setSharedDraft] = useComposerDraft(draftChat);
+  // The messages whose text and files are in the composer. The send replaces them. The outbox keeps
+  // them until the send, and they come back stopped when the chat closes.
+  const editedMessages = useRef(new Set<string>());
+  // While this screen holds an Edit, its text stays on this screen, with the files and reply of the
+  // edited messages. Another screen of the chat shows the text from before the first Edit, so it
+  // cannot send the edited text without its files, and a close leaves that text.
+  const [editDraft, setEditDraft] = useState<string | null>(null);
+  const draftBeforeEdit = useRef("");
+  const draft = editDraft ?? sharedDraft;
+  const setDraft = useCallback(
+    (value: SetStateAction<string>) => {
+      if (!editedMessages.current.size) return setSharedDraft(value);
+      setEditDraft((current) => (typeof value === "function" ? value(current ?? "") : value));
+    },
+    [setSharedDraft],
+  );
   const [sendError, setSendError] = useState<{
     agentId: string;
     message: string;
@@ -370,13 +450,14 @@ export function ChatView({
   const conversationMessages = conversation?.messages;
   const conversationTurnId = conversation?.activeTurnId ?? null;
   const lastTurnSummaries = useRef<ReadonlyMap<string, TurnStepsSummary> | undefined>(undefined);
-  const turnSummaries = useMemo(() => {
+  const agentTurnSummaries = useMemo(() => {
     lastTurnSummaries.current =
       conversationMessages && target.kind === "agent"
         ? finishedTurnSummaries(conversationMessages, conversationTurnId, turnLines, lastTurnSummaries.current)
         : undefined;
     return lastTurnSummaries.current;
   }, [conversationMessages, conversationTurnId, turnLines, target.kind]);
+  const turnSummaries = agentTurnSummaries ?? channelTurnSummaries;
   const thinkingAgentId = target.kind === "agent" ? target.id : null;
   const openTurn = useCallback(
     (turnId: string) => {
@@ -425,7 +506,8 @@ export function ChatView({
   const messages = useMemo(
     () =>
       presentChatMessages(
-        projectedMessages.filter((item) => !queuedMessageIds.has(item.id)),
+        // Most chats have no queued message: the rows then need no copy on each streamed chunk.
+        queuedMessageIds.size ? projectedMessages.filter((item) => !queuedMessageIds.has(item.id)) : projectedMessages,
         pendingMessages,
         messageAliases,
       ),
@@ -444,6 +526,8 @@ export function ChatView({
         for (const message of received) if (message.messageId) next.set(message.messageId, outboxRowId(message));
         return next;
       });
+    // This effect runs on each streamed chunk. Only a message with a receipt reads the drawn rows.
+    if (!received.length) return;
     const drawn = [...projectedMessages, ...queueReceiptMessages(queue?.deliveries ?? [])];
     const settled = received.filter(
       (message) =>
@@ -477,24 +561,25 @@ export function ChatView({
   useEffect(() => {
     if (answersQuestion) setAnswerFocusVersion((version) => version + 1);
   }, [answersQuestion]);
-  // Another screen, such as Agent info > Skills or a share from another app, can put text and files
-  // in this composer and close itself. Only a chat in front takes it: a chat under that screen is not
-  // the one the user returns to.
+  // Another screen, such as Agent info > Skills, a share from another app, or Send to channel on a
+  // message, can put text and files in this composer and close itself. Only a chat in front takes it:
+  // a chat under that screen is not the one the user returns to.
   const composerRequest = useComposerRequest((state) => state.request);
   useEffect(() => {
-    if (!isFocused || !composerRequest || target.kind !== "agent") return;
-    const request = takeComposerRequest(target.serverId, target.id);
+    if (!isFocused || !composerRequest) return;
+    const request = takeComposerRequest({ kind: target.kind, serverId: target.serverId, id: target.id });
     if (!request) return;
     const files = request.files ?? [];
     void composerAttachments
       .addShared(request.text, files, (text) => setDraft((current) => (current ? `${current}\n${text}` : text)))
       .finally(() => deleteComposerFiles(files));
-  }, [isFocused, composerRequest, target.kind, target.serverId, target.id, composerAttachments.addShared]);
+  }, [isFocused, composerRequest, target.kind, target.serverId, target.id, composerAttachments.addShared, setDraft]);
   const composerFocus = useComposerRequest((state) => state.focus);
   const [handoffFocusVersion, setHandoffFocusVersion] = useState(0);
   useEffect(() => {
-    if (!isFocused || !composerFocus || target.kind !== "agent") return;
-    if (takeComposerFocus(target.serverId, target.id)) setHandoffFocusVersion((version) => version + 1);
+    if (!isFocused || !composerFocus) return;
+    if (takeComposerFocus({ kind: target.kind, serverId: target.serverId, id: target.id }))
+      setHandoffFocusVersion((version) => version + 1);
   }, [isFocused, composerFocus, target.kind, target.serverId, target.id]);
   const lastUserId =
     messages.findLast((message) => message.kind === "message" && message.author === "user")?.id ?? null;
@@ -537,8 +622,9 @@ export function ChatView({
     keyboardOffset,
     // The list takes its place at the latest message once its rows render.
     ready && rowsShown,
-    // The list draws a row for each message except the thinking steps, which the activity row shows.
-    rowsShown && messages.some((message) => message.kind !== "thinking"),
+    // The list draws a row for each message except the thinking steps, which the activity row or a
+    // steps row shows. A finished turn with no answer draws its steps row on its thinking row.
+    rowsShown && messages.some((message) => message.kind !== "thinking" || turnSummaries?.has(message.id)),
     lastUserId,
     questionForm?.question ? (questionForm.messageId ?? null) : null,
     holdOpening,
@@ -546,18 +632,24 @@ export function ChatView({
   );
   const atLatest = motion.atLatest;
   // The end of a window around a searched message is not the latest message.
-  const showLatest = () => {
+  // `pin` is the button: the chat then also keeps the end in view while a reply grows. A sent
+  // message takes its own place.
+  const showLatest = (pin: boolean) => {
     if (!detached || !showLatestMessages) {
-      motion.scrollToLatest();
+      if (pin) motion.pinToLatest();
+      else motion.scrollToLatest();
       return;
     }
-    void showLatestMessages().then(motion.returnToLatest, () => undefined);
+    void showLatestMessages().then(
+      () => motion.returnToLatest(pin),
+      () => undefined,
+    );
   };
   const liquidGlassAvailable = isLiquidGlassAvailable() && !reducedTransparency;
   // A quiet return to the app counts as online: the chat keeps its look, and its requests wait.
   const serverOnline = showsOnline(server);
-  // A hold on the mic dictates into the draft, and only Send makes it a message. Leaving the chat or
-  // losing the server stops listening and keeps the words.
+  // The mic beside the main control dictates into the draft, and only Send makes it a message.
+  // Leaving the chat or losing the server stops listening and keeps the words.
   const dictation = useComposerDictation({
     enabled: isFocused && serverOnline && canSend && !readOnly && !notice,
     focused: isFocused,
@@ -567,17 +659,39 @@ export function ChatView({
   const writable = canSend && !readOnly && !notice;
   // Hands-free, as the voice pane on desktop: the agent hears a pause as the end of a turn, and its
   // reply is read aloud. In a channel the leader answers, or the member the words name.
-  const live = useLiveConversation({
+  // GPT live voice takes the conversation of an agent chat when the user chose it, the server serves
+  // it, and this app binary has WebRTC. A call that runs keeps it, also while the server is away.
+  const gptLiveChosen = useVoiceSettings((state) => state.gptLive);
+  const gptLiveVoice = useVoiceSettings((state) => state.gptLiveVoice);
+  const serverLiveVoice = useMobileWorkspaceSelector((current) => current.canUseLiveVoice(target.serverId));
+  const gptLive = useGptLiveConversation({
+    active: target.kind === "agent" && gptLiveChosen && serverLiveVoice && liveVoiceWebRtc !== null,
     enabled: isFocused && writable,
     online: serverOnline,
     focused: isFocused,
     foreground: foregroundVisit,
+    agentId: target.id,
+    voice: gptLiveVoice,
+    serverId: target.serverId,
+    startSession: (input) => workspace().startLiveVoice(input, target.serverId),
+    stopSession: (sessionId) => workspace().stopLiveVoice(sessionId, target.serverId),
+  });
+  const phoneLive = useLiveConversation({
+    enabled: isFocused && writable && !gptLive.open,
+    online: serverOnline,
+    focused: isFocused,
+    foreground: foregroundVisit,
     conversation,
+    provider: target.kind === "agent" ? serverAgents.find((agent) => agent.id === target.id)?.provider : undefined,
     channel: liveChannel,
     deliveries: queue?.deliveries ?? NO_DELIVERIES,
     outboxMessages,
     send: (text) => (writable ? deliver(text, null, []) : null),
   });
+  // A phone conversation that runs keeps the call bar until it ends, also when the server starts to
+  // serve GPT live voice during it, such as at its first connection or after a host update.
+  const usesGptLive = gptLive.open || (gptLive.available && !phoneLive.open);
+  const live = usesGptLive ? gptLive : phoneLive;
   // The agent who speaks in a voice conversation: the agent of the chat, or the channel's leader, who
   // gives out the channel's tasks.
   const voiceAgent =
@@ -587,23 +701,93 @@ export function ChatView({
   // Not gated on `appActive`. Notification Center and other system overlays make iOS report the app
   // inactive, and a request must stay with its typed value. It goes when the app leaves.
   const showBrowserRequests = serverOnline && foregroundVisit && isFocused && !readOnly;
-  // A tap on the mic of the composer: a live conversation in an agent chat, as on desktop. A channel
-  // has no one conversation to follow, so there a tap dictates hands-free. A hold always dictates.
+  // The main control of an empty composer: a live conversation in an agent chat, as on desktop. A
+  // channel has no one conversation to follow, so there only the dictation mic beside it listens.
   // With no voice ready, the tap opens Settings > Voice, where the user downloads Supertonic 3 or adds
   // an ElevenLabs key.
-  const composerVoice: ComposerVoice | undefined =
-    live.available || live.open
-      ? {
-          ...liveVoice(live, voiceAgent?.name ?? target.name, t),
-          start: () => (replyVoiceReady() ? live.start() : router.push("/settings/voice")),
-        }
-      : undefined;
+  // One object while the conversation says the same: the composer is in `memo`, and a new object on
+  // each render of the chat, such as on each streamed chunk, rendered the whole composer again.
+  const {
+    available: liveAvailable,
+    open: liveOpen,
+    exit: liveExit,
+    phase: livePhase,
+    muted: liveMuted,
+    micOpen: liveMicOpen,
+    level: liveLevel,
+    presence: livePresence,
+    start: liveStart,
+    toggleMute: liveToggleMute,
+    interrupt: liveInterrupt,
+    end: liveEnd,
+    error: liveError,
+    caption: liveCaption,
+  } = live;
+  const voiceName = voiceAgent?.name ?? target.name;
+  const composerVoice = useMemo((): ComposerVoice | undefined => {
+    if (!liveAvailable && !liveOpen) return undefined;
+    const source = {
+      available: liveAvailable,
+      open: liveOpen,
+      exit: liveExit,
+      phase: livePhase,
+      muted: liveMuted,
+      micOpen: liveMicOpen,
+      level: liveLevel,
+      presence: livePresence,
+      start: liveStart,
+      toggleMute: liveToggleMute,
+      interrupt: liveInterrupt,
+      end: liveEnd,
+      error: liveError,
+      caption: liveCaption,
+    };
+    return {
+      ...liveVoice(source, voiceName, t),
+      start: () => (usesGptLive || replyVoiceReady() ? liveStart() : router.push("/settings/voice")),
+    };
+  }, [
+    liveAvailable,
+    liveOpen,
+    liveExit,
+    livePhase,
+    liveMuted,
+    liveMicOpen,
+    liveLevel,
+    livePresence,
+    liveStart,
+    liveToggleMute,
+    liveInterrupt,
+    liveEnd,
+    liveError,
+    liveCaption,
+    voiceName,
+    usesGptLive,
+    t,
+  ]);
+  const voiceAgentId = voiceAgent?.id;
+  const voiceAvatarSeed = voiceAgent?.avatarSeed;
+  const voiceAvatarHue = voiceAgent?.avatarHue;
+  const voiceAvatarColor = voiceAgent?.avatarColor;
+  const voiceAvatar = useMemo(
+    () =>
+      voiceAgentId !== undefined && voiceAvatarSeed !== undefined ? (
+        <VoiceAgentAvatar
+          agentId={voiceAgentId}
+          serverId={target.serverId}
+          seed={voiceAvatarSeed}
+          hue={voiceAvatarHue ?? null}
+          color={voiceAvatarColor ?? null}
+        />
+      ) : undefined,
+    [voiceAgentId, target.serverId, voiceAvatarSeed, voiceAvatarHue, voiceAvatarColor],
+  );
   // A live conversation keeps the chat in view and turns the composer into a call bar.
   const voiceOpen = live.open;
-  const dictating = dictation.stage !== "idle";
+  const dictating = dictation.active;
   // A password or a code is typed where the composer is, so the screen has one field. The voice
   // mode, dictation and the attachment card keep the composer until they close: replacing it would
-  // end a hold on the mic. Other secret requests wait.
+  // end them. Other secret requests wait.
   const secretRequest =
     showBrowserRequests && !voiceOpen && !dictating && !attachments.menuOpen
       ? chatBrowserRequests.find(asksForSecret)
@@ -619,9 +803,11 @@ export function ChatView({
   const voiceColors = useMemo(
     () =>
       voiceAgent
-        ? [getBloubAvatarColor(voiceAgent.avatarSeed, voiceAgent.avatarHue)]
+        ? [avatarHeadColor(voiceAgent.avatarSeed, voiceAgent.avatarHue, voiceAgent.avatarColor)]
         : target.kind === "channel"
-          ? target.members.slice(0, 4).map((member) => getBloubAvatarColor(member.avatarSeed, member.avatarHue))
+          ? target.members
+              .slice(0, 4)
+              .map((member) => avatarHeadColor(member.avatarSeed, member.avatarHue, member.avatarColor))
           : [],
     [voiceAgent, target],
   );
@@ -664,13 +850,15 @@ export function ChatView({
     () =>
       Gesture.Pan()
         .enabled(!isIOS)
-        .hitSlop({ left: 0, width: CHAT_BACK_EDGE_WIDTH })
-        .activeOffsetX(12)
-        .failOffsetX(-8)
+        // From the start edge toward the middle: the left edge, or the right edge in a right-to-left
+        // layout, as a stack screen goes back. The gesture measures in screen points.
+        .hitSlop(END_X === 1 ? { left: 0, width: CHAT_BACK_EDGE_WIDTH } : { right: 0, width: CHAT_BACK_EDGE_WIDTH })
+        .activeOffsetX(12 * END_X)
+        .failOffsetX(-8 * END_X)
         .failOffsetY([-16, 16])
         .onEnd((event) => {
           if (menuOpenValue.get()) return;
-          if (event.translationX < 48 && event.velocityX < 650) return;
+          if (event.translationX * END_X < 48 && event.velocityX * END_X < 650) return;
           scheduleOnRN(voiceOpenValue.get() ? leaveVoiceMode : leaveConversation);
         }),
     [menuOpenValue, voiceOpenValue, leaveVoiceMode, leaveConversation],
@@ -747,7 +935,13 @@ export function ChatView({
   /** The composer sends what Edit gave it: the messages it came from are replaced. */
   function takeEditedMessages(): string[] {
     const ids = [...editedMessages.current];
+    if (!ids.length) return ids;
     editedMessages.current.clear();
+    setEditDraft(null);
+    // The sent text held the draft from before the first Edit. Text that another screen of the chat
+    // wrote since then stays.
+    const before = draftBeforeEdit.current;
+    setSharedDraft((current) => (current === before ? "" : current));
     return ids;
   }
 
@@ -760,7 +954,7 @@ export function ChatView({
     setSendError(null);
     setSelection(null);
     // The reply comes at the latest message, which a window around a searched message does not show.
-    if (detached) showLatest();
+    if (detached) showLatest(false);
     // The send animation starts from the loaded history. Without it, as offline, the row shows at once:
     // the animation would hide the first message until a history that does not load.
     if (!sendsToQueue && ready) motion.beginSend();
@@ -791,9 +985,6 @@ export function ChatView({
     deliver(serializeSelectionInstruction(instruction, selectionQuote), hostMessageId(selection.message.id), []);
   }
 
-  // The messages whose text and files are in the composer. The composer draft is not saved, so the
-  // outbox keeps them until it sends, and they come back stopped when the chat closes.
-  const editedMessages = useRef(new Set<string>());
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
@@ -801,6 +992,7 @@ export function ChatView({
     return () => {
       mounted.current = false;
       outbox.stopEditing(edited);
+      edited.clear();
     };
   }, [outbox]);
   /**
@@ -826,9 +1018,13 @@ export function ChatView({
       outbox.stopEditing([clientMessageId]);
       return;
     }
-    editedMessages.current.add(clientMessageId);
     const { text: body, replyToMessageId, files } = restored;
-    if (body) setDraft((current) => (current ? `${body}\n${current}` : body));
+    if (!editedMessages.current.size) draftBeforeEdit.current = getComposerDraft(draftChat);
+    editedMessages.current.add(clientMessageId);
+    setEditDraft((current) => {
+      const base = current ?? draftBeforeEdit.current;
+      return body ? (base ? `${body}\n${base}` : body) : base;
+    });
     const reply = projectedMessages.find(
       (message): message is ChatBubbleMessage => message.kind === "message" && message.id === replyToMessageId,
     );
@@ -842,12 +1038,14 @@ export function ChatView({
   });
   // A stopped upload is the person's own choice: the text and files go back to the composer, and no
   // error is needed to explain it.
+  // Only the chat in front takes them, so that one screen of a chat holds the edit.
   useEffect(() => {
+    if (!isFocused) return;
     const returned = outboxMessages.filter((message) => message.returned);
     if (!returned.length) return;
     cancelSend.current();
     for (const message of returned) void editOutboxMessage.current(message.clientMessageId);
-  }, [outboxMessages]);
+  }, [outboxMessages, isFocused]);
   const outboxStatuses = useMemo(() => {
     const statuses = new Map<string, OutboxRowStatus>();
     // The waiting messages share one status line, under the last of them.
@@ -873,10 +1071,13 @@ export function ChatView({
   latestSend.current = sendMessage;
   const send = useCallback((value: string) => latestSend.current(value), []);
   const cancelReply = useCallback(() => setReplyTarget(null), []);
-  const dismissStarter = useCallback(() => setShowStarter(false), []);
   const respondToApproval = useCallback(
     (approval: PendingApproval, decision: ApprovalDecision) =>
       workspace().respondToApproval(target.serverId, { requestId: approval.requestId, decision }),
+    [workspace, target.serverId],
+  );
+  const loadWholeApproval = useCallback(
+    (approval: PendingApproval) => workspace().readWholeApproval(target.serverId, approval),
     [workspace, target.serverId],
   );
   const react = useCallback(
@@ -886,6 +1087,33 @@ export function ChatView({
   );
   // The reaction route is an agent route. A channel message has no reaction.
   const canReact = target.kind === "agent";
+  const branchMessage = useCallback(
+    (message: ChatBubbleMessage) => void onBranch?.(hostMessageIds.get(message.id) ?? message.id),
+    [onBranch, hostMessageIds],
+  );
+  const onSendToChannel = sendToChannel?.onSend;
+  const sendMessageToChannel = useCallback(
+    (message: ChatBubbleMessage, channelId: string) => onSendToChannel?.(channelId, message.body),
+    [onSendToChannel],
+  );
+  const deleteListMessage = useCallback(
+    async (message: ChatBubbleMessage) => deleteMessage?.(hostMessageIds.get(message.id) ?? message.id),
+    [deleteMessage, hostMessageIds],
+  );
+  const markListMessageUnread = useCallback(
+    (message: ChatBubbleMessage) => markUnread?.(hostMessageIds.get(message.id) ?? message.id),
+    [markUnread, hostMessageIds],
+  );
+  const togglePinListMessage = useCallback(
+    async (message: ChatBubbleMessage, pinned: boolean) =>
+      togglePin?.(hostMessageIds.get(message.id) ?? message.id, pinned),
+    [togglePin, hostMessageIds],
+  );
+  // The pins name host messages. A message sent here keeps its row id after the host gives it an id.
+  const pinnedRowIds = useMemo(
+    () => (pinnedMessageIds ? new Set([...pinnedMessageIds].map((id) => messageAliases.get(id) ?? id)) : undefined),
+    [pinnedMessageIds, messageAliases],
+  );
   // Select text starts the selection, and a second tap on it ends the selection.
   const selectText = useCallback((message: ChatBubbleMessage) => {
     Keyboard.dismiss();
@@ -894,17 +1122,6 @@ export function ChatView({
   const changeSelection = useCallback(
     (selected: string) =>
       setSelection((current) => (current && current.selected !== selected ? { ...current, selected } : current)),
-    [],
-  );
-  const selectNatively = useCallback(
-    (message: ChatBubbleMessage, selected: string) =>
-      setSelection((current) => {
-        if (selected) {
-          return current?.message.id === message.id && current.selected === selected ? current : { message, selected };
-        }
-        // An empty selection ends only the selection of its own message.
-        return current?.message.id === message.id ? null : current;
-      }),
     [],
   );
   const dismissSelection = useCallback(() => setSelection(null), []);
@@ -979,6 +1196,7 @@ export function ChatView({
                         ? "error"
                         : "loading"
               }
+              catchingUp={catchingUp}
               appActive={appActive}
               activeTurnId={activeTurnId}
               turnSummaries={turnSummaries}
@@ -992,7 +1210,8 @@ export function ChatView({
               browserRequests={chatBrowserRequests}
               serverName={server?.name ?? ""}
               onRespondApproval={respondToApproval}
-              fieldBackground={fieldBackground}
+              readsWholeApprovals={workspace().readsWholeApprovals(target.serverId)}
+              onLoadWholeApproval={loadWholeApproval}
               foreground={foreground}
               messages={messages}
               messageAliases={messageAliases}
@@ -1002,22 +1221,30 @@ export function ChatView({
               olderError={olderError}
               onLoadOlder={loadOlder}
               onReply={readOnly ? undefined : replyToMessage}
+              onBranch={onBranch && !readOnly ? branchMessage : undefined}
+              branchPoints={branchPoints}
               onReact={canReact && !readOnly ? react : undefined}
+              onDeleteMessage={deleteMessage && !readOnly ? deleteListMessage : undefined}
+              deletesAnyMessage={deletesAnyMessage}
+              onMarkUnread={markUnread ? markListMessageUnread : undefined}
+              markUnreadMessageIds={markUnreadMessageIds}
+              onTogglePin={togglePin ? togglePinListMessage : undefined}
+              pinnedMessageIds={pinnedRowIds}
+              unreadLineMessageIds={unreadLineMessageIds}
+              sendChannels={sendToChannel?.channels}
+              onSendToChannel={sendToChannel && !readOnly ? sendMessageToChannel : undefined}
               selectingMessageId={selection?.message.id ?? null}
               onSelectText={selectText}
               onSelectionChange={changeSelection}
-              onNativeSelection={selectNatively}
               onDismissSelection={dismissSelection}
               muted={muted}
-              raised={raised}
               showStarter={
                 showStarter && serverOnline && canSend && ready && !activity && projectedMessages.length === 0
               }
               topInset={insets.top}
-              onDismissStarter={dismissStarter}
-              onSelectStarter={send}
               onRetryHistory={fetchHistory}
               focusMessageId={focusMessageId}
+              focusUnread={focusUnread}
               onFocusPlaced={onFocusPlaced}
               upload={listUpload}
               outboxStatuses={outboxStatuses}
@@ -1033,7 +1260,7 @@ export function ChatView({
                     accessibilityLabel={t("mobile.chat.scrollToLatest")}
                     fallbackBackground={fieldBackground}
                     liquidGlassAvailable={liquidGlassAvailable}
-                    onPress={showLatest}
+                    onPress={() => showLatest(true)}
                   >
                     <ArrowDown color={String(foreground)} size={22} />
                   </ChatGlassIconButton>
@@ -1097,6 +1324,20 @@ export function ChatView({
                   {t("mobile.chat.outbox.saveFailed")}
                 </Typography.Paragraph>
               ) : null}
+              {notice
+                ? null
+                : statusNotes?.map((note) => (
+                    <Typography.Paragraph
+                      key={note}
+                      type="body-xs"
+                      numberOfLines={2}
+                      accessibilityLiveRegion="polite"
+                      className="bg-background py-1.5 text-text-secondary"
+                      style={{ paddingLeft: insets.left + 16, paddingRight: insets.right + 16 }}
+                    >
+                      {note}
+                    </Typography.Paragraph>
+                  ))}
               {queue && !notice ? (
                 <ChatQueueButton
                   queue={queue}
@@ -1164,6 +1405,7 @@ export function ChatView({
                   onCancelReply={cancelReply}
                   mentionAgents={mentionAgents}
                   mentionSkills={mentionSkills}
+                  mentionReferences={mentionReferences}
                   skillPickerVersion={skillPickerVersion}
                   onSuggestionsVisibleChange={setSuggestionsOpen}
                   key={target.id}
@@ -1198,16 +1440,7 @@ export function ChatView({
                   // An agent's own colour; a channel keeps the default controls.
                   voiceAccent={target.kind === "agent" ? accent : undefined}
                   voicePalette={palette}
-                  voiceAvatar={
-                    voiceAgent ? (
-                      <VoiceAgentAvatar
-                        agentId={voiceAgent.id}
-                        serverId={target.serverId}
-                        seed={voiceAgent.avatarSeed}
-                        hue={voiceAgent.avatarHue}
-                      />
-                    ) : undefined
-                  }
+                  voiceAvatar={voiceAvatar}
                 />
               )}
             </Animated.View>

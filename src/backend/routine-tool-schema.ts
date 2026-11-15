@@ -1,5 +1,5 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
-import { ROUTINE_LIMIT_POLICIES, ROUTINE_MISSED_POLICIES } from "@openbot/contracts/ipc";
+import { ROUTINE_LIMIT_POLICIES, ROUTINE_MISSED_POLICIES, ROUTINE_RUN_PLACES } from "@openbot/contracts/ipc";
 import { z } from "zod";
 import { WEBHOOK_EVENT_TYPE_MAX_LENGTH, WEBHOOK_FILTERS_LIMIT } from "./webhook-trigger";
 
@@ -75,11 +75,20 @@ export const routineLimitPolicyZodSchema = z
   .enum(ROUTINE_LIMIT_POLICIES)
   .describe("At the account usage limit: wait runs after the reset, skip drops the run. Default wait.");
 
+const ROUTINE_MISSED_POLICY_MEANING = "Runs missed while OpenBot was off: skip drops them, run-once runs the newest.";
+
 export const routineMissedPolicyZodSchema = z
   .enum(ROUTINE_MISSED_POLICIES)
-  .describe(
-    "For runs missed while OpenBot was off: skip drops them, run-once runs the newest. Default run-once; an update with no value keeps the saved policy.",
-  );
+  .describe("Runs missed while OpenBot was off: skip drops them, run-once runs the newest. Default run-once.");
+
+/** The update tools already say that a field left out keeps its saved value. */
+export const routineMissedPolicyUpdateZodSchema = z
+  .enum(ROUTINE_MISSED_POLICIES)
+  .describe(ROUTINE_MISSED_POLICY_MEANING);
+
+export const routineRunPlaceZodSchema = z
+  .enum(ROUTINE_RUN_PLACES)
+  .describe("chat (default) or thread. Thread only when the user asks.");
 
 export const webhookEventTypeZodSchema = z
   .string()

@@ -43,7 +43,15 @@ try {
   assert.equal(starts.length, 1, "Copilot did not start once in ACP mode.");
   assert.deepEqual(
     starts[0]?.argv,
-    ["--acp", "--disable-builtin-mcps", "--disable-mcp-server", "cua", "--disable-mcp-server", "user tools"],
+    [
+      "--acp",
+      "--no-auto-update",
+      "--disable-builtin-mcps",
+      "--disable-mcp-server",
+      "cua",
+      "--disable-mcp-server",
+      "user tools",
+    ],
     "Copilot started with MCP servers that OpenBot did not give the agent.",
   );
   report.checks.push("Copilot starts with only OpenBot's MCP servers");

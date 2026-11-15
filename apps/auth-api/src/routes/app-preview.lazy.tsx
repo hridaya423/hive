@@ -1,6 +1,5 @@
 import { createLazyFileRoute } from "@tanstack/solid-router";
 import { createSignal, lazy, onSettled, Show } from "solid-js";
-import "../../../../src/renderer/src/preview/preview.css";
 
 const OpenBotPlayground = lazy(() =>
   import("@openbot/renderer-preview").then((module) => ({ default: module.OpenBotPlayground })),

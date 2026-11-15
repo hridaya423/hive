@@ -1,13 +1,20 @@
 import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import type {
   AgentDefaults,
+  AgentDockAction,
+  AgentDockDragPhase,
+  AgentDockInputRect,
+  AgentDockPresentation,
   AgentMemoryLimitPreference,
   AgentProviderId,
   AppBehaviorPreferenceChange,
+  AppFontFamily,
+  AvatarColor,
   BrowserDockAction,
   BrowserDockFrame,
   BrowserDockPresentation,
   BusyMessageModePreference,
+  ChatBackgroundColor,
   ChatWindowTarget,
   DynamicIslandAction,
   DynamicIslandPreference,
@@ -28,6 +35,8 @@ import type {
   RemoteNetworkRoutePreference,
   RemoteSessionReusePreference,
   SaveSetupInput,
+  SetAgentDockInteractiveInput,
+  SetAgentDockXWaylandInput,
   SetAppAppearancePreferenceInput,
   SetAppInterfaceSizePreferenceInput,
   SetAppLanguagePreferenceInput,
@@ -42,20 +51,30 @@ import type {
 } from "@openbot/contracts/ipc";
 import {
   decodeExternalLinkTarget,
+  GITHUB_SKILL_ID_MAX_LENGTH,
   IDLE_RESTART_TARGETS,
   isAgentDefaults,
+  isAgentDockAction,
+  isAgentDockDragPhase,
+  isAgentDockInputRegion,
+  isAgentDockInteractive,
+  isAgentDockPresentation,
+  isAgentDockXWayland,
   isAgentMemoryLimit,
   isAgentModel,
   isAgentProvider,
   isAppAppearance,
+  isAppFontFamily,
   isAppInterfaceSize,
   isAppLanguage,
   isAppLogoColor,
   isAppThemePaletteId,
+  isAvatarColor,
   isBrowserDockAction,
   isBrowserDockFrame,
   isBrowserDockPresentation,
   isBusyMessageMode,
+  isChatBackgroundColor,
   isDynamicIslandAction,
   isDynamicIslandInteractive,
   isDynamicIslandPreference,
@@ -64,6 +83,7 @@ import {
   isRemoteNetworkRoute,
   isSkillCategory,
   MAC_AUTOMATION_TARGETS,
+  QUIT_GUARDS,
 } from "@openbot/contracts/ipc";
 import {
   type DynamicRecord,
@@ -104,6 +124,9 @@ export function parseAgentDefaults(input: unknown): AgentDefaults {
     allowAutomation: input.allowAutomation,
     allowNewChat: input.allowNewChat,
     quickAcknowledgement: input.quickAcknowledgement,
+    planStartAfterMs: input.planStartAfterMs,
+    automationRunsPerHour: input.automationRunsPerHour,
+    commitCoAuthor: input.commitCoAuthor,
   };
 }
 
@@ -150,20 +173,43 @@ export function parseAppLogoColorPreference(input: unknown): SetAppLogoColorPref
   return { color: input.color };
 }
 
+function parseChatBackground(value: unknown): ChatBackgroundColor | null {
+  if (value !== null && !isChatBackgroundColor(value)) throw new Error("Chat background is invalid.");
+  return value;
+}
+
+function parseFontFamily(value: unknown): AppFontFamily | null {
+  if (value !== null && !isAppFontFamily(value)) throw new Error("Font is invalid.");
+  return value;
+}
+
 export function parseAppAppearancePreference(input: unknown): SetAppAppearancePreferenceInput {
   if (!isDynamicRecord(input)) throw new Error("Appearance is required.");
-  const { appearance, transparentWindow, palette } = input;
+  const { appearance, transparentWindow, palette, chatBackgroundLight, chatBackgroundDark, interfaceFont, codeFont } =
+    input;
   if (appearance !== undefined && !isAppAppearance(appearance)) throw new Error("Appearance is invalid.");
   if (transparentWindow !== undefined && typeof transparentWindow !== "boolean")
     throw new Error("Transparent window must be true or false.");
   if (palette !== undefined && palette !== null && !isAppThemePaletteId(palette))
     throw new Error("Theme palette is invalid.");
-  if (appearance === undefined && transparentWindow === undefined && palette === undefined)
+  if (
+    appearance === undefined &&
+    transparentWindow === undefined &&
+    palette === undefined &&
+    chatBackgroundLight === undefined &&
+    chatBackgroundDark === undefined &&
+    interfaceFont === undefined &&
+    codeFont === undefined
+  )
     throw new Error("Appearance is required.");
   return {
     ...(appearance === undefined ? {} : { appearance }),
     ...(transparentWindow === undefined ? {} : { transparentWindow }),
     ...(palette === undefined ? {} : { palette }),
+    ...(chatBackgroundLight === undefined ? {} : { chatBackgroundLight: parseChatBackground(chatBackgroundLight) }),
+    ...(chatBackgroundDark === undefined ? {} : { chatBackgroundDark: parseChatBackground(chatBackgroundDark) }),
+    ...(interfaceFont === undefined ? {} : { interfaceFont: parseFontFamily(interfaceFont) }),
+    ...(codeFont === undefined ? {} : { codeFont: parseFontFamily(codeFont) }),
   };
 }
 
@@ -177,12 +223,20 @@ export function parseIdleRestartTarget(input: unknown): IdleRestartTarget {
   return input;
 }
 
+const APP_BEHAVIOR_SWITCHES = ["launchAtLogin", "keepRunningInBackground", "keepAwake", "keepAwakeOnBattery"] as const;
+
+/** At least one switch or the quit guard. */
 export function parseAppBehaviorPreferenceChange(input: unknown): AppBehaviorPreferenceChange {
-  return parseSwitches(
-    input,
-    ["launchAtLogin", "keepRunningInBackground", "keepAwake", "keepAwakeOnBattery"],
-    "The app behavior setting is required.",
-  );
+  const message = "The app behavior setting is required.";
+  if (!isDynamicRecord(input)) throw new Error(message);
+  const hasSwitch = APP_BEHAVIOR_SWITCHES.some((key) => input[key] !== undefined);
+  const change: AppBehaviorPreferenceChange = hasSwitch ? parseSwitches(input, APP_BEHAVIOR_SWITCHES, message) : {};
+  if (input.quitGuard !== undefined) {
+    if (!isOneOf(QUIT_GUARDS, input.quitGuard)) throw new Error(message);
+    change.quitGuard = input.quitGuard;
+  }
+  if (Object.keys(change).length === 0) throw new Error(message);
+  return change;
 }
 
 export function parseUpdatePreference(input: unknown): UpdatePreferenceChange {
@@ -258,6 +312,46 @@ export function parseBrowserDockFrame(input: unknown): BrowserDockFrame {
   throw new Error("Browser dock frame is invalid.");
 }
 
+export function parseAgentDockPresentation(input: unknown): AgentDockPresentation | null {
+  if (input === null || isAgentDockPresentation(input)) return input;
+  throw new Error("Agent dock presentation is invalid.");
+}
+
+export function parseAgentDockAction(input: unknown): AgentDockAction {
+  if (isAgentDockAction(input)) return input;
+  throw new Error("Agent dock action is invalid.");
+}
+
+export function parseAgentDockInteractive(input: unknown): SetAgentDockInteractiveInput {
+  if (isAgentDockInteractive(input)) return input;
+  throw new Error("Agent dock interaction state is required.");
+}
+
+export function parseAgentDockXWayland(input: unknown): SetAgentDockXWaylandInput {
+  if (isAgentDockXWayland(input)) return input;
+  throw new Error("Agent dock XWayland state is required.");
+}
+
+export function parseAgentDockInputRegion(input: unknown): AgentDockInputRect[] {
+  if (isAgentDockInputRegion(input)) return input;
+  throw new Error("Agent dock input region is invalid.");
+}
+
+export function parseDynamicIslandXWayland(input: unknown): SetAgentDockXWaylandInput {
+  if (isAgentDockXWayland(input)) return input;
+  throw new Error("Dynamic Island XWayland state is required.");
+}
+
+export function parseDynamicIslandInputRegion(input: unknown): AgentDockInputRect[] {
+  if (isAgentDockInputRegion(input)) return input;
+  throw new Error("Dynamic Island input region is invalid.");
+}
+
+export function parseAgentDockDragPhase(input: unknown): AgentDockDragPhase {
+  if (isAgentDockDragPhase(input)) return input;
+  throw new Error("Agent dock drag phase is invalid.");
+}
+
 export function parseMacPermission(input: unknown): MacPermissionId {
   if (input !== "screen-recording" && input !== "accessibility") {
     throw new Error("Unknown macOS permission.");
@@ -303,6 +397,13 @@ export function parseProfileName(input: unknown): string {
     throw new Error(`name must contain ${INPUT_LIMITS.profileNameMin} to ${INPUT_LIMITS.profileName} safe characters.`);
   }
   return validation.name;
+}
+
+/** The chat color of the account: a lower-case `#rrggbb`, or null for no chat color. */
+export function parseChatColor(input: unknown): AvatarColor | null {
+  if (input === null) return null;
+  if (!isAvatarColor(input)) throw new Error("chatColor must be null or a lower-case #rrggbb color.");
+  return input;
 }
 
 // The two marketplaces share query fields and validate their category filters at the boundary.
@@ -363,11 +464,16 @@ export function parseSubmitSkill(input: unknown): SubmitSkillInput {
   };
 }
 
+/** A skill id: a Marketplace id, or a GitHub id, which names a repository folder and can be long. */
+export function requireSkillId(value: unknown): string {
+  return requireString(value, "skillId", GITHUB_SKILL_ID_MAX_LENGTH);
+}
+
 export function parseInstallSkill(input: unknown): InstallSkillInput {
   if (!isObject(input)) throw new Error("Invalid skill installation.");
   return {
     agentId: requireString(input.agentId, "agentId"),
-    skillId: requireString(input.skillId, "skillId"),
+    skillId: requireSkillId(input.skillId),
     ...(input.versionId === undefined ? {} : { versionId: requireString(input.versionId, "versionId") }),
     ...(input.replaceModified === true ? { replaceModified: true } : {}),
   };
@@ -377,7 +483,7 @@ export function parseUninstallSkill(input: unknown): UninstallSkillInput {
   if (!isObject(input)) throw new Error("Invalid skill removal.");
   return {
     agentId: requireString(input.agentId, "agentId"),
-    skillId: requireString(input.skillId, "skillId"),
+    skillId: requireSkillId(input.skillId),
     ...(input.removeModified === true ? { removeModified: true } : {}),
   };
 }
@@ -388,7 +494,7 @@ export function parseSetEnabledSkill(input: unknown): SetEnabledSkillInput {
   if (enabled === undefined) throw new Error("Invalid skill enablement.");
   return {
     agentId: requireString(input.agentId, "agentId"),
-    skillId: requireString(input.skillId, "skillId"),
+    skillId: requireSkillId(input.skillId),
     enabled,
   };
 }

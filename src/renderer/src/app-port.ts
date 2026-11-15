@@ -1,4 +1,5 @@
 import type { OpenBotDesktopApi } from "@openbot/contracts/ipc";
+import type { CompanySignInCalls } from "./features/servers/ServerCompanySignInSection";
 
 /**
  * What the app shell and the cross-domain root modules reach in main, plus the shell actions
@@ -10,6 +11,7 @@ export interface AppPort {
   getAppInterfaceSizePreference: OpenBotDesktopApi["getAppInterfaceSizePreference"];
   getAppLanguagePreference: OpenBotDesktopApi["getAppLanguagePreference"];
   getAppLogoColorPreference: OpenBotDesktopApi["getAppLogoColorPreference"];
+  listInstalledFonts: OpenBotDesktopApi["listInstalledFonts"];
   onAppAppearancePreference: OpenBotDesktopApi["onAppAppearancePreference"];
   onAppInterfaceSizePreference: OpenBotDesktopApi["onAppInterfaceSizePreference"];
   onAppLanguagePreference: OpenBotDesktopApi["onAppLanguagePreference"];
@@ -30,6 +32,7 @@ export interface AppPort {
   >;
   agentTemplates: Pick<OpenBotDesktopApi["agentTemplates"], "onOpenLink" | "takePendingLink">;
   acpRegistry: OpenBotDesktopApi["acpRegistry"];
+  auth: CompanySignInCalls;
   routineFeed: OpenBotDesktopApi["routineFeed"];
   events: OpenBotDesktopApi["events"];
   plugins: Pick<OpenBotDesktopApi["plugins"], "onOpenListing" | "takePendingListing">;

@@ -9,6 +9,7 @@ import type {
   McpSignInState,
   McpTestResult,
   SaveMcpSignInAppInput,
+  ServerAppearance,
   ServerSummary,
   TeamInviteSummary,
   TeamPresenceMember,
@@ -21,7 +22,12 @@ import { createSimpleContext } from "../../simple-context";
 import { useAuth } from "../account/account-context";
 import { mcpSignInRecord } from "./mcp-servers";
 import type { ServerSettingsSection } from "./ServerSettingsModal";
-import { serverCanAdminister, serverRoleCanAdminister, serverSupportsCapability } from "./server-capabilities";
+import {
+  serverCanAdminister,
+  serverRoleCanAdminister,
+  serverRotatesHostKey,
+  serverSupportsCapability,
+} from "./server-capabilities";
 import { useServers } from "./servers-context";
 import { serverAdminPort, serversPort } from "./servers-port";
 
@@ -263,6 +269,38 @@ const ServerSettings = createSimpleContext({
     }
 
     /**
+     * Saves the plush look of the server in the settings. The list shows it before the host answers,
+     * so each mark of the server changes at the click; a failure puts the previous look back.
+     */
+    async function saveServerAppearance(appearance: ServerAppearance | null): Promise<void> {
+      const server = serverSettingsTarget();
+      if (!serverCanAdminister(server, "host-appearance-v1"))
+        throw new Error(currentText().t("error.team.hostIdentityUnsupported"));
+      const serverId = server.id;
+      const previous = server.appearance;
+      const patch = (value: ServerAppearance | null | undefined) =>
+        setServers((current) =>
+          current.map((item) => {
+            if (item.id !== serverId) return item;
+            const { appearance: _previous, ...rest } = item;
+            return value === undefined ? rest : { ...rest, appearance: value };
+          }),
+        );
+      patch(appearance);
+      try {
+        if (server.kind === "local") setHostStatus(await serversPort().host.updateIdentity({ appearance }));
+        else {
+          const updated = await serversPort().hostAdmin.updateIdentity({ appearance }, serverId);
+          setServers((current) => current.map((item) => (item.id === serverId ? updated : item)));
+        }
+      } catch (error) {
+        patch(previous);
+        throw error;
+      }
+      setServers(await serversPort().servers.list());
+    }
+
+    /**
      * Asks the host whether the screen recording grant it was refused is now in place.
      *
      * The member who was refused cannot answer this: the grant is given on the host, and the status
@@ -272,11 +310,19 @@ const ServerSettings = createSimpleContext({
       setHostStatus(await serversPort().host.recheckScreenRecording());
     }
 
-    /** Changes the key of the server on this computer. Paired devices follow the signed handover. */
+    /**
+     * Changes the server key: this computer's, or a joined server's through `host-key-rotation-v1`,
+     * which only its owner may use. Paired devices follow the signed handover.
+     */
     async function rotateHostKey(): Promise<void> {
-      if (serverSettingsTarget()?.kind !== "local")
-        throw new Error(currentText().t("server.settings.hostKeyLocalOnly"));
-      setHostStatus(await serversPort().host.rotateIdentityKey());
+      const server = serverSettingsTarget();
+      if (server?.kind === "local") {
+        setHostStatus(await serversPort().host.rotateIdentityKey());
+        return;
+      }
+      if (!serverRotatesHostKey(server)) throw new Error(currentText().t("server.settings.hostKeyOwnerOnly"));
+      await serversPort().hostAdmin.rotateHostKey(server.id);
+      setServers(await serversPort().servers.list());
     }
 
     async function setServerPublished(published: boolean): Promise<void> {
@@ -349,11 +395,17 @@ const ServerSettings = createSimpleContext({
       if (serverSettingsTarget()?.id === server.id) setServerSettingsOpen(false);
     }
 
-    /** Restarts the server on this computer that the confirmation from the server menu asks about. */
+    /**
+     * Restarts the server that the confirmation from the server menu asks about: a server on this computer
+     * through its supervisor, and a self-hosted server through its own host (`host-restart-v1`).
+     */
     async function restartConfirmedServer(): Promise<void> {
       const server = restartConfirmServer();
-      if (!server?.thisComputer) throw new Error(currentText().t("server.settings.unavailable"));
-      await serversPort().localServers.restart(server.id);
+      if (!server) throw new Error(currentText().t("server.settings.unavailable"));
+      if (server.thisComputer) await serversPort().localServers.restart(server.id);
+      else if (serverSupportsCapability(server, "host-restart-v1"))
+        await serversPort().hostAdmin.restartHost(server.id);
+      else throw new Error(currentText().t("server.settings.unavailable"));
     }
 
     async function removeMembership(server: ServerSummary): Promise<void> {
@@ -565,6 +617,7 @@ const ServerSettings = createSimpleContext({
       openServerSettings,
       refreshServerSettings,
       saveServerIdentity,
+      saveServerAppearance,
       recheckScreenRecording,
       rotateHostKey,
       setServerPublished,

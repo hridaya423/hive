@@ -41,14 +41,38 @@ adding a module or moving ownership between workspaces.
 
 - Workspaces, conversations, attachments, browser data, and team data stay on the computer that
   runs OpenBot. Providers, visited pages, and plugins can use the network. Exception: a signed-in
-  phone keeps an encrypted, read-only copy of the agents, sections, recent chats and drawer values of
-  its servers (`apps/mobile/src/features/workspace/model/workspace-cache.ts`). The copy stays on that phone,
-  the host stays the source of truth, and sign-out, session expiry and server removal delete it.
+  phone keeps an encrypted, read-only copy of the agents, sections, recent chats, channels and drawer
+  values of its servers (`apps/mobile/src/features/workspace/model/workspace-cache.ts`). The copy stays
+  on that phone, the host stays the source of truth, and sign-out, session expiry and server removal delete it.
+  A desktop or browser client also keeps a copy of the agent and channel pictures that it loaded from a
+  joined server (`src/main/remote-picture-cache.ts`,
+  `src/renderer/src/features/web-client/web-agent-pictures.ts`), so the saved workspace shows the agent
+  pictures while the host is offline. Sign-out, server removal and the end of access delete it.
 - Cloudflare holds accounts, avatars, host configuration, memberships, invitations, and logical
   sessions; it does not hold chats, files, or commands.
 - The user's SQLite database is the source of truth, not a remote cache.
 - Agents keep their workspace, thread, and identity across provider switches and restarts.
   Do not reset an agent to simplify state.
+
+## Joined servers
+
+Many users run OpenBot only on a joined server: a VPS or another member's computer.
+A feature for agents, chats, channels, routines or server settings must work there as it does on
+this computer. Make it local only when it needs this computer itself: its files and folders, its
+windows, its OS dialogs or its native notifications.
+
+- Ship the remote path in the same change as the local one: the host route in `src/main/team-api/`,
+  a new optional capability in `packages/contracts/src/team-protocol/` (see
+  [packages/contracts/AGENTS.md](packages/contracts/AGENTS.md)), the `remote` branch of the IPC
+  handler, and each client: the desktop with a joined server, the web client
+  (`src/renderer/src/features/web-client/`), and mobile (`apps/mobile`) when the action fits a phone.
+- Do not add a `remote` branch that always throws or returns empty data, or a `kind === "local"`
+  gate, for a feature that can work on a server. When a part must stay local, write the reason at
+  the gate and in the PR.
+- Gate the client on the host capability. Hide the action while the host does not have it; do not
+  show an action that then fails. An older host keeps working without the feature.
+- Test the host route through the Team API (as `scripts/team-api-routes-e2e.ts` does), not only the
+  local IPC path.
 
 ## Effect
 
@@ -89,6 +113,21 @@ UI, styles, and behavior unless the user requests a design change. Native mobile
 tokens and contracts; it does not render SolidJS DOM components.
 
 Read [packages/ui/AGENTS.md](packages/ui/AGENTS.md) before changing shared UI.
+
+## Phone screens
+
+Phones use the native app (`apps/mobile`). The desktop renderer, the web client and `packages/ui`
+are designed for a computer screen only.
+
+- Do not design, style, write stories or take screenshots for these surfaces at a phone width, and
+  do not list phone gaps in reports. A narrow desktop window and the compact sidebar stay in scope.
+  The narrowest window is the `minWidth` in `src/main/main-window.ts`: 960 px for the main window
+  and 380 px for a separate chat window. Design the web client for 960 px and wider too.
+- On a phone (narrow screen and touch pointer), the web client keeps its old phone layout
+  (`WebMobileNavigation` and the `max-width: 720px` rules in `web-client.css`). Keep it working;
+  do not add to it.
+- Put a phone feature in `apps/mobile`. [Joined servers](#joined-servers) says when one is needed.
+- The public site (`apps/auth-api` pages other than `/app`) stays responsive: phone visitors read it.
 
 ## Interface text
 
@@ -134,6 +173,7 @@ State which surfaces a change touches. Check all affected consumers and reverse 
 
 - Desktop renderer (`src/renderer`), mobile (`apps/mobile`), public web (`apps/auth-api`; no separate
   landing app), and Signal (`remote/api`).
+- Joined servers: the desktop with a joined server, and mobile. See [Joined servers](#joined-servers).
 - IPC contracts (`packages/contracts`) and their preview implementation
   (`src/renderer/src/preview/mock-openbot.ts`).
 - Reverse actions: snooze/unsnooze, pause/resume, revoke/reconnect, mute/unmute.

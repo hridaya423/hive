@@ -1,9 +1,9 @@
 import { defineMessages } from "../../message";
 
 /**
- * The public web pages that do one task: join a server, return from Slack or Discord, return from
- * billing, report a hosted site, and the load error page. `apps/auth-api` renders
- * them on the server in the visitor's language.
+ * The public web pages: the home page, the header, menu and footer around every page, and the pages
+ * that do one task: join a server, return from Slack or Discord, return from billing, report a hosted
+ * site, and the load error page. `apps/auth-api` renders them on the server in the visitor's language.
  */
 export const messages = defineMessages("sitePage", {
   "sitePage.error.title": "This page could not load",
@@ -56,6 +56,12 @@ export const messages = defineMessages("sitePage", {
     "Start Hive, then try again. If Hive is not on this computer, download it and connect {name} from the app.",
   "sitePage.openApp.title": "Nothing opened?",
   "sitePage.openApp.dismiss": "Not now",
+  // A link to the privacy policy, after the privacy key.
+  // {email} is the team's email address, as a link.
+  // {email} is the address that the visitor entered.
   // {platform} is macOS, Windows or Linux.
   "sitePage.marketplace.downloadFor": "Download for {platform}",
+  // The badge on a download card.
+  // {year} is the current year. Synthetify Labs is a company name.
+  // {love} is a heart icon. Its spoken name is the love key.
 });

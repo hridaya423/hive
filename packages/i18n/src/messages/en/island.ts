@@ -1,8 +1,9 @@
 import { defineMessages } from "../../message";
 
 export const messages = defineMessages("island", {
-  // The Dynamic Island window over the MacBook notch or on an external display.
+  // The Dynamic Island window. The second label is for a display with no notch, and for Windows.
   "island.surface.label": "Hive MacBook notch",
+  "island.surface.labelIsland": "Hive Dynamic Island",
   "island.surface.interactionArea": "Dynamic Island interaction area",
   "island.label.idle": "Open Hive",
   "island.label.working": "Hive working status",

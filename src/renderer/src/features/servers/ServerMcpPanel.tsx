@@ -192,7 +192,7 @@ const WORKING_DIRECTORY_PLACEHOLDER = "~/code";
 const URL_PLACEHOLDER = "https://mcp.example.com/mcp";
 
 export function ServerMcpPanel(props: ServerMcpPanelProps) {
-  const { t, sourceText } = useText();
+  const { t, sourceText, errorMessage } = useText();
   const [state, setState] = createStore<McpPanelState>({
     view: "list",
     editingId: null,
@@ -251,7 +251,7 @@ export function ServerMcpPanel(props: ServerMcpPanelProps) {
       return true;
     } catch (error) {
       setState((current) => {
-        current.error = error instanceof Error ? sourceText(error.message) : t("mcp.panel.saveFailed");
+        current.error = errorMessage(error, t("mcp.panel.saveFailed"));
       });
       return false;
     } finally {
@@ -274,7 +274,11 @@ export function ServerMcpPanel(props: ServerMcpPanelProps) {
 
   function thrown(error: unknown): SettledTest {
     if (!(error instanceof Error)) return { status: "failed", error: t("mcp.panel.noAnswer"), kind: "other" };
-    return { status: "failed", error: sourceText(error.message), kind: mcpFailureKind(error.message) };
+    return {
+      status: "failed",
+      error: errorMessage(error, t("mcp.panel.noAnswer")),
+      kind: mcpFailureKind(error.message),
+    };
   }
 
   /** Tests run without the busy latch so a slow server never blocks saving another. */
@@ -300,7 +304,9 @@ export function ServerMcpPanel(props: ServerMcpPanelProps) {
 
   /** Sign in is offered for an http server, where this computer or the joined host can sign in. */
   const canSignIn = (config: McpServerConfig) => Boolean(props.signIn) && config.transport === "http";
-  const testMessage = (test: McpTestState) => mcpTestMessage(test, t, props.signIn?.remote?.hostName);
+  // A relayed sign-in opens its page in this computer's browser, so only an older host names itself.
+  const testMessage = (test: McpTestState) =>
+    mcpTestMessage(test, t, props.signIn?.remote?.relay ? undefined : props.signIn?.remote?.hostName);
 
   /**
    * Counts each row's tests and sign-ins. A row can start a second one while the first still waits
@@ -370,7 +376,7 @@ export function ServerMcpPanel(props: ServerMcpPanelProps) {
   function cancelSignIn(url: string): void {
     props.signIn?.cancel(url).catch((error: unknown) => {
       setState((current) => {
-        current.error = error instanceof Error ? sourceText(error.message) : t("mcp.panel.saveFailed");
+        current.error = errorMessage(error, t("mcp.panel.saveFailed"));
       });
     });
   }

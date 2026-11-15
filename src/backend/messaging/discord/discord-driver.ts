@@ -5,6 +5,7 @@ import {
   DISCORD_UPLOAD_BYTES_LIMIT,
   type DiscordApiRequest,
   type DiscordButton,
+  type DiscordEmbed,
   type DiscordHistoryMessage,
   decodeDiscordChannels,
   decodeDiscordHistory,
@@ -29,6 +30,7 @@ import type {
   MessagingDriverOptions,
   MessagingIngress,
   MessagingPlace,
+  RecentMessages,
   StatusReaction,
 } from "../messaging-types";
 import { DiscordApiError, MessagingAdapterError } from "../messaging-types";
@@ -50,6 +52,9 @@ const PRECEDING_MESSAGES = 10;
 const PRECEDING_WINDOW_MS = 15 * 60_000;
 /** The times the history tool reads a channel from, shortest first: an hour, a day, a week. */
 const RECENT_WINDOWS_MS = [3_600_000, 86_400_000, 604_800_000];
+/** What the history tool says when the longest time has no messages. */
+const NO_RECENT_MESSAGES =
+  "This Discord channel has no messages from the last 7 days. OpenBot reads only the last 7 days of a Discord channel.";
 /** The most `listMessages` calls of one history tool call. */
 const RECENT_CALLS = 6;
 const CLOCK_MARGIN_MS = 60_000;
@@ -75,7 +80,7 @@ const BUTTON_STYLES = { primary: "primary", danger: "danger" } as const;
 
 /**
  * The Discord side of one guild's connection. Every call goes through Signal, which holds the bot
- * token and refuses a call outside this host's guilds. Signal sends no post that can ping anyone. It
+ * token and refuses a call outside this host's guilds. Only a new text post can ping, and only a user. It
  * never logs message text or a response body.
  */
 class DiscordAdapter implements MessagingAdapter {
@@ -124,6 +129,8 @@ class DiscordAdapter implements MessagingAdapter {
         content: clip(body.text),
         replyTo: target.replyThreadId,
         buttons: buttons(body),
+        // Only with embeds: an older Signal refuses the key.
+        ...(body.embeds?.length ? { embeds: body.embeds } : {}),
       },
       decodeDiscordMessageId,
     );
@@ -223,6 +230,22 @@ class DiscordAdapter implements MessagingAdapter {
     return firstId;
   });
 
+  /**
+   * The text in as many posts as it needs, with the embeds on the first one: when Signal or Discord
+   * refuses the embeds, nothing is posted. Returns the id of the first post.
+   */
+  readonly postEmbeds = Effect.fnUntraced(function* (
+    this: DiscordAdapter,
+    target: MessageTarget,
+    markdown: string,
+    embeds: DiscordEmbed[],
+  ) {
+    const [first = "", ...rest] = markdown ? chunkMarkdown(markdown, CHUNK_CHARACTERS) : [];
+    const firstId = yield* this.post(target, { text: first, embeds });
+    for (const chunk of rest) yield* this.post(target, { text: chunk });
+    return firstId;
+  });
+
   readonly upload = Effect.fnUntraced(function* (
     this: DiscordAdapter,
     target: MessageTarget,
@@ -251,7 +274,8 @@ class DiscordAdapter implements MessagingAdapter {
       );
       if (Result.isFailure(attempt) || !attempt.success) skipped.push(file.name);
     }
-    return skipped;
+    // The Signal upload answer does not give the message id.
+    return { skipped, firstId: null };
   });
 
   /**
@@ -286,22 +310,25 @@ class DiscordAdapter implements MessagingAdapter {
    * The newest messages of a reply chain or of the channel, OpenBot's posts included, for the agent's
    * history tool. Discord lists a channel only forward from an id, so the channel is read from a
    * time: the last hour first, and a longer time when that has too few messages. A message without
-   * text or files is left out, as in `history`.
+   * text or files is left out, as in `history`. When the result is short, the note says why, so that
+   * the agent can tell the user instead of an empty read.
    */
   readonly recent = Effect.fnUntraced(function* (
     this: DiscordAdapter,
     platformChannelId: string,
     threadKey: string | null,
     limit: number,
-  ): Effect.fn.Return<ContextEntry[], MessagingAdapterError> {
+  ): Effect.fn.Return<RecentMessages, MessagingAdapterError> {
     const now = Date.now();
     if (threadKey) {
       // A margin past now: this computer's clock can be behind Discord's.
       const chain = yield* this.#chain(platformChannelId, threadKey, snowflakeAt(now + CLOCK_MARGIN_MS));
-      return (yield* this.#entries(chain.filter(hasContent))).slice(-limit);
+      return { messages: (yield* this.#entries(chain.filter(hasContent))).slice(-limit) };
     }
     let calls = 0;
     let visible: DiscordHistoryMessage[] | null = null;
+    let leftOut = 0;
+    let none = false;
     for (const window of RECENT_WINDOWS_MS) {
       const read: DiscordHistoryMessage[] = [];
       let cursor = (snowflakeAt(now - window) - 1n).toString();
@@ -318,11 +345,16 @@ class DiscordAdapter implements MessagingAdapter {
       // before it, read to its end, is newer.
       if (!complete && visible) break;
       visible = read.filter(hasContent);
+      leftOut = read.length - visible.length;
+      none = complete && read.length === 0 && window === RECENT_WINDOWS_MS.at(-1);
       if (!complete || visible.length >= limit || calls >= RECENT_CALLS) break;
     }
-    if (!visible) return [];
+    if (!visible) return { messages: [] };
     visible.sort((left, right) => compareSnowflakes(left.id, right.id));
-    return (yield* this.#entries(visible)).slice(-limit);
+    const messages = (yield* this.#entries(visible)).slice(-limit);
+    if (none) return { messages, note: NO_RECENT_MESSAGES };
+    if (leftOut > 0 && messages.length < limit) return { messages, note: leftOutNote(leftOut) };
+    return { messages };
   });
 
   /**
@@ -406,17 +438,16 @@ class DiscordAdapter implements MessagingAdapter {
   /** Discord messages as context, with each user mention named. A bot's post names the bot. */
   readonly #entries = Effect.fnUntraced(function* (this: DiscordAdapter, messages: DiscordHistoryMessage[]) {
     const names = yield* mentionNames(
-      messages.flatMap((message) => discordMentionIds(message.content)),
+      messages.flatMap((message) => discordMentionIds([message.content, ...message.embeds].join("\n"))),
       (userId) => this.authorName(userId),
     );
     return messages.map(
       (message): ContextEntry => ({
         id: message.id,
         authorName: message.authorIsBot ? `${message.authorName} (bot)` : message.authorName,
-        text: discordContextText(
-          withMentionNames(discordPlainText(message.content), names),
-          message.attachments,
-          message.forwarded,
+        text: withMentionNames(
+          discordContextText(discordPlainText(message.content), message.attachments, message.embeds, message.forwarded),
+          names,
         ),
         sentAt: message.sentAt,
         ...(message.attachments.length ? { files: message.attachments.map(inboundFile) } : {}),
@@ -491,7 +522,7 @@ class DiscordAdapter implements MessagingAdapter {
     return this.#call({ op: "listRoles", guildId: this.#guildId }, decodeDiscordRoles);
   }
 
-  /** Signal posts with no mention allowed, so a mention shows the person and pings nobody. */
+  /** A new text post pings the person; an edit or a private reply shows the person and pings nobody. */
   mention(userId: string): string {
     return /^[0-9]+$/.test(userId) ? `<@${userId}>` : userId;
   }
@@ -554,9 +585,26 @@ function snowflakeTime(id: bigint): bigint {
   return (id >> 22n) + DISCORD_EPOCH_MS;
 }
 
-/** A message that has text or files for the context, or a forward, which says when it has neither. */
+/** A message that has text, embeds or files for the context, or a forward, which says when it has none. */
 function hasContent(message: DiscordHistoryMessage): boolean {
-  return discordPlainText(message.content) !== "" || message.attachments.length > 0 || message.forwarded;
+  return (
+    discordPlainText(message.content) !== "" ||
+    message.attachments.length > 0 ||
+    message.embeds.length > 0 ||
+    message.forwarded
+  );
+}
+
+/**
+ * Why the read left out messages. Without the Message Content intent, Discord gives no text for a
+ * message that does not mention OpenBot, and a system message, such as a member join, has none.
+ */
+function leftOutNote(count: number): string {
+  const messages =
+    count === 1
+      ? "1 message of this channel has no text or files that OpenBot can read, so it is left out."
+      : `${count} messages of this channel have no text or files that OpenBot can read, so they are left out.`;
+  return `${messages} Possible causes: Discord gives OpenBot the text of a message only when the message mentions OpenBot, or the message is a system message, such as a member join. A person can mention OpenBot in a message so that OpenBot can read it.`;
 }
 
 function compareSnowflakes(left: string, right: string): number {

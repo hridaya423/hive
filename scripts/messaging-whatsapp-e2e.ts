@@ -1,52 +1,79 @@
-// Checks the WhatsApp channel against a fake Baileys socket: the real driver, adapter and transport run
-// inside the real messaging service on a temporary profile. A message from an allowed chat reaches the
-// bound agent and the answer goes back to the same chat; a message from any other chat is dropped and
-// logged as a count only; the connection reconnects with a backoff, shows its QR code, and stops
-// after the phone unlinks it. `bun scripts/messaging-whatsapp-e2e.ts`.
+// Checks the WhatsApp connector end to end against a fake WhatsApp: the link by QR code and by pairing
+// code, the encrypted store and its lock, the sender rules (the owner's own chat, personal chats left
+// alone, pairing codes on a dedicated number, the group mention gate, LID authors), the echo guard,
+// numbered approval answers, the saved history and its search, the journal replay after a restart, each close code, the send queue while
+// the socket is down, and the disconnect. Runs the real agent service, messaging service, WhatsApp
+// driver, runtime, session and store on a temporary profile. Only the Baileys socket is fake: no
+// message leaves this computer. `bun scripts/messaging-whatsapp-e2e.ts`.
 // Writes .openbot-build/messaging-whatsapp-e2e/report.json.
-// Not checked here: the real Baileys library, the WhatsApp servers and a linked account.
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { EventEmitter } from "node:events";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createOpenBotLogger } from "@openbot/logging";
-import { Effect } from "effect";
+import { Boom } from "@hapi/boom";
+import type { MessagingConnection, WhatsAppLinkState } from "@openbot/contracts/ipc";
+import {
+  newStoreKey,
+  WhatsAppAuthStore,
+  WhatsAppStoreLocked,
+  WhatsAppStoreUnreadable,
+} from "@openbot/whatsapp/auth-store";
+import {
+  type AnyMessageContent,
+  type BaileysEventMap,
+  type GroupMetadata,
+  type MiscMessageGenerationOptions,
+  proto,
+  type UserFacingSocketConfig,
+  type WAMessage,
+} from "@openbot/whatsapp/baileys";
+import { gc } from "bun";
+import { Effect, Scope } from "effect";
+import type { AgentBrowserHost } from "../src/backend/agent/turn-lifecycle";
 import { AgentService } from "../src/backend/agent-service";
 import { AgentStore } from "../src/backend/agent-store";
 import { runCauseEffect } from "../src/backend/effect-boundary";
 import { MailboxStore } from "../src/backend/mailbox-store";
 import { type MessagingCredentials, MessagingService } from "../src/backend/messaging/messaging-service";
-import { MessagingThreads } from "../src/backend/messaging/messaging-threads";
-import { whatsappDriver } from "../src/backend/messaging/whatsapp/whatsapp-driver";
-import type {
-  WhatsAppClient,
-  WhatsAppConnectionUpdate,
-  WhatsAppEvents,
-  WhatsAppMessage,
-  WhatsAppOutbound,
-  WhatsAppSocket,
-} from "../src/backend/messaging/whatsapp/whatsapp-socket";
-import { WhatsAppPairing } from "../src/backend/messaging/whatsapp/whatsapp-transport";
+import { WhatsAppRefusedError } from "../src/backend/messaging/messaging-types";
+import { WhatsAppChatState } from "../src/backend/messaging/whatsapp/whatsapp-chats";
+import { whatsAppDriver } from "../src/backend/messaging/whatsapp/whatsapp-driver";
+import { whatsAppInbound } from "../src/backend/messaging/whatsapp/whatsapp-events";
+import { WHATSAPP_TEXT_LIMIT, whatsAppChunks } from "../src/backend/messaging/whatsapp/whatsapp-render";
+import { WhatsAppRuntime } from "../src/backend/messaging/whatsapp/whatsapp-runtime";
+import {
+  backoffDelay,
+  closeDecision,
+  MESSAGE_ACK,
+  type WhatsAppAck,
+  type WhatsAppSocket,
+} from "../src/backend/messaging/whatsapp/whatsapp-session";
 import { OpenBotDatabase } from "../src/backend/openbot-database";
 import { SidebarLayoutStore } from "../src/backend/sidebar-layout-store";
-import { inertBrowserHost, memoryCredentials, unused, waitFor } from "./agent-service-support";
+import { parseStartWhatsAppLinkInput, parseWhatsAppSenderInput } from "../src/main/ipc/messaging-inputs";
 
 const OUT = resolve(import.meta.dirname, "../.openbot-build/messaging-whatsapp-e2e");
 const REPORT = join(OUT, "report.json");
-const root = await mkdtemp(join(tmpdir(), "openbot-messaging-whatsapp-"));
+const root = await mkdtemp(join(tmpdir(), "openbot-whatsapp-e2e-"));
 const userData = join(root, "user-data");
 const home = join(root, "home");
-const authDir = join(root, "whatsapp-auth");
+const whatsappRoot = join(userData, "whatsapp");
 
-const ME = "447700900001@s.whatsapp.net";
-const ME_LID = "100200300400@lid";
-const ALLOWED = "447700900002@s.whatsapp.net";
-const ALLOWED_GROUP = "120363000000000001@g.us";
-const ALLOWED_LID = "100999888777@lid";
-const NEW_CHAT = "447700900004@s.whatsapp.net";
-const STRANGER = "447700900099@s.whatsapp.net";
-const STRANGER_TEXT = "secret stranger text 7731";
+const OWNER = "48600100200";
+const OWNER_JID = `${OWNER}@s.whatsapp.net`;
+const OWNER_LID = "777001";
+const FRIEND = "48600100300";
+const STRANGER = "48600100400";
+const LID_FRIEND = "48600100500";
+/** A Brazilian mobile number as people type it, and the older form that its WhatsApp account keeps. */
+const BRAZIL_TYPED = "5531988887777";
+const BRAZIL_ACCOUNT = "553188887777";
+const GROUP = "120363000000000001@g.us";
+const OTHER_GROUP = "120363000000000002@g.us";
+const PAIRING_CODE: string = "ABCD1234";
+const lidDirectId = "IN-LID-DIRECT";
 
 interface Step {
   name: string;
@@ -59,12 +86,11 @@ const report: { steps: Step[]; passed: boolean; unverified: string[] } = {
   steps: [],
   passed: false,
   unverified: [
-    "The real Baileys library, the WhatsApp servers and a linked account: a fake socket stands in for them.",
-    "Reconnect after a mini restart, images, voice notes, reactions and group messages from real WhatsApp.",
+    "The real WhatsApp servers and the Signal sessions: a fake socket stands in for Baileys. scripts/whatsapp-signal-e2e.ts checks the crypto; only a live smoke with two phones proves interop.",
+    "An agent turn: no provider runs, so no answer is posted. Status posts, answers and approvals of a real turn use the same adapter calls that the steps make directly.",
+    "Media download, also the download of a file at arrival: it needs WhatsApp's media servers. A file that the step writes stands in for the saved copy.",
   ],
 };
-
-const closeError = (statusCode: number): Error => Object.assign(new Error("closed"), { output: { statusCode } });
 
 async function step(name: string, run: () => Promise<unknown>): Promise<void> {
   const entry: Step = { name, passed: false };
@@ -78,181 +104,319 @@ async function step(name: string, run: () => Promise<unknown>): Promise<void> {
   }
 }
 
-interface Sent {
-  jid: string;
-  content: WhatsAppOutbound;
-  quoted?: WhatsAppMessage | undefined;
+/** Waits for a state, not for a time: the condition is read again until it holds or the time ends. */
+async function until<T>(read: () => T | null | undefined | false, label: string, timeoutMs = 10_000): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = read();
+    if (value) return value;
+    if (Date.now() > deadline) throw new Error(`Timed out: ${label}.`);
+    await new Promise((resume) => setTimeout(resume, 25));
+  }
 }
 
-class FakeSocket implements WhatsAppSocket {
-  readonly user = { id: `${ME.split("@")[0]}:7@s.whatsapp.net`, lid: `${ME_LID.split("@")[0]}:7@lid` };
-  readonly sent: Sent[] = [];
-  ended = false;
-  readonly #handlers: { [E in keyof WhatsAppEvents]: Array<(payload: WhatsAppEvents[E]) => void> } = {
-    "connection.update": [],
-    "creds.update": [],
-    "messages.upsert": [],
-  };
-  #counter = 0;
+// The fake WhatsApp.
 
-  readonly ev: WhatsAppSocket["ev"] = {
-    on: (event, handler) => {
-      this.#handlers[event].push(handler);
+interface Sent {
+  jid: string;
+  content: AnyMessageContent;
+  id: string;
+  /** The id of the message that the post quotes. */
+  quotedId: string | null;
+}
+
+/** One Baileys socket as OpenBot sees it. The phone drives it from the steps. */
+class FakeSocket implements WhatsAppSocket {
+  readonly #events = new EventEmitter();
+  readonly #frames = new Set<() => void>();
+  readonly #acks = new Set<(node: WhatsAppAck) => void>();
+  readonly #phone: FakePhone;
+  readonly config: UserFacingSocketConfig;
+  ended = false;
+  user: { id: string } | undefined;
+  readonly ev = {
+    on: <T extends keyof BaileysEventMap>(event: T, listener: (arg: BaileysEventMap[T]) => void) => {
+      this.#events.on(event, listener);
+    },
+  };
+  readonly ws: WhatsAppSocket["ws"] = {
+    on: (event: string, listener: (node: WhatsAppAck) => void) => {
+      if (event === MESSAGE_ACK) this.#acks.add(listener);
+      else this.#frames.add(() => listener({ attrs: {} }));
+    },
+  };
+  readonly signalRepository = {
+    lidMapping: {
+      getPNForLID: async (lid: string) =>
+        lid.startsWith("999") ? `${LID_FRIEND}@s.whatsapp.net` : lid.startsWith(OWNER_LID) ? OWNER_JID : null,
     },
   };
 
-  sendMessage = async (jid: string, content: WhatsAppOutbound, options?: { quoted?: WhatsAppMessage }) => {
-    this.sent.push({ jid, content, quoted: options?.quoted });
-    this.#counter += 1;
-    return { key: { remoteJid: jid, id: `OUT${this.#counter}`, fromMe: true } };
-  };
+  constructor(phone: FakePhone, config: UserFacingSocketConfig) {
+    this.#phone = phone;
+    this.config = config;
+  }
 
-  groupMetadata = async (jid: string) => ({ subject: jid === ALLOWED_GROUP ? "Launch crew" : "Other" });
+  emit<T extends keyof BaileysEventMap>(event: T, arg: BaileysEventMap[T]): void {
+    if (this.ended) return;
+    for (const frame of this.#frames) frame();
+    this.#events.emit(event, arg);
+  }
 
-  end = () => {
+  boot(): void {
+    if (this.#phone.offline) {
+      this.close(408);
+      return;
+    }
+    const me = this.config.auth.creds.me;
+    if (me?.id) {
+      this.user = { id: me.id };
+      this.emit("connection.update", { connection: "open" });
+      const first = this.#phone.onOpen;
+      this.#phone.onOpen = null;
+      if (first) this.receive([first]);
+    } else this.emit("connection.update", { qr: `2@fake-qr-${this.#phone.sockets.length}` });
+  }
+
+  /** The phone scans the code: WhatsApp saves the account and asks for the restart after pairing. */
+  scan(): void {
+    this.emit("creds.update", { me: { id: `${OWNER}:5@s.whatsapp.net`, lid: `${OWNER_LID}:5@lid`, name: "Ana" } });
+    this.close(515);
+  }
+
+  close(code: number): void {
+    this.emit("connection.update", {
+      connection: "close",
+      lastDisconnect: { error: new Boom("closed", { statusCode: code }), date: new Date() },
+    });
+  }
+
+  receive(messages: WAMessage[], type: "notify" | "append" = "notify"): void {
+    this.emit("messages.upsert", { messages, type });
+  }
+
+  async sendMessage(jid: string, content: AnyMessageContent, options?: MiscMessageGenerationOptions) {
+    if (this.ended) throw new Error("socket closed");
+    const id = options?.messageId ?? `SENT${this.#phone.sent.length}`;
+    this.#phone.sent.push({ jid, content, id, quotedId: options?.quoted?.key.id ?? null });
+    // WhatsApp's server answers each message with an ack, after the send returns.
+    const error = this.#phone.refused.get(jid);
+    setTimeout(() => {
+      for (const ack of this.#acks) ack({ attrs: { id, ...(error ? { error } : {}) } });
+    }, 0);
+    const text = "text" in content && typeof content.text === "string" ? content.text : "";
+    const message: WAMessage = {
+      key: { remoteJid: jid, id, fromMe: true },
+      message: { conversation: text },
+      messageTimestamp: Math.floor(Date.now() / 1_000),
+    };
+    return message;
+  }
+
+  async requestPairingCode(_phoneNumber: string): Promise<string> {
+    const hold = this.#phone.holdPairing;
+    if (!hold) return PAIRING_CODE;
+    this.#phone.pairingWaits += 1;
+    try {
+      await hold;
+      if (this.ended) throw new Error("socket closed");
+      return PAIRING_CODE;
+    } finally {
+      this.#phone.pairingDone += 1;
+    }
+  }
+
+  async logout(): Promise<void> {
+    this.#phone.logouts += 1;
+  }
+
+  end(_error: Error | undefined): void {
     this.ended = true;
+  }
+
+  async groupFetchAllParticipating() {
+    return { [GROUP]: group(GROUP, "Team"), [OTHER_GROUP]: group(OTHER_GROUP, "Family") };
+  }
+
+  async groupMetadata(jid: string): Promise<GroupMetadata> {
+    return group(jid, jid === GROUP ? "Team" : "Family");
+  }
+
+  /** Each number has an account, in the form it was asked for, except the Brazilian one, which keeps its older form. */
+  async onWhatsApp(...phoneNumbers: string[]) {
+    return phoneNumbers.map((number) => ({
+      jid: `${number === BRAZIL_TYPED ? BRAZIL_ACCOUNT : number}@s.whatsapp.net`,
+      exists: true,
+    }));
+  }
+
+  async updateMediaMessage(message: WAMessage): Promise<WAMessage> {
+    return message;
+  }
+}
+
+class FakePhone {
+  readonly sockets: FakeSocket[] = [];
+  readonly sent: Sent[] = [];
+  /** The chats whose posts the server refuses in its ack, with the error code. */
+  readonly refused = new Map<string, string>();
+  logouts = 0;
+  /** WhatsApp cannot be reached: each socket closes before it shows a code. */
+  offline = false;
+  /** A message that the next linked socket receives at once, before any transport listens. */
+  onOpen: WAMessage | null = null;
+  /** While set, a pairing-code request waits for it, and fails when its socket closed meanwhile. */
+  holdPairing: Promise<void> | null = null;
+  pairingWaits = 0;
+  pairingDone = 0;
+
+  readonly create = (config: UserFacingSocketConfig): WhatsAppSocket => {
+    const socket = new FakeSocket(this, config);
+    this.sockets.push(socket);
+    queueMicrotask(() => socket.boot());
+    return socket;
   };
 
-  loggedOut = false;
-  logout = async () => {
-    this.loggedOut = true;
-  };
+  current(): FakeSocket {
+    const socket = this.sockets.findLast((candidate) => !candidate.ended);
+    assert.ok(socket, "No open fake socket.");
+    return socket;
+  }
 
-  credsPending: Promise<void> = Promise.resolve();
-  credsWritten = false;
-
-  writeCreds(): void {
-    this.credsPending = new Promise<void>((done) =>
-      setTimeout(() => {
-        try {
-          writeFileSync(join(authDir, "creds.json"), "{}");
-          this.credsWritten = true;
-        } catch (error) {
-          credsErrors.push(error instanceof Error ? error.message : String(error));
-        }
-        done();
-      }, 50),
+  textsTo(jid: string): string[] {
+    return this.sent.flatMap((sent) =>
+      sent.jid === jid && "text" in sent.content && typeof sent.content.text === "string" && !("edit" in sent.content)
+        ? [sent.content.text]
+        : [],
     );
   }
 
-  stopCreds = async () => {
-    await this.credsPending;
-  };
-
-  update(update: WhatsAppConnectionUpdate): void {
-    for (const handler of this.#handlers["connection.update"]) handler(update);
+  /** True once OpenBot reacted to the message: 👀 when it took it, 💔 when the queue was full. */
+  reactedTo(messageId: string | null | undefined): boolean {
+    return this.sent.some((sent) => "react" in sent.content && sent.content.react.key?.id === messageId);
   }
 
-  receive(...messages: WhatsAppMessage[]): void {
-    for (const handler of this.#handlers["messages.upsert"]) handler({ messages, type: "notify" });
+  reactionsTo(jid: string): number {
+    return this.sent.filter((sent) => sent.jid === jid && "react" in sent.content).length;
   }
 }
 
-const sockets: FakeSocket[] = [];
-const connectCalls: string[] = [];
-let connectFailures = 0;
-const qrCodes: Array<string | null> = [];
-const credsErrors: string[] = [];
-let autoOpen = false;
-
-class RecordingPairing extends WhatsAppPairing {
-  override qr(code: string | null): void {
-    qrCodes.push(code);
-    super.qr(code);
-  }
+function group(id: string, subject: string): GroupMetadata {
+  return { id, owner: undefined, subject, participants: [] };
 }
-const logLines: string[] = [];
-const MEDIA = new Uint8Array([1, 2, 3, 4]);
-
-const connect = async (dir: string): Promise<WhatsAppClient> => {
-  connectCalls.push(dir);
-  if (connectFailures > 0) {
-    connectFailures -= 1;
-    throw new Error("network down");
-  }
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "creds.json"), "{}");
-  const socket = new FakeSocket();
-  sockets.push(socket);
-  if (autoOpen) setTimeout(() => socket.update({ connection: "open" }), 0);
-  return { socket, downloadMedia: async () => MEDIA, stopCreds: socket.stopCreds };
-};
-const liveSocket = (): FakeSocket => {
-  const socket = sockets.at(-1);
-  assert.ok(socket, "No socket was opened.");
-  return socket;
-};
 
 let counter = 0;
-const nextId = () => {
+function message(input: {
+  chat: string;
+  text: string;
+  fromMe?: boolean;
+  participant?: string;
+  participantAlt?: string;
+  remoteJidAlt?: string;
+  mentions?: string[];
+  quotedId?: string;
+  quotedParticipant?: string;
+  pushName?: string;
+  id?: string;
+}): WAMessage {
   counter += 1;
-  return `WAMSG${counter}`;
+  const contextInfo =
+    input.mentions || input.quotedId
+      ? {
+          ...(input.mentions ? { mentionedJid: input.mentions } : {}),
+          ...(input.quotedId
+            ? {
+                stanzaId: input.quotedId,
+                participant: input.quotedParticipant ?? null,
+                quotedMessage: { conversation: "earlier" },
+              }
+            : {}),
+        }
+      : null;
+  return {
+    key: {
+      remoteJid: input.chat,
+      fromMe: input.fromMe ?? false,
+      id: input.id ?? `IN${counter}`,
+      ...(input.participant ? { participant: input.participant } : {}),
+      ...(input.participantAlt ? { participantAlt: input.participantAlt } : {}),
+      ...(input.remoteJidAlt ? { remoteJidAlt: input.remoteJidAlt } : {}),
+    },
+    message: contextInfo ? { extendedTextMessage: { text: input.text, contextInfo } } : { conversation: input.text },
+    messageTimestamp: Math.floor(Date.now() / 1_000),
+    pushName: input.pushName ?? "Someone",
+  };
+}
+
+// The services.
+
+const unused = () => Effect.die(new Error("Not used by this check."));
+const browser: AgentBrowserHost = {
+  listTabs: () => [],
+  beginTakeover: unused,
+  endTakeover: () => {},
+  userControlTabFor: () => null,
+  awaitUserControlRelease: unused,
+  resolveUploadTarget: unused,
+  handleDynamicTool: unused,
+  onChanged: () => () => {},
+  onControlChanged: () => () => {},
+  onDocumentChanged: () => () => {},
+  clearControls: () => {},
+  endControl: () => {},
+  close: () => Effect.void,
+  clearAgentSession: () => Effect.void,
+  shareTab: () => undefined,
+  unshareThread: () => undefined,
+  agentTab: () => null,
 };
 
-function text(
-  chat: string,
-  body: string,
-  options: { id?: string; from?: string; mention?: boolean; alt?: string } = {},
-) {
-  const id = options.id ?? nextId();
-  const message: WhatsAppMessage = {
-    key: {
-      remoteJid: chat,
-      id,
-      fromMe: false,
-      ...(options.from ? { participant: options.from } : {}),
-      ...(options.alt ? { remoteJidAlt: options.alt } : {}),
-    },
-    message: options.mention
-      ? {
-          extendedTextMessage: {
-            text: `@${ME.split("@")[0]} ${body}`,
-            contextInfo: { mentionedJid: [ME] },
-          },
-        }
-      : { conversation: body },
-    messageTimestamp: 1_793_000_000,
-    pushName: "Hridya",
+function memoryCredentials(): MessagingCredentials {
+  const values = new Map<string, Record<string, string>>();
+  return {
+    keys: () => [...values.keys()],
+    status: (connectionId) => (values.has(connectionId) ? "saved" : "missing"),
+    get: (connectionId) => values.get(connectionId) ?? null,
+    set: (connectionId, value) => Effect.sync(() => void values.set(connectionId, value)),
+    clear: (connectionId) => Effect.sync(() => void values.delete(connectionId)),
+    retain: (connectionIds) =>
+      Effect.sync(() => {
+        for (const key of values.keys()) if (!connectionIds.has(key)) values.delete(key);
+      }),
   };
-  return { id, message };
 }
+
+// The credential store outlives one boot, as safeStorage does.
+const credentials = memoryCredentials();
+const phone = new FakePhone();
 
 interface Booted {
-  messaging: MessagingService;
-  threads: MessagingThreads;
-  connectionId: string;
-  agentId: string;
-  credentials: MessagingCredentials;
   agents: AgentService;
+  messaging: MessagingService;
+  runtime: WhatsAppRuntime;
+  mailbox: MailboxStore;
 }
 
-async function boot<T>(
-  use: (services: Booted) => Promise<T>,
-  options: { linked: boolean; profile?: string },
-): Promise<T> {
-  const credentials = memoryCredentials();
-  const pairing = new RecordingPairing();
-  const data = options.profile ? join(root, options.profile, "user-data") : userData;
-  const agentHome = options.profile ? join(root, options.profile, "home") : home;
-  const database = new OpenBotDatabase(data);
-  const store = new AgentStore(data, agentHome, database);
-  const mailbox = new MailboxStore(data, store.sharedRoot, store.database);
-  const sidebar = new SidebarLayoutStore(join(data, "sidebar-layout.json"));
+async function boot<T>(use: (services: Booted) => Promise<T>): Promise<T> {
+  const database = new OpenBotDatabase(userData);
+  const store = new AgentStore(userData, home, database);
+  const mailbox = new MailboxStore(userData, store.sharedRoot, store.database);
+  const sidebar = new SidebarLayoutStore(join(userData, "sidebar-layout.json"));
   await runCauseEffect(sidebar.initialize());
   await runCauseEffect(store.initialize());
   await runCauseEffect(mailbox.initialize());
-  const agents = new AgentService({ store, mailbox, browser: inertBrowserHost, sidebarLayout: sidebar });
-  const threads = new MessagingThreads(store.database, mailbox, {
-    schedule: () => {},
-    queueChanged: () => {},
-    busy: () => false,
-    interrupt: unused,
-    forgetThread: () => Effect.void,
-    ownChat: () => false,
-    contextSession: () => null,
+  const agents = new AgentService({ store, mailbox, browser, sidebarLayout: sidebar });
+  const runtime = new WhatsAppRuntime({
+    root: whatsappRoot,
+    createSocket: phone.create,
+    // The fake socket never encrypts, so it never calls the repository.
+    makeSignalRepository: () => {
+      throw new Error("Not used by the fake socket.");
+    },
+    fetchVersion: async () => null,
   });
   const messaging = new MessagingService({
-    threads,
+    threads: agents.messaging,
     agents: {
       listAgents: () => agents.listAgents(),
       respondToApproval: (input) => agents.respondToApproval(input),
@@ -264,468 +428,996 @@ async function boot<T>(
       sidebarChatIds: () => agents.sidebarChatIds(),
     },
     credentials,
-    drivers: [
-      whatsappDriver({
-        connect,
-        authDir,
-        pairing,
-        retryDelayMs: () => 0,
-        unlinkTimeoutMs: 300,
-        logger: createOpenBotLogger("whatsapp-e2e", (line) => logLines.push(line)),
-      }),
-    ],
-    downloadsRoot: join(data, "messaging-downloads"),
+    drivers: [whatsAppDriver({ runtime })],
+    downloadsRoot: join(userData, "messaging-downloads"),
+    whatsapp: runtime,
     sidebar,
-    whatsappPairing: pairing,
   });
-  const agent = await runCauseEffect(
-    agents.createAgentProfile({
-      name: "Chief of Staff",
-      title: "Runs the crew",
-      description: "Answers WhatsApp.",
-      avatarSeed: "chief",
-      avatarHue: 280,
-    }),
-  );
-  let connectionId = "";
-  if (options.linked) {
-    const record = threads.store.ensureConnection("whatsapp", "whatsapp", "WhatsApp");
-    connectionId = record.connectionId;
-    await runCauseEffect(
-      credentials.set(record.connectionId, {
-        account: "whatsapp",
-        allowedChats: `447700900002,${ALLOWED_GROUP}`,
-      }),
-    );
-    threads.store.updateConnection(record.connectionId, { enabled: true, orchestratorAgentId: agent.id });
-  }
   await runCauseEffect(messaging.start());
   try {
-    return await use({ messaging, threads, connectionId, agentId: agent.id, credentials, agents });
+    return await use({ agents, messaging, runtime, mailbox });
   } finally {
     await runCauseEffect(messaging.stop());
     await runCauseEffect(agents.stop());
     database.close();
+    releaseClosedStores();
   }
 }
 
-const key = (connectionId: string, chat: string, id: string) => `messaging:${connectionId}:${chat}:${id}`;
+/**
+ * Bun keeps a closed `node:sqlite` connection, and so the store's exclusive lock, until its statements
+ * are collected; Node, which Electron runs, releases it at `close`. This script runs on Bun and opens
+ * the same stores again, so it collects them first.
+ */
+function releaseClosedStores(): void {
+  gc(true);
+}
+
+/** The store of the linked number while no service runs. The credential store keeps its id and key. */
+function openConnectionStore(): WhatsAppAuthStore {
+  const values = credentials
+    .keys()
+    .map((key) => credentials.get(key))
+    .find((candidate) => candidate?.storeId);
+  assert.ok(values?.storeId && values.whatsappStoreKey, "No WhatsApp store.");
+  return WhatsAppAuthStore.open({
+    path: join(whatsappRoot, `${values.storeId}.db`),
+    key: Buffer.from(values.whatsappStoreKey, "base64"),
+  });
+}
+
+/** A journal entry as the transport writes it: the message as protobuf, in JSON. */
+function journalPayload(entry: WAMessage): string {
+  return JSON.stringify({ message: Buffer.from(proto.WebMessageInfo.encode(entry).finish()).toString("base64") });
+}
+
+function storeFile(agents: AgentService): string {
+  const storeId = credentials.get(connectionId(agents))?.storeId;
+  assert.ok(storeId, "The connection has no store id.");
+  return join(whatsappRoot, `${storeId}.db`);
+}
+
+function connection(messaging: MessagingService): MessagingConnection | undefined {
+  return messaging.whatsappOverview().connections.find((candidate) => candidate.workspaceId === OWNER);
+}
+
+function connectionId(agents: AgentService): string {
+  const record = agents.messaging.store.connectionForWorkspace("whatsapp", OWNER);
+  assert.ok(record, "No WhatsApp connection row.");
+  return record.connectionId;
+}
+
+function received(agents: AgentService, chat: string, id: string): boolean {
+  return agents.messaging.received(`messaging:${connectionId(agents)}:${chat}:${id}`);
+}
+
+interface HistoryRead {
+  messages: { author: string; sentAt: string; text: string; files?: { name: string; path?: string }[] }[];
+  note: string;
+}
+
+/** A `messaging_history` read of a named place, as a turn that answers no external chat calls it. */
+async function readHistory(
+  agents: AgentService,
+  args: { place: string; query?: string; before?: string },
+): Promise<HistoryRead> {
+  const result = await runCauseEffect(
+    agents.messaging.outboundTool(
+      "agent-whatsapp-e2e",
+      { threadId: "thread-whatsapp-e2e", turnId: "turn-whatsapp-e2e" },
+      "messaging_history",
+      { connection: connectionId(agents), ...args },
+      () => Effect.succeed([]),
+    ),
+  );
+  const text = result.contentItems[0]?.text ?? "";
+  assert.ok(result.success, text);
+  return JSON.parse(text);
+}
+
+/** A saved message older than 90 days, with a copy of its file, which the next start deletes. */
+const OLD_ID = "IN-OLD";
+let oldCopy = "";
+
+async function linkState(messaging: MessagingService, done: (state: WhatsAppLinkState) => boolean, label: string) {
+  return until(() => {
+    const state = messaging.whatsappLinkState();
+    return done(state) ? state : null;
+  }, label);
+}
 
 try {
-  mkdirSync(OUT, { recursive: true });
-  await boot(
-    async ({ messaging, threads, connectionId }) => {
-      await step("the connection shows a QR code while no account is linked, then connects", async () => {
-        await waitFor("the first socket", () => sockets.length > 0);
-        liveSocket().update({ connection: "connecting" });
-        liveSocket().update({ qr: "2@pairing-code" });
-        assert.deepEqual(qrCodes, ["2@pairing-code"]);
-        assert.notEqual(messaging.whatsappOverview().connections[0]?.state, "connected");
-        liveSocket().update({ connection: "open" });
-        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
-        assert.equal(qrCodes.at(-1), null, "The QR code stayed after the link.");
-        assert.deepEqual(connectCalls, [authDir]);
-        return { qrCodes, authDir: "whatsapp-auth" };
-      });
+  await step("pure rules: close codes, backoff, chunks and formatting", async () => {
+    assert.equal(closeDecision(401, false, false, true), "fatal");
+    assert.equal(closeDecision(403, false, false, true), "fatal");
+    assert.equal(closeDecision(411, false, false, true), "fatal");
+    assert.equal(closeDecision(440, false, false, true), "replaced");
+    assert.equal(closeDecision(515, true, true, true), "restart");
+    assert.equal(closeDecision(408, true, false, true), "restart");
+    assert.equal(closeDecision(408, true, true, true), "timeout");
+    assert.equal(closeDecision(408, false, true, true), "retry");
+    assert.equal(closeDecision(428, false, false, true), "retry");
+    assert.equal(closeDecision(undefined, false, false, true), "retry");
+    // A link that closes before it showed a code did not reach WhatsApp; the user sees "unavailable".
+    assert.equal(closeDecision(408, true, false, false), "unreachable");
+    assert.equal(closeDecision(428, true, false, false), "unreachable");
+    assert.equal(closeDecision(515, true, false, false), "restart");
+    const delays = [0, 1, 5, 20].map((attempt) => [backoffDelay(attempt, () => 0), backoffDelay(attempt, () => 1)]);
+    assert.deepEqual(delays[0], [1_500, 2_500]);
+    assert.ok((delays[3]?.[1] ?? 0) <= 37_500 && (delays[3]?.[0] ?? 0) >= 22_500, "The backoff is not capped.");
+    const long = `# Title\n**bold** and *italic* and ~~gone~~ [site](https://example.com)\n${"word ".repeat(2_000)}\n\`\`\`\ncode **kept**\n\`\`\``;
+    const chunks = whatsAppChunks(long);
+    assert.ok(chunks.length >= 3 && chunks.every((chunk) => chunk.length <= WHATSAPP_TEXT_LIMIT + 4));
+    assert.ok(chunks[0]?.startsWith("*Title*\n*bold* and _italic_ and ~gone~ site (https://example.com)"));
+    assert.ok(chunks.at(-1)?.includes("code **kept**"), "Text inside a code block changed.");
+    return { delays, chunks: chunks.length };
+  });
 
-      await step(
-        "a text from an allowed chat reaches the bound agent, and the reply goes to the same chat",
-        async () => {
-          const { id, message } = text(ALLOWED, "what is on today?");
-          liveSocket().receive(message);
-          await waitFor("the message in the mailbox", () => threads.received(key(connectionId, ALLOWED, id)));
-          await waitFor("the received reaction", () =>
-            liveSocket().sent.some(
-              (sent) => sent.jid === ALLOWED && "react" in sent.content && sent.content.react.text === "👀",
-            ),
-          );
-          const place = threads.store.links(threads.store.connection(connectionId)?.orchestratorAgentId ?? "")[0];
-          assert.equal(place?.platformChannelId, ALLOWED);
-          const answer = await runCauseEffect(
-            threads.outboundTool("messaging_post", {
-              connection: connectionId,
-              place: ALLOWED,
-              text: "Two meetings: **stand-up** at 9 and the review at 14.",
-            }),
-          );
-          assert.equal(answer.success, true, "The post failed.");
-          const reply = liveSocket().sent.find((sent) => sent.jid === ALLOWED && "text" in sent.content);
-          assert.ok(reply && "text" in reply.content);
-          assert.equal(reply.content.text, "Two meetings: *stand-up* at 9 and the review at 14.");
-          return { reply: reply.content.text };
-        },
+  await step("store: values are sealed, a second opener is locked out, a wrong key cannot read", async () => {
+    const path = join(root, "store-check.db");
+    const key = newStoreKey();
+    const store = WhatsAppAuthStore.open({ path, key });
+    store.creds.me = { id: `${OWNER}:9@s.whatsapp.net`, name: "Ana" };
+    store.saveCreds();
+    await store.state.keys.set({ session: { "48600100300.0": new Uint8Array([1, 2, 3]) } });
+    assert.throws(() => WhatsAppAuthStore.open({ path, key }), WhatsAppStoreLocked);
+    store.close();
+    releaseClosedStores();
+    const raw = readFileSync(path);
+    assert.ok(!raw.includes(Buffer.from(OWNER)), "The store file holds the phone number in clear text.");
+    assert.ok(!raw.includes(Buffer.from("noiseKey")), "The store file holds the creds in clear text.");
+    assert.throws(() => WhatsAppAuthStore.open({ path, key: newStoreKey() }), WhatsAppStoreUnreadable);
+    releaseClosedStores();
+    const again = WhatsAppAuthStore.open({ path, key });
+    assert.equal(again.creds.me?.id, `${OWNER}:9@s.whatsapp.net`);
+    const session = await again.state.keys.get("session", ["48600100300.0"]);
+    assert.deepEqual([...(session["48600100300.0"] ?? [])], [1, 2, 3]);
+    again.close();
+    return { sealed: true };
+  });
+
+  await boot(async ({ agents, messaging, runtime, mailbox }) => {
+    await step("link without network: the link fails as unavailable, not as an expired code", async () => {
+      phone.offline = true;
+      await runCauseEffect(messaging.startWhatsAppLink(parseStartWhatsAppLinkInput({ method: "qr", ownNumber: true })));
+      const failed = await linkState(messaging, (state) => state.status === "failed", "the failed link");
+      phone.offline = false;
+      assert.equal(failed.error, "unavailable");
+      assert.equal(messaging.whatsappOverview().connections.length, 0, "A failed link left a connection.");
+      return { error: failed.error };
+    });
+
+    await step("link by QR code: the scan pairs, WhatsApp restarts, and the number connects", async () => {
+      assert.throws(() => parseStartWhatsAppLinkInput({ method: "code", phoneNumber: "12", ownNumber: true }));
+      const started = await runCauseEffect(
+        messaging.startWhatsAppLink(parseStartWhatsAppLinkInput({ method: "qr", ownNumber: true })),
       );
+      assert.equal(started.status, "waiting");
+      const waiting = await linkState(messaging, (state) => state.qr !== null, "a QR code");
+      assert.match(waiting.qr ?? "", /^2@fake-qr-/u);
+      assert.equal(phone.current().config.browser?.[1], "OpenBot", "A QR link does not show as OpenBot.");
+      // The phone's first message comes the moment the device opens, before the transport listens.
+      const early = message({ chat: OWNER_JID, fromMe: true, text: "first message after the link" });
+      phone.onOpen = early;
+      phone.current().scan();
+      const linked = await linkState(messaging, (state) => state.status === "linked", "the link");
+      assert.equal(linked.workspaceId, OWNER);
+      const sockets = phone.sockets.length;
+      const live = await until(
+        () => connection(messaging)?.state === "connected" && connection(messaging),
+        "connected",
+      );
+      assert.equal(phone.sockets.length, sockets, "The connection opened a second socket after the link.");
+      await until(
+        () => phone.textsTo(OWNER_JID).some((text) => text.includes("Write here to ask your agents.")),
+        "the welcome message in the owner's own chat",
+      );
+      // No orchestrator exists yet, so the service answers that no agent can answer: it read the message.
+      await until(
+        () => phone.textsTo(OWNER_JID).some((text) => text.includes("No agent can answer here yet")),
+        "the answer to the message that came before the transport listened",
+      );
+      // In "Message yourself", an answer quotes the message it answers, so it reads as a reply.
+      const answer = phone.sent.find(
+        (sent) => sent.jid === OWNER_JID && "text" in sent.content && sent.content.text.includes("No agent can answer"),
+      );
+      assert.equal(answer?.quotedId, early.key.id, "The answer in the owner's own chat does not quote the message.");
+      assert.equal(live.platform, "whatsapp");
+      assert.ok(existsSync(storeFile(agents)), "The connection has no store file.");
+      const account = messaging.whatsappOverview().accounts[0];
+      assert.equal(account?.ownNumber, true);
+      return { workspaceName: live.workspaceName, state: live.state };
+    });
 
-      await step("a message from a chat that is not allowed is dropped and logged as a count only", async () => {
-        const { id, message } = text(STRANGER, STRANGER_TEXT);
-        const before = liveSocket().sent.length;
-        liveSocket().receive(message);
-        await new Promise((done) => setTimeout(done, 100));
-        assert.equal(threads.received(key(connectionId, STRANGER, id)), false);
-        assert.equal(liveSocket().sent.length, before, "The stranger got a reaction or an answer.");
-        const dropLines = logLines.filter((line) => line.includes("dropped"));
-        assert.ok(dropLines.length >= 1, "The drop was not logged.");
-        for (const line of logLines) {
-          assert.ok(!line.includes(STRANGER_TEXT), "The log holds message text.");
-          assert.ok(!line.includes("447700900099"), "The log holds a chat id.");
-        }
-        assert.match(dropLines[0] ?? "", /"count":1/u);
-        return { dropped: dropLines.length };
-      });
+    await step("orchestrator: one WhatsApp Orchestrator answers new conversations", async () => {
+      const added = await runCauseEffect(messaging.addWhatsAppOrchestrator({}));
+      const agent = agents.listAgents().find((candidate) => candidate.id === added.agentId);
+      assert.equal(agent?.name, "WhatsApp Orchestrator");
+      assert.equal(connection(messaging)?.orchestratorAgentId, added.agentId);
+      return { agentId: added.agentId };
+    });
 
-      await step("the agent cannot post to a chat that is not allowed", async () => {
-        const before = liveSocket().sent.length;
-        const answer = await runCauseEffect(
-          threads.outboundTool("messaging_post", { connection: connectionId, place: STRANGER, text: "hello" }),
+    await step("own chat: the owner's message reaches the orchestrator and gets 👀", async () => {
+      const first = message({ chat: OWNER_JID, fromMe: true, text: "What is on my calendar?" });
+      phone.current().receive([first]);
+      await until(() => received(agents, OWNER_JID, first.key.id ?? ""), "the owner's message in the mailbox");
+      await until(() => phone.reactionsTo(OWNER_JID) === 1, "the received reaction");
+      const link = agents.messaging.store.linkByKey(connectionId(agents), OWNER_JID, "dm");
+      assert.ok(link, "No conversation for the owner's chat.");
+      return { linkId: link.linkId };
+    });
+
+    await step("echo guard: OpenBot's own post in the owner's chat is not a new request", async () => {
+      const own = phone.sent.at(-1);
+      assert.ok(own);
+      phone.current().receive([message({ chat: OWNER_JID, fromMe: true, text: "👀", id: own.id })]);
+      phone.current().receive([message({ chat: OWNER_JID, fromMe: true, text: "echo", id: own.id })], "append");
+      // A later message is read, so the two echoes above were read and dropped.
+      const later = message({ chat: OWNER_JID, fromMe: true, text: "And tomorrow?" });
+      phone.current().receive([later]);
+      await until(() => received(agents, OWNER_JID, later.key.id ?? ""), "the later message");
+      assert.equal(received(agents, OWNER_JID, own.id), false, "An own post was read as a request.");
+      return { echoId: own.id };
+    });
+
+    await step("status post: a number with the setting off gets no “Working on it…” post", async () => {
+      const link = agents.messaging.store.linkByKey(connectionId(agents), OWNER_JID, "dm");
+      assert.ok(link, "No conversation for the owner's chat.");
+      // No provider runs here, so the check starts the request itself: a start names its request.
+      const request = mailbox.unresolvedMessagingDeliveries(link.linkId)[0];
+      assert.ok(request, "No request waits in the owner's chat.");
+      await runCauseEffect(mailbox.markStarting(request.delivery.id));
+      const scope = Effect.runSync(Scope.make());
+      const start = (turnId: string) =>
+        agents.messaging.event({ type: "turn-started", agentId: link.agentId, threadId: link.threadId, turnId }, scope);
+      // Posts and edits: a second start edits the post of the first one.
+      const working = () =>
+        phone.sent.filter(
+          (sent) =>
+            sent.jid === OWNER_JID &&
+            "text" in sent.content &&
+            typeof sent.content.text === "string" &&
+            sent.content.text.includes("Working on it"),
+        ).length;
+      const before = working();
+      assert.equal(messaging.whatsappOverview().accounts[0]?.workingMessage, true, "The post is not on by default.");
+      await runCauseEffect(messaging.setWhatsAppWorkingMessage(OWNER, false));
+      assert.equal(messaging.whatsappOverview().accounts[0]?.workingMessage, false);
+      start("turn-without-status-post");
+      await runCauseEffect(messaging.setWhatsAppWorkingMessage(OWNER, true));
+      assert.equal(messaging.whatsappOverview().accounts[0]?.workingMessage, true);
+      // The host handles the starts in order, so the post of this one shows that the first is done.
+      start("turn-with-status-post");
+      await until(() => working() > before, "the “Working on it…” post");
+      assert.equal(working(), before + 1, "A number with the setting off got a “Working on it…” post.");
+      // The request waits again, as the steps below expect.
+      await runCauseEffect(mailbox.restoreQueued(request.delivery.id));
+      return { posts: working() - before };
+    });
+
+    await step(
+      "personal number: other chats, the owner's own messages in them, and strangers stay untouched",
+      async () => {
+        const elsewhere = () => phone.sent.filter((sent) => sent.jid !== OWNER_JID).length;
+        const before = elsewhere();
+        const personal = message({ chat: `${STRANGER}@s.whatsapp.net`, text: "hi, dinner tonight?" });
+        const ownReply = message({ chat: `${STRANGER}@s.whatsapp.net`, fromMe: true, text: "sure" });
+        const groupChat = message({
+          chat: GROUP,
+          participant: `${FRIEND}@s.whatsapp.net`,
+          text: "@48600100200 hello",
+          mentions: [OWNER_JID],
+        });
+        phone.current().receive([personal, ownReply, groupChat]);
+        const marker = message({ chat: OWNER_JID, fromMe: true, text: "marker" });
+        phone.current().receive([marker]);
+        await until(() => phone.reactedTo(marker.key.id), "the marker");
+        assert.equal(received(agents, `${STRANGER}@s.whatsapp.net`, personal.key.id ?? ""), false);
+        assert.equal(received(agents, GROUP, groupChat.key.id ?? ""), false);
+        assert.equal(phone.textsTo(`${STRANGER}@s.whatsapp.net`).length, 0, "OpenBot wrote to a personal contact.");
+        assert.equal(messaging.whatsappOverview().accounts[0]?.pendingRequests.length, 0);
+        assert.equal(elsewhere(), before, "OpenBot posted outside the owner's own chat.");
+        return { ignored: 3 };
+      },
+    );
+
+    await step(
+      "dedicated number: an unknown person gets one code, the owner approves, and the person can write",
+      async () => {
+        await runCauseEffect(messaging.setWhatsAppOwnNumber(OWNER, false));
+        const strangerJid = `${STRANGER}@s.whatsapp.net`;
+        phone.current().receive([message({ chat: strangerJid, text: "hello bot", pushName: "Cara" })]);
+        const request = await until(
+          () => messaging.whatsappOverview().accounts[0]?.pendingRequests[0],
+          "a pairing request",
         );
-        assert.equal(answer.success, false, "A post to a stranger went out.");
-        assert.equal(liveSocket().sent.length, before);
-        return { refused: true };
-      });
+        assert.equal(request.senderId, STRANGER);
+        assert.equal(request.name, "Cara");
+        await until(() => phone.textsTo(strangerJid).length === 1, "the pairing code reply");
+        assert.ok(phone.textsTo(strangerJid)[0]?.includes(request.code), "The reply does not hold the code.");
+        phone.current().receive([message({ chat: strangerJid, text: "hello again" })]);
+        const marker = message({ chat: OWNER_JID, fromMe: true, text: "marker 2" });
+        phone.current().receive([marker]);
+        await until(() => phone.reactedTo(marker.key.id), "the marker");
+        assert.equal(phone.textsTo(strangerJid).length, 1, "A second message got a second code.");
+        await runCauseEffect(messaging.answerWhatsAppRequest(OWNER, request.code, true));
+        assert.deepEqual(
+          messaging.whatsappOverview().accounts[0]?.allowedSenders.map((sender) => sender.id),
+          [STRANGER],
+        );
+        await until(() => phone.textsTo(strangerJid).length === 2, "the approval line");
+        const allowed = message({ chat: strangerJid, text: "Can you check the build?" });
+        phone.current().receive([allowed]);
+        await until(() => received(agents, strangerJid, allowed.key.id ?? ""), "the allowed person's message");
+        return { code: request.code };
+      },
+    );
 
-      await step("an allowed chat that arrives as a lid jid is answered in the allowed chat", async () => {
-        const { id, message } = text(ALLOWED_LID, "are you there?", { alt: ALLOWED });
-        liveSocket().receive(message);
-        await waitFor("the lid message in the mailbox", () => threads.received(key(connectionId, ALLOWED, id)));
-        await waitFor("the received reaction in the allowed chat", () =>
-          liveSocket().sent.some(
-            (sent) => sent.jid === ALLOWED && "react" in sent.content && sent.content.react.key.id === id,
+    await step("pairing limit: at most three requests wait, and the fourth person gets no answer", async () => {
+      for (const suffix of ["01", "02", "03", "04"])
+        phone.current().receive([message({ chat: `486009999${suffix}@s.whatsapp.net`, text: "hi" })]);
+      await until(() => messaging.whatsappOverview().accounts[0]?.pendingRequests.length === 3, "three requests");
+      const marker = message({ chat: OWNER_JID, fromMe: true, text: "marker 3" });
+      phone.current().receive([marker]);
+      await until(() => phone.reactedTo(marker.key.id), "the marker");
+      assert.equal(phone.textsTo("48600999904@s.whatsapp.net").length, 0, "The fourth person got a code.");
+      return { pending: 3 };
+    });
+
+    await step(
+      "groups: only an allowed group, only a mention starts a conversation, and a reply continues it",
+      async () => {
+        const groups = await runCauseEffect(messaging.listWhatsAppGroups(OWNER));
+        assert.deepEqual(
+          groups.groups.map((entry) => entry.name),
+          ["Family", "Team"],
+        );
+        const input = parseWhatsAppSenderInput({
+          workspaceId: OWNER,
+          sender: { id: GROUP, kind: "group", name: "Team" },
+        });
+        await runCauseEffect(messaging.addWhatsAppSender(input.workspaceId, input.sender));
+        const author = `${FRIEND}@s.whatsapp.net`;
+        const chatter = message({ chat: GROUP, participant: author, text: "lunch?" });
+        const mention = message({
+          chat: GROUP,
+          participant: author,
+          text: "@48600100200 summarize the release",
+          mentions: [OWNER_JID],
+        });
+        phone.current().receive([chatter, mention]);
+        await until(() => received(agents, GROUP, mention.key.id ?? ""), "the mention");
+        assert.equal(
+          received(agents, GROUP, chatter.key.id ?? ""),
+          false,
+          "A group message without a mention started work.",
+        );
+        const link = agents.messaging.store.linkByKey(connectionId(agents), GROUP, mention.key.id ?? "");
+        assert.ok(link, "The mention did not start a conversation keyed by its message.");
+        const reply = message({
+          chat: GROUP,
+          participant: author,
+          text: "and the changelog",
+          quotedId: mention.key.id ?? "",
+          quotedParticipant: author,
+        });
+        phone.current().receive([reply]);
+        await until(() => received(agents, GROUP, reply.key.id ?? ""), "the reply in the conversation");
+        const other = message({
+          chat: OTHER_GROUP,
+          participant: author,
+          text: "@48600100200 hi",
+          mentions: [OWNER_JID],
+        });
+        phone.current().receive([other]);
+        const marker = message({ chat: OWNER_JID, fromMe: true, text: "marker 4" });
+        phone.current().receive([marker]);
+        await until(() => phone.reactedTo(marker.key.id), "the marker");
+        assert.equal(
+          received(agents, OTHER_GROUP, other.key.id ?? ""),
+          false,
+          "A group that is not allowed started work.",
+        );
+        return { threadKey: link.threadKey };
+      },
+    );
+
+    await step(
+      "saved history: the oldest copies go over the size limit, a delete for everyone deletes, an edit changes",
+      async () => {
+        const id = connectionId(agents);
+        const author = `${FRIEND}@s.whatsapp.net`;
+        const fileMessage = (messageId: string, fileName: string): WAMessage => ({
+          key: { remoteJid: GROUP, fromMe: false, id: messageId, participant: author },
+          message: { documentMessage: { fileName, mimetype: "text/plain", fileLength: 5, caption: messageId } },
+          messageTimestamp: Math.floor(Date.now() / 1_000),
+          pushName: "Ewa",
+        });
+        const change = (
+          messageId: string,
+          protocolMessage: proto.Message.IProtocolMessage,
+          participant = author,
+        ): WAMessage => ({
+          key: { remoteJid: GROUP, fromMe: false, id: messageId, participant },
+          message: { protocolMessage },
+          messageTimestamp: Math.floor(Date.now() / 1_000),
+          pushName: "Ewa",
+        });
+        const other = `${STRANGER}@s.whatsapp.net`;
+        const savedText = (messageId: string) =>
+          agents.messaging.history.recent(id, GROUP, null, 200).find((entry) => entry.id === messageId)?.text;
+        phone.current().receive([fileMessage("IN-KEEP-1", "first.txt"), fileMessage("IN-KEEP-2", "second.txt")]);
+        await until(() => savedText("IN-KEEP-2"), "the two saved file messages");
+        // The fake messages have no media key, so the downloads at arrival fail; copies stand in for them.
+        const folder = runtime.filesPath(id);
+        mkdirSync(folder, { recursive: true });
+        const first = join(folder, "copy-first.txt");
+        const second = join(folder, "copy-second.txt");
+        writeFileSync(first, "first");
+        writeFileSync(second, "secnd");
+        assert.ok(agents.messaging.history.saveFilePath(id, GROUP, "IN-KEEP-1", `${GROUP}|IN-KEEP-1`, first, 5));
+        assert.ok(agents.messaging.history.saveFilePath(id, GROUP, "IN-KEEP-2", `${GROUP}|IN-KEEP-2`, second, 5));
+        assert.deepEqual(agents.messaging.history.trimFiles(id, 10), [], "Copies under the limit went.");
+        assert.deepEqual(agents.messaging.history.trimFiles(id, 9), [first], "The oldest copy did not go first.");
+        rmSync(first);
+        const trimmed = await readHistory(agents, { place: GROUP, query: "IN-KEEP-1" });
+        assert.deepEqual(trimmed.messages[0]?.files, [{ name: "first.txt" }], "A trimmed message kept its path.");
+
+        phone.current().receive([
+          change("EDIT-1", {
+            type: proto.Message.ProtocolMessage.Type.MESSAGE_EDIT,
+            key: { remoteJid: GROUP, id: "IN-KEEP-1", participant: author },
+            editedMessage: { conversation: "the first file, renamed" },
+          }),
+          // Another member names Ewa's message: the sender chooses the id, so neither change counts.
+          change(
+            "EDIT-FORGED",
+            {
+              type: proto.Message.ProtocolMessage.Type.MESSAGE_EDIT,
+              key: { remoteJid: GROUP, id: "IN-KEEP-1", participant: author },
+              editedMessage: { conversation: "forged" },
+            },
+            other,
+          ),
+          change(
+            "REVOKE-FORGED",
+            {
+              type: proto.Message.ProtocolMessage.Type.REVOKE,
+              key: { remoteJid: GROUP, id: "IN-KEEP-1", participant: author },
+            },
+            other,
+          ),
+          change("REVOKE-1", {
+            type: proto.Message.ProtocolMessage.Type.REVOKE,
+            key: { remoteJid: GROUP, id: "IN-KEEP-2", participant: author },
+          }),
+        ]);
+        await until(() => savedText("IN-KEEP-1") === "the first file, renamed", "the edited text");
+        await until(() => savedText("IN-KEEP-2") === undefined && !existsSync(second), "the deleted message");
+        assert.equal(savedText("IN-KEEP-1"), "the first file, renamed", "Another member changed or deleted a message.");
+        assert.equal(received(agents, GROUP, "EDIT-1"), false, "An edit started work.");
+        assert.equal(received(agents, GROUP, "REVOKE-1"), false, "A delete for everyone started work.");
+        return { trimmed: 1, edited: true, revoked: true };
+      },
+    );
+
+    await step(
+      "saved history: a group message without a mention is saved with its file, and query and before find it",
+      async () => {
+        const id = connectionId(agents);
+        const fileMessage: WAMessage = {
+          key: { remoteJid: GROUP, fromMe: false, id: "IN-FILE", participant: `${FRIEND}@s.whatsapp.net` },
+          message: {
+            documentMessage: { fileName: "plan.pdf", mimetype: "application/pdf", fileLength: 4, caption: "the plan" },
+          },
+          messageTimestamp: Math.floor(Date.now() / 1_000),
+          pushName: "Ewa",
+        };
+        phone.current().receive([fileMessage]);
+        await until(
+          () => agents.messaging.history.recent(id, GROUP, null, 50).some((entry) => entry.id === "IN-FILE"),
+          "the saved file message",
+        );
+        assert.equal(received(agents, GROUP, "IN-FILE"), false, "A group message without a mention started work.");
+        const all = await readHistory(agents, { place: GROUP });
+        const texts = all.messages.map((entry) => entry.text);
+        assert.ok(texts.includes("lunch?"), "A group message without a mention was not saved.");
+        assert.ok(texts.includes("and the changelog"), "A reply was not saved.");
+        const lunch = await readHistory(agents, { place: GROUP, query: "LUNCH" });
+        assert.deepEqual(
+          lunch.messages.map((entry) => entry.text),
+          ["lunch?"],
+        );
+        const byAuthor = await readHistory(agents, { place: GROUP, query: "ewa plan" });
+        assert.equal(byAuthor.messages.length, 1, "The query did not match the author and the text.");
+        assert.deepEqual(byAuthor.messages[0]?.files, [{ name: "plan.pdf" }]);
+        const early = await readHistory(agents, { place: GROUP, before: "2000-01-01T00:00:00Z" });
+        assert.equal(early.messages.length, 0, "before did not limit the read.");
+        const late = await readHistory(agents, { place: GROUP, before: "2999-01-01T00:00:00+02:00" });
+        assert.equal(late.messages.length, all.messages.length);
+        // The fake message has no media key, so the download at arrival fails; a copy stands in for it.
+        const folder = runtime.filesPath(id);
+        mkdirSync(folder, { recursive: true });
+        const copy = join(folder, "copy-plan.pdf");
+        writeFileSync(copy, "plan");
+        assert.ok(agents.messaging.history.saveFilePath(id, GROUP, "IN-FILE", `${GROUP}|IN-FILE`, copy, 4));
+        const withPath = await readHistory(agents, { place: GROUP, query: "plan" });
+        assert.deepEqual(withPath.messages[0]?.files, [{ name: "plan.pdf", path: copy }]);
+        const values = credentials.get(id);
+        assert.ok(values);
+        const adapter = whatsAppDriver({ runtime }).createAdapter(values, { rateLimited: () => {} });
+        await runCauseEffect(adapter.identify());
+        const destination = join(root, "downloaded-plan.pdf");
+        await runCauseEffect(
+          adapter.download(
+            {
+              id: `${GROUP}|IN-FILE`,
+              name: "plan.pdf",
+              mimeType: "application/pdf",
+              size: 4,
+              url: `${GROUP}|IN-FILE`,
+            },
+            destination,
+            1_024,
           ),
         );
-        assert.ok(
-          liveSocket().sent.every((sent) => sent.jid !== ALLOWED_LID),
-          "A message went to the lid jid.",
+        assert.equal(readFileSync(destination, "utf8"), "plan", "The download did not use the saved copy.");
+        // A message that arrived 91 days ago: the next start deletes it and its copy.
+        oldCopy = join(folder, "copy-old.txt");
+        writeFileSync(oldCopy, "old");
+        const sentAt = new Date(Date.now() - 91 * 24 * 60 * 60_000).toISOString();
+        agents.messaging.history.save(
+          id,
+          GROUP,
+          OLD_ID,
+          FRIEND,
+          {
+            id: OLD_ID,
+            authorName: "Ewa",
+            text: "old news",
+            sentAt,
+            files: [
+              {
+                id: `${GROUP}|${OLD_ID}`,
+                name: "old.txt",
+                mimeType: "text/plain",
+                size: 3,
+                url: `${GROUP}|${OLD_ID}`,
+                path: oldCopy,
+              },
+            ],
+          },
+          sentAt,
         );
-        return { received: true };
-      });
+        return { saved: all.messages.length, lunch: lunch.messages.length, copy: true };
+      },
+    );
 
-      await step("a group message needs a mention, and it removes the mention from the text", async () => {
-        const plain = text(ALLOWED_GROUP, "chatter between people", { from: "447700900003@s.whatsapp.net" });
-        liveSocket().receive(plain.message);
-        const mention = text(ALLOWED_GROUP, "summarise the launch", {
-          from: "447700900003@s.whatsapp.net",
-          mention: true,
+    await step("LID authors: a LID chat with a phone form, and a LID group member, map to their numbers", async () => {
+      const input = parseWhatsAppSenderInput({
+        workspaceId: OWNER,
+        sender: { id: "+48 600 100 500", kind: "contact", name: "Dan" },
+      });
+      assert.equal(input.sender.id, LID_FRIEND);
+      await runCauseEffect(messaging.addWhatsAppSender(input.workspaceId, input.sender));
+      const direct = message({
+        chat: "999123@lid",
+        remoteJidAlt: `${LID_FRIEND}@s.whatsapp.net`,
+        text: "status?",
+        id: lidDirectId,
+      });
+      phone.current().receive([direct]);
+      await until(
+        () => received(agents, `${LID_FRIEND}@s.whatsapp.net`, direct.key.id ?? ""),
+        "the LID direct message",
+      );
+      const lidOnly = message({ chat: "999456@lid", text: "still there?" });
+      phone.current().receive([lidOnly]);
+      await until(() => received(agents, `${LID_FRIEND}@s.whatsapp.net`, lidOnly.key.id ?? ""), "the LID-only message");
+      return { chat: `${LID_FRIEND}@s.whatsapp.net` };
+    });
+
+    await step(
+      "Brazilian numbers: a contact typed with the 9 gets work through the form that WhatsApp sends",
+      async () => {
+        const accountJid = `${BRAZIL_ACCOUNT}@s.whatsapp.net`;
+        // A contact saved before WhatsApp named the form: the typed number is in the settings.
+        agents.messaging.store.addAllowedSender(connectionId(agents), {
+          id: BRAZIL_TYPED,
+          kind: "contact",
+          name: "Bia",
         });
-        liveSocket().receive(mention.message);
-        await waitFor("the group mention", () => threads.received(key(connectionId, ALLOWED_GROUP, mention.id)));
-        assert.equal(threads.received(key(connectionId, ALLOWED_GROUP, plain.id)), false);
-        return { received: true };
-      });
+        const saved = message({ chat: accountJid, text: "oi, tudo bem?" });
+        phone.current().receive([saved]);
+        await until(() => received(agents, accountJid, saved.key.id ?? ""), "the message of the saved contact");
+        const values = credentials.get(connectionId(agents));
+        assert.ok(values);
+        const adapter = whatsAppDriver({ runtime }).createAdapter(values, { rateLimited: () => {} });
+        await runCauseEffect(adapter.identify());
+        await runCauseEffect(
+          adapter.postAnswer({ platformChannelId: accountJid, replyThreadId: null }, "Resposta", null),
+        );
+        await until(() => phone.textsTo(accountJid).includes("Resposta"), "the answer to the saved contact");
+        // A contact added while the number is connected gets the form that WhatsApp has.
+        agents.messaging.store.removeAllowedSender(connectionId(agents), BRAZIL_TYPED);
+        const input = parseWhatsAppSenderInput({
+          workspaceId: OWNER,
+          sender: { id: "+55 31 9 8888-7777", kind: "contact", name: "Bia" },
+        });
+        await runCauseEffect(messaging.addWhatsAppSender(input.workspaceId, input.sender));
+        const ids = messaging.whatsappOverview().accounts[0]?.allowedSenders.map((sender) => sender.id) ?? [];
+        assert.ok(ids.includes(BRAZIL_ACCOUNT), "The contact was not saved in the form that WhatsApp has.");
+        assert.ok(!ids.includes(BRAZIL_TYPED), "The contact was saved as typed.");
+        // An agent writes the number as the person typed it: the post goes to the form that WhatsApp has.
+        const posted = await runCauseEffect(
+          agents.messaging.outboundTool(
+            "agent-whatsapp-e2e",
+            { threadId: "thread-whatsapp-e2e", turnId: "turn-whatsapp-e2e" },
+            "messaging_post",
+            { connection: connectionId(agents), place: "+55 31 9 8888-7777", text: "Lembrete" },
+            () => Effect.succeed([]),
+          ),
+        );
+        assert.ok(posted.success, posted.contentItems[0]?.text);
+        await until(() => phone.textsTo(accountJid).includes("Lembrete"), "the post to the typed number");
+        return { saved: BRAZIL_ACCOUNT, postedTo: accountJid };
+      },
+    );
 
-      await step("our own sent messages in the self chat do not loop back", async () => {
-        const own = liveSocket().sent.length;
-        const echo: WhatsAppMessage = {
-          key: { remoteJid: ME, id: "OUT1", fromMe: true },
-          message: { conversation: "echo" },
-          messageTimestamp: 1_793_000_100,
+    await step("burst: short messages of one person within 1.5 s become one request", async () => {
+      const strangerJid = `${STRANGER}@s.whatsapp.net`;
+      const first = message({ chat: strangerJid, text: "one more thing" });
+      const second = message({ chat: strangerJid, text: "the logs are in Shared" });
+      phone.current().receive([first]);
+      phone.current().receive([second]);
+      await until(() => received(agents, strangerJid, first.key.id ?? ""), "the joined request");
+      assert.equal(received(agents, strangerJid, second.key.id ?? ""), false, "The burst was not joined.");
+      return { joined: 2 };
+    });
+
+    await step(
+      "numbered answers: 1 approves the quoted menu, 2 denies the newest one, only for its buttons",
+      async () => {
+        const chats = new WhatsAppChatState();
+        chats.rememberMenu("MENU1", {
+          chatJid: OWNER_JID,
+          threadKey: "dm",
+          buttons: [
+            { action: "accept", label: "Approve", token: "t-accept" },
+            { action: "decline", label: "Deny", token: "t-decline" },
+          ],
+        });
+        const context = {
+          me: { number: OWNER, lid: `${OWNER_LID}@lid` },
+          openedAt: Date.now(),
+          now: Date.now(),
+          rules: { ownNumber: true, contacts: new Set<string>(), groups: new Set<string>() },
+          chats,
+          isOwnPost: () => false,
+          threadOf: () => null,
+          numberForLid: async () => null,
         };
-        liveSocket().receive(echo);
-        await new Promise((done) => setTimeout(done, 50));
-        assert.equal(threads.received(key(connectionId, ME, "OUT1")), false);
-        assert.equal(liveSocket().sent.length, own);
-        return { ignored: true };
-      });
-
-      await step("a lost connection reconnects with backoff and keeps the same auth folder", async () => {
-        const first = sockets.length;
-        connectFailures = 2;
-        liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(408) } });
-        await waitFor("a new socket after two failed attempts", () => sockets.length > first);
-        liveSocket().update({ connection: "open" });
-        await waitFor("connected again", () => messaging.whatsappOverview().connections[0]?.state === "connected");
-        assert.equal(connectCalls.length, first + 3, "The backoff did not try three times.");
-        assert.ok(connectCalls.every((dir) => dir === authDir));
-        return { attempts: connectCalls.length };
-      });
-
-      await step("a restart request after pairing reconnects at once", async () => {
-        const before = sockets.length;
-        liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(515) } });
-        await waitFor("the restart socket", () => sockets.length > before);
-        liveSocket().update({ connection: "open" });
-        return { restarted: true };
-      });
-
-      await step("the phone unlinks the account: the connection stops and the auth folder is cleared", async () => {
-        mkdirSync(authDir, { recursive: true });
-        writeFileSync(join(authDir, "creds.json"), "{}");
-        const before = sockets.length;
-        liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(401) } });
-        await waitFor(
-          "the stopped state",
-          () => messaging.whatsappOverview().connections[0]?.state === "invalid_token",
+        const quoted = await whatsAppInbound(
+          message({ chat: OWNER_JID, fromMe: true, text: "1", quotedId: "MENU1", quotedParticipant: OWNER_JID }),
+          context,
         );
-        await new Promise((done) => setTimeout(done, 50));
-        assert.equal(sockets.length, before, "It reconnected after the unlink.");
-        assert.equal(existsSync(join(authDir, "creds.json")), false);
-        messaging.resume();
-        await new Promise((done) => setTimeout(done, 50));
-        assert.equal(sockets.length, before, "A wake from sleep opened a socket for an unlinked account.");
-        return { state: "invalid_token" };
-      });
-    },
-    { linked: true },
-  );
+        assert.equal(quoted?.type, "action");
+        assert.ok(quoted?.type === "action" && quoted.action.type === "approval" && quoted.action.token === "t-accept");
+        const newest = await whatsAppInbound(message({ chat: OWNER_JID, fromMe: true, text: "2" }), context);
+        assert.ok(
+          newest?.type === "action" && newest.action.type === "approval" && newest.action.decision === "decline",
+        );
+        const plain = await whatsAppInbound(message({ chat: `${STRANGER}@s.whatsapp.net`, text: "1" }), context);
+        assert.equal(plain, null, "A stranger's 1 counted on a personal number.");
+        return { approved: true };
+      },
+    );
 
-  await boot(
-    async ({ messaging }) => {
-      const pauseLinkedAccount = async () => {
-        const before = sockets.length;
-        await runCauseEffect(messaging.connectWhatsApp());
-        await waitFor("a socket for the link", () => sockets.length > before);
-        liveSocket().update({ connection: "open" });
-        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
-        await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", false));
-        await waitFor("the paused state", () => messaging.whatsappOverview().connections[0]?.state === "paused");
+    await step("adapter: a post outside the allowed chats is refused, and a late edit becomes a new post", async () => {
+      const values = credentials.get(connectionId(agents));
+      assert.ok(values);
+      const adapter = whatsAppDriver({ runtime }).createAdapter(values, { rateLimited: () => {} });
+      await runCauseEffect(adapter.identify());
+      const refused = await Effect.runPromise(
+        Effect.result(
+          adapter.postAnswer({ platformChannelId: "48611111111@s.whatsapp.net", replyThreadId: null }, "hi", null),
+        ),
+      );
+      assert.equal(refused._tag, "Failure", "A post to a chat that is not allowed went out.");
+      // A person who only got a pairing code is not allowed either.
+      const pending = await Effect.runPromise(
+        Effect.result(
+          adapter.postAnswer({ platformChannelId: "48600999901@s.whatsapp.net", replyThreadId: null }, "hi", null),
+        ),
+      );
+      assert.equal(pending._tag, "Failure", "A post to a person who only got a pairing code went out.");
+      const before = phone.textsTo(OWNER_JID).length;
+      await runCauseEffect(
+        adapter.edit({ platformChannelId: OWNER_JID, replyThreadId: null }, "UNKNOWN-POST", { text: "Updated" }),
+      );
+      await until(() => phone.textsTo(OWNER_JID).length === before + 1, "the edit as a new post");
+      // A post in the owner's own chat ends at its last line of text (#8802).
+      assert.equal(phone.textsTo(OWNER_JID).at(-1), "Updated", "A post in the owner's own chat has extra text.");
+      const contactJid = `${STRANGER}@s.whatsapp.net`;
+      await runCauseEffect(
+        adapter.post({ platformChannelId: contactJid, replyThreadId: null }, { text: "To a contact" }),
+      );
+      await until(() => phone.textsTo(contactJid).includes("To a contact"), "the post to an allowed contact, as it is");
+      return { refused: true, ownChatAsIs: true };
+    });
+
+    await step("adapter: a post that the server refuses in its ack fails, and is not reported as sent", async () => {
+      const values = credentials.get(connectionId(agents));
+      assert.ok(values);
+      const adapter = whatsAppDriver({ runtime }).createAdapter(values, { rateLimited: () => {} });
+      await runCauseEffect(adapter.identify());
+      const contactJid = `${STRANGER}@s.whatsapp.net`;
+      phone.refused.set(contactJid, "463");
+      try {
+        const sentFrom = phone.sent.length;
+        const refused = await Effect.runPromise(
+          Effect.result(adapter.postAnswer({ platformChannelId: contactJid, replyThreadId: null }, "Test", null)),
+        );
+        assert.ok(
+          phone.sent.slice(sentFrom).some((sent) => sent.jid === contactJid),
+          "The post never reached the server.",
+        );
+        assert.equal(refused._tag, "Failure", "A post that the server refused counted as sent.");
+        const cause = refused._tag === "Failure" ? refused.failure.cause : null;
+        assert.ok(cause instanceof WhatsAppRefusedError, "The failure does not say that WhatsApp refused the post.");
+        assert.equal(cause.code, "whatsapp_463");
+      } finally {
+        phone.refused.delete(contactJid);
+      }
+      const accepted = await runCauseEffect(
+        adapter.postAnswer({ platformChannelId: contactJid, replyThreadId: null }, "Accepted", null),
+      );
+      assert.ok(accepted, "A post with a clean ack did not return its id.");
+      return { refusedCode: "whatsapp_463", acceptedId: accepted };
+    });
+
+    await step("adapter: an answer that mentions a person is a new post that notifies them", async () => {
+      const values = credentials.get(connectionId(agents));
+      assert.ok(values);
+      const adapter = whatsAppDriver({ runtime }).createAdapter(values, { rateLimited: () => {} });
+      await runCauseEffect(adapter.identify());
+      const target = { platformChannelId: OWNER_JID, replyThreadId: null };
+      const sentFrom = phone.sent.length;
+      // Without a mention, the answer replaces the status post in place.
+      const quiet = await runCauseEffect(adapter.post(target, { text: "Working on it…" }));
+      // An email address and a number in code mention nobody.
+      const quietText = `Done. Mail support@${FRIEND}.example, run \`ping @${FRIEND}\`.`;
+      assert.equal(await runCauseEffect(adapter.postAnswer(target, quietText, quiet)), quiet);
+      assert.ok(
+        phone.sent.some((sent) => "edit" in sent.content && sent.content.edit?.id === quiet),
+        "An answer without a mention did not edit the status post.",
+      );
+      // An edit notifies nobody: the status post goes, and the answer is a new post that lists the person.
+      const status = await runCauseEffect(adapter.post(target, { text: "Working on it…" }));
+      const answerId = await runCauseEffect(adapter.postAnswer(target, `Done, @${FRIEND}.`, status));
+      assert.notEqual(answerId, status, "An answer with a mention kept the edited status post.");
+      const sent = phone.sent.slice(sentFrom);
+      assert.ok(
+        !sent.some((entry) => "edit" in entry.content && entry.content.edit?.id === status),
+        "An answer with a mention was an edit, which notifies nobody.",
+      );
+      const deleted = sent.findIndex((entry) => "delete" in entry.content && entry.content.delete?.id === status);
+      assert.ok(deleted >= 0, "The status post stayed above the answer.");
+      const answerAt = sent.findIndex((entry) => entry.id === answerId);
+      assert.ok(answerAt < deleted, "The status post was deleted before the answer was posted.");
+      const answer = sent[answerAt];
+      assert.ok(answer && "mentions" in answer.content, "The answer was not sent.");
+      assert.deepEqual(answer.content.mentions, [`${FRIEND}@s.whatsapp.net`], "The answer did not list the person.");
+      return { mentions: answer.content.mentions };
+    });
+  });
+
+  // A crash after WhatsApp delivered two messages: one reached the mailbox, one did not. Their journal
+  // entries are still unhandled, as a crash leaves them.
+  const crash = await (async () => {
+    const store = openConnectionStore();
+    const done = message({ chat: `${LID_FRIEND}@s.whatsapp.net`, text: "status?", id: lidDirectId });
+    const lost = message({ chat: `${LID_FRIEND}@s.whatsapp.net`, text: "lost in the crash" });
+    for (const entry of [done, lost])
+      store.journal({
+        dedupKey: `${LID_FRIEND}@s.whatsapp.net:${entry.key.id}`,
+        payload: journalPayload(entry),
+        receivedAt: Date.now(),
+      });
+    store.close();
+    releaseClosedStores();
+    return { lostId: lost.key.id ?? "" };
+  })();
+
+  await boot(async ({ agents, messaging, runtime }) => {
+    await step(
+      "restart after a crash: the journal replays the lost message once, and not the one in the mailbox",
+      async () => {
+        // Dan already has two requests waiting, so the replayed one gets the busy answer: it was read.
+        await until(() => phone.reactedTo(crash.lostId), "the replayed message");
+        const reactions = phone.sent.filter(
+          (sent) => "react" in sent.content && sent.content.react.key?.id === lidDirectId,
+        ).length;
+        assert.equal(reactions, 1, "The message that was already in the mailbox was answered again.");
+        return { replayed: crash.lostId };
+      },
+    );
+
+    await step("restart: the number connects again from its store and keeps reading", async () => {
+      await until(() => connection(messaging)?.state === "connected", "connected after restart");
+      const handle = runtime.get(credentials.get(connectionId(agents))?.storeId ?? "");
+      assert.ok(handle, "No open store after the restart.");
+      // The service enqueues within moments, so the earlier boot's messages are in the mailbox.
+      const reactions = phone.reactionsTo(OWNER_JID);
+      const strangerReactions = phone.reactionsTo(`${STRANGER}@s.whatsapp.net`);
+      const marker = message({ chat: OWNER_JID, fromMe: true, text: "after restart" });
+      phone.current().receive([marker]);
+      // The owner already has two requests waiting, so this one gets the busy answer: it was read.
+      await until(() => phone.reactedTo(marker.key.id), "a message after the restart");
+      await until(() => phone.reactionsTo(OWNER_JID) === reactions + 1, "one new reaction");
+      assert.equal(phone.reactionsTo(OWNER_JID), reactions + 1, "A replayed message was answered again.");
+      assert.equal(
+        phone.reactionsTo(`${STRANGER}@s.whatsapp.net`),
+        strangerReactions,
+        "A message of a joined burst was sent again after the restart.",
+      );
+      return { reactions: phone.reactionsTo(OWNER_JID) };
+    });
+
+    await step(
+      "saved history: the messages stay after a restart, and one older than 90 days goes with its file",
+      async () => {
+        await until(() => !existsSync(oldCopy), "the prune of the old message's file");
+        const id = connectionId(agents);
+        const saved = agents.messaging.history.recent(id, GROUP, null, 200);
+        assert.ok(
+          saved.some((entry) => entry.text === "lunch?"),
+          "The saved messages went at the restart.",
+        );
+        assert.ok(!saved.some((entry) => entry.id === OLD_ID), "A message older than 90 days stayed.");
+        const lunch = await readHistory(agents, { place: GROUP, query: "lunch" });
+        assert.equal(lunch.messages.length, 1);
+        return { saved: saved.length };
+      },
+    );
+  });
+
+  await step("normal stop: every message the service took is marked handled, so nothing replays", async () => {
+    const store = openConnectionStore();
+    const left = store.unhandled().length;
+    store.close();
+    releaseClosedStores();
+    assert.equal(left, 0, "A normal stop left messages to replay.");
+    return { left };
+  });
+
+  await boot(async ({ agents, messaging, runtime }) => {
+    await step(
+      "close codes: 440 stops with an error, Reconnect connects, 428 reconnects by itself, 401 needs a new link",
+      async () => {
+        phone.current().close(440);
+        await until(() => connection(messaging)?.state === "error", "the replaced state");
+        const sockets = phone.sockets.length;
+        await new Promise((resume) => setTimeout(resume, 200));
+        assert.equal(phone.sockets.length, sockets, "A replaced session reconnected by itself.");
+        await runCauseEffect(messaging.reconnect("whatsapp", OWNER, true));
+        await until(() => connection(messaging)?.state === "connected", "connected after Reconnect");
+
+        // The send waits for the socket while it is down, then goes out.
+        phone.current().close(428);
+        await until(() => connection(messaging)?.state === "reconnecting", "reconnecting");
+        const handle = runtime.get(credentials.get(connectionId(agents))?.storeId ?? "");
+        assert.ok(handle);
+        const queued = runCauseEffect(handle.session.send(OWNER_JID, { text: "sent after the reconnect" }));
+        await until(() => connection(messaging)?.state === "connected", "connected after the backoff", 15_000);
+        await queued;
+        assert.ok(phone.textsTo(OWNER_JID).includes("sent after the reconnect"), "The queued post was lost.");
+
+        phone.current().close(401);
+        await until(() => connection(messaging)?.state === "invalid_token", "the logged-out state");
+        return { states: ["error", "connected", "reconnecting", "connected", "invalid_token"] };
+      },
+    );
+
+    await step("a cancelled pairing-code request that fails late leaves the next link alone", async () => {
+      let release = () => {};
+      phone.holdPairing = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const waits = phone.pairingWaits;
+      const done = phone.pairingDone;
+      await runCauseEffect(
+        messaging.startWhatsAppLink(
+          parseStartWhatsAppLinkInput({ method: "code", phoneNumber: "+48 600 100 200", ownNumber: false }),
+        ),
+      );
+      await until(() => phone.pairingWaits === waits + 1, "the held pairing-code request");
+      await runCauseEffect(messaging.cancelWhatsAppLink());
+      phone.holdPairing = null;
+      await runCauseEffect(
+        messaging.startWhatsAppLink(parseStartWhatsAppLinkInput({ method: "qr", ownNumber: false })),
+      );
+      await linkState(messaging, (state) => state.qr !== null, "the new link's QR code");
+      release();
+      await until(() => phone.pairingDone === done + 1, "the late failure of the old request");
+      // The failure runs as a dispatched Effect: one turn of the event loop lets it finish.
+      await new Promise((resolve) => setImmediate(resolve));
+      const after = messaging.whatsappLinkState();
+      assert.equal(after.status, "waiting", "The old request's late failure ended the new link.");
+      assert.notEqual(after.qr, null);
+      await runCauseEffect(messaging.cancelWhatsAppLink());
+      return { status: after.status };
+    });
+
+    await step(
+      "link by pairing code: the phone types the code, and the same number links again with its settings",
+      async () => {
+        const oldStore = storeFile(agents);
+        const started = await runCauseEffect(
+          messaging.startWhatsAppLink(
+            parseStartWhatsAppLinkInput({ method: "code", phoneNumber: "+48 600 100 200", ownNumber: false }),
+          ),
+        );
+        assert.equal(started.status, "waiting");
+        const withCode = await linkState(messaging, (state) => state.code !== null, "a pairing code");
+        assert.equal(withCode.code, PAIRING_CODE);
+        // WhatsApp answers `bad-request` to the code request of a browser name it does not know.
+        assert.equal(phone.current().config.browser?.[1], "Chrome", "A pairing-code link does not show as Chrome.");
+        phone.current().scan();
+        await linkState(messaging, (state) => state.status === "linked", "the second link");
+        await until(() => connection(messaging)?.state === "connected", "connected after the second link");
+        await until(
+          () => phone.textsTo(OWNER_JID).some((text) => text.includes("can now write to this number")),
+          "the welcome message of a number only for OpenBot",
+        );
+        const account = messaging.whatsappOverview().accounts[0];
+        assert.ok(
+          account?.allowedSenders.some((sender) => sender.id === GROUP),
+          "The allowed senders were lost.",
+        );
+        assert.equal(account?.ownNumber, false);
+        assert.equal(existsSync(oldStore), false, "The replaced device's keys stayed on disk.");
+        assert.ok(existsSync(storeFile(agents)), "The new link has no store file.");
+        return { code: withCode.code };
+      },
+    );
+
+    await step("disconnect: the device logs out, its keys are deleted, and the orchestrator goes", async () => {
+      const id = connectionId(agents);
+      const file = storeFile(agents);
+      const orchestrator = connection(messaging)?.orchestratorAgentId;
+      const logouts = phone.logouts;
+      // No provider runs here, so the orchestrator still holds the requests of the steps above. A busy
+      // orchestrator stops a disconnect, as for the other platforms, so each person stops theirs first.
+      const authors: Record<string, string> = {
+        [OWNER_JID]: OWNER,
+        [`${STRANGER}@s.whatsapp.net`]: STRANGER,
+        [`${LID_FRIEND}@s.whatsapp.net`]: LID_FRIEND,
+        [`${BRAZIL_ACCOUNT}@s.whatsapp.net`]: BRAZIL_ACCOUNT,
+        [GROUP]: FRIEND,
       };
-      const warned = () => logLines.filter((line) => line.includes("may still list")).length;
-
-      await step("a restricted number (403) stops the connection instead of retrying without end", async () => {
-        const before = sockets.length;
-        await runCauseEffect(messaging.connectWhatsApp());
-        await waitFor("a socket for the link", () => sockets.length > before);
-        liveSocket().update({ connection: "open" });
-        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
-        const opened = sockets.length;
-        liveSocket().update({ connection: "close", lastDisconnect: { error: closeError(403) } });
-        await waitFor(
-          "the restricted state",
-          () => messaging.whatsappOverview().connections[0]?.state === "restricted",
-        );
-        await new Promise((done) => setTimeout(done, 100));
-        assert.equal(sockets.length, opened, "It reconnected a restricted number.");
-        assert.equal(messaging.whatsappOverview().connections[0]?.state, "restricted");
-        messaging.resume();
-        await new Promise((done) => setTimeout(done, 50));
-        assert.equal(sockets.length, opened, "A wake from sleep opened a socket for a restricted number.");
-        return { state: "restricted" };
-      });
-
-      await step("a new link after a restriction opens a socket again", async () => {
-        const before = sockets.length;
-        await runCauseEffect(messaging.connectWhatsApp());
-        await waitFor("a socket for the new link", () => sockets.length > before);
-        return { relinked: true };
-      });
-
-      await step(
-        "unlink while paused logs the device out with a short-lived socket, then deletes the login",
-        async () => {
-          await pauseLinkedAccount();
-          assert.ok(existsSync(join(authDir, "creds.json")), "The test login was never written.");
-          const before = sockets.length;
-          const lines = warned();
-          autoOpen = true;
-          let result: { deviceRemoved: boolean };
-          try {
-            result = await runCauseEffect(messaging.disconnectWhatsApp());
-          } finally {
-            autoOpen = false;
-          }
-          assert.equal(result.deviceRemoved, true, "A complete logout was reported as incomplete to the page.");
-          assert.equal(sockets.length, before + 1, "Unlink opened no socket for the logout.");
-          assert.equal(liveSocket().loggedOut, true, "The paused account was not logged out of WhatsApp.");
-          assert.equal(liveSocket().ended, true);
-          assert.equal(existsSync(authDir), false, "The login stayed on disk.");
-          assert.equal(warned(), lines, "A complete logout was reported as incomplete.");
-          return { loggedOut: true };
-        },
+      for (const link of agents.messaging.store.links(orchestrator ?? ""))
+        await runCauseEffect(agents.messaging.stop(link.linkId, authors[link.platformChannelId] ?? ""));
+      await runCauseEffect(messaging.disconnectWhatsAppNumber(OWNER));
+      assert.equal(phone.logouts, logouts + 1, "The device was not logged out.");
+      assert.equal(existsSync(file), false, "The keys stayed on disk.");
+      assert.equal(credentials.status(id), "missing");
+      assert.equal(agents.messaging.history.recent(id, GROUP, null, 200).length, 0, "The saved messages stayed.");
+      assert.equal(existsSync(runtime.filesPath(id)), false, "The saved files stayed.");
+      assert.equal(connection(messaging), undefined);
+      assert.ok(!agents.listAgents().some((agent) => agent.id === orchestrator), "The orchestrator stayed.");
+      assert.ok(
+        agents.messaging.store.allowedSenders(id).length > 0,
+        "Disconnect removed the allowed senders, which a new link of the number gets back.",
       );
-
-      await step("unlink deletes the login when the logout socket never opens, and says so", async () => {
-        await pauseLinkedAccount();
-        const before = sockets.length;
-        const lines = warned();
-        const result = await runCauseEffect(messaging.disconnectWhatsApp());
-        assert.equal(result.deviceRemoved, false, "The page was not told that the phone may keep the device.");
-        assert.equal(sockets.length, before + 1, "Unlink opened no socket for the logout.");
-        assert.equal(liveSocket().loggedOut, false);
-        assert.equal(liveSocket().ended, true, "The logout socket stayed open.");
-        assert.equal(existsSync(authDir), false, "The login stayed on disk.");
-        assert.equal(warned(), lines + 1, "The incomplete logout was not reported.");
-        return { loggedOut: false };
-      });
-
-      await step("unlink deletes the login when there is no network for the logout", async () => {
-        await pauseLinkedAccount();
-        const lines = warned();
-        connectFailures = 1;
-        const result = await runCauseEffect(messaging.disconnectWhatsApp());
-        assert.equal(result.deviceRemoved, false, "The page was not told that the phone may keep the device.");
-        assert.equal(connectFailures, 0, "Unlink did not try to open a socket.");
-        assert.equal(existsSync(authDir), false, "The login stayed on disk.");
-        assert.equal(warned(), lines + 1, "The incomplete logout was not reported.");
-        return { loggedOut: false };
-      });
-
-      await step("unlink waits for a pending write of the login before it deletes the folder", async () => {
-        const before = sockets.length;
-        await runCauseEffect(messaging.connectWhatsApp());
-        await waitFor("a socket for the link", () => sockets.length > before);
-        liveSocket().update({ connection: "open" });
-        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
-        const writer = liveSocket();
-        writer.writeCreds();
-        await runCauseEffect(messaging.disconnectWhatsApp());
-        await writer.credsPending;
-        assert.equal(writer.credsWritten, true, "The write did not finish before the delete.");
-        assert.deepEqual(credsErrors, [], "A write of the login failed.");
-        assert.equal(existsSync(authDir), false, "The login stayed on disk.");
-        return { written: true };
-      });
-
-      await step("a logout from the phone waits for a pending write of the login before it deletes it", async () => {
-        const before = sockets.length;
-        await runCauseEffect(messaging.connectWhatsApp());
-        await waitFor("a socket for the link", () => sockets.length > before);
-        liveSocket().update({ connection: "open" });
-        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
-        const writer = liveSocket();
-        writer.writeCreds();
-        writer.update({ connection: "close", lastDisconnect: { error: closeError(401) } });
-        await waitFor(
-          "the stopped state",
-          () => messaging.whatsappOverview().connections[0]?.state === "invalid_token",
-        );
-        await writer.credsPending;
-        assert.equal(writer.credsWritten, true, "The write did not finish before the delete.");
-        assert.deepEqual(credsErrors, [], "A write of the login failed.");
-        assert.equal(existsSync(authDir), false, "The login stayed on disk.");
-        return { written: true };
-      });
-    },
-    { linked: true, profile: "edges" },
-  );
-
-  await boot(
-    async ({ messaging, threads, connectionId, credentials }) => {
-      await step("an empty allowlist lets nothing through", async () => {
-        const before = sockets.length;
-        await runCauseEffect(credentials.set(connectionId, { account: "whatsapp" }));
-        await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", false));
-        await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", true));
-        await waitFor("a new socket", () => sockets.length > before);
-        liveSocket().update({ connection: "open" });
-        const { id, message } = text(ALLOWED, "hello");
-        liveSocket().receive(message);
-        await new Promise((done) => setTimeout(done, 100));
-        assert.equal(threads.received(key(connectionId, ALLOWED, id)), false);
-        return { dropped: true };
-      });
-
-      await step("an allowed chat with no bound agent is told how to bind one", async () => {
-        const before = sockets.length;
-        await runCauseEffect(credentials.set(connectionId, { account: "whatsapp", allowedChats: NEW_CHAT }));
-        threads.store.updateConnection(connectionId, { orchestratorAgentId: null });
-        await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", false));
-        await runCauseEffect(messaging.setEnabled("whatsapp", "whatsapp", true));
-        await waitFor("a new socket", () => sockets.length > before);
-        liveSocket().update({ connection: "open" });
-        const { message } = text(NEW_CHAT, "anyone there?");
-        liveSocket().receive(message);
-        const reply = await waitFor("the no-agent reply", () =>
-          liveSocket().sent.find((sent) => "text" in sent.content && sent.content.text.includes("Bind an agent")),
-        );
-        assert.equal(reply.jid, NEW_CHAT);
-        return { replied: true };
-      });
-    },
-    { linked: true },
-  );
-
-  await boot(
-    async ({ messaging, agents }) => {
-      await step("a fresh profile shows no WhatsApp link and no allowed chat", async () => {
-        const overview = messaging.whatsappOverview();
-        assert.deepEqual(overview, { connections: [], qr: null, allowedChats: [] });
-      });
-
-      await step("connect starts the link, shows the QR code, and clears it after the scan", async () => {
-        const before = sockets.length;
-        await runCauseEffect(messaging.connectWhatsApp());
-        await waitFor("the socket", () => sockets.length > before);
-        liveSocket().update({ connection: "connecting" });
-        liveSocket().update({ qr: "2@fresh-code" });
-        const waiting = messaging.whatsappOverview();
-        assert.equal(waiting.qr, "2@fresh-code");
-        assert.equal(waiting.connections.length, 1);
-        assert.equal(waiting.connections[0]?.state, "connecting");
-        assert.deepEqual(waiting.allowedChats, []);
-        liveSocket().update({ connection: "open" });
-        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
-        assert.equal(messaging.whatsappOverview().qr, null, "The QR code stayed after the link.");
-        return { state: "connected" };
-      });
-
-      await step("the allowlist editor stores clean chat ids and rejects an invalid one", async () => {
-        const rejected = await runCauseEffect(Effect.result(messaging.setWhatsAppAllowedChats(["not a chat"])));
-        assert.ok(rejected._tag === "Failure", "An invalid chat id was accepted.");
-        assert.deepEqual(messaging.whatsappOverview().allowedChats, []);
-        const before = sockets.length;
-        const saved = await runCauseEffect(
-          messaging.setWhatsAppAllowedChats(["+44 7700 900002", "447700900002", ALLOWED_GROUP]),
-        );
-        assert.deepEqual(saved.allowedChats, [ALLOWED, ALLOWED_GROUP]);
-        await waitFor("a socket with the new list", () => sockets.length > before);
-        liveSocket().update({ connection: "open" });
-        await waitFor("the connected state", () => messaging.whatsappOverview().connections[0]?.state === "connected");
-        const stranger = text(STRANGER, STRANGER_TEXT);
-        liveSocket().receive(stranger.message);
-        const allowed = text(ALLOWED, "hello from the list");
-        liveSocket().receive(allowed.message);
-        const reply = await waitFor("the no-agent reply", () =>
-          liveSocket().sent.find((sent) => "text" in sent.content && sent.content.text.includes("Bind an agent")),
-        );
-        assert.equal(reply.jid, ALLOWED);
-        assert.ok(!liveSocket().sent.some((sent) => sent.jid === STRANGER), "A stranger got a reply.");
-        return { allowedChats: saved.allowedChats };
-      });
-
-      await step("add orchestrator binds a WhatsApp agent to the account", async () => {
-        const added = await runCauseEffect(messaging.addWhatsAppOrchestrator({}));
-        assert.equal(messaging.whatsappOverview().connections[0]?.orchestratorAgentId, added.agentId);
-        const agent = agents.listAgents().find((candidate) => candidate.id === added.agentId);
-        assert.equal(agent?.name, "WhatsApp Orchestrator");
-        const again = await runCauseEffect(messaging.addWhatsAppOrchestrator({}));
-        assert.equal(again.agentId, added.agentId, "A second orchestrator was made.");
-        return { agentId: added.agentId };
-      });
-
-      await step(
-        "unlink logs the account out, deletes the login and the orchestrator, and a new link shows a new QR",
-        async () => {
-          const unlinked = liveSocket();
-          const agentId = messaging.whatsappOverview().connections[0]?.orchestratorAgentId ?? "";
-          assert.ok(existsSync(join(authDir, "creds.json")), "The test login was never written.");
-          await runCauseEffect(messaging.disconnectWhatsApp());
-          assert.equal(unlinked.loggedOut, true, "The account was not logged out of WhatsApp.");
-          assert.equal(unlinked.ended, true);
-          assert.equal(existsSync(authDir), false, "The login stayed on disk.");
-          assert.deepEqual(messaging.whatsappOverview(), { connections: [], qr: null, allowedChats: [] });
-          assert.equal(
-            agents.listAgents().some((candidate) => candidate.id === agentId),
-            false,
-            "The orchestrator stayed.",
-          );
-          const before = sockets.length;
-          await runCauseEffect(messaging.connectWhatsApp());
-          await waitFor("a new socket", () => sockets.length > before);
-          liveSocket().update({ qr: "2@second-code" });
-          assert.equal(messaging.whatsappOverview().qr, "2@second-code");
-          return { relinked: true };
-        },
-      );
-    },
-    { linked: false, profile: "fresh" },
-  );
+      return { disconnected: true };
+    });
+  });
 
   report.passed = true;
 } finally {
+  mkdirSync(OUT, { recursive: true });
   writeFileSync(REPORT, `${JSON.stringify(report, null, 2)}\n`);
   await rm(root, { recursive: true, force: true });
 }
-
-const written = readFileSync(REPORT, "utf8");
-assert.ok(!written.includes(STRANGER_TEXT), "The report holds message text.");
-process.stdout.write(`messaging-whatsapp-e2e: ${report.steps.length} steps passed. Report: ${REPORT}
-`);
+process.stdout.write(`WhatsApp connector check passed. Report: ${REPORT}\n`);

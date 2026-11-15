@@ -6,11 +6,12 @@ import type {
   BrowserTab,
   MarketplaceSkillDetail,
 } from "@openbot/contracts/ipc";
-import { SETTINGS_PANEL_DEFAULT } from "@openbot/ui/components/SettingsPanel";
 import type { AgentActivityLabel } from "@openbot/ui/features/conversation/AgentActivity";
 import { currentText } from "@openbot/ui/text";
 import type { UserErrorDetails } from "@openbot/user-errors";
 import { createEffect, createSignal, createStore, onCleanup } from "solid-js";
+import { actionToast } from "../../action-toast";
+import { readSidePanelWidth } from "../../components/side-panel-width";
 import type { ChatSearchMatch } from "./chat-search";
 import {
   appendDraftText,
@@ -19,7 +20,10 @@ import {
   EMPTY_DRAFT,
   QUEUE_EDIT_STORAGE_KEY,
   readStoredQueueEdit,
+  readStoredThreadQueueEdit,
   type StoredQueueEdit,
+  type StoredThreadQueueEdit,
+  THREAD_QUEUE_EDIT_STORAGE_KEY,
 } from "./composer-draft";
 import { type StoredComposerDrafts, writeComposerDraftsOnChange } from "./composer-draft-storage";
 import { composerDraftKey } from "./conversation-keys";
@@ -38,9 +42,9 @@ import type { PastePreview } from "./stores/composer-actions";
 import type { SidePanelsState } from "./stores/panels-store";
 import { createPendingSendStore } from "./stores/pending-send-store";
 import type { SideQuestionState } from "./stores/side-question-store";
+import { createVoiceSessions } from "./stores/voice-session-store";
 import type { VoiceCloudStream } from "./stores/voice-store";
 
-const BROWSER_PANEL_DEFAULT = 380;
 const BROWSER_PIP_STORAGE_KEY = "openbot:browser-pip-native-bounds";
 
 function readBrowserPipBounds(): BrowserBounds | null {
@@ -135,8 +139,16 @@ export function createStableConversationState(
   });
   /** Keyed by channel id. A channel id is a UUID, so it does not need its server in the key. */
   const [channelDrafts, setChannelDrafts] = createSignal<Record<string, ComposerDraft>>(storedDrafts?.channels ?? {});
-  /** The message box of each side thread, keyed by `threadDraftKey`. */
-  const [threadDrafts, setThreadDrafts] = createSignal<Record<string, ComposerDraft>>(storedDrafts?.threads ?? {});
+  const restoredThreadEdit = persistDrafts ? readStoredThreadQueueEdit() : null;
+  /** The message box of each side thread, keyed by `threadDraftKey`. A restored queue edit wins, as above. */
+  const [threadDrafts, setThreadDrafts] = createSignal<Record<string, ComposerDraft>>({
+    ...storedDrafts?.threads,
+    ...(restoredThreadEdit ? { [restoredThreadEdit.draftKey]: restoredThreadEdit.draft } : {}),
+  });
+  /** The queue edit in the message box of a side thread. Its draft is the thread's draft. */
+  const [threadQueueEdit, setThreadQueueEdit] = createSignal<Omit<StoredThreadQueueEdit, "draft"> | null>(
+    restoredThreadEdit,
+  );
   const [editingAgentId, setEditingAgentId] = createSignal<string | null>(restoredEdit?.agentId ?? null);
   const [editingServerId, setEditingServerId] = createSignal<string | null>(restoredEdit?.serverId ?? null);
   const [editingEditId, setEditingEditId] = createSignal<string | null>(restoredEdit?.editId ?? null);
@@ -154,9 +166,13 @@ export function createStableConversationState(
   // A file import belongs to the chat it was started in, so it outlives a server switch, as a send does.
   const attachmentUploads = createAttachmentUploadStore();
   const [conversationErrors, setConversationErrors] = createSignal<Record<string, string>>({});
-  /** The provider and model of the run behind each conversation error, keyed like `conversationErrors`. */
+  /**
+   * The provider and model of the run behind each conversation error, the page that fixes the
+   * account (#2419), and the provider's text behind a general sentence (#6410), keyed like
+   * `conversationErrors`.
+   */
   const [conversationErrorRuns, setConversationErrorRuns] = createSignal<
-    Record<string, { message: string; run: string }>
+    Record<string, { message: string; run: string | null; link?: string; details?: string }>
   >({});
   createEffect(
     () => {
@@ -213,6 +229,35 @@ export function createStableConversationState(
       };
     },
   );
+  // The thread edit is stored with its draft, so a restart can save or cancel the edit that the host holds.
+  createEffect(
+    () => {
+      const edit = threadQueueEdit();
+      return edit ? { ...edit, draft: threadDrafts()[edit.draftKey] ?? EMPTY_DRAFT } : null;
+    },
+    (edit) => {
+      if (!edit || !persistDrafts) return;
+      const persist = () => {
+        // A newer edit, or the end of this one, owns the record. Read fresh state: a pending Save set
+        // after this effect ran must not be overwritten by the previous snapshot without it.
+        const current = threadQueueEdit();
+        if (current?.editId !== edit.editId) return;
+        try {
+          window.localStorage.setItem(
+            THREAD_QUEUE_EDIT_STORAGE_KEY,
+            JSON.stringify({ ...current, draft: threadDrafts()[current.draftKey] ?? EMPTY_DRAFT }),
+          );
+        } catch {
+          actionToast.error(currentText().t("composer.error.saveEditLocally"));
+        }
+      };
+      const timer = setTimeout(persist, 300);
+      return () => {
+        clearTimeout(timer);
+        persist();
+      };
+    },
+  );
   if (storedDrafts && persistDrafts)
     writeComposerDraftsOnChange({
       drafts,
@@ -221,6 +266,7 @@ export function createStableConversationState(
       editingAgentId,
       editingServerId,
       editingDraftBackup,
+      threadQueueEdit,
       unsentTexts: pendingSends.unsentTexts,
     });
   const [composerErrors, setComposerErrors] = createSignal<Record<string, string>>({});
@@ -238,8 +284,8 @@ export function createStableConversationState(
   /** The conversation whose last recording stopped at the time limit. */
   const [voiceLimitReached, setVoiceLimitReached] = createSignal<ConversationTarget | null>(null);
   const [browserPipBounds, setBrowserPipBounds] = createSignal<BrowserBounds | null>(readBrowserPipBounds());
-  const [settingsPanelWidth, setSettingsPanelWidth] = createSignal(SETTINGS_PANEL_DEFAULT);
-  const [browserPanelWidth, setBrowserPanelWidth] = createSignal(BROWSER_PANEL_DEFAULT);
+  /** The width of the docked side panel. All its panes share it, so a change to another tab does not resize it. */
+  const [sidePanelWidth, setSidePanelWidth] = createSignal(readSidePanelWidth());
   const resources: ConversationResources = {
     agentActivityLabels: new Map(),
     turnRuntimes: new Map(),
@@ -327,6 +373,8 @@ export function createStableConversationState(
     setChannelDrafts,
     threadDrafts,
     setThreadDrafts,
+    threadQueueEdit,
+    setThreadQueueEdit,
     editingAgentId,
     setEditingAgentId,
     editingServerId,
@@ -370,10 +418,8 @@ export function createStableConversationState(
     setVoiceLimitReached,
     browserPipBounds,
     setBrowserPipBounds,
-    settingsPanelWidth,
-    setSettingsPanelWidth,
-    browserPanelWidth,
-    setBrowserPanelWidth,
+    sidePanelWidth,
+    setSidePanelWidth,
     resources,
   };
 }
@@ -438,6 +484,8 @@ export function createServerConversationState() {
   const [hiddenAwaitingReplyIds, setHiddenAwaitingReplyIds] = createSignal<ReadonlySet<string>>(new Set());
   // Keyed by agent id, as `rightPanels` is: a side question lives as long as its pane, not its view.
   const [sideQuestions, setSideQuestions] = createStore<Record<string, SideQuestionState>>({});
+  // A voice conversation lives until End, not as long as its view.
+  const voiceSessions = createVoiceSessions();
 
   return {
     showComposerActions,
@@ -488,6 +536,7 @@ export function createServerConversationState() {
     setHiddenAwaitingReplyIds,
     sideQuestions,
     setSideQuestions,
+    voiceSessions,
   };
 }
 

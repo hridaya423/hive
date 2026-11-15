@@ -5,7 +5,7 @@ import { createMemo, createSignal, untrack } from "solid-js";
 import { createUsageRefreshPoll } from "../account/usage-refresh-poll";
 import { canManageStorage } from "../files/storage-usage";
 import { serverSupportsCapability } from "../servers/server-capabilities";
-import { sidebarPort } from "./sidebar-port";
+import { type SidebarCardsPort, sidebarPort } from "./sidebar-port";
 
 const GB = 1024 ** 3;
 
@@ -46,7 +46,7 @@ function writeDismissed(serverId: string, dismissed: boolean): void {
  * The disk of the selected server, for the sidebar storage card. Only an owner or admin sees it,
  * because only they can free up space. A remote host without `storage-disk-v1` shows no card.
  */
-export function createStorageCard(server: () => ServerSummary | undefined) {
+export function createStorageCard(server: () => ServerSummary | undefined, port: () => SidebarCardsPort = sidebarPort) {
   const [disk, setDisk] = createSignal<{ serverId: string; disk: StorageDisk } | null>(null);
   /** Changes on each close, so the card reads the saved choice again. */
   const [dismissals, setDismissals] = createSignal(0);
@@ -58,7 +58,7 @@ export function createStorageCard(server: () => ServerSummary | undefined) {
   });
 
   function refresh(serverId: string): void {
-    sidebarPort()
+    port()
       .storage.getDisk(serverId)
       .then(
         (answer) => {

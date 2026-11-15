@@ -73,7 +73,6 @@ const manager = (apiUrl: string, name: string, ownerSignIn = true) =>
     startupRetryWindowMs: 1_000,
     startupRequestTimeoutMs: 300,
     startupRetryDelaysMs: [50],
-    offlineStartWindowMs: 500,
     ownerSignIn,
   });
 const start = async (auth: CentralAuthManager) => {
@@ -117,7 +116,17 @@ try {
   await check("revoked session: signs the owner in again", async () => {
     control.validTokens.clear();
     requests.length = 0;
-    const state = await start(manager(live.url, "a.bin"));
+    const auth = manager(live.url, "a.bin");
+    await runCauseEffect(auth.initialize());
+    const deadline = Date.now() + 5_000;
+    while (
+      !(requests.includes("POST /v1/auth/owner") && auth.getState().status === "signed_in") &&
+      Date.now() < deadline
+    ) {
+      await new Promise((done) => setTimeout(done, 20));
+    }
+    const state = auth.getState();
+    await runCauseEffect(auth.dispose());
     assert.equal(state.status, "signed_in");
     assert.deepEqual(requests, ["GET /v1/me", "POST /v1/auth/owner"]);
     return requests.slice();

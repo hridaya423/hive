@@ -1,12 +1,12 @@
-import { createEffect, createStore, untrack } from "solid-js";
+import { createEffect, createSignal, createStore, untrack } from "solid-js";
 import { createSimpleContext } from "../../simple-context";
 import { useServers } from "../servers/servers-context";
 
 /**
  * The host pane over the middle of the workspace: the usage report, the routine schedule, the
- * tasks or the workflows. One state holds them, so each path that uncovers the conversation closes any of them.
+ * tasks, the workflows or the Library. One state holds them, so each path that uncovers the conversation closes any of them.
  */
-type HostPaneView = "usage" | "schedule" | "tasks" | "workflows";
+type HostPaneView = "usage" | "schedule" | "tasks" | "workflows" | "library";
 
 const context = createSimpleContext({
   name: "UsageProvider",
@@ -19,6 +19,11 @@ const context = createSimpleContext({
       serverId: null,
       view: "usage",
     });
+    /**
+     * The workflow that the workflows page of `serverId` opens, such as the one of a clicked
+     * notification. The page takes it once, so a later mount opens its first workflow again.
+     */
+    const [workflowRequest, setWorkflowRequest] = createSignal<{ serverId: string; workflowId: string }>();
     const { activeServerId } = useServers();
     let trigger: HTMLElement | null = null;
 
@@ -44,8 +49,13 @@ const context = createSimpleContext({
       open("tasks", serverId, source);
     }
 
-    function openWorkflows(serverId: string, source: HTMLElement | null) {
+    function openWorkflows(serverId: string, source: HTMLElement | null, workflowId?: string) {
+      setWorkflowRequest(workflowId === undefined ? undefined : { serverId, workflowId });
       open("workflows", serverId, source);
+    }
+
+    function openLibrary(serverId: string, source: HTMLElement | null) {
+      open("library", serverId, source);
     }
 
     /**
@@ -73,6 +83,7 @@ const context = createSimpleContext({
     });
 
     function clear() {
+      setWorkflowRequest(undefined);
       setState((draft) => {
         draft.serverId = null;
         delete draft.agentId;
@@ -85,6 +96,9 @@ const context = createSimpleContext({
       openSchedule,
       openTasks,
       openWorkflows,
+      workflowRequest,
+      takeWorkflowRequest: () => setWorkflowRequest(undefined),
+      openLibrary,
       closeUsage() {
         clear();
         queueMicrotask(() => {

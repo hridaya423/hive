@@ -1,106 +1,115 @@
 import type {
-  AddMessagingOrchestratorResult,
   MessagingDesktopApi,
+  StartWhatsAppLinkInput,
+  WhatsAppLinkState,
   WhatsAppOverview,
-  WhatsAppUnlinkResult,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
-import type { SlackOrchestratorChoice } from "@openbot/ui/features/settings/SlackIntegrationPanel";
+import { WHATSAPP_LINK_IDLE } from "@openbot/ui/features/settings/WhatsAppIntegrationPanel";
 import { currentText } from "@openbot/ui/text";
-import { createSignal, untrack } from "solid-js";
+import { createSignal, onCleanup, untrack } from "solid-js";
 import { type ConnectorController, createConnectorActions } from "./connector-controller";
 import type { MessagingConnectorOptions } from "./messaging-connector";
 
-/** The WhatsApp account of one host: this computer, or a joined server that serves `whatsapp-link-v1`. */
-export interface WhatsAppApi {
-  overview: () => Promise<WhatsAppOverview>;
-  connect: () => Promise<void>;
-  /** Null when the host does not say whether WhatsApp logged the device out, as a joined server does not. */
-  disconnect: () => Promise<WhatsAppUnlinkResult | null>;
-  reconnect: () => Promise<void>;
-  setEnabled: (enabled: boolean) => Promise<void>;
-  addOrchestrator: (choice: SlackOrchestratorChoice | null) => Promise<AddMessagingOrchestratorResult>;
-  setAllowedChats: (chats: string[]) => Promise<WhatsAppOverview>;
-}
-
-export function localWhatsAppApi(messaging: () => MessagingDesktopApi = () => window.openbot.messaging): WhatsAppApi {
-  return {
-    overview: () => messaging().getWhatsAppOverview(),
-    connect: () => messaging().connectWhatsApp(),
-    disconnect: () => messaging().disconnectWhatsApp(),
-    reconnect: () => messaging().reconnectWhatsApp(),
-    setEnabled: (enabled) => messaging().setWhatsAppEnabled({ enabled }),
-    addOrchestrator: (choice) => messaging().addWhatsAppOrchestrator({ ...(choice ?? {}) }),
-    setAllowedChats: (chats) => messaging().setWhatsAppAllowedChats({ chats }),
-  };
-}
-
-type HostWhatsAppApi = Pick<
+/** The WhatsApp requests of one server: this computer's, or a joined server's (`whatsapp-connector-v1`). */
+export type WhatsAppPort = Pick<
   MessagingDesktopApi,
-  | "hostGetWhatsAppOverview"
-  | "hostSetWhatsAppAllowedChats"
-  | "hostConnect"
-  | "hostDisconnect"
-  | "hostReconnect"
-  | "hostSetEnabled"
-  | "hostAddOrchestrator"
+  | "getWhatsAppOverview"
+  | "startWhatsAppLink"
+  | "getWhatsAppLinkState"
+  | "cancelWhatsAppLink"
+  | "disconnectWhatsAppNumber"
+  | "reconnectWhatsAppNumber"
+  | "setWhatsAppEnabled"
+  | "addWhatsAppOrchestrator"
+  | "listWhatsAppGroups"
+  | "addWhatsAppSender"
+  | "removeWhatsAppSender"
+  | "answerWhatsAppRequest"
+  | "setWhatsAppOwnNumber"
+  | "setWhatsAppWorkingMessage"
 >;
 
-/** The one WhatsApp account of a host has this workspace id. */
-const WHATSAPP_ACCOUNT = "whatsapp";
+/** This computer's WhatsApp, through main. Read on each call: tests and stories replace `window.openbot`. */
+export const whatsappPort = (): WhatsAppPort => window.openbot.messaging;
+
+/** The `whatsapp-connector-v1` requests to a joined server: main's, or the browser client's. */
+export type HostWhatsAppApi = Pick<
+  MessagingDesktopApi,
+  | "hostGetWhatsAppOverview"
+  | "hostStartWhatsAppLink"
+  | "hostGetWhatsAppLinkState"
+  | "hostCancelWhatsAppLink"
+  | "hostDisconnectWhatsAppNumber"
+  | "hostReconnectWhatsAppNumber"
+  | "hostSetWhatsAppEnabled"
+  | "hostAddWhatsAppOrchestrator"
+  | "hostListWhatsAppGroups"
+  | "hostAddWhatsAppSender"
+  | "hostRemoveWhatsAppSender"
+  | "hostAnswerWhatsAppRequest"
+  | "hostSetWhatsAppOwnNumber"
+  | "hostSetWhatsAppWorkingMessage"
+>;
 
 /**
- * The WhatsApp account of the joined server that `serverId` names (`whatsapp-link-v1`), through main.
- * The QR code comes from the host's own WhatsApp connection, and the phone scans it on this screen. The
- * orchestrator starts on the host's default provider and model, so a choice is not sent.
+ * The WhatsApp numbers of the joined server that `serverId` names, through main or the browser
+ * client's `host`. The orchestrator starts on the host's default provider and model, so a choice is
+ * not sent.
  */
-export function hostWhatsAppApi(
+export function hostWhatsAppPort(
   serverId: () => string | undefined,
   host: () => HostWhatsAppApi = () => window.openbot.messaging,
-): WhatsAppApi {
+): WhatsAppPort {
   const call = <T>(method: (api: HostWhatsAppApi, serverId: string) => Promise<T>) => {
     const id = serverId();
-    if (!id) return Promise.reject(new Error(sourceText("error.team.whatsappLinkUnsupported")));
+    if (!id) return Promise.reject(new Error(sourceText("error.team.connectorsUnsupported")));
     return method(host(), id);
   };
   return {
-    overview: () => call((api, id) => api.hostGetWhatsAppOverview(id)),
-    connect: () => call((api, id) => api.hostConnect({ platform: "whatsapp", place: null }, id)),
-    disconnect: () =>
-      call((api, id) => api.hostDisconnect({ platform: "whatsapp", workspaceId: WHATSAPP_ACCOUNT }, id)).then(
-        () => null,
-      ),
-    reconnect: () => call((api, id) => api.hostReconnect({ platform: "whatsapp", workspaceId: WHATSAPP_ACCOUNT }, id)),
-    setEnabled: (enabled) =>
-      call((api, id) => api.hostSetEnabled({ platform: "whatsapp", workspaceId: WHATSAPP_ACCOUNT, enabled }, id)),
-    addOrchestrator: () => call((api, id) => api.hostAddOrchestrator({ platform: "whatsapp", workspaceId: null }, id)),
-    setAllowedChats: (chats) => call((api, id) => api.hostSetWhatsAppAllowedChats({ chats }, id)),
+    getWhatsAppOverview: () => call((api, id) => api.hostGetWhatsAppOverview(id)),
+    startWhatsAppLink: (input) => call((api, id) => api.hostStartWhatsAppLink(input, id)),
+    getWhatsAppLinkState: () => call((api, id) => api.hostGetWhatsAppLinkState(id)),
+    cancelWhatsAppLink: () => call((api, id) => api.hostCancelWhatsAppLink(id)),
+    disconnectWhatsAppNumber: (input) => call((api, id) => api.hostDisconnectWhatsAppNumber(input, id)),
+    reconnectWhatsAppNumber: (input) => call((api, id) => api.hostReconnectWhatsAppNumber(input, id)),
+    setWhatsAppEnabled: (input) => call((api, id) => api.hostSetWhatsAppEnabled(input, id)),
+    addWhatsAppOrchestrator: () => call((api, id) => api.hostAddWhatsAppOrchestrator(id)),
+    listWhatsAppGroups: (input) => call((api, id) => api.hostListWhatsAppGroups(input, id)),
+    addWhatsAppSender: (input) => call((api, id) => api.hostAddWhatsAppSender(input, id)),
+    removeWhatsAppSender: (input) => call((api, id) => api.hostRemoveWhatsAppSender(input, id)),
+    answerWhatsAppRequest: (input) => call((api, id) => api.hostAnswerWhatsAppRequest(input, id)),
+    setWhatsAppOwnNumber: (input) => call((api, id) => api.hostSetWhatsAppOwnNumber(input, id)),
+    setWhatsAppWorkingMessage: (input) => call((api, id) => api.hostSetWhatsAppWorkingMessage(input, id)),
   };
 }
 
-/** How often the page reads the account while it shows: the QR code rotates and the phone links on its own. */
+/** How often a page reads the numbers while it shows: a number changes on its own. */
 const POLL_MS = 3_000;
-
-/** Electron puts the IPC channel in front of the message, so only the end is compared. */
-function isChatRejected(error: unknown): boolean {
-  return error instanceof Error && error.message.endsWith(sourceText("error.messaging.whatsappChatInvalid"));
-}
+/** How often the link dialog reads the link: the QR code changes about every 20 seconds. */
+const LINK_POLL_MS = 1_000;
 
 /**
- * The WhatsApp account of this computer. Main sends no event for the QR code or the link, so a page
- * that shows the state calls `watch`. Each action reads the account again when it ends.
+ * The WhatsApp numbers of this computer. Main sends no event for a number or a link, so a page that
+ * shows them calls `watch`, and a link that waits for the phone is read every second until it ends.
+ * Each action reads the numbers again when it ends.
  */
-export function createWhatsAppConnector(api: WhatsAppApi, options: MessagingConnectorOptions): ConnectorController {
+export function createWhatsAppConnector(
+  port: () => WhatsAppPort,
+  options: MessagingConnectorOptions,
+): ConnectorController {
+  /** The last read. A failed read keeps the overview of an earlier one, and `error` says why it failed. */
   const [loaded, setLoaded] = createSignal<{ overview: WhatsAppOverview | null; error: string | null } | null>(null);
+  const [link, setLink] = createSignal<WhatsAppLinkState>(WHATSAPP_LINK_IDLE);
   const overview = () => loaded()?.overview ?? null;
   const actions = createConnectorActions("connector.whatsapp.actionFailed");
-  const [phoneMayKeepDevice, setPhoneMayKeepDevice] = createSignal(false);
+  /** Each read replaces the one before it, so a slow answer never overwrites a newer one. */
   let reads = 0;
 
   const reload = () => {
     const read = ++reads;
-    void api
-      .overview()
+    void port()
+      .getWhatsAppOverview()
       .then((next) => {
         if (actions.disposed() || read !== reads) return;
         setLoaded({ overview: next, error: null });
@@ -108,13 +117,63 @@ export function createWhatsAppConnector(api: WhatsAppApi, options: MessagingConn
       .catch((error: unknown) => {
         if (actions.disposed() || read !== reads) return;
         const { t, errorMessage } = currentText();
-        setLoaded({
-          overview: untrack(loaded)?.overview ?? null,
-          error: errorMessage(error, t("connector.readFailed")),
-        });
+        setLoaded({ overview: untrack(overview), error: errorMessage(error, t("connector.readFailed")) });
       });
   };
+  const run = (action: () => Promise<unknown>) => actions.run(action, { settled: reload });
 
+  /** Each link that starts or ends replaces the one before it, and stops its reads. */
+  let links = 0;
+  /** True from a start until the dialog ends the link. */
+  let linkStarted = false;
+  let linkTimer: ReturnType<typeof setInterval> | undefined;
+  const stopLinkReads = () => {
+    if (linkTimer !== undefined) clearInterval(linkTimer);
+    linkTimer = undefined;
+  };
+  onCleanup(stopLinkReads);
+  const follow = (state: WhatsAppLinkState, current: number) => {
+    if (actions.disposed() || current !== links) return;
+    setLink(state);
+    if (state.status === "waiting") return;
+    stopLinkReads();
+    if (state.status === "linked") reload();
+  };
+  const startLink = (input: StartWhatsAppLinkInput) => {
+    if (actions.busy()) return;
+    const current = ++links;
+    stopLinkReads();
+    setLink(WHATSAPP_LINK_IDLE);
+    linkStarted = true;
+    actions.run(() => port().startWhatsAppLink(input), {
+      done: (state) => {
+        follow(state, current);
+        if (state.status !== "waiting" || current !== links) return;
+        linkTimer = setInterval(() => {
+          // A failed read is tried again at the next tick; the link ends on its own when it times out.
+          void port()
+            .getWhatsAppLinkState()
+            .then(
+              (next) => follow(next, current),
+              () => undefined,
+            );
+        }, LINK_POLL_MS);
+      },
+    });
+  };
+  /** The dialog closed. A link that did not end in `linked` is cancelled, so the phone cannot use its code. */
+  const endLink = () => {
+    links += 1;
+    stopLinkReads();
+    const status = untrack(link).status;
+    setLink(WHATSAPP_LINK_IDLE);
+    if (!linkStarted) return;
+    linkStarted = false;
+    // It does not wait, so a start still on its way is replaced and its answer ignored.
+    if (status !== "linked") actions.run(() => port().cancelWhatsAppLink(), { waits: false });
+  };
+
+  const connections = () => overview()?.connections ?? [];
   return {
     id: "whatsapp",
     ready: () => loaded() !== null,
@@ -132,68 +191,52 @@ export function createWhatsAppConnector(api: WhatsAppApi, options: MessagingConn
         get agents() {
           return options.agents();
         },
+        get hostName() {
+          return options.hostName?.();
+        },
         get connections() {
-          return overview()?.connections ?? [];
+          return connections();
         },
-        get qr() {
-          return overview()?.qr ?? null;
-        },
-        get allowedChats() {
-          return overview()?.allowedChats ?? [];
+        get accounts() {
+          return overview()?.accounts ?? [];
         },
         get busy() {
           return actions.busy();
         },
-        get phoneMayKeepDevice() {
-          return phoneMayKeepDevice();
-        },
         get models() {
           return options.models?.();
+        },
+        get link() {
+          return link();
         },
         get loadError() {
           return loaded()?.error ?? null;
         },
         onRetry: reload,
-        onConnect: () => {
-          setPhoneMayKeepDevice(false);
-          actions.run(() => api.connect(), { settled: reload });
+        onStartLink: startLink,
+        onEndLink: endLink,
+        onDisconnectNumber: (workspaceId) => run(() => port().disconnectWhatsAppNumber({ workspaceId })),
+        onDisconnectAll: () => {
+          const workspaceIds = untrack(connections).map((connection) => connection.workspaceId);
+          run(async () => {
+            for (const workspaceId of workspaceIds) await port().disconnectWhatsAppNumber({ workspaceId });
+          });
         },
-        onDisconnect: () =>
-          actions.run(() => api.disconnect(), {
-            done: (result) => setPhoneMayKeepDevice(result?.deviceRemoved === false),
-            settled: reload,
-          }),
-        onReconnect: () => actions.run(() => api.reconnect(), { settled: reload }),
-        onSetEnabled: (enabled) => actions.run(() => api.setEnabled(enabled), { settled: reload }),
+        onReconnect: (workspaceId) => run(() => port().reconnectWhatsAppNumber({ workspaceId })),
+        onSetEnabled: (workspaceId, enabled) => run(() => port().setWhatsAppEnabled({ workspaceId, enabled })),
+        onSetOwnNumber: (workspaceId, ownNumber) => run(() => port().setWhatsAppOwnNumber({ workspaceId, ownNumber })),
+        onSetWorkingMessage: (workspaceId, workingMessage) =>
+          run(() => port().setWhatsAppWorkingMessage({ workspaceId, workingMessage })),
         onAddOrchestrator: (choice) =>
-          actions.run(
-            async () => {
-              const { sectionId } = await api.addOrchestrator(choice);
-              if (sectionId) options.onOrchestratorSection?.(sectionId);
-            },
-            { settled: reload },
-          ),
-        onSetAllowedChats: (chats) =>
-          new Promise<boolean>((resolve) => {
-            if (actions.busy()) return resolve(false);
-            let saved = false;
-            actions.run(
-              async () => {
-                try {
-                  setLoaded({ overview: await api.setAllowedChats(chats), error: null });
-                  saved = true;
-                } catch (error) {
-                  if (!isChatRejected(error)) throw error;
-                }
-              },
-              {
-                settled: () => {
-                  reload();
-                  resolve(saved);
-                },
-              },
-            );
+          run(async () => {
+            const { sectionId } = await port().addWhatsAppOrchestrator({ ...(choice ?? {}) });
+            if (sectionId) options.onOrchestratorSection?.(sectionId);
           }),
+        loadGroups: async (workspaceId) => (await port().listWhatsAppGroups({ workspaceId })).groups,
+        onAddSender: (workspaceId, sender) => run(() => port().addWhatsAppSender({ workspaceId, sender })),
+        onRemoveSender: (workspaceId, senderId) => run(() => port().removeWhatsAppSender({ workspaceId, senderId })),
+        onAnswerRequest: (workspaceId, code, approve) =>
+          run(() => port().answerWhatsAppRequest({ workspaceId, code, approve })),
       },
     },
   };

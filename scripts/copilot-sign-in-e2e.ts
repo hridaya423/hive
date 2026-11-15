@@ -5,7 +5,7 @@
 // - a signed-in account with no Copilot plan (GitHub's 403) is its own row: signed in, no plan, never
 //   "sign-in required", with the page that turns the plan on, and a failover cause that skips Copilot;
 // - the row re-checks, and ends when the plan appears;
-// - a signed-out CLI is "sign-in required"; the browser sign-in (`login --web-flow`) and the code
+// - a signed-out CLI is "sign-in required"; the browser sign-in (`login`) and the code
 //   sign-in (`login --device-code`) end signed in; a cancel ends the CLI and keeps the row signed out;
 //   a sign-in that ends with an account with no plan is the no-plan row.
 // `bun scripts/copilot-sign-in-e2e.ts`. Writes .openbot-build/copilot-sign-in-e2e/report.json.
@@ -198,7 +198,7 @@ try {
   assert.deepEqual(errors, [], "A signed-out CLI shows no error at start.");
   await runCauseEffect(runtime?.connectProvider("copilot", openPage) ?? Effect.void);
   await waitForRow(connected, "connected after the browser sign-in");
-  pass("the browser sign-in (login --web-flow) ends signed in");
+  pass("the browser sign-in (login) ends signed in");
 
   await setMode("signed-out");
   await installCli({ FAKE_LOGIN_MODE: "ok", FAKE_LOGIN_DELAY_MS: "300" });

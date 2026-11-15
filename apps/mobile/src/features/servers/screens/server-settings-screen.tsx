@@ -1,584 +1,238 @@
-import { DEFAULT_TEAM_MEMBER_LIMIT, INPUT_LIMITS } from "@openbot/contracts/input-limits";
+import { INPUT_LIMITS } from "@openbot/contracts/input-limits";
 import { canAdministerServer } from "@openbot/contracts/ipc";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { usePreventRemove } from "expo-router/react-navigation";
 import { Typography } from "heroui-native";
-import { useThemeColor } from "heroui-native/hooks";
-import Camera from "lucide-react-native/icons/camera";
-import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, View } from "react-native";
-import { useUniwind } from "uniwind";
-import { confirmOwner } from "@/features/app-lock/model/app-lock";
-import { useMobileSession, useQueryScope } from "@/features/auth/context/mobile-session-context";
+import LogOut from "lucide-react-native/icons/log-out";
+import Trash2 from "lucide-react-native/icons/trash";
+import { useRef, useState } from "react";
+import { Alert, Keyboard, View } from "react-native";
+import { ServerAppearancePicker } from "@/features/servers/components/server-appearance-picker";
 import { SERVER_AVATAR_CORNER_RATIO, ServerAvatar } from "@/features/servers/components/server-avatar";
 import { ServerStatusLabel } from "@/features/servers/components/server-status-label";
-import { TrailingValue } from "@/features/servers/components/trailing-value";
-import { SERVER_ROLE_LABEL_KEYS } from "@/features/servers/model/server-role";
-import { timeZoneLabel } from "@/features/servers/model/time-zones";
-import { useServerBrowserProfiles } from "@/features/servers/model/use-server-browser-profiles";
-import { useMcpServerList } from "@/features/servers/model/use-server-mcp";
-import { useServerProviders } from "@/features/servers/model/use-server-providers";
-import { useServerTimezone } from "@/features/servers/model/use-server-timezone";
-import { updateAvailable, useServerUpdate } from "@/features/servers/model/use-server-update";
+import { useLockedAction } from "@/features/servers/model/use-locked-action";
+import { useServerUpdate } from "@/features/servers/model/use-server-update";
+import {
+  ServerAiSection,
+  ServerConnectionSection,
+  ServerDataSections,
+  ServerGeneralSection,
+  ServerKeySettings,
+  ServerPeopleSection,
+} from "@/features/servers/screens/server-settings-sections";
 import {
   SettingsContent,
   SettingsNote,
   SettingsRow,
   SettingsSection,
 } from "@/features/settings/components/settings-content";
-import { SettingsPicker } from "@/features/settings/components/settings-controls";
-import { useMobileWorkspace, useMobileWorkspaceActions } from "@/features/workspace/context/mobile-workspace-context";
+import { IDENTITY_PICTURE_SIZE, SettingsIdentityHeader } from "@/features/settings/components/settings-identity-header";
+import { RowIcon } from "@/features/settings/components/settings-row-icon";
+import { useMobileWorkspace } from "@/features/workspace/context/mobile-workspace-context";
 import { useLiveServerRecovery } from "@/features/workspace/context/server-recovery-countdown";
-import { queryKeys } from "@/features/workspace/model/query-keys";
 import type { MobileServer } from "@/features/workspace/model/workspace-types";
-import { SheetFormField } from "@/shared/components/sheet-form-field";
 import { SheetSaveAction } from "@/shared/components/sheet-save-action";
 import { haptics } from "@/shared/lib/haptics";
 import { type AvatarPhoto, pickAvatarPhoto } from "@/shared/lib/pick-avatar-photo";
-import { currentText, useText } from "@/shared/lib/text";
+import { useText } from "@/shared/lib/text";
 
+/**
+ * Server settings, on one page: the server name, logo and status, then a section for each group of
+ * settings that has an item for this role, and the action that ends this member's use of the server.
+ * Each section shows only the rows that the host serves to this role.
+ */
 export function ServerSettingsScreen() {
-  const { t, sourceText, errorMessage } = useText();
+  const { t } = useText();
   const { serverId } = useLocalSearchParams<{ serverId: string }>();
-  const {
-    servers,
-    memberCountByServer,
-    leaveServer,
-    removeServer,
-    deleteLocalServer,
-    localServerKind,
-    refreshServer,
-    canManageConnectors,
-    canManageOnePasswordConnector,
-    canManageBitwardenConnector,
-    canManageVault,
-    canManageBrowserProfiles,
-    canReadServerStorage,
-    canManageProviders,
-    canManageMcpServers,
-    canManageServerRoles,
-    canReadServerAudit,
-    canImportAgents,
-    canTransferServer,
-  } = useMobileWorkspace();
+  const { servers } = useMobileWorkspace();
   const server = useLiveServerRecovery(servers.find((item) => item.id === serverId));
-  const update = useServerUpdate(serverId, { poll: false });
-  const locked = useRef(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { session } = useMobileSession();
-  const owner = server?.role === "owner";
-  async function perform(operation: () => Promise<void>, failure?: (error: unknown) => string) {
-    if (locked.current) return;
-    locked.current = true;
-    setBusy(true);
-    setError(null);
-    try {
-      await operation();
-      void haptics.notification("success");
-    } catch (caught) {
-      setError(failure?.(caught) ?? t("mobile.server.settings.updateFailed"));
-      void haptics.notification("error");
-    } finally {
-      locked.current = false;
-      setBusy(false);
-    }
-  }
   if (!server)
     return (
       <SettingsContent>
         <SettingsNote>{t("mobile.server.unavailable")}</SettingsNote>
       </SettingsContent>
     );
-  const memberCount = memberCountByServer[serverId];
-  const memberLimit = server.memberLimit ?? DEFAULT_TEAM_MEMBER_LIMIT;
-  const connectors =
-    canManageConnectors(serverId) || canManageOnePasswordConnector(serverId) || canManageBitwardenConnector(serverId);
+  return <ServerSettingsHome server={server} />;
+}
+
+function ServerSettingsHome({ server }: { server: MobileServer }) {
+  const { canEditServerAppearance } = useMobileWorkspace();
   return (
     <SettingsContent>
       {canAdministerServer(server.role) ? <ServerIdentityForm server={server} /> : <ServerHeader server={server} />}
-      <SettingsSection footer={server.connectionMessage ? sourceText(server.connectionMessage) : undefined}>
-        <SettingsRow disclosure={false} trailing={<ServerStatusLabel server={server} />}>
-          <Typography.Paragraph>{t("mobile.server.settings.status")}</Typography.Paragraph>
-        </SettingsRow>
-        <SettingsRow
-          disclosure={false}
-          trailing={
-            <Typography.Paragraph className="text-grouped-secondary">
-              {t(SERVER_ROLE_LABEL_KEYS[server.role])}
-            </Typography.Paragraph>
-          }
-        >
-          <Typography.Paragraph>{t("mobile.server.settings.yourRole")}</Typography.Paragraph>
-        </SettingsRow>
-        <SettingsRow
-          trailing={
-            memberCount === undefined ? undefined : (
-              <TrailingValue
-                value={t("mobile.server.settings.memberCount", { count: memberCount, limit: memberLimit })}
-              />
-            )
-          }
-          onPress={() => router.push({ pathname: "/server-settings/members", params: { serverId } })}
-        >
-          <Typography.Paragraph>{t("mobile.server.settings.members")}</Typography.Paragraph>
-        </SettingsRow>
-        {canManageServerRoles(serverId) ? (
-          <SettingsRow onPress={() => router.push({ pathname: "/server-settings/roles", params: { serverId } })}>
-            <Typography.Paragraph>{t("mobile.server.route.roles")}</Typography.Paragraph>
-          </SettingsRow>
-        ) : null}
-        {canReadServerAudit(serverId) ? (
-          <SettingsRow onPress={() => router.push({ pathname: "/server-settings/audit", params: { serverId } })}>
-            <Typography.Paragraph>{t("mobile.server.route.audit")}</Typography.Paragraph>
-          </SettingsRow>
-        ) : null}
-      </SettingsSection>
-      <ServerGeneralSettings serverId={serverId} />
+      {/* Only an owner or admin of a connected host that serves `host-appearance-v1`. A logo hides
+          the plush, so the picker shows only while the server has no logo, as on desktop. */}
+      {canEditServerAppearance(server.id) && !server.logoKey ? <ServerAppearancePicker server={server} /> : null}
+      <ServerGeneralSection serverId={server.id} />
+      <ServerPeopleSection server={server} />
+      <ServerAiSection serverId={server.id} />
+      <ServerDataSections serverId={server.id} />
+      <ServerConnectionSection server={server} />
+      <ServerExitSection server={server} />
+      {/* The owner rarely changes the key, so it comes last. */}
       <ServerKeySettings server={server} />
-      {/* A section shows only when the host serves one of its pages to this role. */}
-      {canManageProviders(serverId) || canManageMcpServers(serverId) || connectors ? (
-        <SettingsSection title={t("mobile.server.settings.aiSection")}>
-          {canManageProviders(serverId) ? <ServerProvidersRow serverId={serverId} /> : null}
-          {canManageMcpServers(serverId) ? <ServerMcpRow serverId={serverId} /> : null}
-          {connectors ? (
-            <SettingsRow onPress={() => router.push({ pathname: "/server-settings/connectors", params: { serverId } })}>
-              <Typography.Paragraph>{t("mobile.server.settings.connectors")}</Typography.Paragraph>
-            </SettingsRow>
-          ) : null}
-        </SettingsSection>
-      ) : null}
-      {canManageVault(serverId) ||
-      canManageBrowserProfiles(serverId) ||
-      canReadServerStorage(serverId) ||
-      canImportAgents(serverId) ||
-      canTransferServer(serverId) ? (
-        <SettingsSection title={t("mobile.server.settings.dataSection")}>
-          {canManageVault(serverId) ? (
-            <SettingsRow onPress={() => router.push({ pathname: "/server-settings/vault", params: { serverId } })}>
-              <Typography.Paragraph>{t("mobile.server.settings.vault")}</Typography.Paragraph>
-            </SettingsRow>
-          ) : null}
-          {canManageBrowserProfiles(serverId) ? <ServerBrowserProfilesRow serverId={serverId} /> : null}
-          {canReadServerStorage(serverId) ? (
-            <SettingsRow onPress={() => router.push({ pathname: "/server-settings/storage", params: { serverId } })}>
-              <Typography.Paragraph>{t("mobile.server.settings.storage")}</Typography.Paragraph>
-            </SettingsRow>
-          ) : null}
-          {canImportAgents(serverId) ? (
-            <SettingsRow onPress={() => router.push({ pathname: "/server-settings/import", params: { serverId } })}>
-              <Typography.Paragraph>{t("mobile.server.settings.importAgents")}</Typography.Paragraph>
-            </SettingsRow>
-          ) : null}
-          {canTransferServer(serverId) ? (
-            <SettingsRow onPress={() => router.push({ pathname: "/server-settings/transfer", params: { serverId } })}>
-              <Typography.Paragraph>{t("mobile.server.settings.transfer")}</Typography.Paragraph>
-            </SettingsRow>
-          ) : null}
-        </SettingsSection>
-      ) : null}
-      <SettingsSection title={t("mobile.server.settings.maintenanceSection")} footer={error}>
-        {update.access || update.query.data ? <ServerUpdatesRow serverId={serverId} update={update} /> : null}
-        <SettingsRow disclosure={false} disabled={busy} onPress={() => void perform(() => refreshServer(serverId))}>
-          <Typography.Paragraph className="text-accent">
-            {busy ? t("mobile.server.settings.refreshing") : t("mobile.server.settings.refresh")}
-          </Typography.Paragraph>
-        </SettingsRow>
-      </SettingsSection>
-      {server.role !== "owner" ? (
-        <SettingsSection>
-          <SettingsRow
-            disclosure={false}
-            disabled={busy}
-            onPress={() =>
-              Alert.alert(
-                t("mobile.server.settings.leaveTitle", { name: server.name }),
-                t("mobile.server.settings.leaveBody"),
-                [
-                  { text: t("common.cancel"), style: "cancel" },
-                  {
-                    text: t("mobile.server.settings.leave"),
-                    style: "destructive",
-                    onPress: () =>
-                      void perform(async () => {
-                        await leaveServer(serverId);
-                        router.dismiss();
-                      }),
-                  },
-                ],
-              )
-            }
-          >
-            <Typography.Paragraph className="text-danger-text">
-              {t("mobile.server.settings.leave")}
-            </Typography.Paragraph>
-          </SettingsRow>
-        </SettingsSection>
-      ) : localServerKind(serverId) === "computer" ? null : localServerKind(serverId) === "onComputer" ? (
-        // A server that the desktop app runs beside its own server: that app stops it and moves its data
-        // to the Trash. Removed from the account only, it would come back at the next start of the app.
-        <SettingsSection>
-          <SettingsRow
-            disclosure={false}
-            disabled={busy}
-            onPress={() =>
-              Alert.alert(
-                t("mobile.server.settings.deleteTitle", { name: server.name }),
-                t("mobile.server.settings.deleteBody"),
-                [
-                  { text: t("common.cancel"), style: "cancel" },
-                  {
-                    text: t("mobile.server.settings.delete"),
-                    style: "destructive",
-                    onPress: () =>
-                      void perform(
-                        async () => {
-                          await deleteLocalServer(serverId);
-                          router.dismiss();
-                        },
-                        (caught) => errorMessage(caught, t("mobile.server.settings.updateFailed")),
-                      ),
-                  },
-                ],
-              )
-            }
-          >
-            <Typography.Paragraph className="text-danger-text">
-              {t("mobile.server.settings.delete")}
-            </Typography.Paragraph>
-          </SettingsRow>
-        </SettingsSection>
-      ) : (
-        // The owner removes the server from the account. The host does not need to be online.
-        <SettingsSection>
-          <SettingsRow
-            disclosure={false}
-            disabled={busy}
-            onPress={() =>
-              Alert.alert(
-                t("mobile.server.settings.removeTitle", { name: server.name }),
-                t("mobile.server.settings.removeBody"),
-                [
-                  { text: t("common.cancel"), style: "cancel" },
-                  {
-                    text: t("mobile.server.settings.remove"),
-                    style: "destructive",
-                    onPress: () =>
-                      void perform(
-                        async () => {
-                          await removeServer(serverId);
-                          router.dismiss();
-                        },
-                        // The account service explains a refusal, such as a hosted server that Billing deletes.
-                        (caught) => errorMessage(caught, t("mobile.server.settings.updateFailed")),
-                      ),
-                  },
-                ],
-              )
-            }
-          >
-            <Typography.Paragraph className="text-danger-text">
-              {t("mobile.server.settings.remove")}
-            </Typography.Paragraph>
-          </SettingsRow>
-        </SettingsSection>
-      )}
     </SettingsContent>
   );
 }
 
-/** The logo and name of the server, for a member, who cannot change them. */
-function ServerHeader({ server }: { server: MobileServer }) {
+/**
+ * The connection status and the OpenBot version of the host, under the server name. The text of the
+ * connection, such as an error, goes under them.
+ */
+function ServerStatusLine({ server }: { server: MobileServer }) {
+  const { t, sourceText } = useText();
+  const version = useServerUpdate(server.id, { poll: false }).query.data?.status.currentVersion;
   return (
-    <View className="items-center gap-3">
-      <ServerAvatar server={server} size={112} showStatus={false} />
-      <Typography.Heading type="h4" align="center" numberOfLines={2} className="px-4">
-        {server.name}
-      </Typography.Heading>
+    <View className="gap-1">
+      <View className="flex-row flex-wrap items-center">
+        <ServerStatusLabel server={server} />
+        {version ? (
+          <Typography.Paragraph className="text-grouped-secondary">
+            {` · ${t("mobile.server.update.version", { version })}`}
+          </Typography.Paragraph>
+        ) : null}
+      </View>
+      {server.connectionMessage ? (
+        <Typography.Paragraph type="body-xs" className="text-grouped-secondary">
+          {sourceText(server.connectionMessage)}
+        </Typography.Paragraph>
+      ) : null}
     </View>
   );
 }
 
 /**
- * The server timezone and the memories per agent, for an owner or admin of a host that serves them.
- * The host checks the role and the value again.
+ * Leave for a member. For the owner: Delete for a server that the desktop app runs beside its own
+ * server, or Remove from the account.
  */
-function ServerGeneralSettings({ serverId }: { serverId: string }) {
+function ServerExitSection({ server }: { server: MobileServer }) {
   const { t, errorMessage } = useText();
-  const { theme } = useUniwind();
-  const queryScope = useQueryScope();
-  const queryClient = useQueryClient();
-  const { canManageAgentMemoryLimit } = useMobileWorkspace();
-  const { loadAgentMemoryLimit, setAgentMemoryLimit } = useMobileWorkspaceActions();
-  const timezone = useServerTimezone(serverId);
-  const memoryLimitKey = queryKeys.agentMemoryLimit(queryScope, serverId);
-  const memoryLimitAvailable = canManageAgentMemoryLimit(serverId);
-  const memoryLimit = useQuery({
-    queryKey: memoryLimitKey,
-    enabled: memoryLimitAvailable,
-    retry: false,
-    staleTime: 0,
-    gcTime: 0,
-    queryFn: () => loadAgentMemoryLimit(serverId),
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  if (!timezone.available && !memoryLimitAvailable) return null;
-  const zone = timezone.query.data;
-  const limit = memoryLimit.data;
-
-  function chooseLimit(next: number) {
-    if (saving || next === limit?.limit) return;
-    void haptics.selection();
-    setSaving(true);
-    setError(null);
-    setAgentMemoryLimit(next, serverId)
-      .then(async (saved) => {
-        await queryClient.cancelQueries({ queryKey: memoryLimitKey, exact: true });
-        queryClient.setQueryData(memoryLimitKey, saved);
-        void haptics.notification("success");
-      })
-      .catch((cause: unknown) => {
-        void haptics.notification("error");
-        setError(errorMessage(cause, t("mobile.server.settings.memoryLimitSaveFailed")));
-      })
-      .finally(() => setSaving(false));
-  }
-
-  return (
-    <SettingsSection
-      title={t("mobile.server.settings.general")}
-      footer={
-        error ??
-        (memoryLimit.isError
-          ? errorMessage(memoryLimit.error, t("mobile.server.settings.memoryLimitLoadFailed"))
-          : timezone.query.isError
-            ? errorMessage(timezone.query.error, t("mobile.server.settings.timezoneLoadFailed"))
-            : memoryLimitAvailable
-              ? t("mobile.server.settings.memoryLimitDescription")
-              : undefined)
-      }
-    >
-      {timezone.available ? (
+  const { leaveServer, removeServer, deleteLocalServer, localServerKind } = useMobileWorkspace();
+  const serverId = server.id;
+  const { busy, error, perform } = useLockedAction();
+  if (server.role !== "owner")
+    return (
+      <SettingsSection footer={error}>
         <SettingsRow
-          trailing={
-            zone ? (
-              <TrailingValue
-                value={zone.timezone ? timeZoneLabel(zone.timezone) : t("mobile.server.settings.timezoneAutomatic")}
-              />
-            ) : undefined
-          }
-          disabled={!zone}
-          onPress={() => router.push({ pathname: "/server-settings/timezone", params: { serverId } })}
-        >
-          <Typography.Paragraph>{t("mobile.server.settings.timezone")}</Typography.Paragraph>
-        </SettingsRow>
-      ) : null}
-      {memoryLimitAvailable ? (
-        <SettingsRow
+          leading={<RowIcon icon={LogOut} tone="danger" />}
           disclosure={false}
-          trailing={
-            limit ? (
-              <SettingsPicker
-                value={limit.limit}
-                // A host that no longer permits its saved value still shows it.
-                options={(limit.choices.includes(limit.limit) ? limit.choices : [limit.limit, ...limit.choices]).map(
-                  (choice) => ({ value: choice, label: String(choice) }),
-                )}
-                enabled={!saving}
-                dark={theme === "dark"}
-                label={t("mobile.server.settings.memoryLimit")}
-                onChange={chooseLimit}
-              />
-            ) : null
-          }
-        >
-          <Typography.Paragraph>{t("mobile.server.settings.memoryLimit")}</Typography.Paragraph>
-        </SettingsRow>
-      ) : null}
-    </SettingsSection>
-  );
-}
-
-/**
- * The server key. Every member sees when the host last changed it. The owner can change it on a host
- * that serves `host-key-rotation-v1`: the host signs a handover with the current and the new key, and
- * this app trusts the new key only when the server list brings that handover. The host checks the
- * role again; the app lock, when it is on, confirms the owner first.
- */
-function ServerKeySettings({ server }: { server: MobileServer }) {
-  const { t, format } = useText();
-  const { canRotateServerKey } = useMobileWorkspace();
-  const { rotateServerKey, reloadServerList } = useMobileWorkspaceActions();
-  const locked = useRef(false);
-  const [changing, setChanging] = useState(false);
-  const [newKey, setNewKey] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const canRotate = canRotateServerKey(server.id);
-  // A change from another device arrives with the server list. Read it once when the settings open.
-  const reload = useRef(reloadServerList);
-  useEffect(() => {
-    void reload.current().catch(() => undefined);
-  }, []);
-  if (!canRotate && server.keyChangedAt === undefined && newKey === null) return null;
-
-  async function change() {
-    if (locked.current) return;
-    locked.current = true;
-    try {
-      if (!(await confirmOwner())) return;
-      setChanging(true);
-      setError(null);
-      setNewKey(null);
-      const rotated = await rotateServerKey(server.id);
-      setNewKey(rotated.publicKey);
-      void haptics.notification("success");
-    } catch (caught) {
-      setError(currentText().errorMessage(caught, currentText().t("mobile.server.settings.keyChangeFailed")));
-      void haptics.notification("error");
-    } finally {
-      locked.current = false;
-      setChanging(false);
-    }
-  }
-
-  // Until the server list brings the handover, this app still connects with the previous key.
-  const footer =
-    error ??
-    (changing
-      ? undefined
-      : newKey !== null
-        ? newKey === server.publicKey
-          ? t("mobile.server.settings.keyChangedNow")
-          : t("mobile.server.settings.keyFollowing")
-        : canRotate
-          ? t("mobile.server.settings.keyDescription")
-          : t("mobile.server.settings.keySigned"));
-  return (
-    <SettingsSection title={t("mobile.server.settings.keySection")} footer={footer}>
-      {server.keyChangedAt === undefined ? null : (
-        <SettingsRow
-          trailing={
-            <Typography.Paragraph className="text-grouped-secondary">
-              {format.date(new Date(server.keyChangedAt), { dateStyle: "medium", timeStyle: "short" })}
-            </Typography.Paragraph>
-          }
-        >
-          <Typography.Paragraph>{t("mobile.server.settings.keyChanged")}</Typography.Paragraph>
-        </SettingsRow>
-      )}
-      {canRotate ? (
-        <SettingsRow
-          disclosure={false}
-          disabled={changing}
+          disabled={busy}
           onPress={() =>
             Alert.alert(
-              t("mobile.server.settings.keyConfirmTitle", { name: server.name }),
-              t("mobile.server.settings.keyConfirmBody"),
+              t("mobile.server.settings.leaveTitle", { name: server.name }),
+              t("mobile.server.settings.leaveBody"),
               [
                 { text: t("common.cancel"), style: "cancel" },
                 {
-                  text: t("mobile.server.settings.keyConfirm"),
+                  text: t("mobile.server.settings.leave"),
                   style: "destructive",
-                  onPress: () => void change(),
+                  onPress: () =>
+                    void perform(async () => {
+                      await leaveServer(serverId);
+                      router.dismiss();
+                    }),
                 },
               ],
             )
           }
         >
-          <Typography.Paragraph className="text-accent">
-            {changing ? t("mobile.server.settings.keyChanging") : t("mobile.server.settings.keyChange")}
-          </Typography.Paragraph>
+          <Typography.Paragraph className="text-danger-text">{t("mobile.server.settings.leave")}</Typography.Paragraph>
         </SettingsRow>
-      ) : null}
+      </SettingsSection>
+    );
+  const kind = localServerKind(serverId);
+  if (kind === "computer") return null;
+  if (kind === "onComputer")
+    return (
+      // A server that the desktop app runs beside its own server: that app stops it and moves its data
+      // to the Trash. Removed from the account only, it would come back at the next start of the app.
+      <SettingsSection footer={error}>
+        <SettingsRow
+          leading={<RowIcon icon={Trash2} tone="danger" />}
+          disclosure={false}
+          disabled={busy}
+          onPress={() =>
+            Alert.alert(
+              t("mobile.server.settings.deleteTitle", { name: server.name }),
+              t("mobile.server.settings.deleteBody"),
+              [
+                { text: t("common.cancel"), style: "cancel" },
+                {
+                  text: t("mobile.server.settings.delete"),
+                  style: "destructive",
+                  onPress: () =>
+                    void perform(
+                      async () => {
+                        await deleteLocalServer(serverId);
+                        router.dismiss();
+                      },
+                      (caught) => errorMessage(caught, t("mobile.server.settings.updateFailed")),
+                    ),
+                },
+              ],
+            )
+          }
+        >
+          <Typography.Paragraph className="text-danger-text">{t("mobile.server.settings.delete")}</Typography.Paragraph>
+        </SettingsRow>
+      </SettingsSection>
+    );
+  return (
+    // The owner removes the server from the account. The host does not need to be online.
+    <SettingsSection footer={error}>
+      <SettingsRow
+        leading={<RowIcon icon={Trash2} tone="danger" />}
+        disclosure={false}
+        disabled={busy}
+        onPress={() =>
+          Alert.alert(
+            t("mobile.server.settings.removeTitle", { name: server.name }),
+            t("mobile.server.settings.removeBody"),
+            [
+              { text: t("common.cancel"), style: "cancel" },
+              {
+                text: t("mobile.server.settings.remove"),
+                style: "destructive",
+                onPress: () =>
+                  void perform(
+                    async () => {
+                      await removeServer(serverId);
+                      router.dismiss();
+                    },
+                    // The account service explains a refusal.
+                    (caught) => errorMessage(caught, t("mobile.server.settings.updateFailed")),
+                  ),
+              },
+            ],
+          )
+        }
+      >
+        <Typography.Paragraph className="text-danger-text">{t("mobile.server.settings.remove")}</Typography.Paragraph>
+      </SettingsRow>
     </SettingsSection>
   );
 }
 
-/** Opens the OpenBot update of the host. The value is the version that runs there, or a new one. */
-function ServerUpdatesRow({ serverId, update }: { serverId: string; update: ReturnType<typeof useServerUpdate> }) {
+/** The logo, name and status of the server, for a member, who cannot change the name or logo. */
+function ServerHeader({ server }: { server: MobileServer }) {
   const { t } = useText();
-  const status = update.query.data?.status;
   return (
-    <SettingsRow
-      trailing={
-        status ? (
-          <TrailingValue
-            value={
-              updateAvailable(status)
-                ? t("mobile.server.settings.updateAvailable")
-                : t("mobile.server.update.version", { version: status.currentVersion })
-            }
-          />
-        ) : undefined
-      }
-      onPress={() => router.push({ pathname: "/server-settings/updates", params: { serverId } })}
-    >
-      <Typography.Paragraph>{t("mobile.server.settings.updates")}</Typography.Paragraph>
-    </SettingsRow>
+    <SettingsIdentityHeader
+      picture={<ServerAvatar server={server} size={IDENTITY_PICTURE_SIZE} showStatus={false} />}
+      name={server.name}
+      nameLabel={t("mobile.server.settings.name")}
+      subtitle={<ServerStatusLine server={server} />}
+    />
   );
 }
 
 /**
- * The Providers row, for an owner or admin of a host that serves `providers-v1`: the AI providers of
- * the computer that runs the server, and how many are connected.
+ * The server logo, name and status. The owner or admin taps the logo to change it, and edits the name
+ * in place; Save in the header saves both. The host saves them and tells every connected client.
  */
-function ServerProvidersRow({ serverId }: { serverId: string }) {
-  const { t } = useText();
-  const { status, rows } = useServerProviders(serverId);
-  const connected = rows.filter((row) => row.status?.state === "available").length;
-  return (
-    <SettingsRow
-      trailing={
-        status.data ? (
-          <TrailingValue value={t("mobile.server.settings.providersConnected", { count: connected })} />
-        ) : undefined
-      }
-      onPress={() => router.push({ pathname: "/server-settings/providers", params: { serverId } })}
-    >
-      <Typography.Paragraph>{t("mobile.server.settings.providers")}</Typography.Paragraph>
-    </SettingsRow>
-  );
-}
-
-/** The MCP servers row, for an owner or admin of a host that serves `mcp-servers-v1`. */
-function ServerMcpRow({ serverId }: { serverId: string }) {
-  const { t } = useText();
-  const { list } = useMcpServerList(serverId);
-  return (
-    <SettingsRow
-      trailing={
-        list.data ? (
-          <TrailingValue value={t("mobile.server.settings.mcpCount", { count: list.data.length })} />
-        ) : undefined
-      }
-      onPress={() => router.push({ pathname: "/server-settings/mcp", params: { serverId } })}
-    >
-      <Typography.Paragraph>{t("mobile.server.settings.mcp")}</Typography.Paragraph>
-    </SettingsRow>
-  );
-}
-
-/** The Browser profiles row, for an owner or admin of a host that serves `browser-profiles-v1`. */
-function ServerBrowserProfilesRow({ serverId }: { serverId: string }) {
-  const { t } = useText();
-  const { profiles } = useServerBrowserProfiles(serverId);
-  return (
-    <SettingsRow
-      trailing={profiles ? <TrailingValue value={String(profiles.length)} /> : undefined}
-      onPress={() => router.push({ pathname: "/server-settings/browser-profiles", params: { serverId } })}
-    >
-      <Typography.Paragraph>{t("mobile.server.route.browserProfiles")}</Typography.Paragraph>
-    </SettingsRow>
-  );
-}
-
-/** The server name and logo. The host saves both and tells every connected client. */
 function ServerIdentityForm({ server }: { server: MobileServer }) {
   const { t, errorMessage } = useText();
   const { canEditServerIdentity, updateServerIdentity } = useMobileWorkspace();
-  const foreground = useThemeColor("foreground");
   const available = canEditServerIdentity(server.id);
   const [draftName, setDraftName] = useState<string | undefined>();
   // Undefined keeps the saved logo; null removes it.
@@ -631,6 +285,8 @@ function ServerIdentityForm({ server }: { server: MobileServer }) {
   }
 
   function editLogo(): void {
+    // The name field locks while the photo picker is open, so it gives up the keyboard first.
+    Keyboard.dismiss();
     void haptics.impact("soft");
     if (!hasLogo) {
       void chooseLogo();
@@ -655,6 +311,7 @@ function ServerIdentityForm({ server }: { server: MobileServer }) {
     pending.current = true;
     setSaving(true);
     setError(null);
+    Keyboard.dismiss();
     try {
       await updateServerIdentity(server.id, {
         ...(nameChanged ? { serverName: trimmed } : {}),
@@ -674,41 +331,38 @@ function ServerIdentityForm({ server }: { server: MobileServer }) {
 
   const locked = !available || saving || picking;
   return (
-    <View className="gap-5">
-      <Pressable
-        className="self-center"
-        accessibilityRole="button"
-        accessibilityLabel={t(hasLogo ? "mobile.server.settings.editLogo" : "mobile.server.settings.addLogo")}
-        accessibilityState={{ disabled: locked }}
+    <View className="gap-3">
+      <SettingsIdentityHeader
+        picture={
+          <ServerAvatar
+            server={{ ...server, name: trimmed || server.name }}
+            size={IDENTITY_PICTURE_SIZE}
+            showStatus={false}
+            logoUri={logo === undefined ? undefined : (logo?.uri ?? null)}
+          />
+        }
+        pictureLabel={t(hasLogo ? "mobile.server.settings.editLogo" : "mobile.server.settings.addLogo")}
+        onPicturePress={available ? editLogo : undefined}
+        name={name}
+        nameLabel={t("mobile.server.settings.name")}
+        nameMaxLength={INPUT_LIMITS.serverName}
         disabled={locked}
-        onPress={editLogo}
-      >
-        <ServerAvatar
-          server={{ ...server, name: trimmed || server.name }}
-          size={112}
-          showStatus={false}
-          logoUri={logo === undefined ? undefined : (logo?.uri ?? null)}
-        />
-        <View className="absolute -right-2 -bottom-2 size-9 items-center justify-center rounded-full border-4 border-sheet bg-grouped">
-          <Camera color={foreground} size={14} />
-        </View>
-      </Pressable>
-      <SheetFormField
-        label={t("mobile.server.settings.name")}
-        autoCapitalize="words"
-        maxLength={INPUT_LIMITS.serverName}
-        value={name}
-        editable={!locked}
-        hint={
-          !nameValid
-            ? t("mobile.server.settings.nameLength", { min: INPUT_LIMITS.serverNameMin, max: INPUT_LIMITS.serverName })
+        onNameChange={
+          available
+            ? (value) => {
+                setDraftName(value);
+                setError(null);
+              }
             : undefined
         }
-        onChangeText={(value) => {
-          setDraftName(value);
-          setError(null);
-        }}
+        onNameSubmit={() => void save()}
+        subtitle={<ServerStatusLine server={server} />}
       />
+      {!nameValid ? (
+        <Typography.Paragraph type="body-xs" accessibilityRole="alert" className="px-1 text-danger-text">
+          {t("mobile.server.settings.nameLength", { min: INPUT_LIMITS.serverNameMin, max: INPUT_LIMITS.serverName })}
+        </Typography.Paragraph>
+      ) : null}
       {!available ? (
         <SettingsNote>
           {t(
@@ -719,7 +373,7 @@ function ServerIdentityForm({ server }: { server: MobileServer }) {
         </SettingsNote>
       ) : null}
       {error ? (
-        <Typography.Paragraph accessibilityRole="alert" className="px-4 text-danger-text">
+        <Typography.Paragraph accessibilityRole="alert" className="px-1 text-danger-text">
           {error}
         </Typography.Paragraph>
       ) : null}

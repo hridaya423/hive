@@ -4,7 +4,6 @@
 // condition answers yes, an approval waits for `decide`, and a node with the field `mockFail` fails.
 
 import {
-  isGitHubRepositoryName,
   isWorkflowStepKind,
   nodeAgentId,
   type OpenBotDesktopApi,
@@ -25,6 +24,7 @@ import {
   type WorkflowSummary,
   type WorkflowTriggerState,
   type WorkflowVersion,
+  workflowGitHubTriggerRepositories,
 } from "@openbot/contracts/ipc";
 import { sourceText } from "@openbot/i18n/source";
 import { nextValidRoutineOccurrence } from "@openbot/team-client/routine-schedule";
@@ -49,11 +49,14 @@ const PREVIEW_GITHUB_OPTIONS: WorkflowGitHubRepositoryOptions = {
   people: ["octocat", "hubot"],
 };
 
-/** An issue of the repository that a GitHub trigger watches, or of the first preview repository. */
+/**
+ * An issue of a repository that a GitHub trigger watches, or of the first preview repository. The items
+ * take the trigger's repositories in turn, so a trigger with more than one shows events of each.
+ */
 function previewItem(node: WorkflowNode, number: number, title: string): WorkflowGitHubItem {
-  const repository = node.fields.repository;
+  const repositories = workflowGitHubTriggerRepositories(node.fields);
   return {
-    repository: isGitHubRepositoryName(repository) ? repository : "openbot-preview/app",
+    repository: repositories[number % Math.max(repositories.length, 1)] ?? "openbot-preview/app",
     number,
     pullRequest: false,
     title,
@@ -483,6 +486,10 @@ export function mockWorkflows(
       emit(input.workflowId);
       return { secret: `whsec_preview_${crypto.randomUUID()}` };
     },
+    // The preview keeps no files: the draft id names the kept picture.
+    keepPicture: async (draftId) => draftId,
+    mediaProviders: async () => ({ sunra: true }),
+    mediaCredits: async () => ({ sunra: { available: 1240, quota: 2000 } }),
     githubCatalog: async () => structuredClone(PREVIEW_GITHUB_CATALOG),
     githubOptions: async (input) => {
       if (!PREVIEW_GITHUB_CATALOG.repositories.some((repository) => repository.fullName === input.repository))

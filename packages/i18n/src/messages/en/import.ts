@@ -33,8 +33,13 @@ export const messages = defineMessages("import", {
   "import.guide.hermesTitle": "Move your agents from Hermes Agent",
   "import.guide.hermesLede":
     "Each Hermes profile becomes an agent. Read the profiles on this computer, or let the export skill in Hermes pack them into one .zip file.",
+  "import.guide.hermesLedeServer":
+    "Each Hermes profile becomes an agent. Read the profiles on the server, or let the export skill in Hermes pack them into one .zip file.",
+  "import.guide.hermesLedeExport":
+    "Each Hermes profile becomes an agent. The export skill in Hermes packs them into one .zip file.",
   "import.guide.hermesSetupLabel": "How to bring the profiles",
   "import.guide.setupFolder": "Read this computer",
+  "import.guide.setupServer": "Read the server",
   "import.guide.hermesStepFolder": "Read the Hermes folder",
   "import.guide.hermesStep1": "Add the export skill to Hermes",
   "import.guide.readFolder": "Read the Hermes folder",
@@ -81,7 +86,10 @@ export const messages = defineMessages("import", {
   "import.result.warnings": "Some items did not move",
   "import.source.title": "Where are your agents now?",
   "import.source.lede": "Hive copies them to this computer. You see every item before anything changes.",
+  "import.source.ledeServer": "Hive copies them to the server. You see every item before anything changes.",
   "import.source.hermesNote": "Read the Hermes folder on this computer, or export a .zip file from Hermes.",
+  "import.source.hermesNoteServer": "Read the Hermes folder on the server, or export a .zip file from Hermes.",
+  "import.source.hermesNoteExport": "Export a .zip file from Hermes.",
   "import.source.grokNote": "In the cloud. An export agent there makes a .zip file.",
   "import.source.transfer": "Another Hive computer",
   "import.source.transferNote": "Use Transfer to move agents and settings together.",
@@ -90,6 +98,9 @@ export const messages = defineMessages("import", {
   "import.hermes.notFound": "No Hermes profiles on this computer",
   "import.hermes.notFoundNote":
     "If Hermes uses another folder, for example one that HERMES_HOME sets, choose that folder.",
+  "import.hermes.notFoundServer": "No Hermes profiles on this server",
+  "import.hermes.notFoundServerNote":
+    "Hive reads the Hermes folder of the server. To import Hermes from this computer, export a .zip file from Hermes.",
   "import.hermes.chooseFolder": "Choose the Hermes folder",
   "import.hermes.chooseAnother": "Choose another folder",
   "import.hermes.title": "Agents from Hermes Agent",

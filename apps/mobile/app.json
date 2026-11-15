@@ -3,7 +3,7 @@
     "name": "Hive",
     "slug": "hive",
     "platforms": ["ios", "android"],
-    "version": "1.4.5",
+    "version": "1.4.10",
     "orientation": "portrait",
     "icon": "./assets/icons/app-icon.png",
     "scheme": "dev.hridaya.hive",
@@ -34,13 +34,15 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "plugins": [
       "./plugins/with-rocketsim",
       "./plugins/with-workspace-bundle-inputs",
       "./plugins/with-release-signing",
+      "./plugins/with-app-icons",
       "expo-router",
       "expo-video",
       [
@@ -116,7 +118,8 @@
           "android": {
             "usesCleartextTraffic": true,
             "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-dontwarn org.webrtc.Dav1dDecoder$Natives"
           }
         }
       ],
@@ -131,12 +134,13 @@
               "supportsText": true,
               "supportsWebUrlWithMaxCount": 1,
               "supportsImageWithMaxCount": 10,
+              "supportsMovieWithMaxCount": 10,
               "supportsFileWithMaxCount": 10
             }
           },
           "android": {
             "enabled": true,
-            "singleShareMimeTypes": ["text/*", "image/*", "application/*"],
+            "singleShareMimeTypes": ["*/*"],
             "multipleShareMimeTypes": ["*/*"]
           }
         }
@@ -172,13 +176,36 @@
               {
                 "fontFamily": "Inter",
                 "fontDefinitions": [
-                  { "path": "./assets/fonts/inter/Inter-Regular.ttf", "weight": 400 },
-                  { "path": "./assets/fonts/inter/Inter-Italic.ttf", "weight": 400, "style": "italic" },
-                  { "path": "./assets/fonts/inter/Inter-Medium.ttf", "weight": 500 },
-                  { "path": "./assets/fonts/inter/Inter-SemiBold.ttf", "weight": 600 },
-                  { "path": "./assets/fonts/inter/Inter-Bold.ttf", "weight": 700 },
-                  { "path": "./assets/fonts/inter/Inter-BoldItalic.ttf", "weight": 700, "style": "italic" },
-                  { "path": "./assets/fonts/inter/Inter-ExtraBold.ttf", "weight": 800 }
+                  {
+                    "path": "./assets/fonts/inter/Inter-Regular.ttf",
+                    "weight": 400
+                  },
+                  {
+                    "path": "./assets/fonts/inter/Inter-Italic.ttf",
+                    "weight": 400,
+                    "style": "italic"
+                  },
+                  {
+                    "path": "./assets/fonts/inter/Inter-Medium.ttf",
+                    "weight": 500
+                  },
+                  {
+                    "path": "./assets/fonts/inter/Inter-SemiBold.ttf",
+                    "weight": 600
+                  },
+                  {
+                    "path": "./assets/fonts/inter/Inter-Bold.ttf",
+                    "weight": 700
+                  },
+                  {
+                    "path": "./assets/fonts/inter/Inter-BoldItalic.ttf",
+                    "weight": 700,
+                    "style": "italic"
+                  },
+                  {
+                    "path": "./assets/fonts/inter/Inter-ExtraBold.ttf",
+                    "weight": 800
+                  }
                 ]
               },
               "katex/dist/fonts/KaTeX_AMS-Regular.ttf",
@@ -206,6 +233,13 @@
         }
       ],
       [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "Allow Hive to use your camera to scan QR codes.",
+          "microphonePermission": "Allow Hive to use the microphone to dictate messages."
+        }
+      ],
+      [
         "expo-widgets",
         {
           "bundleIdentifier": "run.openbot.mobile.ExpoWidgetsTarget",
@@ -221,7 +255,9 @@
           "bundleIdentifier": "run.openbot.mobile.NotificationService",
           "groupIdentifier": "group.run.openbot.mobile"
         }
-      ]
+      ],
+      "./plugins/with-shortcuts",
+      "./plugins/with-xcode-warning-fixes"
     ],
     "experiments": {
       "typedRoutes": true,

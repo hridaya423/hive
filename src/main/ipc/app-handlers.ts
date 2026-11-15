@@ -27,8 +27,10 @@ import type { ApprovalAutomation } from "../approval-automation-store";
 import type { BusyMessageModePreferenceStore } from "../busy-message-mode-preference-store";
 import type { ExternalLinkOpener, ExternalLinkPreferenceStore } from "../external-link-opener";
 import type { HostBackupModelsPreferenceStore } from "../host-backup-models-preference-store";
+import { listInstalledFonts } from "../installed-fonts";
 import type { InterfaceSizeService } from "../interface-size-service";
 import type { LanguageService } from "../language-service";
+import { aboveAppsScreenSupport } from "../linux-wayland-output";
 import type { LogoColorService } from "../logo-color-service";
 import { MAC_PERMISSION_URLS } from "../mac-permission-urls";
 import { exportDiagnostics, exportOpenBotData } from "../maintenance-service";
@@ -37,15 +39,14 @@ import type { RemoteNetworkRoutePreferenceStore } from "../remote-network-route-
 import type { RemoteSessionCache } from "../remote-session-cache";
 import type { RemoteSessionReusePreferenceStore } from "../remote-session-reuse-preference-store";
 import { readSetupState, writeSetupState } from "../setup-store";
+import { systemHourCycle } from "../system-hour-cycle";
 import type { UpdateService } from "../update-service";
 import {
-  parseAgentDefaults,
   parseAppAppearancePreference,
   parseAppBehaviorPreferenceChange,
   parseAppInterfaceSizePreference,
   parseAppLanguagePreference,
   parseAppLogoColorPreference,
-  parseBusyMessageModePreference,
   parseChatWindowTarget,
   parseExternalDestination,
   parseExternalLinkPreference,
@@ -156,19 +157,25 @@ export function appIpcHandlers({
         }
         // electron-vite starts a script, so Electron reports its own version in development.
         const version = app.isPackaged ? app.getVersion() : developmentVersion;
+        // Each state other than `enabled*` (such as `disabled_software` or `unavailable_software`)
+        // composites on the CPU. This covers the GPU switch of `linux-gpu-mode.ts` and a GPU that
+        // Chromium blocks, such as the llvmpipe driver of a server or a remote desktop.
+        const softwareRendering = !app.getGPUFeatureStatus().gpu_compositing.startsWith("enabled");
+        const hourCycle = systemHourCycle();
+        const aboveAppsSupport = aboveAppsScreenSupport();
         return {
           name: app.getName(),
           version,
           platform,
           variant: appVariant,
+          ...(softwareRendering ? { softwareRendering } : {}),
+          ...(hourCycle ? { hourCycle } : {}),
+          ...(aboveAppsSupport ? { aboveAppsSupport } : {}),
         };
       }),
       getSetupState: handler(() => runCauseEffect(readSetupState(setupFile))),
       getApprovalAutomation: handler(() => approvalAutomation.current()),
       getBusyMessageModePreference: handler(() => busyMessageMode.get()),
-      setBusyMessageModePreference: payloadHandler(parseBusyMessageModePreference, (parsed) =>
-        runCauseEffect(busyMessageMode.set(parsed)),
-      ),
       getHostBackupModels: handler(() => hostBackupModels.get()),
       setHostBackupModels: payloadHandler(decodeAgentBackupModels, async (parsed) => {
         const saved = await runCauseEffect(hostBackupModels.set(parsed));
@@ -176,13 +183,6 @@ export function appIpcHandlers({
         return saved;
       }),
       getAgentDefaults: handler(() => agentDefaults.get()),
-      // The agents that follow a changed default get it at once: see `AgentService.agentDefaultsChanged`.
-      setAgentDefaults: payloadHandler(parseAgentDefaults, async (parsed) => {
-        const previous = agentDefaults.get();
-        const saved = await runCauseEffect(agentDefaults.set(parsed));
-        service.agentDefaultsChanged(previous);
-        return saved;
-      }),
       getAgentMemoryLimitPreference: handler(() => agentMemoryLimit.get()),
       getRemoteSessionReusePreference: handler(() => remoteSessionReuse.get()),
       // Off removes the kept sessions at once. The sessions of this run then end when the app quits.
@@ -222,6 +222,8 @@ export function appIpcHandlers({
       setAppAppearancePreference: payloadHandler(parseAppAppearancePreference, (parsed) =>
         runCauseEffect(appearance.set(parsed)),
       ),
+      // Local only: the list is the fonts of this computer, and the font choice is per computer.
+      listInstalledFonts: handler(() => runCauseEffect(listInstalledFonts())),
       getAppInterfaceSizePreference: handler(() => interfaceSize.preference),
       setAppInterfaceSizePreference: payloadHandler(parseAppInterfaceSizePreference, (parsed) =>
         runCauseEffect(interfaceSize.set(parsed)),

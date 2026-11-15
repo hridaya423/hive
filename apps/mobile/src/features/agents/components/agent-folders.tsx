@@ -30,6 +30,7 @@ import { Alert, Pressable, View } from "react-native";
 import { PERMISSION_LABEL, useAgentAdminSettings } from "@/features/agents/components/agent-access-fields";
 import { useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { SettingsNote, SettingsRow, SettingsSection } from "@/features/settings/components/settings-content";
+import { RowIcon } from "@/features/settings/components/settings-row-icon";
 import {
   type MobileAgent,
   type MobileServer,
@@ -41,6 +42,7 @@ import { SheetSaveAction } from "@/shared/components/sheet-save-action";
 import { showFailureAlert } from "@/shared/lib/failure-alert";
 import { haptics } from "@/shared/lib/haptics";
 import { currentText, useText } from "@/shared/lib/text";
+import { MIRROR_IN_RTL } from "@/shared/lib/text-direction";
 
 /** What the folder browser picks: a folder to add, a folder to exclude, or the new place of a moved folder. */
 type BrowseMode = "add" | "exclude" | "locate";
@@ -118,6 +120,7 @@ export function AgentFoldersRow({
       : undefined;
   return (
     <SettingsRow
+      leading={<RowIcon icon={Folder} />}
       supportingText={value}
       onPress={() =>
         router.push({
@@ -541,7 +544,7 @@ export function AgentFolderBrowser({ agent, available }: { agent: MobileAgent; a
           <SettingsSection title={moving && path ? path : folder.path}>
             {folder.parentPath === null ? null : (
               <SettingsRow
-                leading={<CornerLeftUp size={18} color={muted} />}
+                leading={<CornerLeftUp size={18} color={muted} style={MIRROR_IN_RTL} />}
                 disabled={saving || moving}
                 onPress={() => folder.parentPath && go(folder.parentPath)}
               >

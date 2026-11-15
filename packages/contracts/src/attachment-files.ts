@@ -2,6 +2,12 @@ export const IMAGE_ATTACHMENT_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp",
 
 export const MEDIA_ATTACHMENT_EXTENSIONS = ["mp3", "mov"] as const;
 
+/**
+ * Audio that a host with `any-file-attachments` takes as an opaque file, and that the chat still plays
+ * by its name. They are not in `MEDIA_ATTACHMENT_EXTENSIONS`: an older remote host refuses them.
+ */
+const NAMED_AUDIO_EXTENSIONS = ["m4a", "wav", "aac"] as const;
+
 export const ARCHIVE_ATTACHMENT_EXTENSIONS = ["zip"] as const;
 
 /** MP4 came after `media-attachments`, so a remote host advertises it with its own capability. */
@@ -102,6 +108,7 @@ export const ATTACHMENT_FILE_EXTENSIONS = [
 export const OPENABLE_ATTACHMENT_EXTENSIONS = [
   ...IMAGE_ATTACHMENT_EXTENSIONS,
   ...MEDIA_ATTACHMENT_EXTENSIONS,
+  ...NAMED_AUDIO_EXTENSIONS,
   ...MP4_ATTACHMENT_EXTENSIONS,
   "pdf",
   "docx",
@@ -119,16 +126,21 @@ export const OPENABLE_ATTACHMENT_EXTENSIONS = [
   "log",
 ] as const;
 
-/** What a host accepts beyond the base list. An older remote host rejects EML, MP3, MOV, ZIP, MP4, and SVG. */
+/**
+ * What a host accepts beyond the base list. An older remote host rejects EML, MP3, MOV, ZIP, MP4, and
+ * SVG. A host with `anyFile` also takes a file whose name has no known type, as an opaque `file`.
+ */
 export interface AttachmentSupport {
   eml: boolean;
   media: boolean;
   zip: boolean;
   mp4: boolean;
   svg: boolean;
+  anyFile: boolean;
 }
 
-export function supportedAttachmentExtensions(support: AttachmentSupport): string[] {
+/** The extensions of the picker filter for a host without `anyFile`. A host with it gets no filter. */
+export function supportedAttachmentExtensions(support: Omit<AttachmentSupport, "anyFile">): string[] {
   return ATTACHMENT_FILE_EXTENSIONS.filter(
     (extension) =>
       (support.eml || extension !== "eml") &&
@@ -177,11 +189,12 @@ export function rasterImageMimeType(name: string): string | null {
 }
 
 /**
- * The name check for a surface that picks files for one host, such as mobile. It accepts the same
- * files as the desktop picker filter that `supportedAttachmentExtensions` builds for that host.
+ * The name check for a surface that picks files for one host, such as mobile. Without `anyFile`, it
+ * accepts the same files as the desktop picker filter that `supportedAttachmentExtensions` builds for
+ * that host.
  */
 export function isSupportedAttachmentNameFor(name: string, support: AttachmentSupport): boolean {
-  if (!isSupportedAttachmentName(name)) return false;
+  if (!isSupportedAttachmentName(name)) return support.anyFile;
   const extension = attachmentFileExtension(name);
   if (extension === "eml") return support.eml;
   if (MEDIA_ATTACHMENT_EXTENSIONS.some((media) => media === extension)) return support.media;
@@ -192,10 +205,9 @@ export function isSupportedAttachmentNameFor(name: string, support: AttachmentSu
 }
 
 /**
- * The one rejection message for an unsupported attachment. Both import paths throw it: the renderer
- * drop and file-picker handlers in `src/main/ipc/attachment-handlers.ts`, and the draft and transfer
- * operations in `src/backend/attachment-files.ts`. A user must not read two different sentences for
- * the same refused file.
+ * The one rejection message for a file that a remote host without `any-file-attachments` refuses.
+ * The desktop upload handlers in `src/main/ipc/attachment-handlers.ts` and the web client throw it.
+ * A user must not read two different sentences for the same refused file.
  */
 export function assertSupportedAttachmentName(name: string): void {
   if (isSupportedAttachmentName(name)) return;
@@ -219,6 +231,12 @@ export function attachmentMimeTypeForName(name: string) {
       return "image/avif";
     case "mp3":
       return "audio/mpeg";
+    case "m4a":
+      return "audio/mp4";
+    case "wav":
+      return "audio/wav";
+    case "aac":
+      return "audio/aac";
     case "mov":
       return "video/quicktime";
     case "mp4":

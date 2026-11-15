@@ -1,12 +1,12 @@
 import { LOCAL_SERVER_ID, type RemovableRuntimes, type TeamMemberSummary } from "@openbot/contracts/ipc";
-import type { AgentProfile } from "@openbot/ui/data";
 import { MachineResources } from "@openbot/ui/features/files/MachineResources";
 import { StorageOverview } from "@openbot/ui/features/files/StorageOverview";
-import { createEffect, createSignal, Show, untrack } from "solid-js";
-import { toAgentProfile } from "../../app-message-projection";
+import { BackgroundProcessesSection } from "@openbot/ui/features/settings/BackgroundProcessesSection";
+import { createEffect, createSignal, Show } from "solid-js";
 import { type FilesPort, filesPort } from "./files-port";
 import { createMachineResources } from "./machine-resources";
-import { createStorageUsage } from "./storage-usage";
+import { createServerBackgroundProcesses } from "./server-background-processes";
+import { createServerAgents, createStorageUsage } from "./storage-usage";
 
 export interface ServerStorageOptions {
   /** The computer the numbers belong to, such as "This Mac" or the server name. */
@@ -19,6 +19,11 @@ export interface ServerStorageOptions {
   members?: readonly TeamMemberSummary[];
   /** The storage calls of a client with no `window.openbot`, such as the web client. */
   calls?: FilesPort;
+  /**
+   * This computer, or a joined server that serves `background-processes-v1`. With `canManage`, Storage
+   * lists the programs that its agents left running.
+   */
+  backgroundProcesses?: boolean;
 }
 
 /**
@@ -30,22 +35,13 @@ export function ServerStoragePanel(props: ServerStorageOptions & { serverId: str
   const calls = () => props.calls ?? filesPort();
   const storage = createStorageUsage(() => ({ serverId: props.serverId, input: { scope: "host" } }), calls);
   const machine = createMachineResources(() => ({ serverId: props.serverId, canManage: props.canManage }), calls);
-  const [agents, setAgents] = createSignal<AgentProfile[]>([]);
-  createEffect(
-    () => props.serverId,
-    (serverId) => {
-      let current = true;
-      untrack(calls)
-        .agent.listAgents(serverId)
-        .then((list) => {
-          if (current) setAgents(list.map(toAgentProfile));
-        })
-        // Without names the rows still show sizes; the storage read reports its own failure.
-        .catch(() => undefined);
-      return () => {
-        current = false;
-      };
-    },
+  const agents = createServerAgents(() => props.serverId, calls);
+  const processes = createServerBackgroundProcesses(
+    () => ({
+      serverId: props.serverId,
+      shown: props.canManage && props.backgroundProcesses === true && calls().backgroundProcesses !== undefined,
+    }),
+    calls,
   );
 
   // Only this computer: a server removes its own old versions, and its store is not reachable here.
@@ -98,7 +94,7 @@ export function ServerStoragePanel(props: ServerStorageOptions & { serverId: str
       scannedAt={usage()?.scannedAt ?? null}
       breakdown={usage()?.breakdown ?? []}
       freeBytes={usage()?.freeBytes ?? null}
-      agents={agents()}
+      agents={agents() ?? []}
       agentUsage={usage()?.agents ?? []}
       conversations={usage()?.conversations ?? []}
       files={usage()?.files ?? []}
@@ -116,15 +112,28 @@ export function ServerStoragePanel(props: ServerStorageOptions & { serverId: str
       // Settings has no preview pane, so a preview opens the file in its app.
       onPreviewFile={(file) => void storage.fileAction(file, "open", { onShowInChat: () => undefined })}
       machine={
-        <Show when={machine.state.available}>
-          <MachineResources
-            metrics={machine.state.metrics}
-            error={machine.state.error}
-            alerts={machine.state.alerts}
-            members={props.members ?? []}
-            onChangeAlerts={machine.saveAlerts}
-          />
-        </Show>
+        <>
+          <Show when={machine.state.available}>
+            <MachineResources
+              metrics={machine.state.metrics}
+              error={machine.state.error}
+              alerts={machine.state.alerts}
+              members={props.members ?? []}
+              onChangeAlerts={machine.saveAlerts}
+            />
+          </Show>
+          <Show when={processes.state.processes}>
+            {(list) => (
+              <BackgroundProcessesSection
+                processes={list()}
+                loadFailed={processes.state.loadFailed}
+                agents={processes.state.agents}
+                stopping={processes.state.stopping}
+                onStop={processes.stop}
+              />
+            )}
+          </Show>
+        </>
       }
       onFileAction={(file, action) =>
         storage.fileAction(file, action, {

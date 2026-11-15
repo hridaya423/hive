@@ -1,3 +1,4 @@
+import { avatarHeadColor } from "@openbot/brand/bloub-avatar";
 import { isAgentTaskOpen, taskNeedsYou } from "@openbot/team-client/agent-tasks";
 import * as Crypto from "expo-crypto";
 import { type Href, router, useFocusEffect } from "expo-router";
@@ -8,17 +9,17 @@ import { useThemeColor } from "heroui-native/hooks";
 import type { LucideIcon } from "lucide-react-native";
 import ArrowUp from "lucide-react-native/icons/arrow-up";
 import CalendarClock from "lucide-react-native/icons/calendar-clock";
-import ChartColumn from "lucide-react-native/icons/chart-column";
+import ChartArea from "lucide-react-native/icons/chart-area";
 import Check from "lucide-react-native/icons/check";
 import ChevronDown from "lucide-react-native/icons/chevron-down";
 import CircleX from "lucide-react-native/icons/circle-x";
 import EyeOff from "lucide-react-native/icons/eye-off";
+import ListChecks from "lucide-react-native/icons/list-checks";
 import ListRestart from "lucide-react-native/icons/list-restart";
 import Plus from "lucide-react-native/icons/plus";
 import Search from "lucide-react-native/icons/search";
 import Settings from "lucide-react-native/icons/settings";
 import SlidersHorizontal from "lucide-react-native/icons/sliders-horizontal";
-import SquareCheck from "lucide-react-native/icons/square-check";
 import UsersRound from "lucide-react-native/icons/users-round";
 import {
   type ComponentProps,
@@ -59,7 +60,6 @@ import { scheduleOnRN } from "react-native-worklets";
 import { useCSSVariable } from "uniwind";
 import { BloubAvatar } from "@/features/agents/components/bloub-avatar";
 import { openChatFromPane, useChatListPane } from "@/features/agents/components/chat-list-pane-context";
-import { getBloubAvatarColor } from "@/features/agents/model/bloub-activity";
 import { MobileSearchResults, SearchCaption } from "@/features/search/components/mobile-search-results";
 import { setHomeSearchOpener } from "@/features/search/model/home-search-request";
 import { useAppDrawerShown } from "@/features/servers/components/app-drawer-activity";
@@ -79,6 +79,7 @@ import { haptics } from "@/shared/lib/haptics";
 import { useReducedMotion, useTransitionMode } from "@/shared/lib/motion";
 import { selectionColorProps } from "@/shared/lib/selection-color";
 import { currentText, useText } from "@/shared/lib/text";
+import { fieldDirectionStyle } from "@/shared/lib/text-direction";
 import { typeScale } from "@/shared/lib/type-scale";
 import { useLiquidGlass } from "@/shared/lib/use-liquid-glass";
 
@@ -589,6 +590,7 @@ function TaskTargetRow({ agent, onPress }: { agent: MobileAgent; onPress: () => 
         agentId={agent.id}
         serverId={agent.serverId}
         hue={agent.avatarHue}
+        color={agent.avatarColor}
         seed={agent.avatarSeed}
         size={36}
         animateIdle={false}
@@ -624,14 +626,35 @@ export function HomeSearchBar({
   // clears it first.
   const touched = useRef(false);
   // A quick action of the app icon opens the search with the keyboard. The field registers it, so a
-  // request that comes while the list loads waits until the field and its input are mounted.
+  // request that comes while the list loads waits until the field and its input are mounted. A request
+  // that closes the screens over home comes before home shows again, and a hidden field takes no
+  // focus, so the field waits for home to have focus.
+  const navigation = useNavigation();
   useEffect(() => {
-    setHomeSearchOpener(() => {
+    let removeFocusListener: (() => void) | null = null;
+    const focusField = () => {
       touched.current = false;
       input.current?.focus();
+    };
+    setHomeSearchOpener(() => {
+      removeFocusListener?.();
+      removeFocusListener = null;
+      if (navigation.isFocused()) {
+        focusField();
+        return;
+      }
+      const remove = navigation.addListener("focus", () => {
+        remove();
+        removeFocusListener = null;
+        focusField();
+      });
+      removeFocusListener = remove;
     });
-    return () => setHomeSearchOpener(null);
-  }, [input]);
+    return () => {
+      removeFocusListener?.();
+      setHomeSearchOpener(null);
+    };
+  }, [input, navigation]);
   const insets = useSafeAreaInsets();
   const liquidGlass = useLiquidGlass();
   const reduced = useReducedMotion();
@@ -647,7 +670,7 @@ export function HomeSearchBar({
   if (search.result && search.result !== shownResult) setShownResult(search.result);
   const showsResult = search.result !== null;
   const resultColor = shownResult?.ok
-    ? getBloubAvatarColor(shownResult.agent.avatarSeed, shownResult.agent.avatarHue)
+    ? avatarHeadColor(shownResult.agent.avatarSeed, shownResult.agent.avatarHue, shownResult.agent.avatarColor)
     : danger;
   // As the prototype: the color at 18% over the field, so the text in the same color stays readable.
   const resultTint = `${resultColor}2e`;
@@ -798,6 +821,7 @@ export function HomeSearchBar({
                   paddingBottom: 0,
                   paddingTop: 0,
                   textAlignVertical: "center",
+                  ...fieldDirectionStyle(search.query),
                 }}
                 value={search.query}
                 onChangeText={search.setQuery}
@@ -920,6 +944,7 @@ function TaskResultContent({
         agentId={agent.id}
         serverId={agent.serverId}
         hue={agent.avatarHue}
+        color={agent.avatarColor}
         seed={agent.avatarSeed}
         size={26}
         animateIdle={false}
@@ -951,7 +976,7 @@ const TARGET_NAME_WIDTH = 80;
  */
 function TargetChip({ agent, onPress }: { agent: MobileAgent; onPress: () => void }) {
   const { t } = useText();
-  const color = getBloubAvatarColor(agent.avatarSeed, agent.avatarHue);
+  const color = avatarHeadColor(agent.avatarSeed, agent.avatarHue, agent.avatarColor);
   return (
     <Pressable
       accessibilityRole="button"
@@ -966,6 +991,7 @@ function TargetChip({ agent, onPress }: { agent: MobileAgent; onPress: () => voi
         agentId={agent.id}
         serverId={agent.serverId}
         hue={agent.avatarHue}
+        color={agent.avatarColor}
         seed={agent.avatarSeed}
         size={28}
         animateIdle={false}
@@ -1051,7 +1077,7 @@ function HomeSearchIdle({ onLeave, canUseTasks }: { onLeave: () => void; canUseT
             {
               id: "tasks",
               label: t("mobile.app.route.threads"),
-              icon: SquareCheck,
+              icon: ListChecks,
               href: { pathname: "/server-tasks", params: { serverId } } as const,
             },
           ]
@@ -1060,14 +1086,14 @@ function HomeSearchIdle({ onLeave, canUseTasks }: { onLeave: () => void; canUseT
         ? [
             {
               id: "routines",
-              label: t("mobile.app.route.routines"),
+              label: t("mobile.app.route.schedule"),
               icon: CalendarClock,
               href: { pathname: "/server-routines", params: { serverId } } as const,
             },
             {
               id: "usage",
               label: t("mobile.app.route.usage"),
-              icon: ChartColumn,
+              icon: ChartArea,
               href: { pathname: "/server-usage", params: { serverId } } as const,
             },
             {
@@ -1145,7 +1171,7 @@ function TaskEditorPage({ agent, search }: { agent: MobileAgent; search: HomeSea
   const { t } = useText();
   const pane = useChatListPane();
   const muted = String(useThemeColor("muted"));
-  const color = getBloubAvatarColor(agent.avatarSeed, agent.avatarHue);
+  const color = avatarHeadColor(agent.avatarSeed, agent.avatarHue, agent.avatarColor);
   const { tasks } = useServerTasks(agent.serverId, { agentId: agent.id });
   const sorted = [...tasks].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
   const ideas = [...new Set(sorted.filter((task) => !isAgentTaskOpen(task)).map((task) => task.title.trim()))]
@@ -1166,6 +1192,7 @@ function TaskEditorPage({ agent, search }: { agent: MobileAgent; search: HomeSea
             agentId={agent.id}
             serverId={agent.serverId}
             hue={agent.avatarHue}
+            color={agent.avatarColor}
             seed={agent.avatarSeed}
             size={40}
             animateIdle={false}
@@ -1185,7 +1212,7 @@ function TaskEditorPage({ agent, search }: { agent: MobileAgent; search: HomeSea
         </View>
         <View className="flex-row items-start gap-2">
           <View className="pt-0.5">
-            <SquareCheck color={muted} size={16} strokeWidth={1.8} />
+            <ListChecks color={muted} size={16} strokeWidth={1.8} />
           </View>
           <Typography.Paragraph className="min-w-0 flex-1 text-muted" style={typeScale.caption}>
             {t("mobile.search.thread.how", { name: agent.name })}{" "}
@@ -1331,6 +1358,7 @@ function AgentChip({ agent, onPress }: { agent: MobileAgent; onPress: () => void
             agentId={agent.id}
             serverId={agent.serverId}
             hue={agent.avatarHue}
+            color={agent.avatarColor}
             seed={agent.avatarSeed}
             size={48}
             animateIdle={false}

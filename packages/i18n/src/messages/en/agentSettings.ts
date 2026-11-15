@@ -80,7 +80,7 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.backupModels.intro":
     "When {model} reaches its usage limit before {name} starts to write, {name} asks you which model to use.",
   "agentSettings.backupModels.introAutomatic":
-    "When {model} reaches its usage limit or fails with a provider error before {name} starts to write, {name} switches to the first available model in the order.",
+    "When {model} reaches its usage limit, {name} switches to the first available model in the order. {name} also switches when {model} fails with a provider error before {name} starts to write.",
   "agentSettings.backupModels.hostIntro":
     "When an agent with no order of its own reaches a usage limit or fails with a provider error before it starts to write, it switches to the first available model in this order.",
   "agentSettings.backupModels.hostEmpty": "No order set. Agents with no order of their own ask you first.",
@@ -98,7 +98,7 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.backupModels.unavailable": "Not available now · skipped",
   "agentSettings.backupModels.withAccount": "{model} · {account}",
   "agentSettings.backupModels.note":
-    "{name} never switches after it starts to write. It goes back to {model} when the limit ends, or 10 minutes after a provider error.",
+    "When a usage limit stops {name} after it starts to work, {name} continues the same work on the first available model in the order. It goes back to {model} when the limit ends, or 10 minutes after a provider error.",
   "agentSettings.groups.brain": "Brain",
   "agentSettings.groups.knows": "Knows",
   "agentSettings.groups.does": "Does",
@@ -131,6 +131,9 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.avatar.resetToId": "Reset to ID",
   "agentSettings.avatar.shape": "Shape",
   "agentSettings.avatar.shuffle": "Random face",
+  "agentSettings.avatar.style": "Avatar style",
+  "agentSettings.avatar.stylePlush": "Plush",
+  "agentSettings.avatar.styleFlat": "Flat",
   "agentSettings.avatar.shapes": "Avatar shapes",
   "agentSettings.avatar.shapeOption": "Shape {number}",
   "agentSettings.avatar.eyes": "Eyes",
@@ -146,16 +149,10 @@ export const messages = defineMessages("agentSettings", {
 
   "agentSettings.runtime.model": "Agent model",
   "agentSettings.runtime.modelUnavailable": "Models are available after an agent CLI connects.",
-  "agentSettings.runtime.reasoning": "Reasoning",
-  "agentSettings.runtime.reasoningLabel": "Agent reasoning level",
-  "agentSettings.runtime.selectReasoning": "Select reasoning",
-  "agentSettings.runtime.reasoningSetByProvider": "Set by {provider}",
   "agentSettings.runtime.access": "Access",
   "agentSettings.runtime.accessLabel": "Agent access",
   "agentSettings.runtime.busyMessage": "While working",
   "agentSettings.runtime.busyMessageLabel": "Messages while the agent works",
-  "agentSettings.runtime.taskLimit": "Parallel threads",
-  "agentSettings.runtime.taskLimitLabel": "Threads that run at the same time",
   "agentSettings.runtime.workingDirectory": "Working directory",
   "agentSettings.runtime.notAvailable": "Not available yet",
   "agentSettings.runtime.fullAccessNote":
@@ -175,9 +172,6 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.busyMessage.steer": "Steer",
   "agentSettings.busyMessage.steerUnsupported":
     "{provider} cannot steer a running turn. Messages sent while it works wait in the queue.",
-  "agentSettings.taskLimit.default": "Default ({count})",
-  "agentSettings.taskLimit.oneTurn":
-    "{provider} runs one turn at a time. The threads of this agent wait for each other.",
 
   "agentSettings.notificationLevel.title": "Notify me",
   "agentSettings.notificationLevel.server": "Server default ({level})",
@@ -192,6 +186,15 @@ export const messages = defineMessages("agentSettings", {
     "The agent forgets this chat. The messages stay visible above a divider. The instructions, model, tools, memories, workspace, and browser do not change.",
   "agentSettings.newChat.confirm": "Start new chat",
   "agentSettings.newChat.failed": "Could not start a new chat.",
+  "agentSettings.deleteHistory.title": "Delete history",
+  "agentSettings.deleteHistory.description":
+    "The messages of this chat go, and the agent forgets them. Its setup stays.",
+  "agentSettings.deleteHistory.button": "Delete",
+  "agentSettings.deleteHistory.confirmTitle": "Delete the chat history with {name}?",
+  "agentSettings.deleteHistory.confirmDescription":
+    "All messages and files of this chat go from Hive, and the agent forgets them. You cannot undo this. Side threads, instructions, model, tools, memories, workspace, and browser do not change.",
+  "agentSettings.deleteHistory.confirm": "Delete history",
+  "agentSettings.deleteHistory.failed": "Could not delete the history.",
 
   "agentSettings.fullAccess.title": "Give this agent full access?",
   "agentSettings.fullAccess.askTitle": "Let this agent work outside its workspace?",
@@ -228,8 +231,7 @@ export const messages = defineMessages("agentSettings", {
   "agentSettings.agentNewChat.description":
     "Let the agent start a new chat when its chat gets long. It saves notes first.",
   "agentSettings.quickAcknowledgement.title": "Show the plan before long tasks",
-  "agentSettings.quickAcknowledgement.description":
-    "Before a long task, the agent shows its plan. It starts after 10 s, or when you press Start.",
+  "agentSettings.quickAcknowledgement.description": "Before a long task, the agent shows its plan.",
   "agentSettings.browserProfile.label": "Browser profile",
   "agentSettings.browserProfile.shared": "Shared",
   "agentSettings.browserProfile.agent": "Only this agent",

@@ -4,6 +4,30 @@ Upstream base: `de784cee2` (nightly-labs/openbot, 2026-11-03). Remote `upstream`
 
 Plan: `docs/plans/2026-11-03-personal-openbot.md`. Research: `docs/plans/research/`.
 
+## Upstream merge v0.59 → v0.71 (branch `merge/upstream-v0.71`, worktree `~/Honey/hive-upstream-merge`, 2026-11-15)
+
+Hridya asked to "bring in the new features and make sure that its all perfected". This sets aside plan D11 ("never merge upstream wholesale") for this merge.
+
+- Merge of `upstream/main` (51a6b6aa9, v0.71.0, 1,281 commits) into `personal` (424571c7b). 1,412 conflicts.
+- Kept every fork deletion for modify/delete conflicts (1,047 files). Removed new upstream locales, translated What's new, `apps/mobile-updates`, release workflows, Docker/Umbrel.
+- WhatsApp: upstream's implementation replaces Hive's (Hive's was never linked; upstream's has phone, web and joined-server support and vendors its own protocol code, so no GPL `libsignal`). Removed `whatsapp-link-v1`.
+- Copilot: upstream's provider (same id `copilot`) is the base; Hive's fixes go on top.
+- Area conflicts resolved by 8 Sonnet 5.5 subagents with `.merge/BRIEF.md` (git-ignored). Checklist: `TASKS.md`.
+- Evidence (MacBook, this worktree):
+  - Typechecks, one at a time: `typecheck:node`, `renderer`, `storybook`, `contracts`, `team-client`, `i18n`, `user-errors`, `logging`, `brand`, `api`: 0 errors. `i18n:check` passes (381 unused English keys removed; 13,519 keys).
+  - Database: migrations and schema equal upstream's (the fork never changed them). `openbot-database-schema-parity.test.ts` 4/4; all 33 `src/backend/*-migration.test.ts` files, 1,027 tests pass.
+  - e2e PASS: routine-missed-runs, teammate-answers-one-turn, copilot-sign-in, copilot-static-context, copilot-mcp-relay, central-auth-owner-start, backup-model-failover, provider-conformance, messaging-whatsapp, agent-move (10 steps), import-openbot-setup, hive-folders, team-api-routes, workflow-agent-tools, agent-browser-profile-tool, agent-channel-create, agent-api-keys.
+  - Outbound sweep: no `openbot.run` / `nightly-labs` URL in runtime code (stories and preview data only), no `@openbot/telemetry` or OpenPanel import, no `openbot://` literal.
+- Fixed during integration:
+  - Agent move: upstream now runs routines of hidden agents ("a hidden agent keeps working"), so hiding the source no longer stopped its routines. The move now pauses the source's active routines after the export (routine API, local and remote) and turns them on again on rollback.
+  - Owner sign-in: upstream's stored-profile start replaces Hive's offline-start window; a revoked session signs the owner in again in the background. e2e updated to wait for it.
+  - Copilot: upstream's `copilot login` and `--no-auto-update`; fake and expectations updated. `copilot-login.ts` stays (no-plan row, Hive-only MCP servers).
+  - Co-author line: never written; the setting is hidden on desktop and phone and defaults to off (wire field kept).
+  - What's new: 14 items about Windows, Linux, hosted servers, other languages, co-author and bug reports removed.
+- Token budget: all six numbers lower than right after the merge, still above Hive's old baseline because upstream made `ask_ui` and three browser tools direct and added the Natural response style and about 17 tools. `budget.json` set to the measured values (instructions.claude 14041, codex 14220, visible-tools 13816, schemas 57160, descriptions 26033, guidance 22317). `scripts/tool-choice-eval.ts` not run (needs a real model).
+- Dropped on purpose: MCP sign-in with a client metadata document (pointed at openbot.run), install of a server on another computer (needs upstream's server claims), upstream's Umbrel setup page, feedback to the OpenBot team.
+- Not verified: mobile typecheck by hand (the pre-commit hook runs it), a GUI smoke of the app, real providers.
+
 ## Done
 - 2026-11-03: Cloned. Six research reports written and spot-checked against the code. Plan written. No code changed.
 - 2026-11-03: Plan revised per Hridya: name Hive (`dev.hridaya.hive`); accounts stay on the mini, nothing to upstream; Dynamic Island dropped from scope; Copilot a first-class provider with a multi-account spike; new Phase 4 fallback chains (Codex#1 → Codex#2 → Copilot, host default chain, failover on start failures); Phase 7 is Android (ntfy on the mini for notifications, build on `win-pc`).

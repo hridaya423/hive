@@ -11,7 +11,7 @@
  */
 
 import { readFile, stat } from "node:fs/promises";
-import { extname, isAbsolute, relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import { CHAT_VISUAL_PAGE_LIMIT, isChatVisualMimeType } from "@openbot/contracts/chat-visual";
 import { LOCAL_SERVER_ID } from "@openbot/contracts/ipc";
 import { createOpenBotLogger, toLogValue } from "@openbot/logging";
@@ -19,12 +19,15 @@ import { app, session } from "electron";
 import type { AgentService } from "../backend/agent-service";
 import { runCauseEffect } from "../backend/effect-boundary";
 import type { MailboxStore } from "../backend/mailbox-store";
+import { applicationContentType } from "./application-content-type";
 import { attachmentCorsHeaders, attachmentDocumentHeaders, chatVisualResponse } from "./chat-visual-protocol";
 import { buildContentSecurityPolicy, readSelfHostedSignalOrigin } from "./content-security-policy";
 import { controlPlaneUrls } from "./control-plane-urls";
 import { filePreviewPages } from "./file-preview-pages";
-import { fileResponse } from "./file-response";
+import { bytesResponse, fileResponse } from "./file-response";
+import { canAnswerRemoteRanges } from "./remote-attachment-cache";
 import type { RemoteServerManager } from "./remote-server-manager";
+import { parseRemoteAvatarUrl } from "./remote-server-urls";
 import { canCheckRendererPermission, canRequestRendererPermission } from "./renderer-permissions";
 import type { TeamStore } from "./team-store";
 import { isTrustedRendererUrl } from "./trusted-renderer";
@@ -84,14 +87,18 @@ export function configureAttachmentProtocol({ mailbox, agents, remoteServers }: 
       const attachment = id ? await runCauseEffect(mailbox.resolveAttachment(id)) : null;
       if (!attachment) return new Response("Not found", { status: 404 });
       return await runCauseEffect(
-        fileResponse(attachment.path, {
-          "Content-Type": attachment.mimeType,
-          "Cache-Control": "no-store",
-          ...attachmentCorsHeaders(request.headers.get("Origin")),
-          ...attachmentDocumentHeaders(attachment.mimeType),
-          "X-Content-Type-Options": "nosniff",
-          "Content-Disposition": "inline",
-        }),
+        fileResponse(
+          attachment.path,
+          {
+            "Content-Type": attachment.mimeType,
+            "Cache-Control": "no-store",
+            ...attachmentCorsHeaders(request.headers.get("Origin")),
+            ...attachmentDocumentHeaders(attachment.mimeType),
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline",
+          },
+          request.headers.get("Range"),
+        ),
       );
     } catch {
       return new Response("Not found", { status: 404 });
@@ -104,8 +111,9 @@ export function configureAttachmentProtocol({ mailbox, agents, remoteServers }: 
       const attachmentId = decodeURIComponent(url.pathname.split("/").filter(Boolean)[0] ?? "");
       if (!serverId || !attachmentId) return new Response("Not found", { status: 404 });
       const attachment = await runCauseEffect(remoteServers.downloadAttachment(attachmentId, serverId, true));
-      return new Response(Buffer.from(attachment.bytes), {
-        headers: {
+      return bytesResponse(
+        attachment.bytes,
+        {
           "Content-Type": attachment.mimeType,
           "Cache-Control": "no-store",
           ...attachmentCorsHeaders(request.headers.get("Origin")),
@@ -113,7 +121,8 @@ export function configureAttachmentProtocol({ mailbox, agents, remoteServers }: 
           "X-Content-Type-Options": "nosniff",
           "Content-Disposition": "inline",
         },
-      });
+        canAnswerRemoteRanges(attachment) ? request.headers.get("Range") : undefined,
+      );
     } catch (error) {
       // The image shows only a download icon, so the log is the only record of why it failed.
       logger.warn("A remote attachment could not be shown.", { cause: toLogValue(error) });
@@ -172,13 +181,13 @@ export function configureAttachmentProtocol({ mailbox, agents, remoteServers }: 
   });
   session.defaultSession.protocol.handle("openbot-remote-avatar", async (request) => {
     try {
-      const url = new URL(request.url);
-      const serverId = decodeURIComponent(url.hostname);
-      const agentId = decodeURIComponent(url.pathname.split("/").filter(Boolean)[0] ?? "");
-      if (!serverId || !agentId) return new Response("Not found", { status: 404 });
-      const version = url.searchParams.get("v");
-      if (!version) return new Response("Not found", { status: 404 });
-      const avatar = await runCauseEffect(remoteServers.downloadAgentAvatar(agentId, serverId, version));
+      const target = parseRemoteAvatarUrl(request.url);
+      if (!target) return new Response("Not found", { status: 404 });
+      const avatar = await runCauseEffect(
+        target.kind === "agent"
+          ? remoteServers.downloadAgentAvatar(target.id, target.serverId, target.version)
+          : remoteServers.downloadChannelImage(target.id, target.serverId, target.version),
+      );
       return new Response(Buffer.from(avatar.bytes), {
         headers: {
           "Content-Type": avatar.mimeType,
@@ -259,35 +268,4 @@ export function configureApplicationProtocol(): void {
       return new Response("Not found", { status: 404 });
     }
   });
-}
-
-function applicationContentType(
-  path: string,
-):
-  | "text/html; charset=utf-8"
-  | "text/javascript; charset=utf-8"
-  | "text/css; charset=utf-8"
-  | "image/svg+xml"
-  | "image/png"
-  | "image/webp"
-  | "font/woff2"
-  | "application/octet-stream" {
-  switch (extname(path).toLowerCase()) {
-    case ".html":
-      return "text/html; charset=utf-8";
-    case ".js":
-      return "text/javascript; charset=utf-8";
-    case ".css":
-      return "text/css; charset=utf-8";
-    case ".svg":
-      return "image/svg+xml";
-    case ".png":
-      return "image/png";
-    case ".webp":
-      return "image/webp";
-    case ".woff2":
-      return "font/woff2";
-    default:
-      return "application/octet-stream";
-  }
 }

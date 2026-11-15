@@ -5,6 +5,7 @@ import {
   remoteControlPlaneErrorResponse,
   requestAuthService,
   requestAvatarBucket,
+  requestCompanySignIn,
   requestRemoteControlPlane,
   requestTeamInviteEmailDelivery,
 } from "../../../server/request-auth";
@@ -14,6 +15,7 @@ function handle({ request }: { request: Request }) {
   return handleBrowserApi(request, {
     auth: requestAuthService(),
     remote: requestRemoteControlPlane(),
+    companySignIn: requestCompanySignIn,
     hostLogo: (hostId, version) => readHostLogo(requestAvatarBucket(), hostId, version),
     inviteEmailDelivery: requestTeamInviteEmailDelivery,
     avatarBucket: requestAvatarBucket,

@@ -1,3 +1,4 @@
+import { avatarHeadColor } from "@openbot/brand/bloub-avatar";
 import MaskedView from "@react-native-masked-view/masked-view";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -8,13 +9,14 @@ import { View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useCSSVariable } from "uniwind";
 import { thumbnailColor } from "@/features/agents/components/bloub-avatar";
-import { getBloubAvatarColor } from "@/features/agents/model/bloub-activity";
 import { useMobileSession, useQueryScope } from "@/features/auth/context/mobile-session-context";
 import { loadServerLogo } from "@/features/servers/model/server-logo";
+import { useServerPlush } from "@/features/servers/model/server-plush";
 import { DISCONNECTED_APPEARANCE } from "@/features/workspace/components/use-connection-appearance";
 import { queryKeys } from "@/features/workspace/model/query-keys";
 import { showsOnline } from "@/features/workspace/model/server-status";
 import type { MobileServer } from "@/features/workspace/model/workspace-types";
+import { END_X } from "@/shared/lib/text-direction";
 
 const INK = "rgba(0, 0, 0, 0.72)";
 /** The squircle's corner radius as a part of its side. */
@@ -24,11 +26,16 @@ const DOT_OVERHANG = 2;
 // The ring cut out of the squircle around the dot, so the dot works on any background.
 const DOT_GAP = 2.5;
 
-/** A square with a circular hole around the dot. The mask keeps only the filled part. */
+/**
+ * A square with a circular hole around the dot. The mask keeps only the filled part. The dot is at
+ * the bottom end corner: `right` puts it on the left in a right-to-left layout, but the drawing
+ * of the mask counts from the left, so the hole moves with it.
+ */
 function cutoutPath(size: number): string {
-  const center = size + DOT_OVERHANG - DOT / 2;
+  const centerY = size + DOT_OVERHANG - DOT / 2;
+  const centerX = END_X === 1 ? centerY : size - centerY;
   const radius = DOT / 2 + DOT_GAP;
-  return `M0 0H${size}V${size}H0Z M${center - radius} ${center}a${radius} ${radius} 0 1 0 ${radius * 2} 0a${radius} ${radius} 0 1 0 ${-radius * 2} 0Z`;
+  return `M0 0H${size}V${size}H0Z M${centerX - radius} ${centerY}a${radius} ${radius} 0 1 0 ${radius * 2} 0a${radius} ${radius} 0 1 0 ${-radius * 2} 0Z`;
 }
 
 function serverInitials(name: string): string {
@@ -41,8 +48,9 @@ function serverInitials(name: string): string {
 }
 
 /**
- * A squircle with the server logo, or with initials in the agent avatar palette, and a dot for the
- * connection state. `logoUri` replaces the saved logo with a draft; `null` shows no logo.
+ * A squircle with the server logo; with no logo, the felt plush that an owner or admin chose
+ * (`host-appearance-v1`), or else initials in the agent avatar palette. A dot shows the connection
+ * state. `logoUri` replaces the saved logo with a draft; `null` shows no logo.
  * `showStatus={false}` leaves out the dot and the dimming, for a place that shows the logo only.
  */
 export function ServerAvatar({
@@ -86,37 +94,58 @@ export function ServerAvatar({
         ? warning
         : offline;
   const muted = showStatus && !online;
-  const tile = (
-    <View
-      className="items-center justify-center"
-      style={{
-        backgroundColor: thumbnailColor(getBloubAvatarColor(server.id, null), muted),
-        borderCurve: "continuous",
-        borderRadius: size * SERVER_AVATAR_CORNER_RATIO,
-        height: size,
-        opacity: muted ? DISCONNECTED_APPEARANCE.opacity : 1,
-        overflow: "hidden",
-        width: size,
-      }}
-    >
-      {server.kind === "local" ? (
-        <Monitor color={INK} size={size * 0.42} strokeWidth={2} />
-      ) : (
-        <Typography weight="semibold" style={{ color: INK, fontSize: size * 0.32, lineHeight: size * 0.42 }}>
-          {serverInitials(server.name)}
-        </Typography>
-      )}
-      {logo && !logoFailed ? (
-        <Image
-          source={{ uri: logo }}
-          contentFit="cover"
-          recyclingKey={logo}
-          style={{ height: size, position: "absolute", width: size }}
-          onError={() => setFailedUri(logo)}
-        />
-      ) : null}
-    </View>
+  const showsLogo = Boolean(logo && !logoFailed);
+  const plush = useServerPlush(
+    server.id,
+    showsLogo ? null : server.appearance,
+    size,
+    muted ? DISCONNECTED_APPEARANCE.saturation : 1,
   );
+  // The plush has no tile: its shape shows on the background. It is empty while it is drawn, and a
+  // plush that cannot be drawn shows the initials.
+  const tile =
+    server.appearance && !showsLogo && !plush.failed ? (
+      <View style={{ height: size, opacity: muted ? DISCONNECTED_APPEARANCE.opacity : 1, width: size }}>
+        {plush.uri ? (
+          <Image
+            source={{ uri: plush.uri }}
+            contentFit="contain"
+            recyclingKey={plush.uri}
+            style={{ height: size, width: size }}
+          />
+        ) : null}
+      </View>
+    ) : (
+      <View
+        className="items-center justify-center"
+        style={{
+          backgroundColor: thumbnailColor(avatarHeadColor(server.id, null), muted),
+          borderCurve: "continuous",
+          borderRadius: size * SERVER_AVATAR_CORNER_RATIO,
+          height: size,
+          opacity: muted ? DISCONNECTED_APPEARANCE.opacity : 1,
+          overflow: "hidden",
+          width: size,
+        }}
+      >
+        {server.kind === "local" ? (
+          <Monitor color={INK} size={size * 0.42} strokeWidth={2} />
+        ) : (
+          <Typography weight="semibold" style={{ color: INK, fontSize: size * 0.32, lineHeight: size * 0.42 }}>
+            {serverInitials(server.name)}
+          </Typography>
+        )}
+        {showsLogo && logo ? (
+          <Image
+            source={{ uri: logo }}
+            contentFit="cover"
+            recyclingKey={logo}
+            style={{ height: size, position: "absolute", width: size }}
+            onError={() => setFailedUri(logo)}
+          />
+        ) : null}
+      </View>
+    );
   if (!showStatus)
     return (
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">

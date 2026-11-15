@@ -62,12 +62,10 @@ export function createCustomProvidersStore(api: () => CustomProvidersEndpointApi
     return result.restart;
   }
 
-  /** Only this computer's endpoints have `update`. */
   async function updateCustomProvider(input: UpdateCustomProviderInput): Promise<CustomProviderRestart> {
     const group = api();
-    if (!group?.update) throw new Error(currentText().t("customProvider.saveUnavailable"));
-    const update = group.update;
-    const result = await update(input);
+    if (!group) throw new Error(currentText().t("customProvider.saveUnavailable"));
+    const result = await group.update(input);
     apply(result.providers);
     return result.restart;
   }

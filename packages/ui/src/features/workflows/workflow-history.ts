@@ -199,13 +199,17 @@ export function hostDefaults(
   kind: WorkflowNodeKind,
   catalogs: WorkflowCatalogs,
   features: WorkflowFeatures,
+  /** The fields that the new node starts with, such as `media` of a video. */
+  initial?: WfnFields,
 ): WfnFields {
   switch (kind) {
     case "agent": {
       const agent = catalogs.agents[0];
       return agent ? { agentId: agent.id, model: agent.model, provider: agent.provider } : {};
     }
-    case "llm": {
+    // A condition asks a model too, so a new one saves the model of a new LLM step.
+    case "llm":
+    case "condition": {
       const model = defaultWorkflowModel(catalogs);
       return model
         ? {
@@ -216,7 +220,8 @@ export function hostDefaults(
         : {};
     }
     case "image": {
-      const model = catalogs.imageModels[0];
+      const media = initial?.media === "video" ? "video" : "image";
+      const model = catalogs.imageModels.find((choice) => choice.kinds.includes(media));
       return model ? { model: model.id } : {};
     }
     case "trigger": {

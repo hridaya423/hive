@@ -44,10 +44,16 @@ import {
   type SaveWorkflowGraphInput,
   type StartWorkflowRunInput,
   WORKFLOW_GITHUB_EVENTS,
+  WORKFLOW_PICTURE_TYPES,
   type WorkflowDetail,
   type WorkflowGitHubHistory,
   type WorkflowGitHubLastEventInput,
   type WorkflowGraph,
+  type WorkflowMediaCredits,
+  type WorkflowMediaKind,
+  type WorkflowMediaProvider,
+  type WorkflowMediaProviders,
+  type WorkflowMediaSpecs,
   type WorkflowNode,
   type WorkflowNodeKind,
   type WorkflowRun,
@@ -60,6 +66,9 @@ import {
   type WorkflowSummary,
   type WorkflowVersion,
   type WorkflowVersionInput,
+  workflowMediaKind,
+  workflowMediaModel,
+  workflowMediaSpecs,
 } from "@openbot/contracts/ipc";
 import { isOneOf } from "@openbot/contracts/runtime-values";
 import { sourceText } from "@openbot/i18n/source";
@@ -73,6 +82,10 @@ import type {
   MessagingDiscordSend,
   MessagingMentionResult,
   MessagingPostFailure,
+  MessagingSlackMention,
+  MessagingSlackSend,
+  MessagingTelegramMention,
+  MessagingTelegramSend,
 } from "../messaging/messaging-threads";
 import { resultText } from "../routine-results/routine-results";
 import type { ReceivedWebhookEvent } from "../routine-store";
@@ -85,10 +98,12 @@ import {
   workflowDiscordPayload,
 } from "./discord-matching";
 import {
+  type GitHubEventFacts,
   githubEventFacts,
   githubFilterRefuses,
   githubTriggerMatches,
-  githubTriggerRepository,
+  githubTriggerRepositories,
+  withoutStaleGitHubRepositories,
   workflowGitHubPayload,
 } from "./github-matching";
 import {
@@ -101,6 +116,20 @@ import {
   githubOutputText,
   githubResultKeys,
 } from "./github-output";
+import {
+  type SlackOutputPlan,
+  slackOutputPlan,
+  slackTriggerMatches,
+  slackTriggerMessage,
+  workflowSlackPayload,
+} from "./slack-matching";
+import {
+  type TelegramOutputPlan,
+  telegramOutputPlan,
+  telegramTriggerMatches,
+  telegramTriggerMessage,
+  workflowTelegramPayload,
+} from "./telegram-matching";
 import { REPEATABLE_GITHUB_ACTIONS, type WorkflowGitHubApi } from "./workflow-github-api";
 import type { WaitingGitHubDelivery, WorkflowGitHubStore } from "./workflow-github-store";
 import {
@@ -119,8 +148,15 @@ import {
   agentStepText,
   conditionAnswer,
   conditionPrompt,
+  currentAnswers,
   fieldText,
   inputText,
+  type MediaImageRole,
+  mediaAccount,
+  mediaImages,
+  mediaInputs,
+  mediaStepPrompt,
+  mediaVoice,
   modelStepPrompt,
   nextActions,
   runScope,
@@ -162,7 +198,27 @@ interface WorkflowTextRequest {
   prompt: string;
 }
 
+/** One image or video of an image step. */
+interface WorkflowMediaRequest {
+  kind: WorkflowMediaKind;
+  provider: WorkflowMediaProvider;
+  /** The id of the model at its provider. */
+  model: string;
+  /** The account of the provider that pays for the file. Null is the provider's own sign-in. */
+  account: string | null;
+  /** The frame, the length and the resolution, read for the model. */
+  specs: WorkflowMediaSpecs;
+  prompt: string;
+  /** The pictures of the image steps before it, as attachment ids, and how the model uses each. */
+  images: readonly { role: MediaImageRole; attachmentId: string }[];
+  /** The preset voice of a video, from `WORKFLOW_VIDEO_VOICES`. */
+  voice: string | null;
+}
+
 /** How a run began, and the key that makes a second start of the same run answer the first. */
+/** The part of a Discord or Telegram send that an output delivery keeps. */
+type ChatOutputSend = { action: "reply" | "post"; text: string } | { action: "react"; emoji: string };
+
 interface RunOrigin {
   source: WorkflowRunSource;
   scheduledFor: string | null;
@@ -197,6 +253,24 @@ export interface WorkflowsDependencies {
   stopDelivery(agentId: string, deliveryId: string): Effect.Effect<void, { readonly cause: unknown }>;
   /** One tool-less generation; the failure is a message the user can read. */
   generateText(request: WorkflowTextRequest): Effect.Effect<string, { readonly message: string }>;
+  /**
+   * Makes the image or video of an image step and answers its attachment id; the failure is a message
+   * the user can read. Absent where this host cannot make media: image steps then fail.
+   */
+  generateMedia?: (request: WorkflowMediaRequest) => Effect.Effect<string, { readonly message: string }>;
+  /**
+   * Keeps an attachment draft of `types` as a picture of this host and answers its file id, `missing`
+   * when there is no such draft, or `type` for a draft of another type. Absent where this host cannot
+   * make media.
+   */
+  keepPicture?: (
+    draftId: string,
+    types: ReadonlySet<string>,
+  ) => Effect.Effect<string | "missing" | "type", { readonly cause: unknown }>;
+  /** The media services beyond the agent providers that this host can use now. Absent: none. */
+  mediaProviders?: () => WorkflowMediaProviders;
+  /** The credits of the media services that this host can spend now. Absent: none. */
+  mediaCredits?: () => Effect.Effect<WorkflowMediaCredits>;
   notify(notice: WorkflowNotice): void;
   /** Whether a messaging connection of this host is on. */
   connectionOn(connectionId: string): boolean;
@@ -206,13 +280,36 @@ export interface WorkflowsDependencies {
     placeId: string,
     markdown: string,
   ): Effect.Effect<{ posted: true } | { failure: MessagingPostFailure }>;
+  /**
+   * Posts a note into an OpenBot channel of this host. The same operation id posts once. Absent where
+   * this host has no channels.
+   */
+  channelPost?: (input: {
+    operationId: string;
+    channelId: string;
+    author: { id: string; name: string };
+    text: string;
+  }) => Effect.Effect<"posted" | "missing" | "archived", { readonly cause: unknown }>;
   /** Replies, posts or reacts in a Discord server; absent where this host has no messaging. */
   discordSend?: (
     connectionId: string,
     send: MessagingDiscordSend,
   ) => Effect.Effect<{ posted: true } | { failure: MessagingPostFailure }>;
-  /** The workflow whose graph, title, versions or runs changed. */
-  changed(workflowId: string): void;
+  /** Replies, posts or reacts in a Telegram chat; absent where this host has no messaging. */
+  telegramSend?: (
+    connectionId: string,
+    send: MessagingTelegramSend,
+  ) => Effect.Effect<{ posted: true } | { failure: MessagingPostFailure }>;
+  /** Replies, posts or reacts in a Slack workspace; absent where this host has no messaging. */
+  slackSend?: (
+    connectionId: string,
+    send: MessagingSlackSend,
+  ) => Effect.Effect<{ posted: true } | { failure: MessagingPostFailure }>;
+  /**
+   * The workflow whose graph, title, versions or runs changed. `agentId` names the agent whose tool
+   * call made or saved it; only this computer's event carries it.
+   */
+  changed(workflowId: string, agentId?: string): void;
   /**
    * Plans the schedule timer again: a trigger changed, or a run ended, and an occurrence that waited
    * for it is due.
@@ -274,10 +371,12 @@ interface WorkflowsShape {
   /** Every workflow with its graph, in one read. */
   listWithGraphs(): Effect.Effect<{ summary: WorkflowSummary; graph: WorkflowGraph }[], WorkflowFailed>;
   get(workflowId: string): Effect.Effect<WorkflowDetail, WorkflowFailed>;
-  create(input: CreateWorkflowInput): Effect.Effect<WorkflowDetail, WorkflowFailed>;
+  /** `agentId`: the agent whose tool call makes it. The change event names it, so an open canvas shows the build. */
+  create(input: CreateWorkflowInput, agentId?: string): Effect.Effect<WorkflowDetail, WorkflowFailed>;
   rename(input: RenameWorkflowInput): Effect.Effect<WorkflowSummary, WorkflowFailed>;
   remove(workflowId: string): Effect.Effect<void, WorkflowFailed>;
-  saveGraph(input: SaveWorkflowGraphInput): Effect.Effect<WorkflowSaveResult, WorkflowFailed>;
+  /** `agentId`: the agent whose tool call saves it, as for `create`. */
+  saveGraph(input: SaveWorkflowGraphInput, agentId?: string): Effect.Effect<WorkflowSaveResult, WorkflowFailed>;
   versions(workflowId: string): Effect.Effect<WorkflowVersion[], WorkflowFailed>;
   restoreVersion(input: WorkflowVersionInput): Effect.Effect<WorkflowDetail, WorkflowFailed>;
   /** The graph that a restore of the version would put back, or null when there is no such version. */
@@ -299,6 +398,10 @@ interface WorkflowsShape {
    * when no trigger takes it, and `skipped` when each workflow that takes it is busy or cannot start.
    */
   receiveDiscord(mention: MessagingDiscordMention): Effect.Effect<MessagingMentionResult, WorkflowFailed>;
+  /** As `receiveDiscord`, for a new conversation in a Telegram group. */
+  receiveTelegram(mention: MessagingTelegramMention): Effect.Effect<MessagingMentionResult, WorkflowFailed>;
+  /** As `receiveDiscord`, for the Slack triggers and a mention in a Slack channel. */
+  receiveSlack(mention: MessagingSlackMention): Effect.Effect<MessagingMentionResult, WorkflowFailed>;
   /** Records in each GitHub trigger's history that the host got no GitHub events from `from` to `to`. */
   githubOffline(from: Date, to: Date): Effect.Effect<void, WorkflowFailed>;
   githubHistory(workflowId: string): Effect.Effect<WorkflowGitHubHistory, WorkflowFailed>;
@@ -306,6 +409,15 @@ interface WorkflowsShape {
   githubLastEvent(input: WorkflowGitHubLastEventInput): Effect.Effect<WorkflowRunDetail, WorkflowFailed>;
   /** The repositories that the saved GitHub triggers watch, for the GitHub route at start. */
   githubRepositories(): Effect.Effect<string[], WorkflowFailed>;
+  /**
+   * Keeps a PNG, JPEG or WebP attachment draft as a picture of the host, with no owner agent, for an
+   * asset step. Answers its file id. The draft goes away.
+   */
+  keepPicture(draftId: string): Effect.Effect<string, WorkflowFailed>;
+  /** Whether this host can use Sunra for an image step now. */
+  mediaProviders(): WorkflowMediaProviders;
+  /** The credits that this host's Sunra sign-in can spend now. A failed read has none. */
+  mediaCredits(): Effect.Effect<WorkflowMediaCredits>;
   /** Runs one node alone, with the newest answers of the nodes before it. */
   runStep(input: RunWorkflowStepInput): Effect.Effect<WorkflowStep, WorkflowFailed>;
   stopStep(stepId: string): Effect.Effect<void, WorkflowFailed>;
@@ -337,6 +449,8 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
         const lock = yield* Semaphore.make(1);
         /** One model step at a time, so a run does not take every generation slot of the computer. */
         const generationLock = yield* Semaphore.make(1);
+        /** One image or video at a time. A video takes minutes, so it does not hold the text steps back. */
+        const mediaLock = yield* Semaphore.make(1);
         const { store, runs, github, changed, rearm } = dependencies;
         const now = () => (dependencies.now ?? (() => new Date()))();
         /** The model steps that generate and the posts on their way, by step. */
@@ -465,6 +579,50 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
           );
         };
 
+        /** Makes an image step's image or video in a fiber of its own; the pass does not wait for it. */
+        const startMedia = (
+          step: StoredWorkflowStep,
+          node: WorkflowNode,
+          run: StoredWorkflowRun | null,
+        ): Effect.Effect<void> => {
+          const kind = workflowMediaKind(node.fields);
+          const model = workflowMediaModel(node.fields);
+          const specs = workflowMediaSpecs(node.fields, kind, model);
+          const generateMedia = dependencies.generateMedia;
+          // The pictures of the image steps before it: the run's newest files, or for a step that runs
+          // alone, the newest files of the workflow.
+          const graph = run?.graph ?? store.detail(step.workflowId)?.graph;
+          const inputs = graph
+            ? mediaInputs(graph, node.id, run ? latestSteps(run.id) : runs.latestDone(step.workflowId))
+            : [];
+          const make = Effect.gen(function* () {
+            const result =
+              !generateMedia || !model
+                ? Result.fail({ message: sourceText("error.workflow.nodeUnsupported") })
+                : yield* mediaLock
+                    .withPermit(
+                      generateMedia({
+                        kind,
+                        provider: model.provider,
+                        model: model.providerModel ?? model.id,
+                        account: mediaAccount(node.fields),
+                        specs,
+                        prompt: mediaStepPrompt(node.fields, kind, step.input, specs, model.provider),
+                        images: mediaImages(node.fields, kind, inputs),
+                        voice: mediaVoice(node.fields, kind, model),
+                      }),
+                    )
+                    .pipe(Effect.result);
+            if (Result.isFailure(result)) settle(step, { status: "failed", error: result.failure.message });
+            else settle(step, { status: "done", output: result.success });
+            yield* requestSweep();
+          }).pipe(Effect.ensuring(Effect.sync(() => working.delete(step.id))));
+          return Effect.forkIn(make, scope).pipe(
+            Effect.tap((fiber) => Effect.sync(() => working.set(step.id, fiber))),
+            Effect.asVoid,
+          );
+        };
+
         /** Posts an output step's text to its place in a fiber of its own; the pass does not wait for it. */
         const startPost = (
           step: StoredWorkflowStep,
@@ -533,6 +691,60 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
         };
 
         /**
+         * Posts the input into an OpenBot channel as a note of the workflow. The step id is the operation
+         * id, so the same call after a restart does not post it twice.
+         */
+        const sendChannelNote = Effect.fn("Workflows.sendChannelNote")(function* (
+          step: StoredWorkflowStep,
+          node: WorkflowNode,
+        ) {
+          const channelId = fieldText(node, "channelId");
+          if (!channelId) {
+            settle(step, { status: "failed", error: sourceText("error.workflow.outputChannelMissing") });
+            return;
+          }
+          // Nothing to say: the channel gets no post, as for a messaging place.
+          if (!step.input.trim()) {
+            settle(step, { status: "done", output: "" });
+            return;
+          }
+          if (!dependencies.channelPost) {
+            settle(step, { status: "failed", error: sourceText("error.workflow.outputChannelFailed") });
+            return;
+          }
+          const posted = yield* dependencies
+            .channelPost({
+              operationId: step.id,
+              channelId,
+              author: {
+                id: `workflow:${step.workflowId}`,
+                name: titleOf(step.workflowId).slice(0, INPUT_LIMITS.accountName),
+              },
+              text: step.input,
+            })
+            .pipe(
+              Effect.catch((failure) =>
+                Effect.sync(() => {
+                  logger.warn("A workflow output could not post into a channel.", { cause: String(failure.cause) });
+                  return "failed" as const;
+                }),
+              ),
+            );
+          if (posted === "posted") settle(step, { status: "done", output: step.input });
+          else
+            settle(step, {
+              status: "failed",
+              error: sourceText(
+                posted === "archived"
+                  ? "error.backend.channelArchived"
+                  : posted === "missing"
+                    ? "error.backend.channelNotFound"
+                    : "error.workflow.outputChannelFailed",
+              ),
+            });
+        });
+
+        /**
          * Ends an output step whose post has no fiber, after a restart: a post that did not start is
          * sent now, and one that was on its way may be in the place in part. Answers whether it ended.
          */
@@ -572,15 +784,22 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
             ? dependencies.discordSend(plan.connectionId, plan.send)
             : Effect.succeed({ failure: "not-running" as const });
 
-        /** Keeps a Discord output's reply, post or reaction, then sends it. */
-        const sendDiscord = (step: StoredWorkflowStep, node: WorkflowNode, run: StoredWorkflowRun | null) => {
-          const plan = discordPlan(step, node, run);
+        /**
+         * Keeps a chat output's reply, post or reaction, then sends it. Discord, Telegram and Slack differ only in
+         * the plan, the place of the post and the send function, so a fix here applies to all three.
+         */
+        const sendChat = <Plan extends { connectionId: string; send: ChatOutputSend }>(
+          step: StoredWorkflowStep,
+          plan: Plan | { error: string },
+          placeId: (plan: Plan) => string,
+          post: (plan: Plan) => Effect.Effect<{ posted: true } | { failure: MessagingPostFailure }>,
+        ) => {
           if ("error" in plan) {
             settle(step, { status: "failed", error: plan.error });
             return Effect.void;
           }
           const { send } = plan;
-          // Nothing to say: the server gets no post. A reaction needs no text.
+          // Nothing to say: the chat gets no post. A reaction needs no text.
           if (send.action !== "react" && !send.text.trim()) {
             settle(step, { status: "done", output: "" });
             return Effect.void;
@@ -593,14 +812,41 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
             {
               stepId: step.id,
               connectionId: plan.connectionId,
-              placeId: send.channelId,
+              placeId: placeId(plan),
               text: send.action === "react" ? send.emoji : send.text,
             },
             now(),
           );
           const output = runs.output(step.id);
-          return output ? startPost(step, output, discordPost(plan)) : Effect.void;
+          return output ? startPost(step, output, post(plan)) : Effect.void;
         };
+
+        const sendDiscord = (step: StoredWorkflowStep, node: WorkflowNode, run: StoredWorkflowRun | null) =>
+          sendChat(step, discordPlan(step, node, run), (plan) => plan.send.channelId, discordPost);
+
+        /** The reply, post or reaction of a Telegram output. Only a run that a message started has its message. */
+        const telegramPlan = (step: StoredWorkflowStep, node: WorkflowNode, run: StoredWorkflowRun | null) =>
+          telegramOutputPlan(node, step.input, run?.source === "telegram" ? telegramTriggerMessage(run.payload) : null);
+
+        const telegramPost = (plan: Extract<TelegramOutputPlan, { send: unknown }>) =>
+          dependencies.telegramSend
+            ? dependencies.telegramSend(plan.connectionId, plan.send)
+            : Effect.succeed({ failure: "not-running" as const });
+
+        const sendTelegram = (step: StoredWorkflowStep, node: WorkflowNode, run: StoredWorkflowRun | null) =>
+          sendChat(step, telegramPlan(step, node, run), (plan) => plan.chatId, telegramPost);
+
+        /** As `discordPlan`, for a Slack output and a run that a Slack mention started. */
+        const slackPlan = (step: StoredWorkflowStep, node: WorkflowNode, run: StoredWorkflowRun | null) =>
+          slackOutputPlan(node, step.input, run?.source === "slack" ? slackTriggerMessage(run.payload) : null);
+
+        const slackPost = (plan: Extract<SlackOutputPlan, { send: unknown }>) =>
+          dependencies.slackSend
+            ? dependencies.slackSend(plan.connectionId, plan.send)
+            : Effect.succeed({ failure: "not-running" as const });
+
+        const sendSlack = (step: StoredWorkflowStep, node: WorkflowNode, run: StoredWorkflowRun | null) =>
+          sendChat(step, slackPlan(step, node, run), (plan) => plan.send.channelId, slackPost);
 
         /**
          * The key of a GitHub output's change: one for each pass of a node through a run, or one for a step
@@ -772,6 +1018,20 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
             if ("error" in plan) return settle(step, { status: "failed", error: plan.error });
             return yield* resumeOutput(step, discordPost(plan));
           }
+          if (node && fieldText(node, "target") === "telegram") {
+            const plan = telegramPlan(step, node, run);
+            if ("error" in plan) return settle(step, { status: "failed", error: plan.error });
+            return yield* resumeOutput(step, telegramPost(plan));
+          }
+          if (node && fieldText(node, "target") === "slack") {
+            const plan = slackPlan(step, node, run);
+            if ("error" in plan) return settle(step, { status: "failed", error: plan.error });
+            return yield* resumeOutput(step, slackPost(plan));
+          }
+          if (node && fieldText(node, "target") === "chat-channel") {
+            yield* sendChannelNote(step, node);
+            return runs.step(step.id)?.status !== "running";
+          }
           if (!node || fieldText(node, "target") !== "github") return yield* resumeOutput(step);
           yield* sendGitHub(step, node, run);
           return runs.step(step.id)?.status !== "running";
@@ -801,6 +1061,12 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
             case "condition":
               yield* startGeneration(step, node);
               return;
+            case "image":
+              yield* startMedia(step, node, run);
+              return;
+            case "asset":
+              settle(step, { status: "done", output: fieldText(node, "fileId") });
+              return;
             case "approval":
               if (runs.awaitApproval(step.id, now())) {
                 changed(step.workflowId);
@@ -817,12 +1083,24 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
                 yield* sendOutput(step, node);
                 return;
               }
+              if (fieldText(node, "target") === "chat-channel") {
+                yield* sendChannelNote(step, node);
+                return;
+              }
               if (fieldText(node, "target") === "github") {
                 yield* sendGitHub(step, node, run);
                 return;
               }
               if (fieldText(node, "target") === "discord") {
                 yield* sendDiscord(step, node, run);
+                return;
+              }
+              if (fieldText(node, "target") === "telegram") {
+                yield* sendTelegram(step, node, run);
+                return;
+              }
+              if (fieldText(node, "target") === "slack") {
+                yield* sendSlack(step, node, run);
                 return;
               }
               dependencies.notify({
@@ -886,6 +1164,31 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
             { triggerNodeId: run.triggerNodeId, fromNodeId: run.fromNodeId },
             new Set([...latest.values()].filter((step) => step.status === "done").map((step) => step.nodeId)),
           );
+
+        /**
+         * The graph that an answer ran with: the graph of its run. A step alone has no run, and a retry
+         * ran with the node's settings at the time of the retry, so their graph is not known. Each run
+         * is read once.
+         */
+        const answerGraphs = () => {
+          const read = new Map<string, { graph: WorkflowGraph; steps: StoredWorkflowStep[] } | null>();
+          return (step: StoredWorkflowStep) => {
+            if (step.runId === null) return undefined;
+            let run = read.get(step.runId);
+            if (run === undefined) {
+              const found = runs.run(step.runId);
+              run = found ? { graph: found.graph, steps: runs.steps(found.id) } : null;
+              read.set(step.runId, run);
+            }
+            const retry = run?.steps.some(
+              (earlier) =>
+                earlier.nodeId === step.nodeId &&
+                earlier.attempt === step.attempt - 1 &&
+                (earlier.status === "failed" || earlier.status === "stopped"),
+            );
+            return run && !retry ? run.graph : undefined;
+          };
+        };
 
         /** Starts every node of the run that can start now, then sets the run's status. */
         const advance = Effect.fn("Workflows.advance")(function* (runId: string) {
@@ -970,7 +1273,12 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
                 yield* sendAgentStep(step);
                 ended = runs.step(step.id)?.status !== "running";
               } else ended = settleFromDelivery(step);
-            } else if (step.kind === "llm" || step.kind === "condition" || step.kind === "output") {
+            } else if (
+              step.kind === "llm" ||
+              step.kind === "condition" ||
+              step.kind === "image" ||
+              step.kind === "output"
+            ) {
               if (working.has(step.id)) continue;
               ended =
                 step.kind === "output"
@@ -1020,20 +1328,19 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
           return yield* attempt(() => store.listWithGraphs());
         });
 
+        /** The graph as the host saves it. */
+        const prepareGraph = (graph: WorkflowGraph) =>
+          withoutStaleGitHubRepositories(prepareWorkflowSchedules(graph, dependencies.timezone(), now()));
+
         const get = Effect.fn("Workflows.get")(function* (workflowId: string) {
           return yield* attempt(() => detailOf(workflowId));
         });
 
-        const create = Effect.fn("Workflows.create")(function* (input: CreateWorkflowInput) {
+        const create = Effect.fn("Workflows.create")(function* (input: CreateWorkflowInput, agentId?: string) {
           const detail = yield* attempt(() =>
-            store.create(
-              input.graph
-                ? { ...input, graph: prepareWorkflowSchedules(input.graph, dependencies.timezone(), now()) }
-                : input,
-              now(),
-            ),
+            store.create(input.graph ? { ...input, graph: prepareGraph(input.graph) } : input, now()),
           );
-          changed(detail.summary.id);
+          changed(detail.summary.id, agentId);
           rearm();
           watchGitHub();
           return detail;
@@ -1060,18 +1367,13 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
           );
         });
 
-        const saveGraph = Effect.fn("Workflows.saveGraph")(function* (input: SaveWorkflowGraphInput) {
+        const saveGraph = Effect.fn("Workflows.saveGraph")(function* (input: SaveWorkflowGraphInput, agentId?: string) {
           const result = yield* attempt(() =>
-            store.saveGraph(
-              input.workflowId,
-              input.baseRevision,
-              prepareWorkflowSchedules(input.graph, dependencies.timezone(), now()),
-              now(),
-            ),
+            store.saveGraph(input.workflowId, input.baseRevision, prepareGraph(input.graph), now()),
           );
           // A conflict changed nothing: the editor that saved gets the newer workflow in the answer.
           if (result.ok) {
-            changed(input.workflowId);
+            changed(input.workflowId, agentId);
             rearm();
             watchGitHub();
           }
@@ -1110,7 +1412,7 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
             fromNodeId: from && from.kind !== "trigger" ? from.id : null,
           };
           const workflowId = detail.summary.id;
-          const answered = runs.latestDone(workflowId);
+          const answered = currentAnswers(detail.graph, runs.latestDone(workflowId), answerGraphs());
           const scope = runScope(detail.graph, start, new Set(answered.keys()));
           if (detail.graph.nodes.some((node) => scope.nodes.has(node.id) && unsupportedNode(node)))
             return yield* refuse("refused", sourceText("error.workflow.nodeUnsupported"));
@@ -1239,25 +1541,28 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
           );
         });
 
-        const receiveDiscord = Effect.fn("Workflows.receiveDiscord")(function* (mention: MessagingDiscordMention) {
-          return yield* locked(
+        /**
+         * Starts a run for each chat trigger that a new conversation matches. Discord, Telegram and Slack differ
+         * only in these values, so a fix here applies to all three.
+         */
+        const receiveMention = (chat: {
+          matches: (node: WorkflowNode) => boolean;
+          /** True when an open run started from the same chat message. */
+          sameMessage: (run: StoredWorkflowRun) => boolean;
+          origin: (node: WorkflowNode) => Omit<RunOrigin, "scheduledFor">;
+          failure: string;
+        }) =>
+          locked(
             Effect.gen(function* (): Effect.fn.Return<MessagingMentionResult, WorkflowFailed> {
               const triggers = (yield* attempt(() => store.listWithGraphs())).flatMap(({ summary, graph }) =>
-                graph.nodes
-                  .filter((node) => discordTriggerMatches(node, mention))
-                  .map((node) => ({ workflowId: summary.id, node })),
+                graph.nodes.filter(chat.matches).map((node) => ({ workflowId: summary.id, node })),
               );
               if (triggers.length === 0) return "none";
               let started = false;
               for (const { workflowId, node } of triggers) {
                 const open = runs.openRuns().filter((run) => run.workflowId === workflowId);
                 // A mention that Signal gives again, after a restart, has its run already.
-                if (
-                  open.some(
-                    (run) =>
-                      run.source === "discord" && discordTriggerMessage(run.payload)?.messageId === mention.messageId,
-                  )
-                ) {
+                if (open.some(chat.sameMessage)) {
                   started = true;
                   continue;
                 }
@@ -1265,20 +1570,13 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
                 if (open.length > 0) continue;
                 const detail = yield* attempt(() => store.detail(workflowId));
                 if (!detail) continue;
-                const result = yield* begin(detail, node, {
-                  source: "discord",
-                  scheduledFor: null,
-                  idempotencyKey: `discord:${node.id}:${mention.messageId}`,
-                  payload: workflowDiscordPayload(node.id, mention),
-                }).pipe(Effect.result);
+                const result = yield* begin(detail, node, { ...chat.origin(node), scheduledFor: null }).pipe(
+                  Effect.result,
+                );
                 if (Result.isFailure(result)) {
                   // After a run started, the mention stays with the workflows: no agent answers it too.
                   if (!started && !(result.failure.cause instanceof WorkflowStoreError)) return yield* result.failure;
-                  logger.warn("A Discord mention did not start a workflow run.", {
-                    workflowId,
-                    nodeId: node.id,
-                    cause: String(result.failure.cause),
-                  });
+                  logger.warn(chat.failure, { workflowId, nodeId: node.id, cause: String(result.failure.cause) });
                   continue;
                 }
                 started = true;
@@ -1286,6 +1584,53 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
               return started ? "started" : "skipped";
             }),
           );
+
+        const receiveDiscord = Effect.fn("Workflows.receiveDiscord")(function* (mention: MessagingDiscordMention) {
+          return yield* receiveMention({
+            matches: (node) => discordTriggerMatches(node, mention),
+            sameMessage: (run) =>
+              run.source === "discord" && discordTriggerMessage(run.payload)?.messageId === mention.messageId,
+            origin: (node) => ({
+              source: "discord",
+              idempotencyKey: `discord:${node.id}:${mention.messageId}`,
+              payload: workflowDiscordPayload(node.id, mention),
+            }),
+            failure: "A Discord mention did not start a workflow run.",
+          });
+        });
+
+        const receiveTelegram = Effect.fn("Workflows.receiveTelegram")(function* (mention: MessagingTelegramMention) {
+          // A Telegram message id is unique only in its chat, so the chat is part of the match and of the key.
+          return yield* receiveMention({
+            matches: (node) => telegramTriggerMatches(node, mention),
+            sameMessage: (run) => {
+              const message = run.source === "telegram" ? telegramTriggerMessage(run.payload) : null;
+              return message?.connectionId === mention.connectionId && message.messageId === mention.messageId;
+            },
+            origin: (node) => ({
+              source: "telegram",
+              idempotencyKey: `telegram:${node.id}:${mention.connectionId}:${mention.messageId}`,
+              payload: workflowTelegramPayload(node.id, mention),
+            }),
+            failure: "A Telegram message did not start a workflow run.",
+          });
+        });
+
+        const receiveSlack = Effect.fn("Workflows.receiveSlack")(function* (mention: MessagingSlackMention) {
+          // A Slack timestamp is unique only in its channel, so the channel is part of the match and of the key.
+          return yield* receiveMention({
+            matches: (node) => slackTriggerMatches(node, mention),
+            sameMessage: (run) => {
+              const message = run.source === "slack" ? slackTriggerMessage(run.payload) : null;
+              return message?.channelId === mention.channelId && message.messageId === mention.messageId;
+            },
+            origin: (node) => ({
+              source: "slack",
+              idempotencyKey: `slack:${node.id}:${mention.channelId}:${mention.messageId}`,
+              payload: workflowSlackPayload(node.id, mention),
+            }),
+            failure: "A Slack mention did not start a workflow run.",
+          });
         });
 
         // --- GitHub --------------------------------------------------------------------------------
@@ -1295,14 +1640,14 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
           store.listWithGraphs().flatMap(({ summary, graph }) =>
             graph.nodes.flatMap((node) => {
               const event = node.fields.event;
-              return githubTriggerRepository(node) && isOneOf(WORKFLOW_GITHUB_EVENTS, event)
+              return githubTriggerRepositories(node).length > 0 && isOneOf(WORKFLOW_GITHUB_EVENTS, event)
                 ? [{ workflowId: summary.id, node, event }]
                 : [];
             }),
           );
 
         const watchedRepositories = () => [
-          ...new Set(githubTriggers().flatMap((trigger) => githubTriggerRepository(trigger.node) ?? [])),
+          ...new Set(githubTriggers().flatMap((trigger) => githubTriggerRepositories(trigger.node))),
         ];
 
         /** Tells the GitHub route which repositories the saved triggers watch. The change it follows stays. */
@@ -1369,8 +1714,12 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
           const detail = store.detail(workflowId);
           for (const delivery of github.waiting(workflowId)) {
             if (github.runOpen(workflowId, delivery.item)) continue;
+            // An event of a repository that the trigger no longer watches does not start a run.
+            const repository = delivery.item.repository.toLowerCase();
             const trigger = detail?.graph.nodes.find(
-              (node) => node.id === delivery.nodeId && githubTriggerRepository(node) !== null,
+              (node) =>
+                node.id === delivery.nodeId &&
+                githubTriggerRepositories(node).some((name) => name.toLowerCase() === repository),
             );
             if (!detail || !trigger) github.endWaiting(delivery, { reason: "refused" });
             else if (delivery.causedByBot && chainTooLong(delivery.item))
@@ -1483,29 +1832,40 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
           if (!api) return yield* refuse("refused", sourceText("error.workflow.githubNotConnected"));
           const detail = yield* attempt(() => detailOf(input.workflowId));
           const trigger = detail.graph.nodes.find((node) => node.id === input.nodeId);
-          const repository = trigger ? githubTriggerRepository(trigger) : null;
+          const repositories = trigger ? githubTriggerRepositories(trigger) : [];
           const event = trigger?.fields.event;
-          if (!trigger || !repository || !isOneOf(WORKFLOW_GITHUB_EVENTS, event))
+          if (!trigger || repositories.length === 0 || !isOneOf(WORKFLOW_GITHUB_EVENTS, event))
             return yield* refuse("missing", sourceText("error.workflow.nodeMissing"));
-          // GitHub is asked outside the lock: the other runs do not wait for it.
-          const recent = yield* api
-            .recentEvents(repository, event)
-            .pipe(Effect.mapError((failure) => refuse("refused", failure.message)));
+          // GitHub is asked outside the lock: the other runs do not wait for it. The events of different
+          // repositories have no common time, so the first repository in the trigger's order with a
+          // matching event gives it. A repository that GitHub refuses is skipped while another one answers.
           const bot = dependencies.githubApp();
-          const facts = recent
-            .map((candidate) => githubEventFacts(candidate.event, candidate.body, bot))
-            .find(
-              (candidate) =>
-                candidate !== null &&
-                githubTriggerMatches(trigger, candidate) &&
-                !githubFilterRefuses(trigger, candidate),
+          let facts: GitHubEventFacts | undefined;
+          let failure: string | null = null;
+          for (const repository of repositories) {
+            const answer = yield* api.recentEvents(repository, event).pipe(
+              Effect.map((recent) => ({ recent, failure: null })),
+              Effect.catch((error) => Effect.succeed({ recent: [], failure: error.message })),
             );
-          if (!facts) return yield* refuse("refused", sourceText("error.workflow.githubNoEvent"));
+            failure = answer.failure ?? failure;
+            facts = answer.recent
+              .map((candidate) => githubEventFacts(candidate.event, candidate.body, bot))
+              .find(
+                (candidate): candidate is GitHubEventFacts =>
+                  candidate !== null &&
+                  githubTriggerMatches(trigger, candidate) &&
+                  !githubFilterRefuses(trigger, candidate),
+              );
+            if (facts) break;
+          }
+          if (!facts) return yield* refuse("refused", failure ?? sourceText("error.workflow.githubNoEvent"));
+          const found = facts;
+          const repository = found.repository.toLowerCase();
           return yield* locked(
             Effect.gen(function* () {
               const current = yield* attempt(() => detailOf(input.workflowId));
               const node = current.graph.nodes.find((candidate) => candidate.id === trigger.id);
-              if (!node || githubTriggerRepository(node) !== repository)
+              if (!node || !githubTriggerRepositories(node).some((name) => name.toLowerCase() === repository))
                 return yield* refuse("missing", sourceText("error.workflow.nodeMissing"));
               const deliveryId = `last:${input.requestId}`;
               const { run } = yield* begin(
@@ -1515,7 +1875,7 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
                   source: "manual",
                   scheduledFor: null,
                   idempotencyKey: `manual:${input.requestId}`,
-                  payload: workflowGitHubPayload(node.id, deliveryId, event, facts, now().toISOString()),
+                  payload: workflowGitHubPayload(node.id, deliveryId, event, found, now().toISOString()),
                 },
                 // A run that a person starts does not wait for the run of its item.
                 (started) =>
@@ -1524,7 +1884,7 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
                     workflowId: current.summary.id,
                     nodeId: node.id,
                     deliveryId: null,
-                    item: facts.item,
+                    item: found.item,
                     causedByBot: false,
                     startedAt: started.startedAt,
                   }),
@@ -1537,6 +1897,21 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
         const githubRepositories = Effect.fn("Workflows.githubRepositories")(function* () {
           return yield* attempt(watchedRepositories);
         });
+
+        const keepPicture = Effect.fn("Workflows.keepPicture")(function* (draftId: string) {
+          const keep = dependencies.keepPicture;
+          if (!keep) return yield* refuse("refused", sourceText("error.workflow.nodeUnsupported"));
+          const kept = yield* keep(draftId, WORKFLOW_PICTURE_TYPES).pipe(
+            Effect.mapError(({ cause }) => new WorkflowFailed({ cause })),
+          );
+          if (kept === "missing") return yield* refuse("missing", sourceText("error.workflow.pictureMissing"));
+          if (kept === "type") return yield* refuse("refused", sourceText("error.workflow.pictureType"));
+          return kept;
+        });
+
+        const mediaProviders = (): WorkflowMediaProviders => dependencies.mediaProviders?.() ?? { sunra: false };
+        const mediaCredits = (): Effect.Effect<WorkflowMediaCredits> =>
+          dependencies.mediaCredits?.() ?? Effect.succeed({ sunra: null });
 
         const runStep = Effect.fn("Workflows.runStep")(function* (input: RunWorkflowStepInput) {
           return yield* locked(
@@ -1715,10 +2090,15 @@ class Workflows extends Context.Service<Workflows, WorkflowsShape>()("openbot/ba
           receiveWebhook,
           receiveGitHub,
           receiveDiscord,
+          receiveTelegram,
+          receiveSlack,
           githubOffline,
           githubHistory,
           githubLastEvent,
           githubRepositories,
+          keepPicture,
+          mediaProviders,
+          mediaCredits,
           runStep,
           stopStep,
           stopRun,
